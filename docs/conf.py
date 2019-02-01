@@ -17,7 +17,7 @@
 #
 import os
 import sys
-import bilby
+import cwinpy
 sys.path.insert(0, os.path.abspath('../cwinpy/'))
 
 # -- General configuration ------------------------------------------------
@@ -31,7 +31,8 @@ sys.path.insert(0, os.path.abspath('../cwinpy/'))
 # ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.mathjax', 'numpydoc',
               'nbsphinx', 'sphinx.ext.autosummary',
-              'sphinx.ext.autosectionlabel', 'sphinx_tabs.tabs']
+              'sphinx.ext.autosectionlabel', 'sphinx_tabs.tabs',
+              'recommonmark']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -39,7 +40,9 @@ templates_path = ['_templates']
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_suffix = ['.rst', '.md']
+source_suffix = {'.rst': 'restructuredtext',
+                 '.txt': 'restructuredtext',
+                 '.md': 'markdown'}
 
 # The master toctree document.
 master_doc = 'index'
@@ -53,7 +56,7 @@ author = u'Matthew Pitkin'
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
-fullversion = bilby.__version__
+fullversion = cwinpy.__version__
 
 # The short X.Y version.
 version = '.'.join(fullversion.split('.')[:2])

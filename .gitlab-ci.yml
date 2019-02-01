@@ -1,0 +1,50 @@
+# This script is an edited version of the example found at
+# https://git.ligo.org/lscsoft/example-ci-project/blob/python/.gitlab-ci.yml
+# Each 0th-indentation level is a job that will be run within GitLab CI
+# The only exception are a short list of reserved keywords
+#
+# https://docs.gitlab.com/ee/ci/yaml/#gitlab-ci-yml
+
+# stages is a reserved keyword that defines job dependencies and
+# parallelization. each stage runs in parallel but must complete
+# before the next stage begins
+
+stages:
+  - test
+  - deploy
+
+# test example on python 3
+python-3.7:
+  stage: test
+  image: python/3.7-stretch
+  before_script:
+    # Install the dependencies specified in the Pipfile
+    - pip install --update pip
+    - pip install numpy>=1.15
+    - pip install lalsuite
+    - pip install sphinx recommonmark numpydoc nbsphinx autodoc sphinx_rtd_theme sphinx_tabs
+  script:
+    - python setup.py install
+
+    # Make the documentation
+    - cd docs
+    - make clean
+    - make html
+
+  artifacts:
+    paths:
+      - docs/_build/html/
+
+pages:
+  stage: deploy
+  dependencies:
+    - python-3.7
+  script:
+    - mkdir public/
+    - mv docs/_build/html/* public/
+  artifacts:
+    paths:
+      - public
+    expire_in: 30 days
+  only:
+    - master
