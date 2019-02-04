@@ -159,6 +159,9 @@ class HeterodynedData(object):
                 raise ValueError("Data array is the wrong shape for "
                                  "heterodyned data.")
 
+            if dataarray.shape[1] != 3 and dataarray.shape[1] != 4:
+                raise ValueError("Data array is the wrong shape")
+
             self.times = dataarray[:, 0]  # set time stamps
         else:
             if times is None:
