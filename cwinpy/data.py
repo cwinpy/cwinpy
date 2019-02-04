@@ -27,7 +27,8 @@ class MultiDetectorHeterdynedData(object):
 class HeterodynedData(object):
 
     def __init__(self, data=None, times=None, par=None, detector=None,
-                 window=30, inject=False, injpar=None, freqfactor=2.0):
+                 window=30, inject=False, injpar=None, freqfactor=2.0,
+                 fakeasd=None):
         """
         A class to contain a time series of heterodyned data.
         
@@ -78,6 +79,14 @@ class HeterodynedData(object):
             The frequency scale factor for the data signal, e.g., a value
             of two for emission from the l=m=2 mode at twice the rotation
             frequency of the source.
+        fakeasd: (float, str)
+            A amplitude spectral density value (in 1/sqrt(Hz)) at which to
+            generate simulated Gaussian noise to add to the data.
+            Alternatively, if a string is passed, and that string represents a
+            known detector, then the amplitude spectral density for that
+            detector at design sensitivity will be used (this requires a `par`
+            value to be included, which contains the source rotation
+            frequency).
         """
 
         self.window = window  # set the window size
@@ -93,6 +102,10 @@ class HeterodynedData(object):
 
         # set the frequency scale factor
         self.freq_factor = freqfactor
+
+        # add noise, or create data containing noise
+        if fakeasd is not None:
+            self.add_noise(fakeasd)
 
         # set and add a simulated signal
         self.injection = bool(inject)
@@ -155,11 +168,11 @@ class HeterodynedData(object):
                 # use supplied time stamps
                 self.times = times
 
-            if data is None:
+            if dataval is None:
                 # set data to zeros
-                dataarray = np.zeros((len(times), 1))
+                dataarray = np.zeros((len(times), 1), dtype=np.complex)
             else:
-                dataarray = np.atleast_2d(np.asarray(data))
+                dataarray = np.atleast_2d(np.asarray(dataval))
                 if dataarray.shape[0] == 1:
                     dataarray = dataarray.T
 
@@ -204,6 +217,22 @@ class HeterodynedData(object):
         """
 
         self.__times = np.asarray(times, dtype='float64')
+
+    @property
+    def dt(self):
+        """
+        The (minimum) time step between data points.
+        """
+
+        return self.__dt
+
+    @property
+    def fs(self):
+        """
+        The sampling frequency (assuming even sampling)
+        """
+
+        return self.__fs
 
     @property
     def par(self):
@@ -304,7 +333,7 @@ class HeterodynedData(object):
         # create copy of data with buffers prepended and appended
         datacopy = np.hstack((self.data[:N//2], self.data, self.data[-N//2:]))
 
-        self.__running_median = np.zeros(len(self))
+        self.__running_median = np.zeros(len(self), dtype=np.complex)
         for i in range(len(self)):
             self.__running_median[i] = np.median(datacopy[i:i+N])
 
@@ -359,13 +388,13 @@ class HeterodynedData(object):
             self.__vars = np.zeros(len(self))
 
         # subtract running median from the data
-        datasub = self.subtract_running_median(N=N)
+        datasub = self.subtract_running_median()
 
         if change_points is None:
             # return the (sample) variance (hence 'ddof=1')
             self.__vars = np.full(len(self),
-                                  np.hstack(datasub.real,
-                                            datasub.imag).var(ddof=1))
+                                  np.hstack((datasub.real,
+                                             datasub.imag)).var(ddof=1))
 
         else:
             cps = np.concatenate(([0], np.asarray(change_points, dtype=np.int),
@@ -384,8 +413,8 @@ class HeterodynedData(object):
                 datachunk = datasub[cps[i]:cps[i+1]]
 
                 # get (sample) variance of chunk
-                self.__vars[cps[i]:cps[i+1]] = np.hstack(datachunk.real,
-                                                         datachunk.imag).var(ddof=1)
+                self.__vars[cps[i]:cps[i+1]] = np.hstack((datachunk.real,
+                                                          datachunk.imag)).var(ddof=1)
 
         return self.vars
 
@@ -482,6 +511,91 @@ class HeterodynedData(object):
                              "number")
 
         self.__freq_factor = float(freqfactor)
+
+    def add_noise(self, asd, issigma=False):
+        """
+        Add white Gaussian noise to the data based on a supplied one-sided
+        noise amplitude spectral density (in 1/sqrt(Hz)).
+
+        Parameters
+        ----------
+        asd: (float, str)
+            The noise amplitude spectral density (1/sqrt(Hz)) at which to
+            generate the Gaussian noise, or a string containing a valid
+            detector name for which the design sensitivity ASD can be used.
+        issigma: bool, False
+            If `issigma` is `True` then the value passed to `asd` is assumed to
+            be a dimensionless time domain standard deviation for the noise
+            level rather than an amplitude spectral density. 
+        """
+
+        if isinstance(asd, str):
+            import lalsimulation as lalsim
+
+            aliases = {'AV': ['Virgo', 'V1', 'AdV', 'AdvancedVirgo', 'AV'],
+                       'AL': ['H1', 'L1', 'LHO', 'LLO', 'aLIGO', 'AdvancedLIGO', 'AL'],
+                       'IL': ['iH1', 'iL1', 'InitialLIGO', 'IL'],
+                       'IV': ['iV1', 'InitialVirgo', 'IV'],
+                       'G1': ['G1', 'GEO', 'GEOHF'],
+                       'IG': ['IG', 'GEO600', 'InitialGEO'],
+                       'T1': ['T1', 'TAMA', 'TAMA300'],
+                       'K1': ['K1', 'KAGRA', 'LCGT']}
+
+            # set mapping of detector names to lalsimulation PSD functions
+            simmap = {'AV': lalsim.SimNoisePSDAdvVirgo,  # advanced Virgo
+                      'AL': lalsim.SimNoisePSDaLIGOZeroDetHighPower,  # aLIGO
+                      'IL': lalsim.SimNoisePSDiLIGOSRD,  #iLIGO
+                      'IV': lalsim.SimNoisePSDVirgo,  # iVirgo
+                      'IG': lalsim.SimNoisePSDGEO,  # GEO600
+                      'G1': lalsim.SimNoisePSDGEOHf,  # GEOHF
+                      'T1': lalsim.SimNoisePSDTAMA, # TAMA
+                      'K1': lalsim.SimNoisePSDKAGRA}  # KAGRA
+
+            # check if string is valid
+            detalias = None
+            for dkey in aliases:
+                if asd.upper() in aliases[dkey]:
+                    detalias = dkey
+
+            if detalias is None:
+                raise ValueError("Detector '{}' is not as known detector "
+                                 "alias".format(asd))
+            
+            freqs = self.par['F']
+
+            if freqs is None:
+                raise ValueError("Heterodyne parameter file contains no "
+                                 "frequency value")
+
+            # set amplitude spectral density value
+            asdval = np.sqrt(simmap[detalias](self.freq_factor * freqs[0]))
+
+            # convert to time domain standard deviation
+            if self.dt is None:
+                raise ValueError("No time step present. Does your data only "
+                                 "consist of one value?")
+
+            sigmaval = 0.5*asdval/np.sqrt(self.dt)
+        elif isinstance(asd, float):
+            if issigma:
+                sigmaval = asd
+            else:
+                if self.dt is None:
+                    raise ValueError("No time step present. Does your data "
+                                     "only consist of one value?")
+
+                sigmaval = 0.5*asd/np.sqrt(self.dt)
+        else:
+            raise TypeError("ASD must be a float or a string with a detector "
+                            "name.")
+
+        # get noise for real and imaginary components
+        noise = np.random.normal(loc=0., scale=sigmaval,
+                                 size=(len(self.data), 2))
+
+        # add the noise to the data
+        self.__data.real += noise[:,0]
+        self.__data.imag += noise[:,1]
 
     def __len__(self):
         return len(self.data)

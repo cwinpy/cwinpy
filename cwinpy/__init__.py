@@ -1,5 +1,5 @@
 from __future__ import absolute_import
 
-from . import data
+from .data import *
 
 __version__ = "0.0.1"
