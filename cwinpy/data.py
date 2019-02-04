@@ -6,7 +6,6 @@ from __future__ import division, print_function
 
 import os
 import numpy as np
-from six import string_types
 import warnings
 
 # import lal and lalpulsar
@@ -14,10 +13,21 @@ import lal
 import lalpulsar
 
 
+class MultiDetectorHeterdynedData(object):
+
+    def __init__(self, window=30, inject=False, inpar=None, **kwargs):
+        """
+        A class to contain time series' of heterodyned data, using the
+        :class:`~cwinpy.HeterodynedData` class, for multiply detectors.
+        """
+
+        raise NotImplementedError
+
+
 class HeterodynedData(object):
 
     def __init__(self, data=None, times=None, par=None, detector=None,
-                 window=30):
+                 window=30, inject=False, injpar=None, freqfactor=2.0):
         """
         A class to contain a time series of heterodyned data.
         
@@ -52,6 +62,22 @@ class HeterodynedData(object):
         window: int, 30
             The length of a window used for calculating a running median over
             the data.
+        inject: bool, False
+            Set to `True` to add a simulated signal to the data based on the
+            parameters supplied in `injpar`, or `par` if `injpar` is not given.
+        injpar: (str, lalpulsar.PulsarParametersPy)
+            A parameter file containing values for the injected signal. A `par`
+            file must also have been provided, and the injected signal will
+            assume that the data has already been heterdyned using the
+            parameters from `par`, which could be different.
+        injtimes: list, None
+            A list containing pairs of times between which to add the simulated
+            signal. By default the signal will be added into the whole data
+            set.
+        freqfactor: float, 2.0
+            The frequency scale factor for the data signal, e.g., a value
+            of two for emission from the l=m=2 mode at twice the rotation
+            frequency of the source.
         """
 
         self.window = window  # set the window size
@@ -64,6 +90,18 @@ class HeterodynedData(object):
 
         # set the detector from which the data came
         self.detector = detector
+
+        # set the frequency scale factor
+        self.freq_factor = freqfactor
+
+        # set and add a simulated signal
+        self.injection = bool(inject)
+        if self.injection:
+            # inject the signal
+            if injpar is None:
+                self.inject_signal(injtimes=injtimes)
+            else:
+                self.inject_signal(injpar=injpar, injtimes=injtimes)
 
     @property
     def window(self):
@@ -98,7 +136,7 @@ class HeterodynedData(object):
             dataval = data
             times = None
         
-        if isinstance(dataval, string_types):
+        if isinstance(dataval, str):
             # read in data from a file
             try:
                 dataarray = np.loadtxt(dataval, comments=['#', '%'])
@@ -111,19 +149,23 @@ class HeterodynedData(object):
 
             self.times = dataarray[:,0]  # set time stamps
         else:
-            dataarray = np.atleast_2d(np.asarray(data))
-            if dataarray.shape[0] == 1:
-                dataarray = dataarray.T
-
             if times is None:
                 raise ValueError("Time stamps must also be supplied")
             else:
                 # use supplied time stamps
                 self.times = times
 
+            if data is None:
+                # set data to zeros
+                dataarray = np.zeros((len(times), 1))
+            else:
+                dataarray = np.atleast_2d(np.asarray(data))
+                if dataarray.shape[0] == 1:
+                    dataarray = dataarray.T
+
         self.__stds = None  # initialise stds to None
         if dataarray.shape[1] == 1 and dataarray.dtype == np.complex:
-            self.__data = dataarray
+            self.__data = dataarray.flatten()
         elif dataarray.shape[1] == 2:
             # real and imaginary components are separate
             self.__data = dataarray[:,0] + 1j*dataarray[:,1]
@@ -137,6 +179,15 @@ class HeterodynedData(object):
         
         if len(self.times) != len(self.data):
             raise ValueError("Data and time stamps are not the same length")
+
+        # set the (minimum) time step and sampling frequency
+        if len(self.times) > 1:
+            self.__dt = np.min(np.diff(self.times))
+            self.__fs = 1./self.dt
+        else:
+            warnings.warn("Your data is only one data point long!")
+            self.__dt = None
+            self.__fs = None
 
         # initialise the running median
         _ = self.compute_running_median(N=self.window)
@@ -160,19 +211,45 @@ class HeterodynedData(object):
 
     @par.setter
     def par(self, par):
+        self.__par = self._parse_par(par)
+
+    @property
+    def injpar(self):
+        return self.__injpar
+
+    @injpar.setter
+    def injpar(self, par):
+        self.__injpar = self._parse_par(par)
+
+    def _parse_par(self, par):
+        """
+        Parse a pulsar parameter file or lalpulsar.PulsarParametersPy object.
+
+        Parameters
+        ----------
+        par: (str, lalpulsar.PulsarParametersPy)
+            A file or object containing a set of pulsar parameters.
+
+        Returns
+        -------
+        A lalpulsar.PulsarParametersPy object
+        """
+
         if par is not None:
             from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
             if isinstance(par, PulsarParametersPy):
-                self.__par = par
-            elif isinstance(par, string_types):
+                return par
+            elif isinstance(par, str):
                 try:
-                    self.__par = PulsarParametersPy(par)
+                    newpar = PulsarParametersPy(par)
                 except Exception as e:
                     raise IOError("Could not read in pulsar parameter "
                                   "file: {}".format(e))
         else:
-            self.__par = None
+            newpar = None
+
+        return newpar
 
     @property
     def detector(self):
@@ -311,6 +388,100 @@ class HeterodynedData(object):
                                                          datachunk.imag).var(ddof=1)
 
         return self.vars
+
+    def inject_signal(self, injpar=None, injtimes=None, freqfactor=2.):
+        """
+        Inject a simulated signal into the data.
+
+        Parameters
+        ----------
+        injpar: (str, lalpulsar.PulsarParametersPy)
+            A parameter file or object containing the parameters for the
+            simulated signal.
+        injtimes: list
+            A list of pairs of time values between which to inject the signal.
+        freqfactor: float, 2.0
+            A the frequency scaling for the signal model, i.e., "2.0" for
+            emission from the l=m=2 mass quadrupole mode.
+        """
+
+        from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
+
+        if self.par is None:
+            raise ValueError("To perform an injection a parameter file "
+                             "must be supplied")
+
+        # set the times between which the injection will be added
+        self.injtimes = injtimes
+
+        # initialise the injection
+        het = HeterodynedCWSimulator(self.par, self.detector, times=self.times)
+
+        if freqfactor != self.freq_factor:
+            self.freq_factor = freqfactor
+
+        # initialise the injection to zero
+        inj_data = np.ones_like(self.data)
+
+        # get the injection
+        if injpar is None:
+            # use self.par for the injection parameters
+            self.injpar = self.par
+            inj = het.model(usephase=True, freqfactor=self.freq_factor)
+        else:
+            self.injpar = injpar
+            inj = het.model(self.injpar, updateSSB=True, updateBSB=True,
+                            usephase=True, freqfactor=self.freq_factor)
+        
+        for timerange in self.injtimes:
+            timeidxs = (self.times >= timerange[0]) & (self.times <= timerange[1])
+            inj_data[timeidxs] = inj[timeidxs]
+
+        # add injection to data
+        self.__data = self.data + inj_data
+
+        # save injection data
+        self.__inj_data = inj_data
+
+    @property
+    def injtimes(self):
+        return self.__injtimes
+
+    @injtimes.setter
+    def injtimes(self, injtimes):
+        if injtimes is None:
+            # include all time
+            timelist = np.array([[self.times[0], self.times[-1]]])
+
+        try:
+            timelist = np.atleast_2d(injtimes)
+        except:
+            raise ValueError("Could not parse list of injection times")
+
+        for timerange in timelist:
+            if timerange[0] >= timerange[1]:
+                raise ValueError("Injection time ranges are incorrect")
+
+        self.__injtimes = timelist
+
+    @property
+    def injection_data(self):
+        return self.__inj_data
+
+    @property
+    def freq_factor(self):
+        return self.__freq_factor
+
+    @freq_factor.setter
+    def freq_factor(self, freqfactor):
+        if not isinstance(freqfactor, (float, int)):
+            raise TypeError("Frequency scale factor must be a number")
+
+        if freqfactor <= 0.:
+            raise ValueError("Frequency scale factor must be a positive "
+                             "number")
+
+        self.__freq_factor = float(freqfactor)
 
     def __len__(self):
         return len(self.data)
