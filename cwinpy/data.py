@@ -4,7 +4,6 @@ Functions to deal with heterodyned data.
 
 from __future__ import division, print_function
 
-import os
 import numpy as np
 import warnings
 
@@ -13,7 +12,7 @@ import lal
 import lalpulsar
 
 
-class MultiDetectorHeterdynedData(object):
+class MultiDetectorHeterodynedData(object):
 
     def __init__(self, window=30, inject=False, inpar=None, **kwargs):
         """
@@ -27,16 +26,16 @@ class MultiDetectorHeterdynedData(object):
 class HeterodynedData(object):
 
     def __init__(self, data=None, times=None, par=None, detector=None,
-                 window=30, inject=False, injpar=None, freqfactor=2.0,
-                 fakeasd=None):
+                 window=30, inject=False, injpar=None, injtimes=None,
+                 freqfactor=2.0, fakeasd=None):
         """
         A class to contain a time series of heterodyned data.
-        
+
         If a file containing heterodyned data is passed to the object it should
         have the one of the follow forms:
-        
+
         Three columns with:
-        
+
         time (GPS), real component, imaginary component
 
         Four columns with:
@@ -133,13 +132,13 @@ class HeterodynedData(object):
     @property
     def data(self):
         return self.__data
-    
+
     @data.setter
     def data(self, data):
         """
         Set the data.
         """
-        
+
         if isinstance(data, tuple):
             try:
                 dataval, times = data
@@ -148,19 +147,19 @@ class HeterodynedData(object):
         else:
             dataval = data
             times = None
-        
+
         if isinstance(dataval, str):
             # read in data from a file
             try:
                 dataarray = np.loadtxt(dataval, comments=['#', '%'])
             except Exception as e:
                 raise IOError("Problem reading in data: {}".format(e))
-            
+
             if len(dataarray.shape) != 2:
                 raise ValueError("Data array is the wrong shape for "
                                  "heterodyned data.")
 
-            self.times = dataarray[:,0]  # set time stamps
+            self.times = dataarray[:, 0]  # set time stamps
         else:
             if times is None:
                 raise ValueError("Time stamps must also be supplied")
@@ -181,15 +180,15 @@ class HeterodynedData(object):
             self.__data = dataarray.flatten()
         elif dataarray.shape[1] == 2:
             # real and imaginary components are separate
-            self.__data = dataarray[:,0] + 1j*dataarray[:,1]
+            self.__data = dataarray[:, 0] + 1j*dataarray[:, 1]
         elif dataarray.shape[1] == 3 or dataarray.shape[1] == 4:
-            self.__data = dataarray[:,1] + 1j*dataarray[:,2]
+            self.__data = dataarray[:, 1] + 1j*dataarray[:, 2]
             if dataarray.shape[1] == 4:
                 # set pre-calculated data standard deviations
-                self.__stds = dataarray[:,3]
+                self.__stds = dataarray[:, 3]
         else:
             raise ValueError("Data array is the wrong shape")
-        
+
         if len(self.times) != len(self.data):
             raise ValueError("Data and time stamps are not the same length")
 
@@ -283,7 +282,7 @@ class HeterodynedData(object):
     @property
     def detector(self):
         return self.__detector
-    
+
     @property
     def laldetector(self):
         return self.__laldetector
@@ -297,7 +296,7 @@ class HeterodynedData(object):
             if isinstance(detector, lal.Detector):
                 self.__detector = detector.frDetector.prefix
                 self.__laldetector = detector
-            elif isinstance(detector, string_types):
+            elif isinstance(detector, str):
                 self.__detector = detector
 
                 try:
@@ -323,7 +322,7 @@ class HeterodynedData(object):
         Returns
         -------
         runningmedian: array_like
-            an array containing the data with with running median subtracted. 
+            an array containing the data with with running median subtracted.
         """
 
         if N < 2:
@@ -346,7 +345,7 @@ class HeterodynedData(object):
         Returns
         -------
         newdata: array_like
-            an array containing the data with with running median subtracted. 
+            an array containing the data with with running median subtracted.
         """
 
         return self.data - self.running_median
@@ -461,9 +460,10 @@ class HeterodynedData(object):
             self.injpar = injpar
             inj = het.model(self.injpar, updateSSB=True, updateBSB=True,
                             usephase=True, freqfactor=self.freq_factor)
-        
+
         for timerange in self.injtimes:
-            timeidxs = (self.times >= timerange[0]) & (self.times <= timerange[1])
+            timeidxs = ((self.times >= timerange[0]) &
+                        (self.times <= timerange[1]))
             inj_data[timeidxs] = inj[timeidxs]
 
         # add injection to data
@@ -484,8 +484,9 @@ class HeterodynedData(object):
 
         try:
             timelist = np.atleast_2d(injtimes)
-        except:
-            raise ValueError("Could not parse list of injection times")
+        except Exception as e:
+            raise ValueError("Could not parse list of injection "
+                             "times: {}".format(e))
 
         for timerange in timelist:
             if timerange[0] >= timerange[1]:
@@ -526,7 +527,7 @@ class HeterodynedData(object):
         issigma: bool, False
             If `issigma` is `True` then the value passed to `asd` is assumed to
             be a dimensionless time domain standard deviation for the noise
-            level rather than an amplitude spectral density. 
+            level rather than an amplitude spectral density.
         """
 
         if isinstance(asd, str):
@@ -544,12 +545,12 @@ class HeterodynedData(object):
             # set mapping of detector names to lalsimulation PSD functions
             simmap = {'AV': lalsim.SimNoisePSDAdvVirgo,  # advanced Virgo
                       'AL': lalsim.SimNoisePSDaLIGOZeroDetHighPower,  # aLIGO
-                      'IL': lalsim.SimNoisePSDiLIGOSRD,  #iLIGO
-                      'IV': lalsim.SimNoisePSDVirgo,  # iVirgo
-                      'IG': lalsim.SimNoisePSDGEO,  # GEO600
-                      'G1': lalsim.SimNoisePSDGEOHf,  # GEOHF
-                      'T1': lalsim.SimNoisePSDTAMA, # TAMA
-                      'K1': lalsim.SimNoisePSDKAGRA}  # KAGRA
+                      'IL': lalsim.SimNoisePSDiLIGOSRD,               # iLIGO
+                      'IV': lalsim.SimNoisePSDVirgo,                  # iVirgo
+                      'IG': lalsim.SimNoisePSDGEO,                    # GEO600
+                      'G1': lalsim.SimNoisePSDGEOHf,                  # GEOHF
+                      'T1': lalsim.SimNoisePSDTAMA,                   # TAMA
+                      'K1': lalsim.SimNoisePSDKAGRA}                  # KAGRA
 
             # check if string is valid
             detalias = None
@@ -560,7 +561,7 @@ class HeterodynedData(object):
             if detalias is None:
                 raise ValueError("Detector '{}' is not as known detector "
                                  "alias".format(asd))
-            
+
             freqs = self.par['F']
 
             if freqs is None:
@@ -594,8 +595,8 @@ class HeterodynedData(object):
                                  size=(len(self.data), 2))
 
         # add the noise to the data
-        self.__data.real += noise[:,0]
-        self.__data.imag += noise[:,1]
+        self.__data.real += noise[:, 0]
+        self.__data.imag += noise[:, 1]
 
     def __len__(self):
         return len(self.data)
