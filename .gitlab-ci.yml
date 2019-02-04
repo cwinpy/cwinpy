@@ -21,10 +21,18 @@ python-3.7:
     # Install the dependencies specified in the Pipfile
     - pip install --upgrade pip
     - pip install numpy>=1.15
+    - pip install astropy
+    - pip install matplotlib
     - pip install lalsuite
     - pip install sphinx recommonmark numpydoc nbsphinx autodoc sphinx_rtd_theme sphinx_tabs
+    - pip install pytest coverage pytest-coverage coverage-badge
   script:
     - python setup.py install
+
+    # run tests and get coverage data
+    - pytest --cov=cwinpy
+    - coverage html
+    - coverage-badge -o coverage_badge.svg -f
 
     # Make the documentation
     - cd docs
@@ -33,6 +41,8 @@ python-3.7:
 
   artifacts:
     paths:
+      - htmlcov/
+      - coverage_badge.svg
       - docs/_build/html/
 
 pages:
@@ -42,6 +52,8 @@ pages:
   script:
     - mkdir public/
     - mv docs/_build/html/* public/
+    - mv htmlcov/ public/
+    - mv coverage_badge.svg public/
   artifacts:
     paths:
       - public
