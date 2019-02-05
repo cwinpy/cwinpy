@@ -6,7 +6,7 @@ import os
 import pytest
 import numpy as np
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-
+import lal
 
 from cwinpy import HeterodynedData
 
@@ -258,3 +258,55 @@ def test_parse_detector():
     assert isinstance(het.laldetector, Detector)
     assert het.laldetector.frDetector.prefix == laldet.frDetector.prefix
     assert np.all((het.laldetector.response == laldet.response).flatten())
+
+
+def test_parse_parfile():
+    """
+    Test parsing of a pulsar '.par' parameter file.
+    """
+
+    # set data
+    times = np.linspace(1000000000., 1000086340., 1440)
+    data = (np.random.normal(0., 1e-25, size=1440) +
+            1j*np.random.normal(0., 1e-25, size=1440))
+
+    # set detector
+    det = 'H1'
+
+    parcontent = """\
+PSRJ     J0123+3456
+RAJ      01:23:45.6789
+DECJ     34:56:54.321
+F0       567.89
+F1       -1.2e-12
+PEPOCH   56789
+H0       9.87e-26
+COSIOTA  0.3
+PSI      1.1
+PHI0     2.4
+"""
+
+    parfile = 'J0123+3456.par'
+
+    # try reading parfile that doesn't exists
+    with pytest.raises(IOError):
+        het = HeterodynedData(data, times=times, detector=det, par=parfile)
+
+    # add content to the par file
+    with open(parfile, 'w') as fp:
+        fp.write(parcontent)
+
+    het = HeterodynedData(data, times=times, detector=det, par=parfile)
+
+    assert isinstance(het.par, PulsarParametersPy)
+    assert len(het.par['F']) == 2
+    assert (het.par['F'][0] == 567.89) and (het.par['F'][1] == -1.2e-12)
+    assert ((het.par['H0'] == 9.87e-26) and (het.par['COSIOTA'] == 0.3) and
+            (het.par['PSI'] == 1.1) and (het.par['PHI0'] == 2.4))
+    assert het.par['RAJ'] == lal.TranslateHMStoRAD('01:23:45.6789')
+    assert het.par['DECJ'] == lal.TranslateDMStoRAD('34:56:54.321')
+    pepoch = lal.TranslateStringMJDTTtoGPS('56789')
+    assert (het.par['PEPOCH'] == (pepoch.gpsSeconds +
+                                  1e-9*pepoch.gpsNanoSeconds))
+
+    os.remove(parfile)

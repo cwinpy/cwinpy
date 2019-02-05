@@ -14,7 +14,7 @@ import lalpulsar
 
 class MultiDetectorHeterodynedData(object):
 
-    def __init__(self, window=30, inject=False, inpar=None, **kwargs):
+    def __init__(self, window=30, inject=False, par=None, injpar=None, **kwargs):
         """
         A class to contain time series' of heterodyned data, using the
         :class:`~cwinpy.HeterodynedData` class, for multiply detectors.
