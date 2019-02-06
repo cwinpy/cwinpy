@@ -349,15 +349,18 @@ def test_running_median():
     with pytest.raises(ValueError):
         het = HeterodynedData(data, times=times, window=window)
 
-    window = 31  # window is odd
-    with pytest.raises(ValueError):
-        het = HeterodynedData(data, times=times, window=window)
-    
     window = 30
 
     het = HeterodynedData(data, times=times, window=window)
 
     assert len(het.running_median) == len(het)
-    assert het.running_median[0] == np.median(data[:window//2])
-    assert het.running_median[len(data)//2-1] == np.median(data)
-    assert het.running_median[-1] == np.median(data[-window//2:])
+    assert het.running_median.real[0] == np.median(data.real[:(window//2)+1])
+    assert het.running_median.imag[0] == np.median(data.imag[:(window//2)+1])
+    assert het.running_median.real[len(data)//2-1] == np.median(data.real)
+    assert het.running_median.imag[len(data)//2-1] == np.median(data.imag)
+    assert het.running_median.real[-1] == np.median(data.real[-(window//2):])
+    assert het.running_median.imag[-1] == np.median(data.imag[-(window//2):])
+    assert len(het.subtract_running_median()) == len(het)
+    assert (het.subtract_running_median()[0] ==
+            (data[0] - (np.median(data.real[:(window//2)+1]) + 
+                        1j*np.median(data.imag[:(window//2)+1]))))

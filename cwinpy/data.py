@@ -315,9 +315,10 @@ class HeterodynedData(object):
 
     def compute_running_median(self, N=30):
         """
-        Calculate a running median from the data. The running median will be
-        calculated using a window of samples of a given number. This does not
-        account for any gaps in the data, so could contain discontinuities.
+        Calculate a running median from the data with the real and imaginary
+        parts separately. The running median will be calculated using a window
+        of samples of a given number. This does not account for any gaps in the
+        data, so could contain discontinuities.
 
         Parameters
         ----------
@@ -333,16 +334,21 @@ class HeterodynedData(object):
         if N < 2:
             raise ValueError("The running median window must be greater "
                              "than 1")
-        
-        if N%2:
-            raise ValueError("The running median window must be even")
-
-        # create copy of data with buffers prepended and appended
-        datacopy = np.hstack((self.data[:N//2], self.data, self.data[-N//2:]))
 
         self.__running_median = np.zeros(len(self), dtype=np.complex)
         for i in range(len(self)):
-            self.__running_median[i] = np.median(datacopy[i:i+N])
+            if i < N//2:
+                startidx = 0
+                endidx = i + (N//2) + 1
+            elif i > len(self) - N:
+                startidx =  i - (N//2) + 1
+                endix = len(self)
+            else:
+                startidx = i - (N//2) + 1
+                endidx = i + (N//2) + 1
+ 
+            self.__running_median.real[i] = np.median(self.data.real[startidx:endidx])
+            self.__running_median.imag[i] = np.median(self.data.imag[startidx:endidx])
 
         return self.running_median
 

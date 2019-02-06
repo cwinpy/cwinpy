@@ -38,13 +38,11 @@ setup(name="cwinpy",
       author="Matthew Pitkin",
       author_email="matthew.pitkin@ligo.org",
       packages=["cwinpy"],
-      url="http://git.ligo.org/matthew-pitkin/cwinpy/",
+      url="http://git.ligo.org/CW/software/",
       license="MIT",
       description="A Python module for Bayesian inferences with continuous gravitational wave sources",
       long_description=\
           readfile(os.path.join(os.path.dirname(__file__), "README.md")),
       install_requires=\
           readfile(os.path.join(os.path.dirname(__file__), "requirements.txt")),
-      classifiers=[
-          "Programming Language :: Python :: 2.7",
-          "Programming Language :: Python :: 3.7"])
+      classifiers=["Programming Language :: Python :: 3.7"])
