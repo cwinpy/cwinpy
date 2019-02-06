@@ -333,6 +333,9 @@ class HeterodynedData(object):
         if N < 2:
             raise ValueError("The running median window must be greater "
                              "than 1")
+        
+        if N%2:
+            raise ValueError("The running median window must be even")
 
         # create copy of data with buffers prepended and appended
         datacopy = np.hstack((self.data[:N//2], self.data, self.data[-N//2:]))

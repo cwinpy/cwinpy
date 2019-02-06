@@ -333,3 +333,31 @@ PHI0     2.4
     assert het.par['PEPOCH'] == par['PEPOCH']
 
     os.remove(parfile)
+
+
+def test_running_median():
+    """
+    Test the running median calculation.
+    """
+
+    # set data
+    times = np.linspace(1000000000., 1000001740, 30)
+    data = (np.random.normal(0., 1e-25, size=30) +
+            1j*np.random.normal(0., 1e-25, size=30))
+
+    window = 1  # window is too short
+    with pytest.raises(ValueError):
+        het = HeterodynedData(data, times=times, window=window)
+
+    window = 31  # window is odd
+    with pytest.raises(ValueError):
+        het = HeterodynedData(data, times=times, window=window)
+    
+    window = 30
+
+    het = HeterodynedData(data, times=times, window=window)
+
+    assert len(het.running_median) == len(het)
+    assert het.running_median[0] == np.median(data[:window//2])
+    assert het.running_median[len(data)//2-1] == np.median(data)
+    assert het.running_median[-1] == np.median(data[-window//2:])
