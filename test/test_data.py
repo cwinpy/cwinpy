@@ -286,6 +286,11 @@ PSI      1.1
 PHI0     2.4
 """
 
+    # try passing a none str or PulsarParameterPy object
+    parfile = 1
+    with pytest.raises(TypeError):
+        het = HeterodynedData(data, times=times, detector=det, par=parfile)
+
     parfile = 'J0123+3456.par'
 
     # try reading parfile that doesn't exists
@@ -308,5 +313,23 @@ PHI0     2.4
     pepoch = lal.TranslateStringMJDTTtoGPS('56789')
     assert (het.par['PEPOCH'] == (pepoch.gpsSeconds +
                                   1e-9*pepoch.gpsNanoSeconds))
+
+    # pass parameters as PulsarParametersPy object
+    del het
+
+    par = PulsarParametersPy(parfile)
+    het = HeterodynedData(data, times=times, detector=det, par=par)
+
+    assert isinstance(het.par, PulsarParametersPy)
+    assert len(het.par['F']) == len(par['F'])
+    assert ((het.par['F'][0] == par['F'][0]) and
+            (het.par['F'][1] == par['F'][1]))
+    assert ((het.par['H0'] == par['H0']) and
+            (het.par['COSIOTA'] == par['COSIOTA']) and
+            (het.par['PSI'] == par['PSI']) and
+            (het.par['PHI0'] == par['PHI0']))
+    assert het.par['RAJ'] == par['RAJ']
+    assert het.par['DECJ'] == par['DECJ']
+    assert het.par['PEPOCH'] == par['PEPOCH']
 
     os.remove(parfile)

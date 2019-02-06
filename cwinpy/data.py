@@ -277,6 +277,8 @@ class HeterodynedData(object):
                 except Exception as e:
                     raise IOError("Could not read in pulsar parameter "
                                   "file: {}".format(e))
+            else:
+                raise TypeError("'par' is not a recognised type")
         else:
             newpar = None
 
