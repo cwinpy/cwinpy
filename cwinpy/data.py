@@ -6,21 +6,165 @@ from __future__ import division, print_function
 
 import numpy as np
 import warnings
+from collections import OrderedDict
 
 # import lal and lalpulsar
 import lal
 import lalpulsar
 
 
-class MultiDetectorHeterodynedData(object):
+class MultiHeterodynedData(object):
 
-    def __init__(self, window=30, inject=False, par=None, injpar=None, **kwargs):
+    def __init__(self, data=None, times=None, detector=None, window=30,
+                 inject=False, par=None, injpar=None, freqfactor=2.0,
+                 **kwargs):
         """
         A class to contain time series' of heterodyned data, using the
         :class:`~cwinpy.HeterodynedData` class, for multiply detectors.
+        
+        Parameters
+        ----------
+        data: (str, array_like, dict, :class:`~cwinpy.HeterodynedData`)
+            The heterodyned data either as a string giving a file path, an
+            array of data, or a dictionary of file paths/data arrays, that are
+            keyed on valid detector names.
+        times: (array_like, dict)
+            If `data` is an array, or dictionary of arrays, then `times` must
+            be set giving the time stamps for the data values. If `times` is
+            a dictionary then it should be keyed on the same detector names as
+            in `data`.
+        detector: (str, lal.Detector)
+            If `data` is a file name or data array then `detector` must be
+            given as a string or :class:`lal.Detector`.
         """
 
-        raise NotImplementedError
+        self.__window = window  # set running median window
+        self.__par = par        # set heterodyne pulsar parameter file
+        self.__injpar = injpar  # set an injection parameter file
+        self.__inject = inject  # set whether an injection is performed
+        self.__freqfactor = freqfactor  # set frequency scale
+
+        self.__data = OrderedDict()  # initialise empty dict
+        self.currentidx = 0  # index for iterator
+
+        # add data
+        if data is not None:
+            self.add_data(data, times, detector=detector)
+
+    def add_data(self, data, times, detector=None):
+        """
+        Add heterodyned data to the class.
+
+        Parameters
+        ----------
+        data: (str, array_like, dict, :class:`~cwinpy.HeterodynedData`)
+            The heterodyned data either as a string giving a file path, an
+            array of data, or a dictionary of file paths/data arrays, that are
+            keyed on valid detector names.
+        times: (array_like, dict)
+            If `data` is an array, or dictionary of arrays, then `times` must
+            be set giving the time stamps for the data values. If `times` is
+            a dictionary then it should be keyed on the same detector names as
+            in `data`.
+        detector: (str, lal.Detector)
+            If `data` is a file name or data array then `detector` must be
+            given as a string or :class:`lal.Detector`.
+        """
+
+        if isinstance(data, HeterodynedData):
+            if data.detector is None and detector is None:
+                raise ValueError("No detector is given!")
+
+            if data.detector is None and detector is not None:
+                data.detector = detector
+
+            self._add_HeterodynedData(data)
+        elif isinstance(data, dict):
+            for detkey in data:
+                if isinstance(data[detkey], HeterodynedData):
+                    if data[detkey].detector is None:
+                        data[detkey].detector = detkey
+                    self._add_HeterodynedData(data[detkey])
+                else:
+                    if isinstance(times, dict):
+                        if detkey not in times:
+                            raise KeyError("`times` does not contain the "
+                                           "detector: {}".format(detkey))
+                        else:
+                            dettimes = times[detkey]
+                    else:
+                        dettimes = times
+
+                    self._add_data(data[detkey], detkey, dettimes)
+        else:
+            if isinstance(times, dict):
+                raise TypeError('`times` should not be a dictionary')
+
+            self._add_data(data, detector, times)
+
+    def _add_HeterodynedData(self, data):
+        detname = data.detector
+        if detname not in self.__data:
+            self.__data[detname] = data
+        else:
+            # if data from that detector already exists then append to the list
+            if isinstance(self.__data[detname], list):
+                self.__data[detname].append(data)
+            else:
+                olddata = self.__data[detname]
+                # start a list
+                self.__data[detname] = [olddata, data]
+
+    def _add_data(self, data, detector, times=None):
+        if detector is None or data is None:
+            raise ValueError("data and detector must be set")
+
+        het = HeterodynedData(data, times, detector=detector,
+                              par=self.__par, window=self.__window,
+                              inject=self.__inject, injpar=self.__injpar,
+                              freqfactor=self.__freqfactor)
+
+        self._add_HeterodynedData(het)
+
+    @property
+    def to_list(self):
+        datalist = []
+        for key in self.__data:
+            if isinstance(self.__data[key], list):
+                datalist += self.__data[key]
+            else:
+                datalist.append(self.__data[key])
+
+        return datalist
+
+    @property
+    def detectors(self):
+        # return the list of detectors contained in the object
+        return list(self.__data.keys())
+
+    @property
+    def laldetector(self):
+        # return the list of :class:`lal.Detector` contained in the object
+        return [det.laldetector for det in self.__data.values()]
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.currentidx >= len(self):
+            raise StopIteration
+        else:
+            self.currentidx += 1
+            return self.to_list[self.currentidx-1]
+
+    def __len__(self):
+        length = 0
+        for key in self.__data:
+            if isinstance(self.__data[key], list):
+                length += len(self.__data[key])
+            else:
+                length += 1
+        return length
 
 
 class HeterodynedData(object):
