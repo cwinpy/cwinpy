@@ -6,21 +6,11 @@ from __future__ import division, print_function
 
 import numpy as np
 import warnings
+from collections import OrderedDict
 
 # import lal and lalpulsar
 import lal
 import lalpulsar
-
-
-class MultiDetectorHeterodynedData(object):
-
-    def __init__(self, window=30, inject=False, par=None, injpar=None, **kwargs):
-        """
-        A class to contain time series' of heterodyned data, using the
-        :class:`~cwinpy.HeterodynedData` class, for multiply detectors.
-        """
-
-        raise NotImplementedError
 
 
 class HeterodynedData(object):
@@ -29,7 +19,8 @@ class HeterodynedData(object):
                  window=30, inject=False, injpar=None, injtimes=None,
                  freqfactor=2.0, fakeasd=None):
         """
-        A class to contain a time series of heterodyned data.
+        A class to contain a time series of heterodyned data, or set of time
+        series, for a given detector.
 
         If a file containing heterodyned data is passed to the object it should
         have the one of the follow forms:
@@ -46,19 +37,24 @@ class HeterodynedData(object):
 
         Parameters
         ----------
-        data: (str, array_like)
+        data: (str, array_like, dict)
             A file (plain ascii text, or gzipped ascii text) containing a time
-            series of heterodyned data, or an array containing the complex
-            heterodyned data.
-        times: array_like
-            If the data was passed using the `data` argument, then the
-            associated time stamps should be passed using this argument.
+            series of heterodyned data, an array containing the complex
+            heterodyned data, or a dictionary of file names/array keyed to a
+            valid detector name.
+        times: (array_like, dict)
+            If the data was passed using the `data` argument, rather than as a
+            file, then the associated time stamps should be passed using this
+            argument. If there are data from multiple detectors, with different
+            time stamps, then they must be passed as a dictionary keyed to the
+            detector name.
         par: (str, lalpulsar.PulsarParametersPy)
             A parameter file, or `lalpulsar.PulsarParametersPy` object
             containing the parameters with which the data was heterodyned.
         detector: (str, lal.Detector)
             A string, or lal.Detector object, identifying the detector from
-            which the data was generated.
+            which the data was generated. This is required if the `data` is
+            not passed as a dictionary.
         window: int, 30
             The length of a window used for calculating a running median over
             the data.
@@ -70,16 +66,18 @@ class HeterodynedData(object):
             file must also have been provided, and the injected signal will
             assume that the data has already been heterdyned using the
             parameters from `par`, which could be different.
-        injtimes: list, None
+        injtimes: (list, dict), None
             A list containing pairs of times between which to add the simulated
-            signal. By default the signal will be added into the whole data
-            set.
+            signal. If different injection times are required for different
+            detectors then this must be a dictionary with lists keyed to the
+            detector names. By default the signal will be added into the whole
+            data set.
         freqfactor: float, 2.0
             The frequency scale factor for the data signal, e.g., a value
             of two for emission from the l=m=2 mode at twice the rotation
             frequency of the source.
-        fakeasd: (float, str)
-            A amplitude spectral density value (in 1/sqrt(Hz)) at which to
+        fakeasd: (float, dict, str, list)
+            An amplitude spectral density value (in 1/sqrt(Hz)) at which to
             generate simulated Gaussian noise to add to the data.
             Alternatively, if a string is passed, and that string represents a
             known detector, then the amplitude spectral density for that
@@ -91,13 +89,11 @@ class HeterodynedData(object):
         self.window = window  # set the window size
 
         # set the data
-        self.data = (data, times)
+        self.__detectors = OrderedDict()  # empty detector dictionary
+        self.add_data(data, detector, times=times)
 
         # set the parameter file
         self.par = par
-
-        # set the detector from which the data came
-        self.detector = detector
 
         # set the frequency scale factor
         self.freq_factor = freqfactor
@@ -133,11 +129,56 @@ class HeterodynedData(object):
     def data(self):
         return self.__data
 
-    @data.setter
-    def data(self, data):
+    @property
+    def detectors(self):
+        return list(self.__detectors.keys())
+
+    @property
+    def laldetectors(self):
+        return list(self.__detectors.values())
+
+    def _add_detector(self, detector):
+        """
+        Add a detector.
+
+        Parameters
+        ----------
+        detector: (str, lal.Detector)
+            A string, or lal.Detector object, giving a detector for an input
+            data set.
+        """
+
+        if isinstance(detector, lal.Detector):
+            detname = detector.frDetector.prefix
+            laldetector = detector
+        elif isinstance(detector, str):
+            detname = detector
+
+            try:
+                laldetector = lalpulsar.GetSiteInfo(detname)
+            except RuntimeError:
+                raise ValueError("Could not set LAL detector "
+                                 "'{}'!".format(detname))
+        else:
+            raise TypeError("Detector is not a recognised type")
+        
+        if detname not in self.__detectors:
+            self.__detectors[detname] = laldetector
+
+    def add_data(self, data, detector, times=None):
         """
         Set the data.
         """
+
+        if isinstance(data, dict):
+            # if data is a dictionary check keys are detectors
+            for detkey in data:
+                self._add_detector(detkey)
+        else:
+            if detector is None:
+                raise ValueError("A detector name must be supplied")
+
+            self._add_detector(detector)
 
         if isinstance(data, tuple):
             try:
