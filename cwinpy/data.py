@@ -45,7 +45,7 @@ class MultiHeterodynedData(object):
         self.__freqfactor = freqfactor  # set frequency scale
 
         self.__data = OrderedDict()  # initialise empty dict
-        self.currentidx = 0  # index for iterator
+        self.__currentidx = 0  # index for iterator
 
         # add data
         if data is not None:
@@ -105,15 +105,10 @@ class MultiHeterodynedData(object):
     def _add_HeterodynedData(self, data):
         detname = data.detector
         if detname not in self.__data:
-            self.__data[detname] = data
+            self.__data[detname] = [data]  # add as a list
         else:
             # if data from that detector already exists then append to the list
-            if isinstance(self.__data[detname], list):
-                self.__data[detname].append(data)
-            else:
-                olddata = self.__data[detname]
-                # start a list
-                self.__data[detname] = [olddata, data]
+            self.__data[detname].append(data)
 
     def _add_data(self, data, detector, times=None):
         if detector is None or data is None:
@@ -125,6 +120,17 @@ class MultiHeterodynedData(object):
                               freqfactor=self.__freqfactor)
 
         self._add_HeterodynedData(het)
+
+    def __getitem__(self, det):
+        """
+        Get the list of :class:`~cwinpy.HeterodynedData` objects keyed to a
+        given detector.
+        """
+
+        if det in self.detectors:
+            return self.__data[det]
+        else:
+            return None
 
     @property
     def to_list(self):
@@ -151,11 +157,12 @@ class MultiHeterodynedData(object):
         return self
 
     def __next__(self):
-        if self.currentidx >= len(self):
+        if self.__currentidx >= len(self):
+            self.__currentidx = 0  # reset iterator index
             raise StopIteration
         else:
-            self.currentidx += 1
-            return self.to_list[self.currentidx-1]
+            self.__currentidx += 1
+            return self.to_list[self.__currentidx-1]
 
     def __len__(self):
         length = 0
