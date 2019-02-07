@@ -10,3 +10,10 @@ Documentation for cwinpy
 
    installation
 
+API interface
+=============
+
+.. toctree::
+   :maxdepth: 2
+
+   data

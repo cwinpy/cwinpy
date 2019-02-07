@@ -14,7 +14,7 @@ import lalpulsar
 
 
 class MultiHeterodynedData(object):
-
+    
     def __init__(self, data=None, times=None, detector=None, window=30,
                  inject=False, par=None, injpar=None, freqfactor=2.0,
                  **kwargs):
@@ -168,25 +168,57 @@ class MultiHeterodynedData(object):
 
 
 class HeterodynedData(object):
-
-    def __init__(self, data=None, times=None, par=None, detector=None,
-                 window=30, inject=False, injpar=None, injtimes=None,
-                 freqfactor=2.0, fakeasd=None):
-        """
+    """
         A class to contain a time series of heterodyned data.
 
-        If a file containing heterodyned data is passed to the object it should
-        have the one of the follow forms:
+        Some examples of input `data` are:
 
-        Three columns with:
+        1. The path to a file containing (gzipped) ascii text with the
+        following three columns::
 
-        time (GPS), real component, imaginary component
+            # GPS time stamps   real strain   imaginary strain
+            1000000000.0         2.3852e-25    3.4652e-26
+            1000000060.0        -1.2963e-26    9.7423e-25
+            1000000120.0         5.4852e-25   -1.8964e-25
+            ...
 
-        Four columns with:
+        or four columns::
 
-        time (GPS), real component, imaginary component, standard deviation
+            # GPS time stamps   real strain   imaginary strain   std. dev.
+            1000000000.0         2.3852e-25    3.4652e-26        1.0e-25
+            1000000060.0        -1.2963e-26    9.7423e-25        1.0e-25
+            1000000120.0         5.4852e-25   -1.8964e-25        1.0e-25
+            ...
 
-        It can have comments lines started with a '#' or '%'.
+        where any row that starts with a ``#`` or a ``%`` is considered a
+        comment.
+
+        2. A 1-dimensional array of complex data, and accompanying array of
+        `time` values, e.g.,
+
+        >>> import numpy as np
+        >>> N = 100  # the data length
+        >>> data = np.random.randn(N) + 1j*np.random.randn(N)
+        >>> times = np.linspace(1000000000., 1000005940., N)
+
+        or, a 2-dimensional array with the real and complex values held in
+        separate columns, e.g.,
+
+        >>> import numpy as np
+        >>> N = 100  # the data length
+        >>> data = np.random.randn(N, 2)
+        >>> times = np.linspace(1000000000., 1000005940., N)
+
+        or, a 2-dimensional array with the real and complex values held in
+        separate columns, *and* a third column holding the standard deviation
+        for each entry, e.g.,
+
+        >>> import numpy as np
+        >>> N = 100  # the data length
+        >>> stds = np.ones(N)  # standard deviations
+        >>> data = np.array([stds*np.random.randn(N),
+        >>> ...              stds*np.random.randn(N), stds]).T
+        >>> times = np.linspace(1000000000., 1000005940., N)
 
         Parameters
         ----------
@@ -198,7 +230,7 @@ class HeterodynedData(object):
             If the data was passed using the `data` argument, then the
             associated time stamps should be passed using this argument.
         par: (str, lalpulsar.PulsarParametersPy)
-            A parameter file, or `lalpulsar.PulsarParametersPy` object
+            A parameter file, or :class:`lalpulsar.PulsarParametersPy` object
             containing the parameters with which the data was heterodyned.
         detector: (str, lal.Detector)
             A string, or lal.Detector object, identifying the detector from
@@ -207,13 +239,14 @@ class HeterodynedData(object):
             The length of a window used for calculating a running median over
             the data.
         inject: bool, False
-            Set to `True` to add a simulated signal to the data based on the
+            Set to ``True`` to add a simulated signal to the data based on the
             parameters supplied in `injpar`, or `par` if `injpar` is not given.
         injpar: (str, lalpulsar.PulsarParametersPy)
-            A parameter file containing values for the injected signal. A `par`
-            file must also have been provided, and the injected signal will
-            assume that the data has already been heterdyned using the
-            parameters from `par`, which could be different.
+            A parameter file name or :class:`lalpulsar.PulsarParametersPy`
+            object containing values for the injected signal. A `par` file must
+            also have been provided, and the injected signal will assume that
+            the data has already been heterodyned using the parameters from
+            `par`, which could be different.
         injtimes: list, None
             A list containing pairs of times between which to add the simulated
             signal. By default the signal will be added into the whole data
@@ -230,8 +263,14 @@ class HeterodynedData(object):
             detector at design sensitivity will be used (this requires a `par`
             value to be included, which contains the source rotation
             frequency).
+
+        Examples
+        --------
         """
 
+    def __init__(self, data=None, times=None, par=None, detector=None,
+                 window=30, inject=False, injpar=None, injtimes=None,
+                 freqfactor=2.0, fakeasd=None):
         self.window = window  # set the window size
 
         # set the data
@@ -261,6 +300,8 @@ class HeterodynedData(object):
 
     @property
     def window(self):
+        """The running median window length."""
+
         return self.__window
 
     @window.setter
@@ -275,14 +316,14 @@ class HeterodynedData(object):
 
     @property
     def data(self):
+        """
+        A :class:`numpy.ndarray` containing the heterodyned data.
+        """
+
         return self.__data
 
     @data.setter
     def data(self, data):
-        """
-        Set the data.
-        """
-
         if isinstance(data, tuple):
             try:
                 dataval, times = data
@@ -398,7 +439,8 @@ class HeterodynedData(object):
 
     def _parse_par(self, par):
         """
-        Parse a pulsar parameter file or lalpulsar.PulsarParametersPy object.
+        Parse a pulsar parameter file or :class:`lalpulsar.PulsarParametersPy`
+        object.
 
         Parameters
         ----------
@@ -407,7 +449,7 @@ class HeterodynedData(object):
 
         Returns
         -------
-        A lalpulsar.PulsarParametersPy object
+        lalpulsar.PulsarParametersPy
         """
 
         if par is not None:
@@ -430,10 +472,17 @@ class HeterodynedData(object):
 
     @property
     def detector(self):
+        """The name of the detector from which the data came."""
+        
         return self.__detector
 
     @property
     def laldetector(self):
+        """
+        The :class:`lal.Detector` containing the detector's response and
+        location.
+        """
+
         return self.__laldetector
 
     @detector.setter
@@ -455,6 +504,8 @@ class HeterodynedData(object):
 
     @property
     def running_median(self):
+        """A :class:`~numpy.ndarray` containing the running median of the data."""
+
         return self.__running_median
 
     def compute_running_median(self, N=30):
@@ -467,12 +518,13 @@ class HeterodynedData(object):
         Parameters
         ----------
         N: int, 30
-            the window length of the running median. Defaults to 30 points.
+            The window length of the running median. Defaults to 30 points.
 
         Returns
         -------
-        runningmedian: array_like
-            an array containing the data with with running median subtracted.
+        array_like
+            A :class:`numpy.ndarray` array containing the data with the
+            running median subtracted.
         """
 
         if N < 2:
@@ -502,18 +554,27 @@ class HeterodynedData(object):
 
         Returns
         -------
-        newdata: array_like
-            an array containing the data with with running median subtracted.
+        array_like
+            A :class:`~numpy.ndarray` array containing the data with with
+            running median subtracted.
         """
 
         return self.data - self.running_median
 
     @property
     def vars(self):
+        """
+        The variances of the data points.
+        """
+
         return self.__vars
 
     @property
     def stds(self):
+        """
+        The standard deviations of the data points.
+        """
+
         return np.sqrt(self.__vars)
 
     def compute_variance(self, change_points=None, N=30):
@@ -534,8 +595,8 @@ class HeterodynedData(object):
 
         Returns
         -------
-        vars: array_like
-            An array of variances for each data point.
+        array_like
+            A :class:`numpy.ndarray` of variances for each data point.
         """
 
         if self.__stds is not None:
@@ -581,7 +642,7 @@ class HeterodynedData(object):
 
         Parameters
         ----------
-        injpar: (str, lalpulsar.PulsarParametersPy)
+        injpar: (str, :class:`lalpulsar.PulsarParametersPy`)
             A parameter file or object containing the parameters for the
             simulated signal.
         injtimes: list
@@ -632,6 +693,10 @@ class HeterodynedData(object):
 
     @property
     def injtimes(self):
+        """
+        A list of times at which an injection was added to the data. 
+        """
+
         return self.__injtimes
 
     @injtimes.setter
@@ -654,10 +719,19 @@ class HeterodynedData(object):
 
     @property
     def injection_data(self):
+        """
+        The pure simulated signal that was added to the data.
+        """
+
         return self.__inj_data
 
     @property
     def freq_factor(self):
+        """
+        The scale factor of the source rotation frequency with which the data
+        was heterodyned.
+        """
+
         return self.__freq_factor
 
     @freq_factor.setter
@@ -683,8 +757,8 @@ class HeterodynedData(object):
             generate the Gaussian noise, or a string containing a valid
             detector name for which the design sensitivity ASD can be used.
         issigma: bool, False
-            If `issigma` is `True` then the value passed to `asd` is assumed to
-            be a dimensionless time domain standard deviation for the noise
+            If `issigma` is ``True`` then the value passed to `asd` is assumed
+            to be a dimensionless time domain standard deviation for the noise
             level rather than an amplitude spectral density.
         """
 

@@ -29,10 +29,23 @@ sys.path.insert(0, os.path.abspath('../cwinpy/'))
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.mathjax', 'numpydoc',
-              'nbsphinx', 'sphinx.ext.autosummary',
-              'sphinx.ext.autosectionlabel', 'sphinx_tabs.tabs',
-              'recommonmark']
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.mathjax',
+    'sphinx.ext.intersphinx',
+    'numpydoc',
+    'nbsphinx',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.autosectionlabel',
+    'sphinx_tabs.tabs',
+    'recommonmark'
+]
+
+autosummary_generate = True
+autodoc_docstring_signature = True
+autodoc_default_options = {
+    'members-order': 'groupwise',
+    'show-inheritance': True}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -75,6 +88,10 @@ language = None
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'requirements.txt']
+
+add_function_parentheses = True
+add_module_names = False
+show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
@@ -175,4 +192,8 @@ texinfo_documents = [
 
 numpydoc_show_class_members = False
 
-
+# Example configuration for intersphinx: refer to the Python standard library.
+intersphinx_mapping = {'python': ('https://docs.python.org/3/', None),
+                       'numpy': ('https://docs.scipy.org/doc/numpy/', None),
+                       'scipy': ('https://docs.scipy.org/doc/scipy/reference/', None),
+                       'matplotlib': ('https://matplotlib.org/', None)}
