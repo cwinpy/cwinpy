@@ -23,7 +23,7 @@ python-3.7:
     - pip install numpy>=1.15
     - pip install astropy
     - pip install matplotlib
-    - pip install lalsuite
+    - pip install lalsuite==6.52.1.dev20190207
     - pip install sphinx recommonmark numpydoc nbsphinx autodoc sphinx_rtd_theme sphinx_tabs
     - pip install pytest coverage pytest-coverage coverage-badge
   script:
