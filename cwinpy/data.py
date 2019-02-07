@@ -733,6 +733,29 @@ class HeterodynedData(object):
         return self.__inj_data
 
     @property
+    def injection_optimal_snr(self):
+        """
+        Return the optimal signal-to-noise ratio using the pure injected signal
+        and true noise calculated using:
+
+        .. math::
+
+           \\rho = \sqrt{\sum_i \left(\left[\\frac{\Re{(s_i)}}{\Re{(d_i)}}\\right]^2 + \left[\\frac{\Im{(s_i)}}{\Im{(d_i)}}\\right]^2\\right)}
+
+        where :math:`d` is the signal-free data, and :math:`s` is the pure
+        signal.
+
+        """
+
+        if not self.injection:
+            return None
+
+        noinj = self.data - self.injection_data  # data with injection removed
+
+        return np.sqrt(((self.injection_data.real/noinj.real)**2).sum() +
+                       ((self.injection_data.imag/noinj.imag)**2).sum())
+
+    @property
     def freq_factor(self):
         """
         The scale factor of the source rotation frequency with which the data
