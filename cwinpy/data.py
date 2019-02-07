@@ -7,10 +7,39 @@ from __future__ import division, print_function
 import numpy as np
 import warnings
 from collections import OrderedDict
+from scipy.special import gammaln
 
 # import lal and lalpulsar
 import lal
 import lalpulsar
+
+
+def logfactorial(n):
+    """
+    The natural logarithm of the factorial of an integer using the fact that
+
+    .. math::
+
+        \ln{(n!)} = \ln{\left(\Gamma (n+1)\\right)}
+
+    Parameters
+    ----------
+    n: int
+        An integer for which the natural logarithm of its factorial is
+        required.
+
+    Returns
+    -------
+    float
+    """
+
+    if isinstance(n, int):
+        if n >= 0:
+            return gammaln(n+1)
+        else:
+            raise ValueError("Can't find the factorial of a negative number")
+    else:
+        raise ValueError("Can't find the factorial of a non-integer value")
 
 
 class MultiHeterodynedData(object):
@@ -649,7 +678,7 @@ class HeterodynedData(object):
 
         Parameters
         ----------
-        injpar: (str, :class:`lalpulsar.PulsarParametersPy`)
+        injpar: (str, lalpulsar.PulsarParametersPy)
             A parameter file or object containing the parameters for the
             simulated signal.
         injtimes: list
@@ -859,6 +888,127 @@ class HeterodynedData(object):
         # add the noise to the data
         self.__data.real += noise[:, 0]
         self.__data.imag += noise[:, 1]
+
+    def bayesian_blocks(self, threshold='default', minlength=5):
+        """
+        Apply a Bayesian-Block-style algorithm to cut the data up into chunks
+        with different statistical properties using the formalism described in
+        Section 2.4 of [1]_. Within each chunk the data should be well
+        described by a single Gaussian distribution with zero mean.
+
+        Splitting of the data relies on a threshold on the natural logarithm of
+        the odds comparing the hypothesis that the data is best described by
+        two different contiguous zero mean Gaussian distributions with
+        different unknown variances to the hypothesis that the data is
+        described by a single zero mean Gaussian with unknown variance. The
+        former hypothesis is a compound hypothesis consisting of the sum of
+        evidences for the split in the data at any point.
+
+        The ``'default'`` threshold for splitting is empirically derived in
+        [1]_ for the cases that the prior odds between the two hypotheses is
+        equal, and has a 1% false alarm probability for splitting data that is
+        actually drawn from a single zero mean Gaussian. The ``'prior'``
+        threshold comes from assigning equal priors to the single Gaussian
+        hypothesis and *each* of the sub-hypotheses that have a split.
+        Alternatively, the `threshold` value can be any real number.
+
+        Parameters
+        ----------
+        threshold: (str, float)
+           A string giving the method for determining the threshold for
+           splitting the data (described above), or a value of the threshold.
+        minlength: int
+           The minimum length that a chunk can be split into. Defaults to 5.
+
+        .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1 <https:arxiv.org/abs/1705.08978v1>`_,
+           2017.
+        """
+
+        # chop up the data
+        self.__chunk_indices = []
+        self._chop_data(self.data, threshold=threshold, minlength=minlength)
+
+    def _chop_data(self, data, threshold='default', minlength=5):
+        # set the threshold
+        if threshold == 'default':
+            # default threshold for data splitting
+            thresh = lambda l: 4.07 + 1.33 * np.log10(l)
+        elif threshold == 'prior':
+            # assign equal prior probability for each subhypothesis
+            thresh = lambda l: np.log(l)
+        elif isinstance(threshold, float):
+            thresh = lambda l: threshold
+        else:
+            raise ValueError("threshold is not recognised")
+
+
+    def _find_change_point(self, subdata, minlength):
+        """
+        Find the change point in the data, i.e., the "most likely" point at
+        which the data could be split to be described by two independent
+        zero mean Gaussian distributions. This also finds the evidence ratio
+        for the data being described by any two independent zero mean Gaussian
+        distributions compared to being described by only a single zero mean
+        Gaussian.
+
+        Parameters
+        ----------
+        subdata: array_like
+            A complex array containing a chunk of data.
+        minlength: int
+            The minimum length of a chunk.
+        
+        Returns
+        -------
+        tuple:
+            A tuple containing the maximum log Bayes factor, the index of the
+            change point (i.e. the "best" point at which to split the data into
+            two independent Gaussian distributions), and the number of
+            denominator sub-hypotheses. 
+        """
+
+        if len(subdata) < 2*minlength:
+            return (-np.inf, 0, 1)
+
+        dlen = len(subdata)
+        datasum = (np.abs(subdata)**2).sum()
+
+        # calculate the evidence that the data is drawn from a zero mean
+        # Gaussian with a single unknown standard deviation
+        logsingle = (-lal.LN2 - dlen * lal.LNPI + logfactorial(dlen - 1) -
+                     dlen * np.log(datasum))
+
+        lsum = dlen - 2 * minlength + 1
+        logtot = -np.inf
+
+        logdouble = np.zeros(lsum)
+
+        # go through each possible splitting of the data in two
+        for i in range(lsum):
+            sumforwards = (np.abs(subdata[0:minlength+1])**2).sum()
+            sumbackwards = (np.abs(subdata[minlength+1:])**2).sum()
+
+            dlenf = len(subdata[0:minlength+1])
+            dlenb = len(subdata[minlength+1:])
+
+            logf = (-lal.LN2 - dlenf * lal.LNPI + logfactorial(dlenf - 1) -
+                    dlenf * np.log(sumforwards))
+            logb = (-lal.LN2 - dlenb * lal.LNPI + logfactorial(dlenb - 1) -
+                    dlenb * np.log(sumbackwards))
+            
+            # evidence for that split
+            logdouble[i] = logf + logb
+
+            # evidence for *any* split
+            logtot = np.logaddexp(logtot, logdouble[i])
+        
+        # change point (maximum of the split evidences)
+        cp = np.argmax(logdouble) + minlength
+
+        # ratio of any change point compared to no splits
+        logratio = logtot - logsingle
+
+        return (logratio, cp, lsum)
 
     def __len__(self):
         return len(self.data)
