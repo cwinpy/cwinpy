@@ -21,7 +21,7 @@ python-3.7:
     # Install the dependencies specified in the Pipfile
     - pip install --upgrade pip
     - pip install -r requirements.txt
-    - pip install -r docs-requirements
+    - pip install -r docs-requirements.txt
     - pip install pytest coverage pytest-coverage coverage-badge
   script:
     - python setup.py install
