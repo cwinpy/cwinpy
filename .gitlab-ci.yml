@@ -45,17 +45,17 @@ python-3.7:
       - coverage_badge.svg
       - docs/_build/html/
 
-pages:
-  stage: deploy
-  dependencies:
-    - python-3.7
-  script:
-    - mkdir -p public/
-    - mv docs/_build/html/* public/
-    - mv htmlcov/ public/
-    - mv coverage_badge.svg public/
-  artifacts:
-    paths:
-      - public
-  only:
-    - master
+#pages:
+#  stage: deploy
+#  dependencies:
+#    - python-3.7
+#  script:
+#    - mkdir -p public/
+#    - mv docs/_build/html/* public/
+#    - mv htmlcov/ public/
+#    - mv coverage_badge.svg public/
+#  artifacts:
+#    paths:
+#      - public
+#  only:
+#    - master
