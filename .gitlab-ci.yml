@@ -50,13 +50,12 @@ pages:
   dependencies:
     - python-3.7
   script:
-    - mkdir public/
+    - mkdir -p public/
     - mv docs/_build/html/* public/
     - mv htmlcov/ public/
     - mv coverage_badge.svg public/
   artifacts:
     paths:
       - public
-    expire_in: 30 days
   only:
     - master
