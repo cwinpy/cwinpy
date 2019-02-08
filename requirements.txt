@@ -1,4 +1,4 @@
 numpy>=1.15
 astropy
 matplotlib
-lalsuite
+lalsuite==6.52.1.dev20190207

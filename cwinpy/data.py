@@ -8,6 +8,8 @@ import numpy as np
 import warnings
 from collections import OrderedDict
 from scipy.special import gammaln
+from math import gcd
+from functools import reduce
 
 # import lal and lalpulsar
 import lal
@@ -20,7 +22,7 @@ def logfactorial(n):
 
     .. math::
 
-        \ln{(n!)} = \ln{\left(\Gamma (n+1)\\right)}
+        \\ln{(n!)} = \\ln{\\left(\\Gamma (n+1)\\right)}
 
     Parameters
     ----------
@@ -40,6 +42,22 @@ def logfactorial(n):
             raise ValueError("Can't find the factorial of a negative number")
     else:
         raise ValueError("Can't find the factorial of a non-integer value")
+
+
+def gcd_array(denominators):
+    """
+    Function to calculate the greatest common divisor of a list of values..
+    """
+
+    if not isinstance(denominators, (tuple, list, np.ndarray)):
+        raise TypeError("Must have a list or array")
+
+    denoms = np.asarray(denominators).flatten()  # 1d array
+    
+    if len(denoms) < 2:
+        raise ValueError("Must have more than two values")
+
+    return reduce(lambda a , b: gcd(a, b), denoms)
 
 
 class MultiHeterodynedData(object):
@@ -785,7 +803,7 @@ class HeterodynedData(object):
 
         .. math::
 
-           \\rho = \sqrt{\sum_i \left(\left[\\frac{\Re{(s_i)}}{\Re{(d_i)}}\\right]^2 + \left[\\frac{\Im{(s_i)}}{\Im{(d_i)}}\\right]^2\\right)}
+           \\rho = \\sqrt{\\sum_i \\left(\\left[\\frac{\\Re{(s_i)}}{\\Re{(d_i)}}\\right]^2 + \\left[\\frac{\\Im{(s_i)}}{\\Im{(d_i)}}\\right]^2\\right)}
 
         where :math:`d` is the signal-free data, and :math:`s` is the pure
         signal.
@@ -956,6 +974,10 @@ class HeterodynedData(object):
         if maxlength <= minlength:
             raise ValueError("Maximum chunk length must be greater than the "
                              "minimum chunk length.")
+
+        # don't try and split if any data is zero
+        if np.any(self.subtract_running_median() == (0.+0*1j)):
+            return
 
         # chop up the data
         self.__change_point_indices_and_ratios = []

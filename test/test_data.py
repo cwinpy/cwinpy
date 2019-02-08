@@ -8,7 +8,7 @@ import numpy as np
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 import lal
 
-from cwinpy import HeterodynedData
+from cwinpy import HeterodynedData, MultiHeterodynedData
 
 
 def test_no_data():
@@ -19,7 +19,7 @@ def test_no_data():
     # test exception if no data or times are passed
     with pytest.raises(ValueError):
         het = HeterodynedData()
-    
+
 
 def test_broken_data():
     """
@@ -40,6 +40,13 @@ def test_broken_data():
 
     with pytest.raises(IOError):
         het = HeterodynedData(brokenfile)
+
+    # run through MultiHeterodynedData
+    with pytest.raises(ValueError):
+        mhet = MultiHeterodynedData(brokenfile)
+
+    with pytest.raises(IOError):
+        mhet = MultiHeterodynedData({'H1': brokenfile})
 
     os.remove(brokenfile)  # clean up file
 
