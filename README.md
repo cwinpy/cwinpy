@@ -2,6 +2,6 @@
 
 A Python module for performing Bayesian inference for continuous gravitational-wave signals from pulsars
 
-* [Documentation](https://docs.ligo.org/matthew-pitkin/cwinpy/)
+* [Documentation](https://cwinpy.readthedocs.io)
  
-[![coverage](https://docs.ligo.org/matthew-pitkin/cwinpy/coverage_badge.svg)](https://docs.ligo.org/matthew-pitkin/cwinpy/htmlcov/)
+![coverage](https://git.ligo.org/CW/software/cwinpy/-/jobs/artifacts/master/raw/coverage_badge.svg?job=test)
