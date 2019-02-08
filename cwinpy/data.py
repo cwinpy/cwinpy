@@ -43,35 +43,45 @@ def logfactorial(n):
 
 
 class MultiHeterodynedData(object):
-    
+    """
+    A class to contain time series' of heterodyned data, using the
+    :class:`~cwinpy.HeterodynedData` class, for multiple detectors/data
+    streams.
+
+    Parameters
+    ----------
+    data: (str, array_like, dict, HeterodynedData)
+        The heterodyned data either as a string giving a file path, an array of
+        data, or a dictionary of file paths/data arrays, that are keyed on
+        valid detector names.
+    times: (array_like, dict)
+        If `data` is an array, or dictionary of arrays, then `times` must be
+        set giving the time stamps for the data values. If `times` is a
+        dictionary then it should be keyed on the same detector names as in
+        `data`.
+    detector: (str, lal.Detector)
+        If `data` is a file name or data array then `detector` must be given as
+        a string or :class:`lal.Detector`.
+
+    Notes
+    -----
+
+    See the :class:`~cwinpy.HeterodynedData` documentation for information on
+    additional keyword arguments.
+    """
+
     def __init__(self, data=None, times=None, detector=None, window=30,
                  inject=False, par=None, injpar=None, freqfactor=2.0,
-                 **kwargs):
-        """
-        A class to contain time series' of heterodyned data, using the
-        :class:`~cwinpy.HeterodynedData` class, for multiply detectors.
-        
-        Parameters
-        ----------
-        data: (str, array_like, dict, :class:`~cwinpy.HeterodynedData`)
-            The heterodyned data either as a string giving a file path, an
-            array of data, or a dictionary of file paths/data arrays, that are
-            keyed on valid detector names.
-        times: (array_like, dict)
-            If `data` is an array, or dictionary of arrays, then `times` must
-            be set giving the time stamps for the data values. If `times` is
-            a dictionary then it should be keyed on the same detector names as
-            in `data`.
-        detector: (str, lal.Detector)
-            If `data` is a file name or data array then `detector` must be
-            given as a string or :class:`lal.Detector`.
-        """
+                 bbthreshold="default", **kwargs):
 
-        self.__window = window  # set running median window
-        self.__par = par        # set heterodyne pulsar parameter file
-        self.__injpar = injpar  # set an injection parameter file
-        self.__inject = inject  # set whether an injection is performed
-        self.__freqfactor = freqfactor  # set frequency scale
+        # set keyword argument
+        self.__heterodyned_data_kwargs = {}
+        self.__heterodyned_data_kwargs['window'] = window
+        self.__heterodyned_data_kwargs['par'] = par
+        self.__heterodyned_data_kwargs['injpar'] = injpar
+        self.__heterodyned_data_kwargs['inject'] = inject
+        self.__heterodyned_data_kwargs['freqfactor'] = freqfactor
+        self.__heterodyned_data_kwargs['bbthreshold'] = bbthreshold
 
         self.__data = OrderedDict()  # initialise empty dict
         self.__currentidx = 0  # index for iterator
@@ -144,9 +154,7 @@ class MultiHeterodynedData(object):
             raise ValueError("data and detector must be set")
 
         het = HeterodynedData(data, times, detector=detector,
-                              par=self.__par, window=self.__window,
-                              inject=self.__inject, injpar=self.__injpar,
-                              freqfactor=self.__freqfactor)
+                              **self.__heterodyned_data_kwargs)
 
         self._add_HeterodynedData(het)
 
@@ -205,108 +213,106 @@ class MultiHeterodynedData(object):
 
 class HeterodynedData(object):
     """
-        A class to contain a time series of heterodyned data.
+    A class to contain a time series of heterodyned data.
 
-        Some examples of input `data` are:
+    Some examples of input `data` are:
 
-        1. The path to a file containing (gzipped) ascii text with the
-        following three columns::
+    1. The path to a file containing (gzipped) ascii text with the
+    following three columns::
 
-            # GPS time stamps   real strain   imaginary strain
-            1000000000.0         2.3852e-25    3.4652e-26
-            1000000060.0        -1.2963e-26    9.7423e-25
-            1000000120.0         5.4852e-25   -1.8964e-25
-            ...
+        # GPS time stamps   real strain   imaginary strain
+        1000000000.0         2.3852e-25    3.4652e-26
+        1000000060.0        -1.2963e-26    9.7423e-25
+        1000000120.0         5.4852e-25   -1.8964e-25
+        ...
 
-        or four columns::
+    or four columns::
 
-            # GPS time stamps   real strain   imaginary strain   std. dev.
-            1000000000.0         2.3852e-25    3.4652e-26        1.0e-25
-            1000000060.0        -1.2963e-26    9.7423e-25        1.0e-25
-            1000000120.0         5.4852e-25   -1.8964e-25        1.0e-25
-            ...
+        # GPS time stamps   real strain   imaginary strain   std. dev.
+        1000000000.0         2.3852e-25    3.4652e-26        1.0e-25
+        1000000060.0        -1.2963e-26    9.7423e-25        1.0e-25
+        1000000120.0         5.4852e-25   -1.8964e-25        1.0e-25
+        ...
 
-        where any row that starts with a ``#`` or a ``%`` is considered a
-        comment.
+    where any row that starts with a ``#`` or a ``%`` is considered a comment.
 
-        2. A 1-dimensional array of complex data, and accompanying array of
-        `time` values, e.g.,
+    2. A 1-dimensional array of complex data, and accompanying array of `time`
+    values, e.g.,
 
-        >>> import numpy as np
-        >>> N = 100  # the data length
-        >>> data = np.random.randn(N) + 1j*np.random.randn(N)
-        >>> times = np.linspace(1000000000., 1000005940., N)
+    >>> import numpy as np
+    >>> N = 100  # the data length
+    >>> data = np.random.randn(N) + 1j*np.random.randn(N)
+    >>> times = np.linspace(1000000000., 1000005940., N)
 
-        or, a 2-dimensional array with the real and complex values held in
-        separate columns, e.g.,
+    or, a 2-dimensional array with the real and complex values held in separate
+    columns, e.g.,
 
-        >>> import numpy as np
-        >>> N = 100  # the data length
-        >>> data = np.random.randn(N, 2)
-        >>> times = np.linspace(1000000000., 1000005940., N)
+    >>> import numpy as np
+    >>> N = 100  # the data length
+    >>> data = np.random.randn(N, 2)
+    >>> times = np.linspace(1000000000., 1000005940., N)
 
-        or, a 2-dimensional array with the real and complex values held in
-        separate columns, *and* a third column holding the standard deviation
-        for each entry, e.g.,
+    or, a 2-dimensional array with the real and complex values held in separate
+    columns, *and* a third column holding the standard deviation for each
+    entry, e.g.,
 
-        >>> import numpy as np
-        >>> N = 100  # the data length
-        >>> stds = np.ones(N)  # standard deviations
-        >>> data = np.array([stds*np.random.randn(N),
-        >>> ...              stds*np.random.randn(N), stds]).T
-        >>> times = np.linspace(1000000000., 1000005940., N)
+    >>> import numpy as np
+    >>> N = 100  # the data length
+    >>> stds = np.ones(N)  # standard deviations
+    >>> data = np.array([stds*np.random.randn(N),
+    >>> ...              stds*np.random.randn(N), stds]).T
+    >>> times = np.linspace(1000000000., 1000005940., N)
 
-        Parameters
-        ----------
-        data: (str, array_like)
-            A file (plain ascii text, or gzipped ascii text) containing a time
-            series of heterodyned data, or an array containing the complex
-            heterodyned data.
-        times: array_like
-            If the data was passed using the `data` argument, then the
-            associated time stamps should be passed using this argument.
-        par: (str, lalpulsar.PulsarParametersPy)
-            A parameter file, or :class:`lalpulsar.PulsarParametersPy` object
-            containing the parameters with which the data was heterodyned.
-        detector: (str, lal.Detector)
-            A string, or lal.Detector object, identifying the detector from
-            which the data was generated.
-        window: int, 30
-            The length of a window used for calculating a running median over
-            the data.
-        inject: bool, False
-            Set to ``True`` to add a simulated signal to the data based on the
-            parameters supplied in `injpar`, or `par` if `injpar` is not given.
-        injpar: (str, lalpulsar.PulsarParametersPy)
-            A parameter file name or :class:`lalpulsar.PulsarParametersPy`
-            object containing values for the injected signal. A `par` file must
-            also have been provided, and the injected signal will assume that
-            the data has already been heterodyned using the parameters from
-            `par`, which could be different.
-        injtimes: list, None
-            A list containing pairs of times between which to add the simulated
-            signal. By default the signal will be added into the whole data
-            set.
-        freqfactor: float, 2.0
-            The frequency scale factor for the data signal, e.g., a value
-            of two for emission from the l=m=2 mode at twice the rotation
-            frequency of the source.
-        fakeasd: (float, str)
-            A amplitude spectral density value (in 1/sqrt(Hz)) at which to
-            generate simulated Gaussian noise to add to the data.
-            Alternatively, if a string is passed, and that string represents a
-            known detector, then the amplitude spectral density for that
-            detector at design sensitivity will be used (this requires a `par`
-            value to be included, which contains the source rotation
-            frequency).
+    Parameters
+    ----------
+    data: (str, array_like)
+        A file (plain ascii text, or gzipped ascii text) containing a time
+        series of heterodyned data, or an array containing the complex
+        heterodyned data.
+    times: array_like
+        If the data was passed using the `data` argument, then the associated
+        time stamps should be passed using this argument.
+    par: (str, lalpulsar.PulsarParametersPy)
+        A parameter file, or :class:`lalpulsar.PulsarParametersPy` object
+        containing the parameters with which the data was heterodyned.
+    detector: (str, lal.Detector)
+        A string, or lal.Detector object, identifying the detector from which
+        the data was generated.
+    window: int, 30
+        The length of a window used for calculating a running median over the
+        data.
+    inject: bool, False
+        Set to ``True`` to add a simulated signal to the data based on the
+        parameters supplied in `injpar`, or `par` if `injpar` is not given.
+    injpar: (str, lalpulsar.PulsarParametersPy)
+        A parameter file name or :class:`lalpulsar.PulsarParametersPy`
+        object containing values for the injected signal. A `par` file must
+        also have been provided, and the injected signal will assume that
+        the data has already been heterodyned using the parameters from
+        `par`, which could be different.
+    injtimes: list, None
+        A list containing pairs of times between which to add the simulated
+        signal. By default the signal will be added into the whole data set.
+    freqfactor: float, 2.0
+        The frequency scale factor for the data signal, e.g., a value of two
+        for emission from the l=m=2 mode at twice the rotation frequency of the
+        source.
+    fakeasd: (float, str)
+        A amplitude spectral density value (in 1/sqrt(Hz)) at which to
+        generate simulated Gaussian noise to add to the data. Alternatively, if
+        a string is passed, and that string represents a known detector, then
+        the amplitude spectral density for that detector at design sensitivity
+        will be used (this requires a `par` value to be included, which
+        contains the source rotation frequency).
+    bbthreshold: (str, float), "default"
+        The threshold method, or value for the
+        :meth:`~cwinpy.HeterodynedData.bayesian_blocks` function.
 
-        Examples
-        --------
         """
 
     def __init__(self, data=None, times=None, par=None, detector=None,
                  window=30, inject=False, injpar=None, injtimes=None,
-                 freqfactor=2.0, fakeasd=None):
+                 freqfactor=2.0, fakeasd=None, bbthreshold="default"):
         self.window = window  # set the window size
 
         # set the data
@@ -427,7 +433,12 @@ class HeterodynedData(object):
 
         # initialise the running median
         _ = self.compute_running_median(N=self.window)
-        _ = self.compute_variance(N=self.window)
+
+        # initialise change points to None
+        self.__change_point_indices_and_ratios = None
+ 
+        # calculate change points (and variances)
+        self.bayesian_blocks()
 
     @property
     def times(self):
@@ -644,21 +655,26 @@ class HeterodynedData(object):
         # subtract running median from the data
         datasub = self.subtract_running_median()
 
-        if change_points is None:
+        if (change_points is None and
+            self.__change_point_indices_and_ratios is None):
             # return the (sample) variance (hence 'ddof=1')
             self.__vars = np.full(len(self),
                                   np.hstack((datasub.real,
                                              datasub.imag)).var(ddof=1))
 
         else:
-            cps = np.concatenate(([0], np.asarray(change_points, dtype=np.int),
-                                  [len(datasub)]))
+            if change_points is not None:
+                cps = np.concatenate(([0], np.asarray(change_points),
+                                      [len(datasub)])).astype('int')
+            else:
+                cps = np.concatenate(([0], self.change_point_indices,
+                                      [len(datasub)])).astype('int')
 
             if self.stds is None:
                 self.stds = np.zeros(len(self))
 
             for i in range(len(cps)-1):
-                if cps[i+1] < 1 or cps[i+1] > len(datasub)-2:
+                if cps[i+1] < 1 or cps[i+1] > len(datasub):
                     raise ValueError("Change point index is out of bounds")
 
                 if cps[i+1] <= cps[i]:
@@ -889,12 +905,14 @@ class HeterodynedData(object):
         self.__data.real += noise[:, 0]
         self.__data.imag += noise[:, 1]
 
-    def bayesian_blocks(self, threshold='default', minlength=5):
+    def bayesian_blocks(self, threshold='default', minlength=5,
+                        maxlength=np.inf):
         """
-        Apply a Bayesian-Block-style algorithm to cut the data up into chunks
-        with different statistical properties using the formalism described in
-        Section 2.4 of [1]_. Within each chunk the data should be well
-        described by a single Gaussian distribution with zero mean.
+        Apply a Bayesian-Block-style algorithm to cut the data (after
+        subtraction of a running median) up into chunks with different
+        statistical properties using the formalism described in Section 2.4 of
+        [1]_. Within each chunk the data should be well described by a single
+        Gaussian distribution with zero mean.
 
         Splitting of the data relies on a threshold on the natural logarithm of
         the odds comparing the hypothesis that the data is best described by
@@ -907,40 +925,114 @@ class HeterodynedData(object):
         The ``'default'`` threshold for splitting is empirically derived in
         [1]_ for the cases that the prior odds between the two hypotheses is
         equal, and has a 1% false alarm probability for splitting data that is
-        actually drawn from a single zero mean Gaussian. The ``'prior'``
+        actually drawn from a single zero mean Gaussian. The ``'trials'``
         threshold comes from assigning equal priors to the single Gaussian
-        hypothesis and *each* of the sub-hypotheses that have a split.
+        hypothesis and the full compound hypotheses that there is a split
+        (in the ``'default'`` threshold it implicitly assume the single
+        Gaussian hypothesis and *each* numerator sub-hypothesis have equal
+        prior probability). This is essentially like a trials factor.
         Alternatively, the `threshold` value can be any real number.
 
         Parameters
         ----------
         threshold: (str, float)
-           A string giving the method for determining the threshold for
-           splitting the data (described above), or a value of the threshold.
+            A string giving the method for determining the threshold for
+            splitting the data (described above), or a value of the threshold.
         minlength: int
-           The minimum length that a chunk can be split into. Defaults to 5.
+            The minimum length that a chunk can be split into. Defaults to 5.
+        maxlength: int
+            The maximum length that a chunk can be split into. Defaults to inf.
 
         .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1 <https:arxiv.org/abs/1705.08978v1>`_,
            2017.
         """
 
+        if not isinstance(minlength, int):
+            raise ValueError("Minimum chunk length must be an integer")
+
+        if minlength < 1:
+            raise ValueError("Minimum chunk length must be a positive integer")
+
+        if maxlength <= minlength:
+            raise ValueError("Maximum chunk length must be greater than the "
+                             "minimum chunk length.")
+
         # chop up the data
-        self.__chunk_indices = []
-        self._chop_data(self.data, threshold=threshold, minlength=minlength)
+        self.__change_point_indices_and_ratios = []
+        self._chop_data(self.subtract_running_median(), threshold=threshold,
+                        minlength=minlength)
+        
+        # sort the indices
+        self.__change_point_indices_and_ratios = sorted(self.__change_point_indices_and_ratios)
+
+        # if any chunks are longer than maxlength, then split them
+        if maxlength < len(self):
+            insertcps = []
+            cppos = 0
+            for i, clength in enumerate(self.chunk_lengths):
+                if clength > maxlength:
+                    insertcps.append((cppos + maxlength, 0))
+                cppos += clength
+
+            self.__change_point_indices_and_ratios.append(insertcps)
+            self.__change_point_indices_and_ratios = sorted(self.__change_point_indices_and_ratios)
+
+        # (re)calculate the variances for each chunk
+        _ = self.compute_variance(N=self.window)
+
+    @property
+    def change_point_indices(self):
+        """
+        Return a list of indices of statistical change points in the data.
+        """
+
+        return [cps[0] for cps in self.__change_point_indices_and_ratios]
+
+    @property
+    def change_point_ratios(self):
+        """
+        Return a list of the log marginal likelihood ratios for the statistical
+        change points in the data.
+        """
+
+        return [cps[1] for cps in self.__change_point_indices_and_ratios]
+
+    @property
+    def chunk_lengths(self):
+        """
+        A list with the lengths of the chunks into which the data has been
+        split.
+        """
+
+        return np.diff(np.concatenate(([0], self.change_point_indices,
+                                       [len(self)])))
 
     def _chop_data(self, data, threshold='default', minlength=5):
+        # find change point
+        lratio, cpidx, ntrials = self._find_change_point(data, minlength)
+        
         # set the threshold
         if threshold == 'default':
             # default threshold for data splitting
-            thresh = lambda l: 4.07 + 1.33 * np.log10(l)
-        elif threshold == 'prior':
-            # assign equal prior probability for each subhypothesis
-            thresh = lambda l: np.log(l)
+            thresh = 4.07 + 1.33 * np.log10(len(data))
+        elif threshold == 'trials':
+            # assign equal prior probability for each hypothesis
+            thresh = np.log(ntrials)
         elif isinstance(threshold, float):
-            thresh = lambda l: threshold
+            thresh = threshold
         else:
             raise ValueError("threshold is not recognised")
 
+        if lratio > thresh:
+            # split the data at the change point
+            self.__change_point_indices_and_ratios.append((cpidx, lratio))
+
+            # split the data and check for another change point
+            chunk1 = data[0:cpidx]
+            chunk2 = data[cpidx:]
+
+            self._chop_data(chunk1, threshold, minlength)
+            self._chop_data(chunk2, threshold, minlength)
 
     def _find_change_point(self, subdata, minlength):
         """
@@ -985,11 +1077,11 @@ class HeterodynedData(object):
 
         # go through each possible splitting of the data in two
         for i in range(lsum):
-            sumforwards = (np.abs(subdata[0:minlength+1])**2).sum()
-            sumbackwards = (np.abs(subdata[minlength+1:])**2).sum()
+            sumforwards = (np.abs(subdata[:minlength+i])**2).sum()
+            sumbackwards = (np.abs(subdata[minlength+i:])**2).sum()
 
-            dlenf = len(subdata[0:minlength+1])
-            dlenb = len(subdata[minlength+1:])
+            dlenf = minlength + i
+            dlenb = dlen - (minlength + 1)
 
             logf = (-lal.LN2 - dlenf * lal.LNPI + logfactorial(dlenf - 1) -
                     dlenf * np.log(sumforwards))

@@ -4,5 +4,8 @@ Data handling
 
 .. automodule:: cwinpy.data
 
+.. autoclass:: cwinpy.data.MultiHeterodynedData
+   :members:
+
 .. autoclass:: cwinpy.data.HeterodynedData
    :members:
