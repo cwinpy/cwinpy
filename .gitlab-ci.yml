@@ -20,11 +20,8 @@ python-3.7:
   before_script:
     # Install the dependencies specified in the Pipfile
     - pip install --upgrade pip
-    - pip install numpy>=1.15
-    - pip install astropy
-    - pip install matplotlib
-    - pip install lalsuite==6.52.1.dev20190207
-    - pip install sphinx recommonmark numpydoc nbsphinx autodoc sphinx_rtd_theme sphinx_tabs
+    - pip install -r requirements.txt
+    - pip install -r docs-requirements
     - pip install pytest coverage pytest-coverage coverage-badge
   script:
     - python setup.py install
