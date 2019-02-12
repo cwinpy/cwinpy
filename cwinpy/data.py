@@ -418,6 +418,14 @@ class HeterodynedData(object):
     def times(self):
         return self.__times
 
+    @property
+    def tottime(self):
+        """
+        The total time (in seconds) of the data.
+        """
+
+        return self.__tottime
+
     @times.setter
     def times(self, times):
         """
@@ -425,6 +433,7 @@ class HeterodynedData(object):
         """
 
         self.__times = np.asarray(times, dtype='float64')
+        self.__tottime = self.times[-1] - self.times[0]
 
     @property
     def dt(self):
@@ -1080,22 +1089,124 @@ class HeterodynedData(object):
 
         return (logratio, cp, lsum)
 
-    def power_spectrum(self):
+    def power_spectrum(self, window=None):
+        power, frequencies, _ = self.spectrogram(window=window)
 
+        return frequencies, power
+
+    def spectrogram(self, dt=86400, window=None, overlap=0.5, plot=False,
+                    ax=None, cmap=None, **kwargs):
+        """
+        Compute a spectrogram from the data using the
+        :func:`matplotlib.mlab.specgram` function.
+
+        Parameters
+        ----------
+        dt: (float, int)
+            The length of time (in seconds) for each spectrogram time bin.
+            The default is 86400 seconds (i.e., one day).
+        window: (callable, np.ndarray)
+            The window to apply to each FFT block. Default is to use
+            :func:`matplotlib.mlab.window_hanning`.
+        overlap: (float, int)
+            If a floating point number between [0, 1) this gives the fractional
+            overlap between adjacent FFT blocks (which defaults to 0.5, i.e., a
+            50% overlap). If an integer of 1 or more this is the number of
+            points to overlap between adjacent FFT blocks (this is how the
+            argument is used in :func:`~matplotlib.mlab.specgram`).
+        plot: bool, False
+            If ``True`` then return the spectrogram as a plot (this can be on
+            a supplied :class:`~matplotlib.axes.Axes` or
+            :class:`~matplotlib.figure.Figure`)
+        ax: (axes, figure)
+            If `ax` is a :class:`matplotlib.axes.Axes` or
+            :class:`matplotlib.figure.Figure` then the spectrogram will be
+            plotted on the supplied axis.
+        cmap: colormap
+            If plotting the figure then a :class:`matplotlib.colors.Colormap`
+            can be passed for the plot.
+        kwargs:
+            Keyword arguments for :func:`matplotlib.pyplot.subplots`.
+
+        Returns
+        -------
+        array_like:
+            A :class:`numpy.ndarray` of frequencies for the spectrogram
+        array_like:
+            A 2d :class:`numpy.ndarray` of the spectrogram power at each
+            frequency and time
+        array_like:
+            A :class:`numpy.ndarray` of the central times of each FFT in the
+            spectrogram.
+        """
+
+        # get the zero padded data
         padded = self._zero_pad()
 
-    def spectrogram(self):
+        Fs = 1./gcd_array(np.diff(self.times))  # sampling frequency
 
-        padded = self._zero_pad()
+        if not isinstance(dt, (float, int)):
+            raise ValueError("Time bin must be an integer or float")
+
+        if dt < 1./Fs or dt > self.tottime:
+            raise ValueError("The time bin selected is invalid")
+
+        # set the number of samples for each FFT block
+        nfft = int(dt/Fs)
+
+        if isinstance(overlap, float):
+            if overlap >= 0. and overlap < 1.:
+                noverlap = int(overlap*nfft)
+            else:
+                raise ValueError("Overlap must be a float between 0 and 1")
+        elif isinstance(overlap, int):
+            if overlap >= 0 and overlap <= len(self)-1:
+                noverlap = overlap
+            else:
+                raise ValueError("Overlap is out of allowed range")
+        else:
+            raise TypeError("Overlap must be an integer or float")
+
+        if ax is None and plot is False:
+            from matplotlib.mlab import specgram
+
+            power, frequencies, times = specgram(padded, Fs=Fs, window=window,
+                                                 NFFT=nfft, noverlap=noverlap)
+
+            return frequencies, power, times
+        else:
+            from matplotlib import pyplot as pl
+            from matplotlib.figure import Figure
+            from matplotlib.axes import Axes
+
+            if isinstance(ax, Figure):
+                thisax = ax.gca()  # get current axis
+            elif isinstance(ax, Axes):
+                thisax = ax
+            else:
+                fig, ax = pl.subplots(**kwargs)
+
+        power, frequencies, times, _ = thisax.specgram(padded, Fs=Fs,
+                                                       window=window,
+                                                       NFFT=nfft,
+                                                       noverlap=noverlap,
+                                                       cmap=cmap)
+
+        return frequencies, power, times
 
     def _zero_pad(self):
         """
-        If reqired zero pad the data to return an evenly sampled dataset for
+        If required zero pad the data to return an evenly sampled dataset for
         use in generating a power spectrum.
+
+        Returns
+        -------
+        :class:`numpy.ndarray`:
+            An array of the data padded with zeros.
         """
 
         # check diff of times
-        if len(times) < 2:
+        if len(self.times) < 2:
             raise ValueError("There must be at least two samples!")
 
         dts = np.diff(self.times)
@@ -1109,7 +1220,7 @@ class HeterodynedData(object):
 
         # get the "new" padded time stamps
         newtimes = np.linspace(self.times[0], self.times[-1],
-                               1 + int(self.times[-1] - self.times[0]) / gcd)
+                               1 + int(self.tottime) / gcd)
 
         # get indices of original times im new times
         tidxs = np.where(np.in1d(newtimes, self.times))[0]
@@ -1120,7 +1231,29 @@ class HeterodynedData(object):
 
         return padded
 
-    def periodogram(self):
+    def periodogram(self, ax=None):
+        """
+        Produce a two-sided Lomb-Scargle periodogram of the data. This uses the
+        :class:`astropy.stats.LombScargle` function to calculate the
+        frequencies for the periodogram, and then uses the
+        :func:`scipy.signal.periodogram` method.
+
+        Returns
+        -------
+        array_like:
+            The frequency series
+        array_like:
+            The periodogram power
+        """
+
+        try:
+            from astropy.stats import LombScargle
+        except ImportError:
+            raise ImportError("Could not import 'LombScargle'")
+        
+        frequency, power = LombScargle(self.times, self.data).autopower()
+
+        return frequency, power
 
     def __len__(self):
         return len(self.data)
