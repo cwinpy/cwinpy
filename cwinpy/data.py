@@ -7,57 +7,13 @@ from __future__ import division, print_function
 import numpy as np
 import warnings
 from collections import OrderedDict
-from scipy.special import gammaln
-from math import gcd
-from functools import reduce
 
 # import lal and lalpulsar
 import lal
 import lalpulsar
 
-
-def logfactorial(n):
-    """
-    The natural logarithm of the factorial of an integer using the fact that
-
-    .. math::
-
-        \\ln{(n!)} = \\ln{\\left(\\Gamma (n+1)\\right)}
-
-    Parameters
-    ----------
-    n: int
-        An integer for which the natural logarithm of its factorial is
-        required.
-
-    Returns
-    -------
-    float
-    """
-
-    if isinstance(n, int):
-        if n >= 0:
-            return gammaln(n+1)
-        else:
-            raise ValueError("Can't find the factorial of a negative number")
-    else:
-        raise ValueError("Can't find the factorial of a non-integer value")
-
-
-def gcd_array(denominators):
-    """
-    Function to calculate the greatest common divisor of a list of values..
-    """
-
-    if not isinstance(denominators, (tuple, list, np.ndarray)):
-        raise TypeError("Must have a list or array")
-
-    denoms = np.asarray(denominators).flatten()  # 1d array
-    
-    if len(denoms) < 2:
-        raise ValueError("Must have more than two values")
-
-    return reduce(lambda a , b: gcd(a, b), denoms)
+# import utility functions
+from .utils import logfactorial, gcd_array
 
 
 class MultiHeterodynedData(object):
@@ -1123,6 +1079,48 @@ class HeterodynedData(object):
         logratio = logtot - logsingle
 
         return (logratio, cp, lsum)
+
+    def power_spectrum(self):
+
+        padded = self._zero_pad()
+
+    def spectrogram(self):
+
+        padded = self._zero_pad()
+
+    def _zero_pad(self):
+        """
+        If reqired zero pad the data to return an evenly sampled dataset for
+        use in generating a power spectrum.
+        """
+
+        # check diff of times
+        if len(times) < 2:
+            raise ValueError("There must be at least two samples!")
+
+        dts = np.diff(self.times)
+
+        if np.all(dts == self.dt):
+            # no zero padding required as data is evenly sampled
+            return self.data
+
+        # get the greatest common divisor of the deltaTs
+        gcd = gcd_array(dts)
+
+        # get the "new" padded time stamps
+        newtimes = np.linspace(self.times[0], self.times[-1],
+                               1 + int(self.times[-1] - self.times[0]) / gcd)
+
+        # get indices of original times im new times
+        tidxs = np.where(np.in1d(newtimes, self.times))[0]
+
+        # get zero array and add data
+        padded = np.zeros(len(newtimes), dtype=np.complex)
+        padded[tidxs] = self.data
+
+        return padded
+
+    def periodogram(self):
 
     def __len__(self):
         return len(self.data)
