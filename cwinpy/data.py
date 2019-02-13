@@ -1204,7 +1204,7 @@ class HeterodynedData(object):
             The default is 86400 seconds (i.e., one day).
         window: (callable, np.ndarray)
             The window to apply to each FFT block. Default is to use
-            :func:`matplotlib.mlab.window_hanning`.
+            :func:`scipy.signal.tukey` with the `alpha` parameter set to 0.1.
         overlap: (float, int)
             If a floating point number between [0, 1) this gives the fractional
             overlap between adjacent FFT blocks (which defaults to 0.5, i.e., a
@@ -1277,7 +1277,7 @@ class HeterodynedData(object):
             raise ValueError("The time bin selected is invalid")
 
         # set the number of samples for each FFT block
-        nfft = int(dt/Fs)
+        nfft = int(dt*Fs)
 
         if isinstance(overlap, float):
             if overlap >= 0. and overlap < 1.:
@@ -1292,20 +1292,25 @@ class HeterodynedData(object):
         else:
             raise TypeError("Overlap must be an integer or float")
 
+        if window is None:
+            from scipy.signal import tukey
+
+            window = tukey(nfft, alpha=0.1)
+
         # generate spectrogram 
         try:
             from matplotlib.mlab import specgram
-                
-            power, frequencies, times = specgram(padded, Fs=Fs,
-                                                 window=window,
-                                                 NFFT=nfft,
-                                                 noverlap=noverlap)
+
+            power, frequencies, stimes = specgram(padded, Fs=Fs,
+                                                  window=window,
+                                                  NFFT=nfft,
+                                                  noverlap=noverlap)
         except Exception as e:
             raise RuntimeError("Problem creating spectrogram: "
                                "{}".format(e))
 
         if ax is None and not plot:
-            return frequencies, power, times
+            return frequencies, power, stimes
         
         try:
             from matplotlib import pyplot as pl
@@ -1333,7 +1338,7 @@ class HeterodynedData(object):
             
             # set whether to output frequency labels as fractions
             if fraction_labels:
-                rcparams['text.latex.preamble'] = r'\usepackage{xfrac}'
+                rcparams['text.latex.preamble'] = '\\usepackage{xfrac}'
 
                 # set at quarters of the sample frequency
                 yticks = [-Fs/2., -Fs/4., 0., Fs/2., Fs/4.]
@@ -1342,33 +1347,35 @@ class HeterodynedData(object):
                     if tick == 0.:
                         ylabels.append('0')
                     else:
-                        ylabels.append(r"${{{1}}}\sfrac{{1}}"
-                                       "{{{2}}}$".format('-' if tick < 0. else '',
-                                                         int(np.abs(tick))))
+                        sign = '-' if tick < 0. else ''
+                        label = "${0}\sfrac{{{1}}}{{{2}}}$".format(sign,
+                                                                   1,
+                                                                   int(1. / np.abs(tick)))
+                        ylabels.append(label)
 
             # use context manager for rcparams
-            with mpl.rc_context(rc=rcparams):
-                if isinstance(ax, (Figure, Axes)):
-                    if isinstance(ax, Figure):
-                        fig = ax
-                        thisax = ax.gca()  # get current axis
-                    else:
-                        fig = ax.get_figure()
-                        thisax = ax
+            if isinstance(ax, (Figure, Axes)):
+                if isinstance(ax, Figure):
+                    fig = ax
+                    thisax = ax.gca()  # get current axis
                 else:
-                    fig, thisax = pl.subplots(**kwargs)
+                    fig = ax.get_figure()
+                    thisax = ax
+            else:
+                # update rcParams
+                mpl.rcParams.update(rcparams)
+                fig, thisax = pl.subplots(**kwargs)
 
-                thisax.imshow(np.sqrt(np.flipud(power)), aspect='auto',
-                              extent=extent, interpolation=None, cmap=cmap,
-                              norm=colors.Normalize())
+            thisax.imshow(np.sqrt(np.flipud(power)), aspect='auto',
+                          extent=extent, interpolation=None, cmap=cmap,
+                          norm=colors.Normalize())
 
-                ax.set_xlabel('GPS - {}'.format(times[0]))
-                ax.set_ylabel(r'Frequency (Hz)')
+            thisax.set_xlabel('GPS - {}'.format(int(times[0])))
+            thisax.set_ylabel(r'Frequency (Hz)')
 
-                if fraction_labels:
-                    ax.set_yticks(yticks)
-                    ax.set_yticklabels(yl)
-
+            if fraction_labels:
+                thisax.set_yticks(yticks)
+                thisax.set_yticklabels(ylabels)
         except Exception as e:
             raise RuntimeError("Problem creating spectrogram: {}".format(e))
 
