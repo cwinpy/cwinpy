@@ -371,3 +371,77 @@ def test_running_median():
     assert (het.subtract_running_median()[0] ==
             (data[0] - (np.median(data.real[:(window//2)+1]) + 
                         1j*np.median(data.imag[:(window//2)+1]))))
+
+
+def test_outlier_removal():
+    """
+    Test the outlier removal algorithm.
+    """
+
+    # set data
+    times = np.linspace(1000000000., 1000001740, 30)
+    data = (np.random.normal(0., 1., size=30) +
+            1j*np.random.normal(0., 1., size=30))
+    
+    # add outliers (one in the real part and one in the imaginary)
+    data[10] = 20. + data.imag[10]*1j
+    data[20] = data.real[20] - 20.*1j
+
+    het = HeterodynedData(data, times=times)
+
+    # try finding the outlier (and testing exceptions)
+    thresh = 'a'
+    with pytest.raises(TypeError):
+        _ = het.find_outliers(thresh=thresh)
+
+    thresh = -1.
+    with pytest.raises(ValueError):
+        _ = het.find_outliers(thresh=thresh)
+
+    idxs = het.find_outliers()
+
+    assert len(np.where(idxs == True)[0]) == 2
+    assert ((np.where(idxs == True)[0][0] == 10) and
+            (np.where(idxs == True)[0][1] == 20))
+
+    # test removing the outlier automatically
+    newhet = HeterodynedData(data, times=times, remove_outliers=True)
+    assert len(newhet) == (len(data) - 2)
+
+
+def test_bayesian_blocks():
+    """
+    Test Bayesian Blocks splitting.
+    """
+
+    times = np.linspace(1000000000., 1000086340., 1440)
+    
+    # create data from two obviously different Gaussian distributions
+    sigma1 = 1.
+    data1 = (np.random.normal(0., sigma1, size=720) +
+             1j*np.random.normal(0., sigma1, size=720))
+    sigma2 = 50.
+    data2 = (np.random.normal(0., sigma2, size=720) +
+             1j*np.random.normal(0., sigma2, size=720))
+
+    data = np.concatenate((data1, data2))
+
+    with pytest.raises(ValueError):
+        # check error raise if "random" threshold is used
+        het = HeterodynedData(data, times, bbthreshold='sdkgasnm')
+
+    # check different thresholds
+    for thresh in ['default', 'trials', 1000.]:
+        het = HeterodynedData(data, times=times, bbthreshold=thresh)
+
+        # check that a change point was found
+        assert len(het.change_point_indices) > 0
+
+        # check for a change point within +/- 2 of 720
+        found = False
+        for cp in het.change_point_indices:
+            if 718 <= cp <= 722:
+                found = True
+                break
+    
+        assert found

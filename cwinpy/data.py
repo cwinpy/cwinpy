@@ -46,7 +46,8 @@ class MultiHeterodynedData(object):
 
     def __init__(self, data=None, times=None, detector=None, window=30,
                  inject=False, par=None, injpar=None, freqfactor=2.0,
-                 bbthreshold="default", **kwargs):
+                 bbthreshold="default", remove_outliers=False, thresh=3.5,
+                 **kwargs):
 
         # set keyword argument
         self.__heterodyned_data_kwargs = {}
@@ -56,6 +57,8 @@ class MultiHeterodynedData(object):
         self.__heterodyned_data_kwargs['inject'] = inject
         self.__heterodyned_data_kwargs['freqfactor'] = freqfactor
         self.__heterodyned_data_kwargs['bbthreshold'] = bbthreshold
+        self.__heterodyned_data_kwargs['remove_outliers'] = remove_outliers
+        self.__heterodyned_data_kwargs['thresh'] = thresh
 
         self.__data = OrderedDict()  # initialise empty dict
         self.__currentidx = 0  # index for iterator
@@ -281,13 +284,33 @@ class HeterodynedData(object):
     bbthreshold: (str, float), "default"
         The threshold method, or value for the
         :meth:`~cwinpy.HeterodynedData.bayesian_blocks` function.
+    remove_outliers: bool, False
+        If ``True`` outliers will be found (using
+        :meth:`cwinpy.HeterodynedData.find_outliers`) and removed from the
+        data. They will not be stored anywhere in the class.
+    thresh: float, 3.5
+        The modified z-score threshold for outlier removal (see
+        :meth:`cwinpy.HeterodynedData.find_outliers`)
+    """
 
-        """
+    # set default Matplotlib setup parameters for plots
+    defaultmplparams = {'backend': 'Agg',
+                        'text.usetex': True, # use LaTeX for all text
+                        'axes.linewidth': 0.5, # set axes linewidths to 0.5
+                        'axes.grid': True, # add a grid
+                        'grid.linewidth': 0.5,
+                        'font.family': 'serif',
+                        'font.size': 15,
+                        'text.latex.preamble': r'\usepackage{xfrac}'}
 
     def __init__(self, data=None, times=None, par=None, detector=None,
                  window=30, inject=False, injpar=None, injtimes=None,
-                 freqfactor=2.0, fakeasd=None, bbthreshold="default"):
+                 freqfactor=2.0, fakeasd=None, bbthreshold="default",
+                 remove_outliers=False, thresh=3.5):
         self.window = window  # set the window size
+        self.__bbthreshold = bbthreshold
+        self.__remove_outliers = remove_outliers
+        self.__outlier_thresh = thresh
 
         # set the data
         self.data = (data, times)
@@ -396,6 +419,15 @@ class HeterodynedData(object):
         if len(self.times) != len(self.data):
             raise ValueError("Data and time stamps are not the same length")
 
+        # remove outliers if requested
+        if self.__remove_outliers:
+            outliers = self.find_outliers(thresh=self.__outlier_thresh)
+            self.__data = self.__data[~outliers]
+            self.__times = self.__times[~outliers]
+
+            if self.__stds is not None:
+                self.__stds = self.__stds[~outliers]
+
         # set the (minimum) time step and sampling frequency
         if len(self.times) > 1:
             self.__dt = np.min(np.diff(self.times))
@@ -412,7 +444,7 @@ class HeterodynedData(object):
         self.__change_point_indices_and_ratios = None
  
         # calculate change points (and variances)
-        self.bayesian_blocks()
+        self.bayesian_blocks(threshold=self.__bbthreshold)
 
     @property
     def times(self):
@@ -716,8 +748,8 @@ class HeterodynedData(object):
                             usephase=True, freqfactor=self.freq_factor)
 
         for timerange in self.injtimes:
-            timeidxs = ((self.times >= timerange[0]) &
-                        (self.times <= timerange[1]))
+            timeidxs = ((self.__times >= timerange[0]) &
+                        (self.__times <= timerange[1]))
             inj_data[timeidxs] = inj[timeidxs]
 
         # add injection to data
@@ -882,7 +914,7 @@ class HeterodynedData(object):
 
         # get noise for real and imaginary components
         noise = np.random.normal(loc=0., scale=sigmaval,
-                                 size=(len(self.data), 2))
+                                 size=(len(self), 2))
 
         # add the noise to the data
         self.__data.real += noise[:, 0]
@@ -926,8 +958,11 @@ class HeterodynedData(object):
         maxlength: int
             The maximum length that a chunk can be split into. Defaults to inf.
 
-        .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1 <https:arxiv.org/abs/1705.08978v1>`_,
-           2017.
+        References
+        ----------
+
+        .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
+           <https:arxiv.org/abs/1705.08978v1>`_, 2017.
         """
 
         if not isinstance(minlength, int):
@@ -939,10 +974,6 @@ class HeterodynedData(object):
         if maxlength <= minlength:
             raise ValueError("Maximum chunk length must be greater than the "
                              "minimum chunk length.")
-
-        # don't try and split if any data is zero
-        if np.any(self.subtract_running_median() == (0.+0*1j)):
-            return
 
         # chop up the data
         self.__change_point_indices_and_ratios = []
@@ -956,7 +987,7 @@ class HeterodynedData(object):
         if maxlength < len(self):
             insertcps = []
             cppos = 0
-            for i, clength in enumerate(self.chunk_lengths):
+            for clength in self.chunk_lengths:
                 if clength > maxlength:
                     insertcps.append((cppos + maxlength, 0))
                 cppos += clength
@@ -1049,6 +1080,10 @@ class HeterodynedData(object):
         if len(subdata) < 2*minlength:
             return (-np.inf, 0, 1)
 
+        # don't try and split if all data is zero
+        if np.all(self.subtract_running_median() == (0.+0*1j)):
+            return (-np.inf, 0, 1)
+
         dlen = len(subdata)
         datasum = (np.abs(subdata)**2).sum()
 
@@ -1064,23 +1099,28 @@ class HeterodynedData(object):
 
         # go through each possible splitting of the data in two
         for i in range(lsum):
-            sumforwards = (np.abs(subdata[:minlength+i])**2).sum()
-            sumbackwards = (np.abs(subdata[minlength+i:])**2).sum()
+            if (np.all(subdata[:minlength+i] == (0.+0*1j)) or 
+                np.all(subdata[minlength+i:] == (0.+0*1j))):
+                # do this to avoid warnings about np.log(0.0)
+                logdouble[i] = -np.inf
+            else:
+                sumforwards = (np.abs(subdata[:minlength+i])**2).sum()
+                sumbackwards = (np.abs(subdata[minlength+i:])**2).sum()
 
-            dlenf = minlength + i
-            dlenb = dlen - (minlength + 1)
+                dlenf = minlength + i
+                dlenb = dlen - (minlength + i)
 
-            logf = (-lal.LN2 - dlenf * lal.LNPI + logfactorial(dlenf - 1) -
-                    dlenf * np.log(sumforwards))
-            logb = (-lal.LN2 - dlenb * lal.LNPI + logfactorial(dlenb - 1) -
-                    dlenb * np.log(sumbackwards))
-            
-            # evidence for that split
-            logdouble[i] = logf + logb
+                logf = (-lal.LN2 - dlenf * lal.LNPI + logfactorial(dlenf - 1) -
+                        dlenf * np.log(sumforwards))
+                logb = (-lal.LN2 - dlenb * lal.LNPI + logfactorial(dlenb - 1) -
+                        dlenb * np.log(sumbackwards))
+
+                # evidence for that split
+                logdouble[i] = logf + logb
 
             # evidence for *any* split
             logtot = np.logaddexp(logtot, logdouble[i])
-        
+
         # change point (maximum of the split evidences)
         cp = np.argmax(logdouble) + minlength
 
@@ -1089,15 +1129,69 @@ class HeterodynedData(object):
 
         return (logratio, cp, lsum)
 
-    def power_spectrum(self, window=None):
+    def find_outliers(self, thresh=3.5):
+        """
+        Find, and return the indices of, and "outliers" in the data. This is a
+        modified version of the median-absolute-deviation (MAD) function from
+        [1]_, using the algorithm of [2]_.
+
+        Parameters
+        ----------
+        thresh: float, 3.5
+            The modified z-score to use as a threshold. Real or imaginary data
+            with a modified z-score (based on the median absolute deviation)
+            greater than this value will be classified as outliers.
+
+        Returns
+        -------
+        array_like:
+            A boolean :class:`numpy.ndarray` that is ``True`` for values that
+            are outliers.
+
+        References
+        ----------
+
+        .. [1] https://github.com/joferkington/oost_paper_code/blob/master/utilities.py and
+           https://stackoverflow.com/a/22357811/1862861
+
+        .. [2] Boris Iglewicz and David Hoaglin (1993), `"Volume 16: How to Detect and
+           Handle Outliers"
+           <https://hwbdocuments.env.nm.gov/Los%20Alamos%20National%20Labs/TA%2054/11587.pdf>`_,
+           The ASQC Basic References in Quality Control:
+           Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
+        """
+
+        if not isinstance(thresh, float):
+            raise TypeError("Threshold must be a float")
+        else:
+            if thresh <= 0.:
+                raise ValueError("Threshold must be a positive number")
+
+        modzscore = []
+
+        for points in [self.data.real, self.data.imag]:
+            median = np.median(points)
+            diff = np.abs(points - median)  # only 1d data, so different from https://stackoverflow.com/a/22357811/1862861
+            mad = np.median(diff)
+            modzscore.append(0.6745 * diff / mad)
+
+        # return boolean array of real or imaginary indices above the threshold
+        return (modzscore[0] > thresh) | (modzscore[1] > thresh)
+
+    def power_spectrum(self, window=None, plot=True):
+        """
+        Compute and plot the power spectrum
+        """
+
         power, frequencies, _ = self.spectrogram(window=window)
 
         return frequencies, power
 
-    def spectrogram(self, dt=86400, window=None, overlap=0.5, plot=False,
-                    ax=None, cmap=None, **kwargs):
+    def spectrogram(self, dt=86400, window=None, overlap=0.5, plot=True,
+                    ax=None, cmap=None, rcparams=None, remove_outliers=False,
+                    **kwargs):
         """
-        Compute a spectrogram from the data using the
+        Compute and plot a spectrogram from the data using the
         :func:`matplotlib.mlab.specgram` function.
 
         Parameters
@@ -1114,10 +1208,11 @@ class HeterodynedData(object):
             50% overlap). If an integer of 1 or more this is the number of
             points to overlap between adjacent FFT blocks (this is how the
             argument is used in :func:`~matplotlib.mlab.specgram`).
-        plot: bool, False
-            If ``True`` then return the spectrogram as a plot (this can be on
-            a supplied :class:`~matplotlib.axes.Axes` or
-            :class:`~matplotlib.figure.Figure`)
+        plot: bool, True
+            By default a plot of the spectrogram will be produced (this can be
+            plotted on a supplied :class:`~matplotlib.axes.Axes` or
+            :class:`~matplotlib.figure.Figure`), but the plotting can be turned
+            off if this is set to ``False``.
         ax: (axes, figure)
             If `ax` is a :class:`matplotlib.axes.Axes` or
             :class:`matplotlib.figure.Figure` then the spectrogram will be
@@ -1125,6 +1220,19 @@ class HeterodynedData(object):
         cmap: colormap
             If plotting the figure then a :class:`matplotlib.colors.Colormap`
             can be passed for the plot.
+        rcparams: dict, None
+            A dictionary of Matplotlib configuration parameters
+            (:class:`matplotlib.RcParams`) for plotting. If ``None``, and an
+            :class:`~matplotlib.axes.Axes` or
+            :class:`~matplotlib.figure.Figure` is not supplied, the some
+            default styles will be used.
+        remove_outliers: bool, False
+            Set to ``True`` to remove outliers points before generating the
+            spectrogram. This is not required if the class was created with
+            the `remove_outliers` keyword already set to ``True``.
+        thresh: float, 3.5
+            The modified z-score threshold for outlier removal (see
+            :meth:`cwinpy.HeterodynedData.find_outliers`).
         kwargs:
             Keyword arguments for :func:`matplotlib.pyplot.subplots`.
 
@@ -1138,17 +1246,28 @@ class HeterodynedData(object):
         array_like:
             A :class:`numpy.ndarray` of the central times of each FFT in the
             spectrogram.
+        figure:
+            The :class:`~matplotlib.figure.Figure` containing the spectrogram
+            plot. This is not returned if `plot` is set to ``False``.
         """
 
         # get the zero padded data
-        padded = self._zero_pad()
+        padded = self._zero_pad(remove_outliers=remove_outliers, thresh=thresh)
 
-        Fs = 1./gcd_array(np.diff(self.times))  # sampling frequency
+        if not self.__remove_outliers and remove_outliers:
+            idx = self.find_outliers(thresh=thresh)
+            times = self.times[~idx]
+            tottime = times[-1] - times[0]
+        else:
+            times = self.times
+            tottime = self.tottime
+
+        Fs = 1./gcd_array(np.diff(times))  # sampling frequency
 
         if not isinstance(dt, (float, int)):
             raise ValueError("Time bin must be an integer or float")
 
-        if dt < 1./Fs or dt > self.tottime:
+        if dt < 1./Fs or dt > tottime:
             raise ValueError("The time bin selected is invalid")
 
         # set the number of samples for each FFT block
@@ -1167,37 +1286,57 @@ class HeterodynedData(object):
         else:
             raise TypeError("Overlap must be an integer or float")
 
-        if ax is None and plot is False:
+        # generate spectrogram 
+        try:
             from matplotlib.mlab import specgram
+                
+            power, frequencies, times = specgram(padded, Fs=Fs,
+                                                 window=window,
+                                                 NFFT=nfft,
+                                                 noverlap=noverlap)
+        except Exception as e:
+            raise RuntimeError("Problem creating spectrogram: "
+                               "{}".format(e))
 
-            power, frequencies, times = specgram(padded, Fs=Fs, window=window,
-                                                 NFFT=nfft, noverlap=noverlap)
-
+        if ax is None and not plot:
             return frequencies, power, times
-        else:
+        
+        try:
             from matplotlib import pyplot as pl
             from matplotlib.figure import Figure
             from matplotlib.axes import Axes
 
             if isinstance(ax, Figure):
+                fig = ax
                 thisax = ax.gca()  # get current axis
             elif isinstance(ax, Axes):
+                fig = ax.get_figure()
                 thisax = ax
             else:
-                fig, ax = pl.subplots(**kwargs)
+                fig, thisax = pl.subplots(**kwargs)
 
-        power, frequencies, times, _ = thisax.specgram(padded, Fs=Fs,
+            power, frequencies, times, _ = thisax.specgram(padded, Fs=Fs,
                                                        window=window,
                                                        NFFT=nfft,
                                                        noverlap=noverlap,
                                                        cmap=cmap)
+        except Exception as e:
+            raise RuntimeError("Problem creating spectrogram: {}".format(e))
 
-        return frequencies, power, times
+        return frequencies, power, times, fig
 
-    def _zero_pad(self):
+    def _zero_pad(self, remove_outliers=False, thresh=3.5):
         """
         If required zero pad the data to return an evenly sampled dataset for
         use in generating a power spectrum.
+
+        Parameters
+        ----------
+        remove_outliers: bool, False
+            If ``True`` remove outliers before zero padding (nothing is done
+            if outliers have already been removed).
+        thresh: float, 3.5
+            The modified z-score threshold for outlier removal.
 
         Returns
         -------
@@ -1205,38 +1344,64 @@ class HeterodynedData(object):
             An array of the data padded with zeros.
         """
 
+        if not self.__remove_outliers and remove_outliers:
+            idx = self.find_outliers(thresh=thresh)
+            times = self.times[~idx]
+            data = self.data[~idx]
+        else:
+            times = self.times
+            data = self.data
+
         # check diff of times
-        if len(self.times) < 2:
+        if len(times) < 2:
             raise ValueError("There must be at least two samples!")
 
-        dts = np.diff(self.times)
+        dts = np.diff(times)
 
         if np.all(dts == self.dt):
             # no zero padding required as data is evenly sampled
-            return self.data
+            return data
 
         # get the greatest common divisor of the deltaTs
         gcd = gcd_array(dts)
 
         # get the "new" padded time stamps
-        newtimes = np.linspace(self.times[0], self.times[-1],
-                               1 + int(self.tottime) / gcd)
+        tottime = times[-1] - times[0]
+        newtimes = np.linspace(times[0], times[-1],
+                               1 + int(tottime) / gcd)
 
         # get indices of original times im new times
-        tidxs = np.where(np.in1d(newtimes, self.times))[0]
+        tidxs = np.where(np.in1d(newtimes, times))[0]
 
         # get zero array and add data
         padded = np.zeros(len(newtimes), dtype=np.complex)
-        padded[tidxs] = self.data
+        padded[tidxs] = data
 
         return padded
 
-    def periodogram(self, ax=None):
+    def periodogram(self, plot=True, ax=None, rcparams=None, **plotkwargs):
         """
-        Produce a two-sided Lomb-Scargle periodogram of the data. This uses the
-        :class:`astropy.stats.LombScargle` function to calculate the
+        Compute and plot a two-sided Lomb-Scargle periodogram of the data. This
+        uses the :class:`astropy.stats.LombScargle` function to calculate the
         frequencies for the periodogram, and then uses the
         :func:`scipy.signal.periodogram` method.
+
+        Parameters
+        ----------
+        plot: bool, True
+            Plot the periodogram unless this is set to ``False``. This can be
+            plotted on a supplied :class:`~matplotlib.axes.Axes` or
+            :class:`~matplotlib.figure.Figure`) using `ax`.
+        ax: (axes, figure)
+            A :class:`~matplotlib.axes.Axes` or
+            :class:`~matplotlib.figure.Figure` onto which to plot the
+            periodogram.
+        rcparams: dict, None
+            A dictionary of Matplotlib configuration parameters
+            (:class:`matplotlib.RcParams`) for plotting. If ``None``, and an
+            :class:`~matplotlib.axes.Axes` or
+            :class:`~matplotlib.figure.Figure` is not supplied, the some
+            default styles will be used.
 
         Returns
         -------
