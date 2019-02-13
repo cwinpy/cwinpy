@@ -300,8 +300,11 @@ class HeterodynedData(object):
                         'axes.grid': True, # add a grid
                         'grid.linewidth': 0.5,
                         'font.family': 'serif',
-                        'font.size': 15,
-                        'text.latex.preamble': r'\usepackage{xfrac}'}
+                        'font.size': 15}
+
+    # set some default detector color maps for plotting
+    coldict = {'H1': 'r', 'L1': 'g', 'V1': 'b', 'G1': 'm'}
+    colmapdic = {'H1': 'Reds', 'L1': 'Greens', 'V1': 'Blues', 'G1': 'PuRd'}
 
     def __init__(self, data=None, times=None, par=None, detector=None,
                  window=30, inject=False, injpar=None, injtimes=None,
@@ -1189,7 +1192,7 @@ class HeterodynedData(object):
 
     def spectrogram(self, dt=86400, window=None, overlap=0.5, plot=True,
                     ax=None, cmap=None, rcparams=None, remove_outliers=False,
-                    **kwargs):
+                    thresh=3.5, fraction_labels=True, **kwargs):
         """
         Compute and plot a spectrogram from the data using the
         :func:`matplotlib.mlab.specgram` function.
@@ -1233,6 +1236,9 @@ class HeterodynedData(object):
         thresh: float, 3.5
             The modified z-score threshold for outlier removal (see
             :meth:`cwinpy.HeterodynedData.find_outliers`).
+        fraction_labels: bool, False
+            Set to ``True`` to output the frequency labels on the plot as
+            fractions.
         kwargs:
             Keyword arguments for :func:`matplotlib.pyplot.subplots`.
 
@@ -1305,21 +1311,64 @@ class HeterodynedData(object):
             from matplotlib import pyplot as pl
             from matplotlib.figure import Figure
             from matplotlib.axes import Axes
+            from matplotlib import colors
+            import matplotlib as mpl
 
-            if isinstance(ax, Figure):
-                fig = ax
-                thisax = ax.gca()  # get current axis
-            elif isinstance(ax, Axes):
-                fig = ax.get_figure()
-                thisax = ax
-            else:
-                fig, thisax = pl.subplots(**kwargs)
+            # extents of the plot
+            extent = [0, tottime, frequencies[0], frequencies[-1]]
 
-            power, frequencies, times, _ = thisax.specgram(padded, Fs=Fs,
-                                                       window=window,
-                                                       NFFT=nfft,
-                                                       noverlap=noverlap,
-                                                       cmap=cmap)
+            # set color map
+            if cmap is None:
+                if self.detector is not None:
+                    if self.detector in self.colmapdic:
+                        cmap = self.colmapdic[self.detector]
+
+            # set rcParams
+            if rcparams is None:
+                if isinstance(ax, (Figure, Axes)):
+                    rcparams = {}
+                else:
+                    # use defaults
+                    rcparams = self.defaultmplparams
+            
+            # set whether to output frequency labels as fractions
+            if fraction_labels:
+                rcparams['text.latex.preamble'] = r'\usepackage{xfrac}'
+
+                # set at quarters of the sample frequency
+                yticks = [-Fs/2., -Fs/4., 0., Fs/2., Fs/4.]
+                ylabels = []
+                for tick in  yticks:
+                    if tick == 0.:
+                        ylabels.append('0')
+                    else:
+                        ylabels.append(r"${{{1}}}\sfrac{{1}}"
+                                       "{{{2}}}$".format('-' if tick < 0. else '',
+                                                         int(np.abs(tick))))
+
+            # use context manager for rcparams
+            with mpl.rc_context(rc=rcparams):
+                if isinstance(ax, (Figure, Axes)):
+                    if isinstance(ax, Figure):
+                        fig = ax
+                        thisax = ax.gca()  # get current axis
+                    else:
+                        fig = ax.get_figure()
+                        thisax = ax
+                else:
+                    fig, thisax = pl.subplots(**kwargs)
+
+                thisax.imshow(np.sqrt(np.flipud(power)), aspect='auto',
+                              extent=extent, interpolation=None, cmap=cmap,
+                              norm=colors.Normalize())
+
+                ax.set_xlabel('GPS - {}'.format(times[0]))
+                ax.set_ylabel(r'Frequency (Hz)')
+
+                if fraction_labels:
+                    ax.set_yticks(yticks)
+                    ax.set_yticklabels(yl)
+
         except Exception as e:
             raise RuntimeError("Problem creating spectrogram: {}".format(e))
 
