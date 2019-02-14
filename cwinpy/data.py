@@ -19,7 +19,7 @@ from .utils import logfactorial, gcd_array
 class MultiHeterodynedData(object):
     """
     A class to contain time series' of heterodyned data, using the
-    :class:`~cwinpy.HeterodynedData` class, for multiple detectors/data
+    :class:`~cwinpy.data.HeterodynedData` class, for multiple detectors/data
     streams.
 
     Parameters
@@ -40,8 +40,8 @@ class MultiHeterodynedData(object):
     Notes
     -----
 
-    See the :class:`~cwinpy.HeterodynedData` documentation for information on
-    additional keyword arguments.
+    See the :class:`~cwinpy.data.HeterodynedData` documentation for information
+    on additional keyword arguments.
     """
 
     def __init__(self, data=None, times=None, detector=None, window=30,
@@ -73,10 +73,11 @@ class MultiHeterodynedData(object):
 
         Parameters
         ----------
-        data: (str, array_like, dict, :class:`~cwinpy.HeterodynedData`)
+        data: (str, array_like, dict, HeterodynedData)
             The heterodyned data either as a string giving a file path, an
-            array of data, or a dictionary of file paths/data arrays, that are
-            keyed on valid detector names.
+            array of data, a dictionary of file paths/data arrays that are
+            keyed on valid detector names, or a
+            :class:`~cwinpy.data.HeterodynedData` object.
         times: (array_like, dict)
             If `data` is an array, or dictionary of arrays, then `times` must
             be set giving the time stamps for the data values. If `times` is
@@ -137,8 +138,8 @@ class MultiHeterodynedData(object):
 
     def __getitem__(self, det):
         """
-        Get the list of :class:`~cwinpy.HeterodynedData` objects keyed to a
-        given detector.
+        Get the list of :class:`~cwinpy.data.HeterodynedData` objects keyed to
+        a given detector.
         """
 
         if det in self.detectors:
@@ -283,14 +284,14 @@ class HeterodynedData(object):
         contains the source rotation frequency).
     bbthreshold: (str, float), "default"
         The threshold method, or value for the
-        :meth:`~cwinpy.HeterodynedData.bayesian_blocks` function.
+        :meth:`~cwinpy.data.HeterodynedData.bayesian_blocks` function.
     remove_outliers: bool, False
         If ``True`` outliers will be found (using
-        :meth:`~cwinpy.HeterodynedData.find_outliers`) and removed from the
+        :meth:`~cwinpy.data.HeterodynedData.find_outliers`) and removed from the
         data. They will not be stored anywhere in the class.
     thresh: float, 3.5
         The modified z-score threshold for outlier removal (see
-        :meth:`~cwinpy.HeterodynedData.find_outliers`)
+        :meth:`~cwinpy.data.HeterodynedData.find_outliers`)
     """
 
     # set default Matplotlib setup parameters for plots
@@ -1227,7 +1228,7 @@ class HeterodynedData(object):
             the `remove_outliers` keyword already set to ``True``.
         thresh: float, 3.5
             The modified z-score threshold for outlier removal (see
-            :meth:`~cwinpy.HeterodynedData.find_outliers`).
+            :meth:`~cwinpy.data.HeterodynedData.find_outliers`).
         fraction_labels: bool, True
             Set to ``True`` to output the frequency labels on the plot as
             fractions.
@@ -1277,8 +1278,8 @@ class HeterodynedData(object):
         as :class:`astropy.stats.LombScargle`) that can deal with data with
         gaps, but doesn't work for complex data.
 
-        See :meth:`~cwinpy.HeterodynedData.spectrogram` for input parameters,
-        excluding `dt`, `window` and `overlap`. 
+        See :meth:`~cwinpy.data.HeterodynedData.spectrogram` for input
+        parameters, excluding `dt`, `window` and `overlap`. 
 
         Returns
         -------
@@ -1308,7 +1309,7 @@ class HeterodynedData(object):
         Compute and plot the power spectrum of the data. This compute the
         spectrogram, and averages the power over time.
 
-        See :meth:`~cwinpy.HeterodynedData.spectrogram` for input parameters,
+        See :meth:`~cwinpy.data.HeterodynedData.spectrogram` for input parameters,
         excluding `window` and `overlap`. 
 
         Parameters
@@ -1343,17 +1344,17 @@ class HeterodynedData(object):
     def _plot_power(self, ptype, plotkwargs={}):
         """
         General function for plotting the
-        :meth:`~cwinpy.HeterodynedData.spectrogram`,
-        :meth:`~cwinpy.HeterodynedData.power_spectrum` or
-        :meth:`~cwinpy.HeterodynedData.periodogram`.
+        :meth:`~cwinpy.data.HeterodynedData.spectrogram`,
+        :meth:`~cwinpy.data.HeterodynedData.power_spectrum` or
+        :meth:`~cwinpy.data.HeterodynedData.periodogram`.
 
         Parameters
         ----------
         ptype: str
             A string with 'spectrogram' for
-            :meth:`~cwinpy.HeterodynedData.spectrogram`, 'periodogram' for
-            :meth:`~cwinpy.HeterodynedData.periodogram`, or 'power' for
-            :meth:`~cwinpy.HeterodynedData.power_spectrum`.
+            :meth:`~cwinpy.data.HeterodynedData.spectrogram`, 'periodogram' for
+            :meth:`~cwinpy.data.HeterodynedData.periodogram`, or 'power' for
+            :meth:`~cwinpy.data.HeterodynedData.power_spectrum`.
         plotkwargs: dict
             A dictionary of plotting keyword arguments.
         """
