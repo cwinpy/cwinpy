@@ -303,7 +303,7 @@ class HeterodynedData(object):
                         'font.size': 15}
 
     # set some default detector color maps for plotting
-    coldict = {'H1': 'r', 'L1': 'g', 'V1': 'b', 'G1': 'm'}
+    coldic = {'H1': 'r', 'L1': 'g', 'V1': 'b', 'G1': 'm'}
     colmapdic = {'H1': 'Reds', 'L1': 'Greens', 'V1': 'Blues', 'G1': 'PuRd'}
 
     def __init__(self, data=None, times=None, par=None, detector=None,
@@ -1192,7 +1192,8 @@ class HeterodynedData(object):
 
     def spectrogram(self, dt=86400, window=None, overlap=0.5, plot=True,
                     ax=None, cmap=None, rcparams=None, remove_outliers=False,
-                    thresh=3.5, fraction_labels=True, **kwargs):
+                    thresh=3.5, fraction_labels=True, fraction_label_num=4,
+                    **kwargs):
         """
         Compute and plot a spectrogram from the data using the
         :func:`matplotlib.mlab.specgram` function.
@@ -1236,9 +1237,13 @@ class HeterodynedData(object):
         thresh: float, 3.5
             The modified z-score threshold for outlier removal (see
             :meth:`cwinpy.HeterodynedData.find_outliers`).
-        fraction_labels: bool, False
+        fraction_labels: bool, True
             Set to ``True`` to output the frequency labels on the plot as
             fractions.
+        fraction_label_num: int, 4
+            The fraction labels will be spaced at `Fs`/`fraction_label_num`
+            intervals, between the upper and lower Nyquist values. The default
+            if 4, i.e., spacing will be at a quarter of the Nyquist frequency. 
         kwargs:
             Keyword arguments for :func:`matplotlib.pyplot.subplots`.
 
@@ -1320,13 +1325,15 @@ class HeterodynedData(object):
             import matplotlib as mpl
 
             # extents of the plot
-            extent = [0, tottime, frequencies[0], frequencies[-1]]
+            extent = [0, tottime, -2 / Fs, 2 / Fs]
 
             # set color map
+            detlabel = None  # detector legend label
             if cmap is None:
                 if self.detector is not None:
                     if self.detector in self.colmapdic:
                         cmap = self.colmapdic[self.detector]
+                    detlabel = self.detector
 
             # set rcParams
             if rcparams is None:
@@ -1335,13 +1342,22 @@ class HeterodynedData(object):
                 else:
                     # use defaults
                     rcparams = self.defaultmplparams
-            
+                    rcparams['figure.figsize'] = (11, 3.5)
+                    rcparams['figure.autolayout'] = True
+
             # set whether to output frequency labels as fractions
             if fraction_labels:
                 rcparams['text.latex.preamble'] = '\\usepackage{xfrac}'
 
                 # set at quarters of the sample frequency
-                yticks = [-Fs/2., -Fs/4., 0., Fs/2., Fs/4.]
+                if not isinstance(fraction_label_num, int):
+                    raise TypeError("'fraction_label_num' must be an integer")
+
+                if fraction_label_num < 1:
+                    raise ValueError("'fraction_label_num' must be positive")
+
+                df = Fs / fraction_label_num
+                yticks = np.linspace(-2/Fs, 2/Fs, int(Fs / df) + 1)
                 ylabels = []
                 for tick in  yticks:
                     if tick == 0.:
@@ -1350,10 +1366,9 @@ class HeterodynedData(object):
                         sign = '-' if tick < 0. else ''
                         label = "${0}\sfrac{{{1}}}{{{2}}}$".format(sign,
                                                                    1,
-                                                                   int(1. / np.abs(tick)))
+                                                                   int(np.abs(tick)))
                         ylabels.append(label)
 
-            # use context manager for rcparams
             if isinstance(ax, (Figure, Axes)):
                 if isinstance(ax, Figure):
                     fig = ax
@@ -1369,6 +1384,11 @@ class HeterodynedData(object):
             thisax.imshow(np.sqrt(np.flipud(power)), aspect='auto',
                           extent=extent, interpolation=None, cmap=cmap,
                           norm=colors.Normalize())
+
+            if self.detector is not None:
+                from matplotlib.offsetbox import AnchoredText
+                legend = AnchoredText(self.detector, loc=1)
+                thisax.add_artist(legend)
 
             thisax.set_xlabel('GPS - {}'.format(int(times[0])))
             thisax.set_ylabel(r'Frequency (Hz)')
@@ -1435,12 +1455,14 @@ class HeterodynedData(object):
 
         return padded
 
-    def periodogram(self, plot=True, ax=None, rcparams=None, **plotkwargs):
+    def periodogram(self, plot=True, ax=None, rcparams=None, remove_outliers=False,
+                    thresh=3.5, fraction_labels=True, fraction_label_num=4,
+                    **plotkwargs):
         """
         Compute and plot a two-sided Lomb-Scargle periodogram of the data. This
         uses the :class:`astropy.stats.LombScargle` function to calculate the
         frequencies for the periodogram, and then uses the
-        :func:`scipy.signal.periodogram` method.
+        :func:`scipy.signal.periodogram` method. The Lomb-Scargle periodogram 
 
         Parameters
         ----------
@@ -1458,6 +1480,22 @@ class HeterodynedData(object):
             :class:`~matplotlib.axes.Axes` or
             :class:`~matplotlib.figure.Figure` is not supplied, the some
             default styles will be used.
+        remove_outliers: bool, False
+            Set to ``True`` to remove outliers points before generating the
+            spectrogram. This is not required if the class was created with
+            the `remove_outliers` keyword already set to ``True``.
+        thresh: float, 3.5
+            The modified z-score threshold for outlier removal (see
+            :meth:`cwinpy.HeterodynedData.find_outliers`).
+        fraction_labels: bool, True
+            Set to ``True`` to output the frequency labels on the plot as
+            fractions.
+        fraction_label_num: int, 4
+            The fraction labels will be spaced at `Fs`/`fraction_label_num`
+            intervals, between the upper and lower Nyquist values. The default
+            if 4, i.e., spacing will be at a quarter of the Nyquist frequency. 
+        kwargs:
+            Keyword arguments for :func:`matplotlib.pyplot.subplots`.
 
         Returns
         -------
@@ -1465,16 +1503,108 @@ class HeterodynedData(object):
             The frequency series
         array_like:
             The periodogram power
+        figure:
+            The :class:`~matplotlib.figure.Figure` is a plot is requested.
         """
 
         try:
             from astropy.stats import LombScargle
         except ImportError:
             raise ImportError("Could not import 'LombScargle'")
-        
-        frequency, power = LombScargle(self.times, self.data).autopower()
 
-        return frequency, power
+        if not self.__remove_outliers and remove_outliers:
+            idx = self.find_outliers(thresh=thresh)
+            times = self.times[~idx]
+            data = self.data[~idx]
+        else:
+            times = self.times
+            data = self.data
+
+        frequency, power = LombScargle(times, data,
+                                       fit_mean=False).autopower(method='scipy')
+
+        if ax is None and not plot:
+            return frequency, power
+
+        try:
+            from matplotlib import pyplot as pl
+            from matplotlib.figure import Figure
+            from matplotlib.axes import Axes
+            import matplotlib as mpl
+
+            # set rcParams
+            if rcparams is None:
+                if isinstance(ax, (Figure, Axes)):
+                    rcparams = {}
+                else:
+                    # use defaults
+                    rcparams = self.defaultmplparams
+                    rcparams['figure.autolayout'] = True
+
+            Fs = 1./gcd_array(np.diff(times))  # sampling frequency
+
+            # set whether to output frequency labels as fractions
+            if fraction_labels:
+                rcparams['text.latex.preamble'] = '\\usepackage{xfrac}'
+
+                # set at quarters of the sample frequency
+                if not isinstance(fraction_label_num, int):
+                    raise TypeError("'fraction_label_num' must be an integer")
+
+                if fraction_label_num < 1:
+                    raise ValueError("'fraction_label_num' must be positive")
+
+                df = Fs / fraction_label_num
+                xticks = np.linspace(-2/Fs, 2/Fs, int(Fs / df) + 1)
+                xlabels = []
+                for tick in  xticks:
+                    if tick == 0.:
+                        xlabels.append('0')
+                    else:
+                        sign = '-' if tick < 0. else ''
+                        label = "${0}\sfrac{{{1}}}{{{2}}}$".format(sign,
+                                                                   1,
+                                                                   int(np.abs(tick)))
+                        xlabels.append(label)
+
+            if isinstance(ax, (Figure, Axes)):
+                if isinstance(ax, Figure):
+                    fig = ax
+                    thisax = ax.gca()  # get current axis
+                else:
+                    fig = ax.get_figure()
+                    thisax = ax
+            else:
+                # update rcParams
+                mpl.rcParams.update(rcparams)
+                fig, thisax = pl.subplots()
+
+            # set plot color
+            if self.detector is not None:
+                if 'color' not in plotkwargs:
+                    if self.detector in self.coldic:
+                        plotkwargs['color'] = self.coldic[self.detector]
+                
+                if 'label' not in plotkwargs:
+                    plotkwargs['label'] = self.detector
+
+            thisax.plot(frequency, power, **plotkwargs)
+
+            if self.detector is not None:
+                thisax.legend()
+
+            thisax.set_ylabel('Power')
+            thisax.set_xlabel(r'Frequency (Hz)')
+
+            thisax.set_xlim([frequency[0], frequency[-1]])
+
+            if fraction_labels:
+                thisax.set_xticks(xticks)
+                thisax.set_xticklabels(xlabels)
+        except Exception as e:
+            raise RuntimeError("Problem creating spectrogram: {}".format(e))
+
+        return frequency, power, fig
 
     def __len__(self):
         return len(self.data)
