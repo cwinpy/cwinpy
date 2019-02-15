@@ -7,6 +7,7 @@ import pytest
 import numpy as np
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 import lal
+from matplotlib.figure import Figure
 
 from cwinpy import HeterodynedData, MultiHeterodynedData
 
@@ -186,6 +187,18 @@ def test_array_data():
     assert np.all(het.data.real == data[:, 0])
     assert np.all(het.data.imag == data[:, 1])
     assert het.dt == (times[1] - times[0])
+
+
+def test_noninteger_timestamps():
+    """
+    Test that an error is raise for non-integer time stamps.
+    """
+
+    times = np.linspace(1000000000., 1000086342., 1440)
+    data = np.random.normal(0., 1e-25, size=(1440, 2))
+
+    with pytest.raises(ValueError):
+        het = HeterodynedData(data, times=times)
 
 
 def test_array_data_complex():
@@ -400,13 +413,13 @@ def test_outlier_removal():
 
     idxs = het.find_outliers()
 
-    assert len(np.where(idxs == True)[0]) == 2
+    assert len(np.where(idxs == True)[0]) >= 2
     assert ((np.where(idxs == True)[0][0] == 10) and
             (np.where(idxs == True)[0][1] == 20))
 
     # test removing the outlier automatically
     newhet = HeterodynedData(data, times=times, remove_outliers=True)
-    assert len(newhet) == (len(data) - 2)
+    assert len(newhet) == (len(data) - len(np.where(idxs == True)[0]))
 
 
 def test_bayesian_blocks():
@@ -445,3 +458,53 @@ def test_bayesian_blocks():
                 break
     
         assert found
+
+
+def test_spectrum_plots():
+    """
+    Test the spectrogram, periodogram and power spectrum plots.
+    """
+
+    times = np.linspace(1000000000., 1000172740., 2*1440)
+    data = (np.random.normal(0., 1.0, size=2*1440) + 
+            1j*np.random.normal(0., 1.0, size=2*1440))
+
+    het = HeterodynedData(data, times=times, detector='H1')
+
+    # test errors
+    with pytest.raises(ValueError):
+        _, _, _, _ = het.spectrogram(dt='a')
+
+    with pytest.raises(ValueError):
+        _, _, _, _ = het.spectrogram(dt=200000)
+
+    with pytest.raises(TypeError):
+        _, _, _, _ = het.spectrogram(overlap='a')
+    
+    with pytest.raises(ValueError):
+        _, _, _, _ = het.spectrogram(overlap=-1)
+
+    with pytest.raises(ValueError):
+        _, _, _ = het.power_spectrum(average='a')
+
+    # create a spectrogram
+    freqs, power, stimes, fig = het.spectrogram(dt=3600)
+
+    assert isinstance(fig, Figure)
+    assert freqs.shape[0] == 60
+    assert power.shape[0] == 60 and power.shape[1] == 95
+    assert stimes.shape[0] == power.shape[1]
+
+    # create a power spectrum
+    freqs, power, fig = het.power_spectrum(dt=86400)
+
+    assert isinstance(fig, Figure)
+    assert power.shape[0] == len(data) // 2
+    assert freqs.shape[0] == power.shape[0]
+
+    # create a periodogram
+    freqs, power, fig = het.periodogram()
+
+    assert isinstance(fig, Figure)
+    assert power.shape[0] == len(data)
+    assert freqs.shape[0] == power.shape[0]

@@ -296,11 +296,10 @@ class HeterodynedData(object):
 
     # set default Matplotlib setup parameters for plots
     defaultmplparams = {'backend': 'Agg',
-                        'text.usetex': True, # use LaTeX for all text
                         'axes.linewidth': 0.5, # set axes linewidths to 0.5
                         'axes.grid': True, # add a grid
                         'grid.linewidth': 0.5,
-                        'font.family': 'serif',
+                        'font.family': 'sans-serif',
                         'font.size': 15}
 
     # set some default detector color maps for plotting
@@ -426,8 +425,8 @@ class HeterodynedData(object):
         # remove outliers if requested
         if self.__remove_outliers:
             outliers = self.find_outliers(thresh=self.__outlier_thresh)
-            self.__data = self.__data[~outliers]
-            self.__times = self.__times[~outliers]
+            self.__data = self.data[~outliers]
+            self.times = self.times[~outliers]
 
             if self.__stds is not None:
                 self.__stds = self.__stds[~outliers]
@@ -440,6 +439,11 @@ class HeterodynedData(object):
             warnings.warn("Your data is only one data point long!")
             self.__dt = None
             self.__fs = None
+
+        # for the moment there is the assumption that time stamps are integers,
+        # so check this
+        if not self.tottime.is_integer() or not self.dt.is_integer():
+            raise ValueError("Time stamps must be integers")
 
         # initialise the running median
         _ = self.compute_running_median(N=self.window)
@@ -1183,9 +1187,9 @@ class HeterodynedData(object):
         return (modzscore[0] > thresh) | (modzscore[1] > thresh)
 
     def spectrogram(self, dt=86400, window=None, overlap=0.5, plot=True,
-                    ax=None, cmap=None, rcparams=None, remove_outliers=False,
-                    thresh=3.5, fraction_labels=True, fraction_label_num=4,
-                    **kwargs):
+                    ax=None, rcparams={}, remove_outliers=False, thresh=3.5,
+                    fraction_labels=True, fraction_label_num=4,
+                    **plotkwargs):
         """
         Compute and plot a spectrogram from the data using the
         :func:`matplotlib.mlab.specgram` function.
@@ -1213,9 +1217,6 @@ class HeterodynedData(object):
             If `ax` is a :class:`matplotlib.axes.Axes` or
             :class:`matplotlib.figure.Figure` then the spectrogram will be
             plotted on the supplied axis.
-        cmap: colormap
-            If plotting the figure then a :class:`matplotlib.colors.Colormap`
-            can be passed for the plot.
         rcparams: dict, None
             A dictionary of Matplotlib configuration parameters
             (:class:`matplotlib.RcParams`) for plotting. If ``None``, and an
@@ -1236,8 +1237,8 @@ class HeterodynedData(object):
             The fraction labels will be spaced at `Fs`/`fraction_label_num`
             intervals, between the upper and lower Nyquist values. The default
             if 4, i.e., spacing will be at a quarter of the Nyquist frequency. 
-        kwargs:
-            Keyword arguments for :func:`matplotlib.pyplot.subplots`.
+        plotkwargs:
+            Keyword arguments for :func:`matplotlib.pyplot.imshow`.
 
         Returns
         -------
@@ -1254,23 +1255,21 @@ class HeterodynedData(object):
             plot. This is not returned if `plot` is set to ``False``.
         """
 
-        plotkwargs = {}
-        plotkwargs['dt'] = dt
-        plotkwargs['window'] = window
-        plotkwargs['overlap'] = overlap
-        plotkwargs['cmap'] = cmap
-        plotkwargs['rcparams'] = rcparams
-        plotkwargs['remove_outliers'] = remove_outliers
-        plotkwargs['thresh'] = thresh
-        plotkwargs['fraction_labels'] = fraction_labels
-        plotkwargs['fraction_label_num'] = fraction_label_num
-        plotkwargs['kwargs'] = kwargs
+        speckwargs = {}
+        speckwargs['dt'] = dt
+        speckwargs['window'] = window
+        speckwargs['overlap'] = overlap
+        speckwargs['rcparams'] = rcparams
+        speckwargs['remove_outliers'] = remove_outliers
+        speckwargs['thresh'] = thresh
+        speckwargs['fraction_labels'] = fraction_labels
+        speckwargs['fraction_label_num'] = fraction_label_num
 
-        return self._plot_power('spectrogram', plotkwargs)
+        return self._plot_power('spectrogram', speckwargs, **plotkwargs)
 
-    def periodogram(self, plot=True, ax=None, rcparams=None,
+    def periodogram(self, plot=True, ax=None, rcparams={},
                     remove_outliers=False, thresh=3.5, fraction_labels=True,
-                    fraction_label_num=4):
+                    fraction_label_num=4, **plotkwargs):
         """
         Compute and plot a two-sided periodogram of the data using
         :func:`scipy.signal.periodogram`. Note that this uses zero-padded
@@ -1280,6 +1279,11 @@ class HeterodynedData(object):
 
         See :meth:`~cwinpy.data.HeterodynedData.spectrogram` for input
         parameters, excluding `dt`, `window` and `overlap`. 
+
+        Parameters
+        ----------
+        plotkwargs:
+            Keyword parameters for :func:`matplotlib.pyplot.plot`.
 
         Returns
         -------
@@ -1291,20 +1295,21 @@ class HeterodynedData(object):
             The :class:`~matplotlib.figure.Figure` is a plot is requested.
         """
 
-        plotkwargs = {}
-        plotkwargs['plot'] = plot
-        plotkwargs['ax'] = ax
-        plotkwargs['rcparams'] = rcparams
-        plotkwargs['remove_outliers'] = remove_outliers
-        plotkwargs['thresh'] = thresh
-        plotkwargs['fraction_labels'] = fraction_labels
-        plotkwargs['fraction_label_num'] = fraction_label_num
+        speckwargs = {}
+        speckwargs['plot'] = plot
+        speckwargs['ax'] = ax
+        speckwargs['rcparams'] = rcparams
+        speckwargs['remove_outliers'] = remove_outliers
+        speckwargs['thresh'] = thresh
+        speckwargs['fraction_labels'] = fraction_labels
+        speckwargs['fraction_label_num'] = fraction_label_num
 
-        return self._plot_power('periodogram', plotkwargs)
+        return self._plot_power('periodogram', speckwargs, **plotkwargs)
 
-    def power_spectrum(self, plot=True, ax=None, rcparams=None,
+    def power_spectrum(self, plot=True, ax=None, rcparams={},
                        remove_outliers=False, thresh=3.5, fraction_labels=True,
-                       fraction_label_num=4, average='median', dt=86400):
+                       fraction_label_num=4, average='median', dt=86400,
+                       **plotkwargs):
         """
         Compute and plot the power spectrum of the data. This compute the
         spectrogram, and averages the power over time.
@@ -1317,6 +1322,8 @@ class HeterodynedData(object):
         average: str, 'median'
             The method by which to "average" the spectrum in time. This can be
             'median' (the default) or 'mean'.
+        plotkwargs:
+            Keyword parameters for :func:`matplotlib.pyplot.plot`.
 
         Returns
         -------
@@ -1328,20 +1335,20 @@ class HeterodynedData(object):
             The :class:`~matplotlib.figure.Figure` is a plot is requested.
         """
 
-        plotkwargs = {}
-        plotkwargs['plot'] = plot
-        plotkwargs['ax'] = ax
-        plotkwargs['rcparams'] = rcparams
-        plotkwargs['remove_outliers'] = remove_outliers
-        plotkwargs['thresh'] = thresh
-        plotkwargs['fraction_labels'] = fraction_labels
-        plotkwargs['fraction_label_num'] = fraction_label_num
-        plotkwargs['dt'] = dt
-        plotkwargs['average'] = average
+        speckwargs = {}
+        speckwargs['plot'] = plot
+        speckwargs['ax'] = ax
+        speckwargs['rcparams'] = rcparams
+        speckwargs['remove_outliers'] = remove_outliers
+        speckwargs['thresh'] = thresh
+        speckwargs['fraction_labels'] = fraction_labels
+        speckwargs['fraction_label_num'] = fraction_label_num
+        speckwargs['dt'] = dt
+        speckwargs['average'] = average
 
-        return self._plot_power('power', plotkwargs)
+        return self._plot_power('power', speckwargs, **plotkwargs)
 
-    def _plot_power(self, ptype, plotkwargs={}):
+    def _plot_power(self, ptype, speckwargs={}, **plotkwargs):
         """
         General function for plotting the
         :meth:`~cwinpy.data.HeterodynedData.spectrogram`,
@@ -1355,8 +1362,10 @@ class HeterodynedData(object):
             :meth:`~cwinpy.data.HeterodynedData.spectrogram`, 'periodogram' for
             :meth:`~cwinpy.data.HeterodynedData.periodogram`, or 'power' for
             :meth:`~cwinpy.data.HeterodynedData.power_spectrum`.
-        plotkwargs: dict
-            A dictionary of plotting keyword arguments.
+        speckwargs: dict
+            A dictionary of spectrum generation keyword arguments.
+        plotkwargs:
+            Additional plotting keyword arguments.
         """
 
         if not isinstance(ptype, str):
@@ -1367,12 +1376,12 @@ class HeterodynedData(object):
                              "'power'")
 
         # get some options
-        remove_outliers = plotkwargs.get('remove_outliers', False)
-        thresh = plotkwargs.get('thresh', 3.5)
-        plot = plotkwargs.get('plot', True)
-        ax = plotkwargs.get('ax', None)
-        rcparams = plotkwargs.get('rcparams', None)
-        if rcparams is None:
+        remove_outliers = speckwargs.get('remove_outliers', False)
+        thresh = speckwargs.get('thresh', 3.5)
+        plot = speckwargs.get('plot', True)
+        ax = speckwargs.get('ax', None)
+        rcparams = speckwargs.get('rcparams', {})
+        if len(rcparams) == 0:
             rcparams = self.defaultmplparams.copy()
 
         # get the zero padded data
@@ -1389,14 +1398,14 @@ class HeterodynedData(object):
         Fs = 1./gcd_array(np.diff(times))  # sampling frequency
 
         if ptype in ['spectrogram', 'power']:
-            dt = plotkwargs.get('dt', 86400)
-            overlap = plotkwargs.get('overlap', 0.5)
-            window = plotkwargs.get('window', None)
+            dt = speckwargs.get('dt', 86400)
+            overlap = speckwargs.get('overlap', 0.5)
+            window = speckwargs.get('window', None)
             
             if not isinstance(dt, (float, int)):
                 raise ValueError("Time bin must be an integer or float")
 
-            if dt < 1./Fs or dt > tottime:
+            if dt < 1./Fs or dt > (tottime + (1./Fs)):
                 raise ValueError("The time bin selected is invalid")
 
             # set the number of samples for each FFT block
@@ -1434,7 +1443,7 @@ class HeterodynedData(object):
 
             if ptype == 'power':
                 # average the spectrogram for a power spectrum
-                average = plotkwargs.get('average', 'median')
+                average = speckwargs.get('average', 'median')
 
                 if average not in ['median', 'mean']:
                     raise ValueError("Average method must be 'median' or 'mean'")
@@ -1471,20 +1480,23 @@ class HeterodynedData(object):
             from matplotlib.axes import Axes
             import matplotlib as mpl
 
-            # set rcParams
+            # set default figure sizes
             if ptype == 'spectrogram':
-                rcparams['figure.figsize'] = (12, 4)
+                if 'figure.figsize' not in rcparams:
+                    rcparams['figure.figsize'] = (12, 4)
             else:
-                rcparams['figure.figsize'] = (6, 5)
+                if 'figure.figsize' not in rcparams:
+                    rcparams['figure.figsize'] = (6, 5)
 
-            rcparams['figure.autolayout'] = True
-
-            fraction_labels = plotkwargs.get('fraction_labels', True)
-            fraction_label_num = plotkwargs.get('fraction_label_num', 4)
+            fraction_labels = speckwargs.get('fraction_labels', True)
+            fraction_label_num = speckwargs.get('fraction_label_num', 4)
 
             # set whether to output frequency labels as fractions
             if fraction_labels:
-                rcparams['text.latex.preamble'] = '\\usepackage{xfrac}'
+                # add to LaTeX preamble
+                if 'xfrac' not in mpl.rcParams['text.latex.preamble']:
+                    mpl.rcParams['text.latex.preamble'].append('\\usepackage{xfrac}')
+                mpl.rcParams['text.usetex'] = True
 
                 # set at quarters of the sample frequency
                 if not isinstance(fraction_label_num, int):
@@ -1498,56 +1510,60 @@ class HeterodynedData(object):
                 labels = []
                 for tick in ticks:
                     if tick == 0.:
-                        labels.append('0')
+                        labels.append('$0$')
                     else:
                         sign = '-' if tick < 0. else ''
-                        label = "${0}\sfrac{{{1}}}{{{2}}}$".format(sign,
-                                                                   1,
-                                                                   int(np.abs(tick)))
+                        label = "${0}\\sfrac{{{1}}}{{{2}}}$".format(sign,
+                                                                    1,
+                                                                    int(np.abs(tick)))
                         labels.append(label)
                 
                 if ptype != 'spectrogram':
                     ticks = np.linspace(-Fs / 2, Fs / 2, int(Fs / df) + 1)
 
-            if isinstance(ax, (Figure, Axes)):
-                if isinstance(ax, Figure):
-                    fig = ax
-                    thisax = ax.gca()  # get current axis
-                else:
-                    fig = ax.get_figure()
-                    thisax = ax
-            else:
-                # update rcParams
-                mpl.rcParams.update(rcparams)
-                fig, thisax = pl.subplots()
-
             if ptype == 'spectrogram':
                 from matplotlib import colors
 
-                cmap = plotkwargs.get('cmap', None)
-                if cmap is None:
+                # set plotting keyword arguments
+                if 'cmap' not in plotkwargs:
                     if self.detector is not None:
                         if self.detector in self.colmapdic:
-                            cmap = self.colmapdic[self.detector]
-                
+                            plotkwargs['cmap'] = self.colmapdic[self.detector]
+
                 # extents of the plot
-                extent = [0, tottime, -2 / Fs, 2 / Fs]
+                if 'extent' not in plotkwargs:
+                    plotkwargs['extent'] = [0, tottime, -2 / Fs, 2 / Fs]
 
-                thisax.imshow(np.sqrt(np.flipud(power)), aspect='auto',
-                              extent=extent, interpolation=None, cmap=cmap,
-                              norm=colors.Normalize())
+                if 'aspect' not in plotkwargs:
+                    plotkwargs['aspect'] = 'auto'
 
-                if self.detector is not None:
-                    from matplotlib.offsetbox import AnchoredText
-                    legend = AnchoredText(self.detector, loc=1)
-                    thisax.add_artist(legend)
+                if 'norm' not in plotkwargs:
+                    plotkwargs['norm'] = colors.Normalize()
 
-                thisax.set_xlabel('GPS - {}'.format(int(times[0])))
-                thisax.set_ylabel(r'Frequency (Hz)')
+                with mpl.rc_context(rc=rcparams):
+                    if isinstance(ax, (Figure, Axes)):
+                        if isinstance(ax, Figure):
+                            fig = ax
+                            thisax = ax.gca()  # get current axis
+                        else:
+                            fig = ax.get_figure()
+                            thisax = ax
+                    else:
+                        fig, thisax = pl.subplots()
 
-                if fraction_labels:
-                    thisax.set_yticks(ticks)
-                    thisax.set_yticklabels(labels)
+                    thisax.imshow(np.sqrt(np.flipud(power)), **plotkwargs)
+
+                    if self.detector is not None:
+                        from matplotlib.offsetbox import AnchoredText
+                        legend = AnchoredText(self.detector, loc=1)
+                        thisax.add_artist(legend)
+
+                    thisax.set_xlabel('GPS - {}'.format(int(times[0])))
+                    thisax.set_ylabel('Frequency (Hz)')
+
+                    if fraction_labels:
+                        thisax.set_yticks(ticks)
+                        thisax.set_yticklabels(labels)
             else:
                 # set plot color
                 color = None
@@ -1557,18 +1573,37 @@ class HeterodynedData(object):
                         color = self.coldic[self.detector]
                     label = self.detector
 
-                thisax.plot(frequencies, power, color=color, label=label)
-
                 if self.detector is not None:
-                    thisax.legend()
+                    if 'color' not in plotkwargs:
+                        if self.detector in self.coldic:
+                            plotkwargs['color'] = self.coldic[self.detector]
 
-                thisax.set_ylabel('Power')
-                thisax.set_xlabel(r'Frequency (Hz)')
-                thisax.set_xlim([-Fs / 2, Fs / 2])
+                    if 'label' not in plotkwargs:
+                        plotkwargs['label'] = self.detector
 
-                if fraction_labels:
-                    thisax.set_xticks(ticks)
-                    thisax.set_xticklabels(labels)
+                with mpl.rc_context(rc=rcparams):
+                    if isinstance(ax, (Figure, Axes)):
+                        if isinstance(ax, Figure):
+                            fig = ax
+                            thisax = ax.gca()  # get current axis
+                        else:
+                            fig = ax.get_figure()
+                            thisax = ax
+                    else:
+                        fig, thisax = pl.subplots()
+
+                    thisax.plot(frequencies, power, **plotkwargs)
+
+                    if self.detector is not None:
+                        thisax.legend()
+
+                    thisax.set_ylabel('Power')
+                    thisax.set_xlabel(r'Frequency (Hz)')
+                    thisax.set_xlim([-Fs / 2, Fs / 2])
+
+                    if fraction_labels:
+                        thisax.set_xticks(ticks)
+                        thisax.set_xticklabels(labels)
         except Exception as e:
             raise RuntimeError("Problem creating spectrogram: {}".format(e))
 
@@ -1608,7 +1643,7 @@ class HeterodynedData(object):
         if len(times) < 2:
             raise ValueError("There must be at least two samples!")
 
-        dts = np.diff(times)
+        dts = np.diff(times).astype(np.float32)  # convert to float32 due to precision errors
 
         if np.all(dts == self.dt):
             # no zero padding required as data is evenly sampled
