@@ -296,8 +296,9 @@ class HeterodynedData(object):
 
     # set default Matplotlib setup parameters for plots
     defaultmplparams = {'backend': 'Agg',
-                        'axes.linewidth': 0.5, # set axes linewidths to 0.5
-                        'axes.grid': True, # add a grid
+                        'text.usetex': True,
+                        'axes.linewidth': 0.5,  # set axes linewidths to 0.5
+                        'axes.grid': True,      # add a grid
                         'grid.linewidth': 0.5,
                         'font.family': 'sans-serif',
                         'font.size': 15}
@@ -450,7 +451,7 @@ class HeterodynedData(object):
 
         # initialise change points to None
         self.__change_point_indices_and_ratios = None
- 
+
         # calculate change points (and variances)
         self.bayesian_blocks(threshold=self.__bbthreshold)
 
@@ -543,7 +544,7 @@ class HeterodynedData(object):
     @property
     def detector(self):
         """The name of the detector from which the data came."""
-        
+
         return self.__detector
 
     @property
@@ -607,12 +608,12 @@ class HeterodynedData(object):
                 startidx = 0
                 endidx = i + (N//2) + 1
             elif i > len(self) - N:
-                startidx =  i - (N//2) + 1
-                endix = len(self)
+                startidx = i - (N//2) + 1
+                endidx = len(self)
             else:
                 startidx = i - (N//2) + 1
                 endidx = i + (N//2) + 1
- 
+
             self.__running_median.real[i] = np.median(self.data.real[startidx:endidx])
             self.__running_median.imag[i] = np.median(self.data.imag[startidx:endidx])
 
@@ -679,7 +680,7 @@ class HeterodynedData(object):
         datasub = self.subtract_running_median()
 
         if (change_points is None and
-            self.__change_point_indices_and_ratios is None):
+                self.__change_point_indices_and_ratios is None):
             # return the (sample) variance (hence 'ddof=1')
             self.__vars = np.full(len(self),
                                   np.hstack((datasub.real,
@@ -769,7 +770,7 @@ class HeterodynedData(object):
     @property
     def injtimes(self):
         """
-        A list of times at which an injection was added to the data. 
+        A list of times at which an injection was added to the data.
         """
 
         return self.__injtimes
@@ -987,7 +988,7 @@ class HeterodynedData(object):
         self.__change_point_indices_and_ratios = []
         self._chop_data(self.subtract_running_median(), threshold=threshold,
                         minlength=minlength)
-        
+
         # sort the indices
         self.__change_point_indices_and_ratios = sorted(self.__change_point_indices_and_ratios)
 
@@ -1036,7 +1037,7 @@ class HeterodynedData(object):
     def _chop_data(self, data, threshold='default', minlength=5):
         # find change point
         lratio, cpidx, ntrials = self._find_change_point(data, minlength)
-        
+
         # set the threshold
         if threshold == 'default':
             # default threshold for data splitting
@@ -1075,14 +1076,14 @@ class HeterodynedData(object):
             A complex array containing a chunk of data.
         minlength: int
             The minimum length of a chunk.
-        
+
         Returns
         -------
         tuple:
             A tuple containing the maximum log Bayes factor, the index of the
             change point (i.e. the "best" point at which to split the data into
             two independent Gaussian distributions), and the number of
-            denominator sub-hypotheses. 
+            denominator sub-hypotheses.
         """
 
         if len(subdata) < 2*minlength:
@@ -1107,8 +1108,8 @@ class HeterodynedData(object):
 
         # go through each possible splitting of the data in two
         for i in range(lsum):
-            if (np.all(subdata[:minlength+i] == (0.+0*1j)) or 
-                np.all(subdata[minlength+i:] == (0.+0*1j))):
+            if (np.all(subdata[:minlength+i] == (0.+0*1j)) or
+                    np.all(subdata[minlength+i:] == (0.+0*1j))):
                 # do this to avoid warnings about np.log(0.0)
                 logdouble[i] = -np.inf
             else:
@@ -1185,6 +1186,124 @@ class HeterodynedData(object):
 
         # return boolean array of real or imaginary indices above the threshold
         return (modzscore[0] > thresh) | (modzscore[1] > thresh)
+
+    def plot(self, rcparams={}, which='abs', figsize=(12, 4), ax=None,
+             remove_outliers=False, thresh=3.5, zero_time=True,
+             **plotkwargs):
+        """
+        Plot the data time series.
+
+        Parameters
+        ----------
+        which: str, 'abs'
+            Say whehther to plot the absolute value of the data, ``'abs'``, the
+            ``'real'`` component of the data, or the ``'imag'`` component of
+            the data.
+        rcparams: dict, {}
+            A dictionary of Matplotlib configuration parameter. Default values
+            will be used if not set.
+        figsize: tuple, (12, 4)
+            A tuple with the size of the figure. Values set in `rcparams` will
+            override this value.
+        ax: (Figure, Axes)
+            If `ax` is a :class:`matplotlib.axes.Axes` or
+            :class:`matplotlib.figure.Figure` then the plot will be
+            plotted on the supplied axis.
+        remove_outliers: bool, False
+            Set whether to remove outlier for the plot.
+        thresh: float, 3.5
+            The threshold for outlier removal (see
+            :meth:`~cwinpy.data.HeterodynedData.find_outliers`).
+        zero_time: bool, True
+            Start the time axis at zero.
+        plotkwargs:
+            Keyword arguments to be passed to :func:`matplotlib.pyplot.plot`.
+        
+        Returns
+        -------
+        figure:
+            The :class:`matplotlib.figure.Figure` containing the plot.
+        """
+
+        if remove_outliers and not self.__remove_outliers:
+            idx = self.find_outliers(thresh=thresh)
+        else:
+            idx = np.zeros(len(self), dtype=np.bool)
+
+        # set the data to use
+        if which.lower() in ['abs', 'absolute']:
+            pldata = np.abs(self.data[~idx])
+        elif which.lower() in ['real', 're']:
+            pldata = self.data.real[~idx]
+        elif which.lower() in ['im', 'imag', 'imaginary']:
+            pldata = self.data.imag[~idx]
+        else:
+            raise ValueError("'which' must be 'abs', 'real' or 'imag'")
+
+        pltimes = self.times[~idx]
+        t0 = pltimes[0]
+        if zero_time:
+            pltimes -= pltimes[0]
+
+        try:
+            from matplotlib import pyplot as pl
+            from matplotlib.figure import Figure
+            from matplotlib.axes import Axes
+            import matplotlib as mpl
+
+            if len(rcparams) == 0:
+                rcparams = self.defaultmplparams.copy()
+
+            # set default figure sizes
+            if 'figure.figsize' not in rcparams:
+                rcparams['figure.figsize'] = figsize
+
+            if 'figure.autolayout' not in rcparams:
+                rcparams['figure.autolayout'] = True
+
+            # set 'label' and 'color' defaults
+            if self.detector is not None:
+                if 'label' not in plotkwargs:
+                    plotkwargs['label'] = self.detector
+
+                if self.detector in self.coldic and 'color' not in plotkwargs:
+                    plotkwargs['color'] = self.coldic[self.detector]
+
+            with mpl.rc_context(rc=rcparams):
+                if isinstance(ax, (Figure, Axes)):
+                    if isinstance(ax, Figure):
+                        fig = ax
+                        thisax = ax.gca()  # get current axis
+                    else:
+                        fig = ax.get_figure()
+                        thisax = ax
+                else:
+                    fig, thisax = pl.subplots()
+
+                thisax.plot(pltimes, pldata, **plotkwargs)
+                
+                if zero_time:
+                    thisax.set_xlabel('GPS - {}'.format(int(t0)))
+                    thisax.set_xlim([0., pltimes[-1]])
+                else:
+                    thisax.set_xlabel('GPS time')
+                    thisax.set_xlim([pltimes[0], pltimes[-1]])
+
+                if which.lower() in ['abs', 'absolute']:
+                    thisax.set_ylabel('$|B_k|$')
+                elif which.lower() in ['real', 're']:
+                    thisax.set_ylabel('$\\Re{B_k}$')
+                else:
+                    thisax.set_ylabel('$\\Im{B_k}$')
+
+                thisax.legend(loc='best')
+
+                # force drawing of labels
+                pl.draw()
+        except Exception as e:
+            raise RuntimeError("Problem with plotting: {}".format(e))
+        
+        return fig
 
     def spectrogram(self, dt=86400, window=None, overlap=0.5, plot=True,
                     ax=None, rcparams={}, remove_outliers=False, thresh=3.5,
@@ -1429,7 +1548,7 @@ class HeterodynedData(object):
 
                 window = tukey(nfft, alpha=0.1)
 
-            # generate spectrogram 
+            # generate spectrogram
             try:
                 from matplotlib.mlab import specgram
 
@@ -1447,7 +1566,7 @@ class HeterodynedData(object):
 
                 if average not in ['median', 'mean']:
                     raise ValueError("Average method must be 'median' or 'mean'")
-                
+
                 if average == 'median':
                     power = np.median(power, axis=-1)
                 else:
@@ -1497,7 +1616,6 @@ class HeterodynedData(object):
                 # add to LaTeX preamble
                 if 'xfrac' not in mpl.rcParams['text.latex.preamble']:
                     mpl.rcParams['text.latex.preamble'].append('\\usepackage{xfrac}')
-                mpl.rcParams['text.usetex'] = True
 
                 # set at quarters of the sample frequency
                 if not isinstance(fraction_label_num, int):
@@ -1518,7 +1636,7 @@ class HeterodynedData(object):
                                                                     1,
                                                                     int(np.abs(tick)))
                         labels.append(label)
-                
+
                 if ptype != 'spectrogram':
                     ticks = np.linspace(-Fs / 2, Fs / 2, int(Fs / df) + 1)
 
@@ -1565,6 +1683,9 @@ class HeterodynedData(object):
                     if fraction_labels:
                         thisax.set_yticks(ticks)
                         thisax.set_yticklabels(labels)
+
+                    # force drawing of labels
+                    pl.draw()
             else:
                 # set plot color
                 color = None
@@ -1605,6 +1726,9 @@ class HeterodynedData(object):
                     if fraction_labels:
                         thisax.set_xticks(ticks)
                         thisax.set_xticklabels(labels)
+
+                    # force drawing of labels
+                    pl.draw()
         except Exception as e:
             raise RuntimeError("Problem creating spectrogram: {}".format(e))
 

@@ -50,4 +50,4 @@ def gcd_array(denominators):
     if len(denoms) < 2:
         raise ValueError("Must have more than two values")
 
-    return reduce(lambda a , b: gcd(a, b), denoms)
+    return reduce(lambda a, b: gcd(a, b), denoms)

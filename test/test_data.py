@@ -382,7 +382,7 @@ def test_running_median():
     assert het.running_median.imag[-1] == np.median(data.imag[-(window//2):])
     assert len(het.subtract_running_median()) == len(het)
     assert (het.subtract_running_median()[0] ==
-            (data[0] - (np.median(data.real[:(window//2)+1]) + 
+            (data[0] - (np.median(data.real[:(window//2)+1]) +
                         1j*np.median(data.imag[:(window//2)+1]))))
 
 
@@ -395,7 +395,7 @@ def test_outlier_removal():
     times = np.linspace(1000000000., 1000001740, 30)
     data = (np.random.normal(0., 1., size=30) +
             1j*np.random.normal(0., 1., size=30))
-    
+
     # add outliers (one in the real part and one in the imaginary)
     data[10] = 20. + data.imag[10]*1j
     data[20] = data.real[20] - 20.*1j
@@ -428,7 +428,7 @@ def test_bayesian_blocks():
     """
 
     times = np.linspace(1000000000., 1000086340., 1440)
-    
+
     # create data from two obviously different Gaussian distributions
     sigma1 = 1.
     data1 = (np.random.normal(0., sigma1, size=720) +
@@ -456,7 +456,7 @@ def test_bayesian_blocks():
             if 718 <= cp <= 722:
                 found = True
                 break
-    
+
         assert found
 
 
@@ -466,7 +466,7 @@ def test_spectrum_plots():
     """
 
     times = np.linspace(1000000000., 1000172740., 2*1440)
-    data = (np.random.normal(0., 1.0, size=2*1440) + 
+    data = (np.random.normal(0., 1.0, size=2*1440) +
             1j*np.random.normal(0., 1.0, size=2*1440))
 
     het = HeterodynedData(data, times=times, detector='H1')
@@ -480,7 +480,7 @@ def test_spectrum_plots():
 
     with pytest.raises(TypeError):
         _, _, _, _ = het.spectrogram(overlap='a')
-    
+
     with pytest.raises(ValueError):
         _, _, _, _ = het.spectrogram(overlap=-1)
 
@@ -523,7 +523,7 @@ def test_spectrum_plots():
     assert freqs.shape[0] == power.shape[0]
 
     # add a DCC signal and check it's at 0 Hz
-    datadc = (np.random.normal(5., 1.0, size=2*1440) + 
+    datadc = (np.random.normal(5., 1.0, size=2*1440) +
               1j*np.random.normal(5., 1.0, size=2*1440))
 
     newhet2 = HeterodynedData(datadc, times=times, detector='H1')
