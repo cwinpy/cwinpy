@@ -508,3 +508,27 @@ def test_spectrum_plots():
     assert isinstance(fig, Figure)
     assert power.shape[0] == len(data)
     assert freqs.shape[0] == power.shape[0]
+
+    # do the same, but with some data removed to test zero padding
+    newdata = np.delete(data, [10, 51, 780])
+    newtimes = np.delete(times, [10, 51, 780])
+
+    newhet = HeterodynedData(newdata, times=newtimes, detector='H1')
+
+    # create a power spectrum
+    freqs, power, fig = newhet.power_spectrum(dt=86400)
+
+    assert isinstance(fig, Figure)
+    assert power.shape[0] == len(data) // 2
+    assert freqs.shape[0] == power.shape[0]
+
+    # add a DCC signal and check it's at 0 Hz
+    datadc = (np.random.normal(5., 1.0, size=2*1440) + 
+              1j*np.random.normal(5., 1.0, size=2*1440))
+
+    newhet2 = HeterodynedData(datadc, times=times, detector='H1')
+
+    # create a power spectrum
+    freqs, power, fig = newhet2.power_spectrum(dt=86400)
+
+    assert freqs[np.argmax(power)] == 0.

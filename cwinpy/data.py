@@ -1458,7 +1458,8 @@ class HeterodynedData(object):
                 from scipy.signal import periodogram
 
                 frequencies, power = periodogram(padded, fs=Fs,
-                                                 return_onesided=False)
+                                                 return_onesided=False,
+                                                 detrend=lambda x: x)
 
                 # sort results in frequency
                 frequencies, power = np.array(sorted(zip(frequencies,
@@ -1655,7 +1656,7 @@ class HeterodynedData(object):
         # get the "new" padded time stamps
         tottime = times[-1] - times[0]
         newtimes = np.linspace(times[0], times[-1],
-                               1 + int(tottime) / gcd)
+                               1 + int(tottime) // gcd)
 
         # get indices of original times im new times
         tidxs = np.where(np.in1d(newtimes, times))[0]
