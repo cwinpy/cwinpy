@@ -22,14 +22,12 @@ python-3.7:
     - pip install --upgrade pip
     - pip install -r requirements.txt
     - pip install -r docs-requirements.txt
-    - pip install pytest coverage pytest-coverage coverage-badge
+    - pip install pytest
   script:
     - python setup.py install
 
-    # run tests and get coverage data
-    - pytest --cov=cwinpy
-    - coverage html
-    - coverage-badge -o coverage_badge.svg -f
+    # run tests
+    - pytest
 
     # Make the documentation
     - cd docs
@@ -38,8 +36,6 @@ python-3.7:
 
   artifacts:
     paths:
-      - htmlcov/
-      - coverage_badge.svg
       - docs/_build/html/
 
 #pages:
