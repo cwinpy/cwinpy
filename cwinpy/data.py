@@ -2,8 +2,6 @@
 Functions to deal with heterodyned data.
 """
 
-from __future__ import division, print_function
-
 import numpy as np
 import warnings
 from collections import OrderedDict
