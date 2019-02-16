@@ -18,6 +18,9 @@ python-3.7:
   stage: test
   image: python:3.7-stretch
   before_script:
+    # add a latex install for the matplotlib testing
+    - sudo apt-get -qq update && sudo apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng
+
     # Install the dependencies specified in the Pipfile
     - pip install --upgrade pip
     - pip install -r requirements.txt
