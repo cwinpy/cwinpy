@@ -414,8 +414,8 @@ def test_outlier_removal():
     idxs = het.find_outliers()
 
     assert len(np.where(idxs == True)[0]) >= 2
-    assert ((np.where(idxs == True)[0][0] == 10) and
-            (np.where(idxs == True)[0][1] == 20))
+    assert ((10 in np.where(idxs == True)[0]) and
+            (20 in np.where(idxs == True)[0]))
 
     # test removing the outlier automatically
     newhet = HeterodynedData(data, times=times, remove_outliers=True)
