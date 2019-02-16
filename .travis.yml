@@ -1,0 +1,26 @@
+language: python
+sudo: required
+dist: xenial
+branches:
+  only:
+    master
+python:
+  - "3.7"
+before_install:
+  # add a latex install for the matplotlib testing
+  - sudo apt-get -qq update && sudo apt-get install -y --no-install-recommends texlive texlive-latex-extra
+services:  # see https://docs.travis-ci.com/user/gui-and-headless-browsers/#using-services-xvfb
+  - xvfb
+install:
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+  # install packages for testing
+  - pip install pytest coverage pytest-coverage coverage-badge
+  - pip install codecov
+  # build cwinpy
+  - pip install -e .
+script:
+  # run the test script
+  - pytest --cov=cwinpy
+after_success:
+  - codecov
