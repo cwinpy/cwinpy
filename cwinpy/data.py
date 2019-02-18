@@ -964,7 +964,7 @@ class HeterodynedData(object):
         """
 
         if not isinstance(minlength, int):
-            raise ValueError("Minimum chunk length must be an integer")
+            raise TypeError("Minimum chunk length must be an integer")
 
         if minlength < 1:
             raise ValueError("Minimum chunk length must be a positive integer")

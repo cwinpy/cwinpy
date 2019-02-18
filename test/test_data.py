@@ -441,6 +441,10 @@ def test_running_median():
     with pytest.raises(ValueError):
         het = HeterodynedData(data, times=times, window=window)
 
+    window = 1.5  # window is not an integer
+    with pytest.raises(TypeError):
+        het = HeterodynedData(data, times=times, window=window)
+
     window = 30
 
     het = HeterodynedData(data, times=times, window=window)
@@ -530,6 +534,20 @@ def test_bayesian_blocks():
                 break
 
         assert found
+
+    # check errors if re-running Bayesian blocks
+    minlength = 5.2  # must be an integer
+    with pytest.raises(TypeError):
+        het.bayesian_blocks(minlength=minlength)
+
+    minlength = 0  # must be greater than 1
+    with pytest.raises(ValueError):
+        het.bayesian_blocks(minlength=minlength)
+
+    minlength = 5
+    maxlength = 4  # maxlength must be greater than minlength
+    with pytest.raises(ValueError):
+        het.bayesian_blocks(minlength=minlength, maxlength=maxlength)
 
 
 def test_spectrum_plots():
