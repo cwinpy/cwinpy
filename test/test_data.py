@@ -628,3 +628,52 @@ def test_spectrum_plots():
     freqs, power, fig = newhet2.power_spectrum(dt=86400)
 
     assert freqs[np.argmax(power)] == 0.
+
+
+def test_plot():
+    """
+    Test plotting function (and at the same time test fake noise generaion)
+    (no testinf of injections yet as the code to find ephemeris files won't
+    work)
+    """
+
+    # create an injection parameter file
+    #parcontent = """\
+#PSRJ    J0000+0000
+#RAJ     00:00:00.0
+#DECJ    00:00:00.0
+#F0      123.45
+#F1      1.2e-11
+#PEPOCH  56789.0
+#H0      1.5e-22
+#"""
+
+    #parfile = 'test.par'
+    #with open(parfile, 'w') as fp:
+    #    fp.write(parcontent)
+
+    # one point per 10 mins
+    times = np.linspace(1000000000., 1000085800., 144)
+
+    #het = HeterodynedData(times=times, fakeasd='H1', detector='H1',
+    #                      par=parfile, inject=True)
+    with pytest.raises(AttributeError):
+        # if no parameter file is given, then generating fake data for a
+        # particular detector should fail
+        het = HeterodynedData(times=times, fakeasd='H1')
+
+    # set the asd explicitly
+    het = HeterodynedData(times=times, fakeasd=1e-24)
+
+    # not allowed argument
+    with pytest.raises(ValueError):
+        fig = het.plot(which='blah')
+
+    # test different plot types
+    for which in ['abs', 'REAL', 'im', 'Both']:
+        fig = het.plot(which=which)
+        assert isinstance(fig, Figure)
+        del fig
+
+    # remove the par file
+    #os.remove(parfile)

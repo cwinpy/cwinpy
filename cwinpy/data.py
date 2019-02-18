@@ -289,7 +289,6 @@ class HeterodynedData(object):
 
     # set default Matplotlib setup parameters for plots
     defaultmplparams = {'backend': 'Agg',
-                        'text.usetex': True,
                         'axes.linewidth': 0.5,  # set axes linewidths to 0.5
                         'axes.grid': True,      # add a grid
                         'grid.linewidth': 0.5,
@@ -717,11 +716,15 @@ class HeterodynedData(object):
             emission from the l=m=2 mass quadrupole mode.
         """
 
-        from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
-
         if self.par is None:
             raise ValueError("To perform an injection a parameter file "
                              "must be supplied")
+
+        if self.detector is None:
+            raise ValueError("To perform an injection a detector "
+                             "must be supplied")
+
+        from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 
         # set the times between which the injection will be added
         self.injtimes = injtimes
@@ -756,6 +759,9 @@ class HeterodynedData(object):
         # save injection data
         self.__inj_data = inj_data
 
+        # (re)compute the running median
+        _ = self.compute_running_median(N=self.window)
+
     @property
     def injtimes(self):
         """
@@ -769,9 +775,11 @@ class HeterodynedData(object):
         if injtimes is None:
             # include all time
             timelist = np.array([[self.times[0], self.times[-1]]])
+        else:
+            timelist = injtimes
 
         try:
-            timelist = np.atleast_2d(injtimes)
+            timelist = np.atleast_2d(timelist)
         except Exception as e:
             raise ValueError("Could not parse list of injection "
                              "times: {}".format(e))
@@ -838,6 +846,9 @@ class HeterodynedData(object):
         Add white Gaussian noise to the data based on a supplied one-sided
         noise amplitude spectral density (in 1/sqrt(Hz)).
 
+        If generating noise from a given detector's design curve, a frequency
+        is required, which itself requires a 
+
         Parameters
         ----------
         asd: (float, str)
@@ -868,7 +879,7 @@ class HeterodynedData(object):
                       'IL': lalsim.SimNoisePSDiLIGOSRD,               # iLIGO
                       'IV': lalsim.SimNoisePSDVirgo,                  # iVirgo
                       'IG': lalsim.SimNoisePSDGEO,                    # GEO600
-                      'G1': lalsim.SimNoisePSDGEOHf,                  # GEOHF
+                      'G1': lalsim.SimNoisePSDGEOHF,                  # GEOHF
                       'T1': lalsim.SimNoisePSDTAMA,                   # TAMA
                       'K1': lalsim.SimNoisePSDKAGRA}                  # KAGRA
 
@@ -882,8 +893,11 @@ class HeterodynedData(object):
                 raise ValueError("Detector '{}' is not as known detector "
                                  "alias".format(asd))
 
-            freqs = self.par['F']
+            if self.par is None:
+                raise AttributeError("A source parameter file containing a "
+                                     "frequency is required")
 
+            freqs = self.par['F']
             if freqs is None:
                 raise ValueError("Heterodyne parameter file contains no "
                                  "frequency value")
@@ -917,6 +931,12 @@ class HeterodynedData(object):
         # add the noise to the data
         self.__data.real += noise[:, 0]
         self.__data.imag += noise[:, 1]
+
+        # (re)compute the running median
+        _ = self.compute_running_median(N=self.window)
+
+        # (re)compute change points (and variances)
+        self.bayesian_blocks(threshold=self.__bbthreshold)
 
     def bayesian_blocks(self, threshold='default', minlength=5,
                         maxlength=np.inf):
@@ -1186,18 +1206,16 @@ class HeterodynedData(object):
         ----------
         which: str, 'abs'
             Say whehther to plot the absolute value of the data, ``'abs'``, the
-            ``'real'`` component of the data, or the ``'imag'`` component of
-            the data.
+            ``'real'`` component of the data, the ``'imag'`` component of
+            the data, or ``'both'`` the real and imaginary components.
         rcparams: dict, {}
             A dictionary of Matplotlib configuration parameter. Default values
             will be used if not set.
         figsize: tuple, (12, 4)
             A tuple with the size of the figure. Values set in `rcparams` will
             override this value.
-        ax: (Figure, Axes)
-            If `ax` is a :class:`matplotlib.axes.Axes` or
-            :class:`matplotlib.figure.Figure` then the plot will be
-            plotted on the supplied axis.
+        ax: Axes
+            A :class:`matplotlib.axes.Axes` onto which to add the figure.
         remove_outliers: bool, False
             Set whether to remove outlier for the plot.
         thresh: float, 3.5
@@ -1212,6 +1230,20 @@ class HeterodynedData(object):
         -------
         figure:
             The :class:`matplotlib.figure.Figure` containing the plot.
+
+        Examples
+        --------
+
+        To plot both the real and imginary data one would do:
+
+        >>> import numpy as np
+        >>> from cwinpy import HeterodynedData
+        >>> # create some fake data (as an example)
+        >>> times = np.linspace(1000000000., 1000086340., 1440)
+        >>> het = HeterdynedData(times=times, fakeasd=1e-48)
+        >>> # plot real data
+        >>> fig = het.plot(which='both')
+        
         """
 
         if remove_outliers and not self.__remove_outliers:
@@ -1226,8 +1258,10 @@ class HeterodynedData(object):
             pldata = self.data.real[~idx]
         elif which.lower() in ['im', 'imag', 'imaginary']:
             pldata = self.data.imag[~idx]
+        elif which.lower() == 'both':
+            pldata = (self.data.real[~idx], self.data.imag[~idx])
         else:
-            raise ValueError("'which' must be 'abs', 'real' or 'imag'")
+            raise ValueError("'which' must be 'abs', 'real', 'imag' or 'both")
 
         pltimes = self.times[~idx]
         t0 = pltimes[0]
@@ -1236,9 +1270,12 @@ class HeterodynedData(object):
 
         try:
             from matplotlib import pyplot as pl
-            from matplotlib.figure import Figure
             from matplotlib.axes import Axes
             import matplotlib as mpl
+
+            # make sure usetex is True (it doesn't work properly using it
+            # inside the rc_content manager)
+            mpl.rcParams['text.usetex'] = True
 
             if len(rcparams) == 0:
                 rcparams = self.defaultmplparams.copy()
@@ -1258,19 +1295,45 @@ class HeterodynedData(object):
                 if self.detector in self.coldic and 'color' not in plotkwargs:
                     plotkwargs['color'] = self.coldic[self.detector]
 
+            # set some default plotting styles
+            if 'ls' not in plotkwargs:
+                # set the line style to "None"
+                plotkwargs['ls'] = 'None'
+
+            if 'marker' not in plotkwargs:
+                # set marker to a circle
+                plotkwargs['marker'] = 'o'
+
             with mpl.rc_context(rc=rcparams):
-                if isinstance(ax, (Figure, Axes)):
-                    if isinstance(ax, Figure):
-                        fig = ax
-                        thisax = ax.gca()  # get current axis
-                    else:
-                        fig = ax.get_figure()
-                        thisax = ax
+                if isinstance(ax, Axes):
+                    fig = ax.get_figure()
+                    thisax = ax
                 else:
                     fig, thisax = pl.subplots()
 
-                thisax.plot(pltimes, pldata, **plotkwargs)
-                
+                if which.lower() != 'both':
+                    thisax.plot(pltimes, pldata, **plotkwargs)
+                else:
+                    # plot real and imaginary components
+                    plotkwargs['markerfacecolor'] = 'None'
+                    for i in range(2):
+                        copykwargs = plotkwargs.copy()
+                        if i == 0:
+                            copykwargs['marker'] = 'o'
+                            if 'label' in plotkwargs:
+                                copykwargs['label'] = 'Real {}'.format(plotkwargs['label'])
+                            else:
+                                copykwargs['label'] = 'Real'
+                        else:
+                            copykwargs['marker'] = '+'
+                            if 'label' in plotkwargs:
+                                copykwargs['label'] = 'Imag {}'.format(plotkwargs['label'])
+                            else:
+                                copykwargs['label'] = 'Imag'
+
+                        thisax.plot(pltimes, pldata[i], **copykwargs)
+                    plotkwargs['label'] = True  # add to produce legend below
+
                 if zero_time:
                     thisax.set_xlabel('GPS - {}'.format(int(t0)))
                     thisax.set_xlim([0., pltimes[-1]])
@@ -1281,17 +1344,17 @@ class HeterodynedData(object):
                 if which.lower() in ['abs', 'absolute']:
                     thisax.set_ylabel('$|B_k|$')
                 elif which.lower() in ['real', 're']:
-                    thisax.set_ylabel('$\\Re{B_k}$')
+                    thisax.set_ylabel('$\\Re{(B_k)}$')
+                elif which.lower() in ['imag', 'im']:
+                    thisax.set_ylabel('$\\Im{(B_k)}$')
                 else:
-                    thisax.set_ylabel('$\\Im{B_k}$')
+                    thisax.set_ylabel('$B_k$')
 
-                thisax.legend(loc='best')
-
-                # force drawing of labels
-                pl.draw()
+                if 'label' in plotkwargs:
+                    thisax.legend(loc='best')
         except Exception as e:
             raise RuntimeError("Problem with plotting: {}".format(e))
-        
+
         return fig
 
     def spectrogram(self, dt=86400, window=None, overlap=0.5, plot=True,
@@ -1322,9 +1385,8 @@ class HeterodynedData(object):
             :class:`~matplotlib.figure.Figure`), but the plotting can be turned
             off if this is set to ``False``.
         ax: (axes, figure)
-            If `ax` is a :class:`matplotlib.axes.Axes` or
-            :class:`matplotlib.figure.Figure` then the spectrogram will be
-            plotted on the supplied axis.
+            If `ax` is a :class:`matplotlib.axes.Axes` then the spectrogram
+            will be plotted on the supplied axis.
         rcparams: dict, None
             A dictionary of Matplotlib configuration parameters
             (:class:`matplotlib.RcParams`) for plotting. If ``None``, and an
@@ -1585,9 +1647,12 @@ class HeterodynedData(object):
         # perform plotting
         try:
             from matplotlib import pyplot as pl
-            from matplotlib.figure import Figure
             from matplotlib.axes import Axes
             import matplotlib as mpl
+
+            # make sure usetex is True (it doesn't work properly using it
+            # inside the rc_content manager)
+            mpl.rcParams['text.usetex'] = True
 
             # set default figure sizes
             if ptype == 'spectrogram':
@@ -1649,13 +1714,9 @@ class HeterodynedData(object):
                     plotkwargs['norm'] = colors.Normalize()
 
                 with mpl.rc_context(rc=rcparams):
-                    if isinstance(ax, (Figure, Axes)):
-                        if isinstance(ax, Figure):
-                            fig = ax
-                            thisax = ax.gca()  # get current axis
-                        else:
-                            fig = ax.get_figure()
-                            thisax = ax
+                    if isinstance(ax, Axes):
+                        fig = ax.get_figure()
+                        thisax = ax
                     else:
                         fig, thisax = pl.subplots()
 
@@ -1672,9 +1733,6 @@ class HeterodynedData(object):
                     if fraction_labels:
                         thisax.set_yticks(ticks)
                         thisax.set_yticklabels(labels)
-
-                    # force drawing of labels
-                    pl.draw()
             else:
                 # set plot color
                 color = None
@@ -1693,13 +1751,9 @@ class HeterodynedData(object):
                         plotkwargs['label'] = self.detector
 
                 with mpl.rc_context(rc=rcparams):
-                    if isinstance(ax, (Figure, Axes)):
-                        if isinstance(ax, Figure):
-                            fig = ax
-                            thisax = ax.gca()  # get current axis
-                        else:
-                            fig = ax.get_figure()
-                            thisax = ax
+                    if isinstance(ax, Axes):
+                        fig = ax.get_figure()
+                        thisax = ax
                     else:
                         fig, thisax = pl.subplots()
 
@@ -1715,9 +1769,6 @@ class HeterodynedData(object):
                     if fraction_labels:
                         thisax.set_xticks(ticks)
                         thisax.set_xticklabels(labels)
-
-                    # force drawing of labels
-                    pl.draw()
         except Exception as e:
             raise RuntimeError("Problem creating spectrogram: {}".format(e))
 
