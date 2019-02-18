@@ -52,6 +52,69 @@ def test_broken_data():
     os.remove(brokenfile)  # clean up file
 
 
+def test_multi_data():
+    """
+    Test various ways of generating data for multiple detectors.
+    """
+
+    # create four datasets
+    times1 = np.linspace(1000000000., 1000086340., 1440)
+    data1 = np.random.normal(0., 1e-25, size=(1440, 2))
+    detector1 = 'H1'
+
+    times2 = np.linspace(1000000000., 1000086340., 1440)
+    data2 = np.random.normal(0., 1e-25, size=(1440, 2))
+    detector2 = 'L1'
+
+    times3 = np.linspace(1000000000., 1000086340., 1440)
+    data3 = np.random.normal(0., 1e-25, size=(1440, 2))
+    detector3 = 'G1'
+
+    times4 = np.linspace(1000000000., 1000086340., 1440)
+    data4 = np.random.normal(0., 1e-25, size=(1440, 2))
+    detector4 = 'K1'
+
+    # add first dataset as precreated HeterodynedData object
+    het1 = HeterodynedData(data1, times=times1, detector=detector1)
+
+    mhet = MultiHeterodynedData(het1)
+
+    # add second dataset as a dictionary
+    ddic = {detector2: data2}
+    tdic = {'XX': times2}  # set to fail
+
+    # add second dataset
+    with pytest.raises(KeyError):
+        mhet.add_data(ddic, tdic, detector2)
+    
+    # fix tdic
+    tdic = {detector2: times2}
+    mhet.add_data(ddic, tdic, detector2)
+
+    # add third data set as a dictionary of HeterodynedData
+    het3 = HeterodynedData(data3, times=times3, detector=detector3)
+    ddic = {detector3: het3}
+    mhet.add_data(ddic)
+
+    # add fourth data set by just passing the data
+    tdic = {detector4: times4}  # fail with dictionary of times
+
+    with pytest.raises(TypeError):
+        mhet.add_data(data4, tdic, detector4)
+
+    # just add with times
+    mhet.add_data(data4, times4, detector4)
+
+    assert len(mhet) == 4
+    assert len(mhet.detectors) == 4
+    assert len(mhet.to_list) == 4
+
+    # test looping over MultiHeterodynedData
+    dets = [detector1, detector2, detector3, detector4]
+    for data, det in zip(mhet, dets):
+        assert det == data.detector
+
+
 def test_too_many_columns():
     """
     Test for failure if there are too many columns in the data file.

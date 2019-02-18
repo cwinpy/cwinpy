@@ -65,7 +65,7 @@ class MultiHeterodynedData(object):
         if data is not None:
             self.add_data(data, times, detector=detector)
 
-    def add_data(self, data, times, detector=None):
+    def add_data(self, data, times=None, detector=None):
         """
         Add heterodyned data to the class.
 
@@ -160,11 +160,6 @@ class MultiHeterodynedData(object):
     def detectors(self):
         # return the list of detectors contained in the object
         return list(self.__data.keys())
-
-    @property
-    def laldetector(self):
-        # return the list of :class:`lal.Detector` contained in the object
-        return [det.laldetector for det in self.__data.values()]
 
     def __iter__(self):
         return self
