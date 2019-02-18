@@ -376,10 +376,6 @@ class HeterodynedData(object):
             except Exception as e:
                 raise IOError("Problem reading in data: {}".format(e))
 
-            if len(dataarray.shape) != 2:
-                raise ValueError("Data array is the wrong shape for "
-                                 "heterodyned data.")
-
             if dataarray.shape[1] != 3 and dataarray.shape[1] != 4:
                 raise ValueError("Data array is the wrong shape")
 

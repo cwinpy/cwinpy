@@ -251,6 +251,15 @@ def test_array_data():
     assert np.all(het.data.imag == data[:, 1])
     assert het.dt == (times[1] - times[0])
 
+    # overwrite data directly using data setter (testing for errors)
+    newdata = (data, )  # too short tuple
+    with pytest.raises(ValueError):
+        het.data = newdata
+    
+    with pytest.raises(ValueError):
+        # error due to no times being supplied
+        het.data = data
+
 
 def test_noninteger_timestamps():
     """
