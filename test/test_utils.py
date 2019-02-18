@@ -16,11 +16,15 @@ def test_logfactorial():
     a = 1.5  # non-integer float
     with pytest.raises(ValueError):
         answer = logfactorial(a)
-    
+
     a = 'a'  # non-number type
     with pytest.raises(TypeError):
         answer = logfactorial(a)
-    
+
+    a = -1  # negative number
+    with pytest.raises(ValueError):
+        answer = logfactorial(a)
+
     a = 3
     assert logfactorial(a) == np.log(3*2*1)
 
