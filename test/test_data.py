@@ -548,6 +548,12 @@ def test_bayesian_blocks():
     maxlength = 4  # maxlength must be greater than minlength
     with pytest.raises(ValueError):
         het.bayesian_blocks(minlength=minlength, maxlength=maxlength)
+    
+    # test re-splitting
+    maxlength = 360
+    het.bayesian_blocks(maxlength=maxlength)
+    for cl in het.chunk_lengths:
+        assert cl >= maxlength
 
 
 def test_spectrum_plots():

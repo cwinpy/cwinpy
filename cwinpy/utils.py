@@ -27,13 +27,17 @@ def logfactorial(n):
     float
     """
 
-    if isinstance(n, int):
+    if isinstance(n, (int, float)):
+        if isinstance(n, float):
+            if not n.is_integer():
+                raise ValueError("Can't find the factorial of a non-integer value")
+
         if n >= 0:
             return gammaln(n+1)
         else:
             raise ValueError("Can't find the factorial of a negative number")
     else:
-        raise ValueError("Can't find the factorial of a non-integer value")
+        raise TypeError("Can't find the factorial of a non-integer value")
 
 
 def gcd_array(denominators):

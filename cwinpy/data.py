@@ -990,7 +990,7 @@ class HeterodynedData(object):
                     insertcps.append((cppos + maxlength, 0))
                 cppos += clength
 
-            self.__change_point_indices_and_ratios.append(insertcps)
+            self.__change_point_indices_and_ratios += insertcps
             self.__change_point_indices_and_ratios = sorted(self.__change_point_indices_and_ratios)
 
         # (re)calculate the variances for each chunk
