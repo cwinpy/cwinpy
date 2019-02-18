@@ -1,7 +1,3 @@
-"""
-Functions to deal with heterodyned data.
-"""
-
 import numpy as np
 import warnings
 from collections import OrderedDict

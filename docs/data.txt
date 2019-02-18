@@ -2,7 +2,30 @@
 Data handling
 #############
 
+Classes to deal with data products that can be used for inference.
+
 .. automodule:: cwinpy.data
+
+Heterodyned Data
+----------------
+
+A data product used for source parameter inference in the Bayesian targeted
+pulsar searches perform by the LIGO Scientific Collaboration and Virgo
+Collaboration is a filtered and band-passed complex time series.
+
+Assuming that the source phase evolution is described by a Taylor expansion
+of the form:
+
+.. math::
+
+   \phi(t) = C\left(f_0(t-T_0) + \frac{1}{2}\dot{f}_0(t-T_0)^2 + \dots\right)
+
+where :math:`f_0` is the source rotation frequency, :math:`\dot{f}_0` is the
+first frequency derivative (higher order derivatives can be used), :math:`t`
+is the time, incorporating any Doppler and relativistic delays, :math:`T_0` is
+the time reference epoch, and :math:`C` is an emission mechanism-dependent
+scaling factor (often set to 2, for emission from the :math:`l=m=2` quadrupole
+mode.)
 
 .. autoclass:: cwinpy.data.MultiHeterodynedData
    :members:
