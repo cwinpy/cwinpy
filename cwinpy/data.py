@@ -1,3 +1,7 @@
+"""
+Classes for dealing with data products.
+"""
+
 import numpy as np
 import warnings
 from collections import OrderedDict

@@ -2,33 +2,65 @@
 Data handling
 #############
 
-Classes to deal with data products that can be used for inference.
-
-.. automodule:: cwinpy.data
+Classes to deal with data products from searches for continuous sources of
+gravitational waves that can be used for inference.
 
 Heterodyned Data
 ----------------
 
-A data product used for source parameter inference in the Bayesian targeted
-pulsar searches perform by the LIGO Scientific Collaboration and Virgo
-Collaboration is a filtered and band-passed complex time series.
+The data product used for source parameter inference in the Bayesian targeted
+pulsar searches perform by the `LIGO Scientific Collaboration
+<https://www.ligo.org/>`_ and `Virgo Collaboration <http://www.virgo-gw.eu/>`_
+(e.g., [1]_, [2]_) is a filtered and band-passed complex time series [3]_.
 
-Assuming that the source phase evolution is described by a Taylor expansion
-of the form:
+In forming the data it assumes that the source phase evolution is described by
+a Taylor expansion of the form:
 
 .. math::
 
-   \phi(t) = C\left(f_0(t-T_0) + \frac{1}{2}\dot{f}_0(t-T_0)^2 + \dots\right)
+   \phi(t) = 2 \pi C\left(f_0(t-T_0) + \frac{1}{2}\dot{f}_0(t-T_0)^2 + \dots\right)
 
 where :math:`f_0` is the source rotation frequency, :math:`\dot{f}_0` is the
-first frequency derivative (higher order derivatives can be used), :math:`t`
-is the time, incorporating any Doppler and relativistic delays, :math:`T_0` is
-the time reference epoch, and :math:`C` is an emission mechanism-dependent
-scaling factor (often set to 2, for emission from the :math:`l=m=2` quadrupole
-mode.)
+first frequency derivative (higher order derivatives can also be used),
+:math:`t` is the time, incorporating any source and detector position-dependent
+Doppler and relativistic delays, :math:`T_0` is the time reference epoch in the
+pulsar proper time (often set to the solar system barycentre), and :math:`C` is
+an emission mechanism-dependent scaling factor (often set to 2, for emission
+from the :math:`l=m=2` quadrupole mode.) In searches for known pulsars, the
+frequency and its derivatives, and the Doppler and relativistic delays, are
+assumed to be known from the observed properties of the pulsar.
+
+The raw real time series of :math:`h(t)` from a detector is "heterodyned",
+
+.. math::
+
+   h'(t) = h(t) e^{-2\pi i \phi(t)},
+
+to remove the high-frequency variation of the potential source signal. The
+resulting complex series :math:`h'(t)` is low-pass filtered (effectively a
+band-pass filter on the two-sided complex data) using a high order Butterworth
+filter, often with a knee frequency of 0.25 Hz, and down-sampled, via
+averaging, to a far lower sample rate than the original raw data. In general
+gravitational-wave detector data is sampled at 16384 Hz, and often the
+heterodyned data is downsampled to 1/60 Hz (one sample per minute).
 
 .. autoclass:: cwinpy.data.MultiHeterodynedData
    :members:
 
 .. autoclass:: cwinpy.data.HeterodynedData
    :members:
+
+References
+----------
+
+.. [1] `J. Aasi et al
+   <https://ui.adsabs.harvard.edu/#abs/2014ApJ...785..119A/abstract>`_,
+   *Astrophys. J.*, **785**, 119 (2014)
+
+.. [2] `B. P. Abbott et al
+   <https://ui.adsabs.harvard.edu/#abs/2017ApJ...839...12A/abstract>`_,
+   *Astrophys. J.*, **839**, 12 (2017)
+
+.. [3] `R. Dupius & G. Woan
+   <https://ui.adsabs.harvard.edu/#abs/2005PhRvD..72j2002D/abstract>`_
+   *Phys. Rev. D*, **72**, 102002 (2005)
