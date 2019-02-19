@@ -172,6 +172,86 @@ class MultiHeterodynedData(object):
             self.__currentidx += 1
             return self.to_list[self.__currentidx-1]
 
+    def plot(self, det=None, together=False, which='abs', rcparams={},
+             figsize=(12, 4), remove_outliers=False, thresh=3.5,
+             zero_time=True, **plotkwargs):
+        """
+        Plot all, or some of, the time series' contained in the class. The
+        general arguments can be seen in
+        :meth:`cwinpy.data.HeterodynedData.plot` and additional arguments are
+        given below.
+
+        Parameters
+        ----------
+        together: bool, False
+            Set to ``True`` to put all the plots onto one figure, otherwise
+            they will be created on individual
+            :class:`~matplotlib.figure.Figure` objects.
+        det: str
+            If a detector name is supplied, then only the time series' for that
+            detector will be plotted.
+        
+        Returns
+        -------
+        list:
+            A :class:`~matplotlib.figure.Figure` object, or list of
+            :class:`~matplotlib.figure.Figure` objects.
+
+        """
+
+        from matplotlib import pyplot as pl
+        import matplotlib as mpl
+
+        if len(self) == 0:
+            # nothing in the class!
+            return None
+
+        # set which plots to output
+        ndet = 1
+        if det is not None:
+            if det not in self.detectors:
+                raise ValueError("Detector {} is not in the class".format(det))
+
+            # get the number of time series' for the requested detector
+            ndet = len(self[det])
+
+        nplots = 1
+        if together:
+            if ndet > 1:
+                nplots = ndet
+                hets = self[det]
+            else:
+                nplots = len(self)
+                hets = self  # datasets to plot
+
+            # create the figure
+            mpl.rcParams['text.usetex'] = True
+            figs, axs = pl.subplots(nplots, 1, figsize=(12, 4*nplots))
+            
+            for ax, het in zip(axs, hets):
+                _ = het.plot(which=which, ax=ax, rcparams=rcparams,
+                             remove_outliers=remove_outliers,
+                             thresh=thresh, zero_time=zero_time,
+                             **plotkwargs)
+        else:
+            # a list of figures
+            figs = []
+
+            if det is not None:
+                hets = self[det]
+            else:
+                hets = self
+
+            # loop over data and produce plots
+            for het in hets:
+                figs.append(het.plot(which=which, rcparams=rcparams,
+                                     figsize=figsize,
+                                     remove_outliers=remove_outliers,
+                                     thresh=thresh, zero_time=zero_time,
+                                     **plotkwargs))
+
+        return figs
+
     def __len__(self):
         length = 0
         for key in self.__data:
@@ -1351,7 +1431,7 @@ class HeterodynedData(object):
                     thisax.set_ylabel('$B_k$')
 
                 if 'label' in plotkwargs:
-                    thisax.legend(loc='best')
+                    thisax.legend(loc='upper right')
         except Exception as e:
             raise RuntimeError("Problem with plotting: {}".format(e))
 
