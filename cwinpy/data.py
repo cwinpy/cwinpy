@@ -191,13 +191,12 @@ class MultiHeterodynedData(object):
         det: str
             If a detector name is supplied, then only the time series' for that
             detector will be plotted.
-        
+
         Returns
         -------
         list:
             A :class:`~matplotlib.figure.Figure` object, or list of
             :class:`~matplotlib.figure.Figure` objects.
-
         """
 
         from matplotlib import pyplot as pl
@@ -259,17 +258,144 @@ class MultiHeterodynedData(object):
 
         return figs
 
-    def _power_spectrum(self, plottype=None, det=None, together=False,
-                        figsize=None, remove_outliers=False, thresh=3.5,
-                        labelsize=None, fontsize=None, legendsize=None,
-                        fontname=None, labelname=None, dt=86400,
-                        average='median', overlap=0.5, window=None,
-                        **plotkwargs):
+    def power_spectrum(self, det=None, together=False, figsize=None,
+                       remove_outliers=None, thresh=None, labelsize=None,
+                       fontsize=None, legendsize=None, fontname=None,
+                       labelname=None, dt=None, fraction_labels=None,
+                       fraction_label_num=None, average=None,
+                       window=None, overlap=None, **plotkwargs):
+        """
+        Plot all, or some of, the power spectra of the time series' contained
+        in the class. The general arguments can be seen in
+        :meth:`cwinpy.data.HeterodynedData.power_spectrum` and additional
+        arguments are given below.
+
+        Parameters
+        ----------
+        together: bool, False
+            Set to ``True`` to put all the plots onto one figure, otherwise
+            they will be created on individual
+            :class:`~matplotlib.figure.Figure` objects.
+        det: str
+            If a detector name is supplied, then only the time series' for that
+            detector will be plotted.
+
+        Returns
+        -------
+        list:
+            A :class:`~matplotlib.figure.Figure` object, or list of
+            :class:`~matplotlib.figure.Figure` objects.
+        """
+
+        return self._plot_power('power', det=det, together=together,
+                                figsize=figsize,
+                                remove_outliers=remove_outliers,
+                                thresh=thresh, labelsize=labelsize,
+                                fontsize=fontsize, labelname=labelname,
+                                fontname=fontname, dt=dt,
+                                fraction_labels=fraction_labels,
+                                fraction_label_num=fraction_label_num,
+                                average=average, window=window,
+                                overlap=overlap, **plotkwargs)
+
+    def periodogram(self, det=None, together=False, figsize=None,
+                    remove_outliers=None, thresh=None, labelsize=None,
+                    fontsize=None, legendsize=None, fontname=None,
+                    labelname=None, fraction_labels=None,
+                    fraction_label_num=None, **plotkwargs):
+        """
+        Plot all, or some of, the periodograms of the time series' contained
+        in the class. The general arguments can be seen in
+        :meth:`cwinpy.data.HeterodynedData.periodogram` and additional
+        arguments are given below.
+
+        Parameters
+        ----------
+        together: bool, False
+            Set to ``True`` to put all the plots onto one figure, otherwise
+            they will be created on individual
+            :class:`~matplotlib.figure.Figure` objects.
+        det: str
+            If a detector name is supplied, then only the time series' for that
+            detector will be plotted.
+
+        Returns
+        -------
+        list:
+            A :class:`~matplotlib.figure.Figure` object, or list of
+            :class:`~matplotlib.figure.Figure` objects.
+        """
+
+        return self._plot_power('periodogram', det=det, together=together,
+                                figsize=figsize,
+                                remove_outliers=remove_outliers,
+                                thresh=thresh, labelsize=labelsize,
+                                fontsize=fontsize, labelname=labelname,
+                                fontname=fontname,
+                                fraction_labels=fraction_labels,
+                                fraction_label_num=fraction_label_num,
+                                **plotkwargs)
+
+    def spectrogram(self, det=None, together=False, figsize=None,
+                    remove_outliers=None, thresh=None, labelsize=None,
+                    fontsize=None, legendsize=None, fontname=None,
+                    labelname=None, fraction_labels=None,
+                    fraction_label_num=None, dt=None, overlap=None,
+                    window=None, **plotkwargs):
+        """
+        Plot all, or some of, the spectograms of the time series' contained
+        in the class. The general arguments can be seen in
+        :meth:`cwinpy.data.HeterodynedData.spectrogram` and additional
+        arguments are given below.
+
+        Parameters
+        ----------
+        together: bool, False
+            Set to ``True`` to put all the plots onto one figure, otherwise
+            they will be created on individual
+            :class:`~matplotlib.figure.Figure` objects.
+        det: str
+            If a detector name is supplied, then only the time series' for that
+            detector will be plotted.
+
+        Returns
+        -------
+        list:
+            A :class:`~matplotlib.figure.Figure` object, or list of
+            :class:`~matplotlib.figure.Figure` objects.
+        """
+
+        return self._plot_power('spectrogram', det=det, together=together,
+                                figsize=figsize, window=window,
+                                remove_outliers=remove_outliers,
+                                thresh=thresh, labelsize=labelsize,
+                                fontsize=fontsize, labelname=labelname,
+                                fontname=fontname, dt=dt,
+                                fraction_labels=fraction_labels,
+                                fraction_label_num=fraction_label_num,
+                                overlap=overlap, **plotkwargs)
+
+    def _plot_power(self, plottype, det=None, together=False, figsize=None,
+                    remove_outliers=None, thresh=None, labelsize=None,
+                    fontsize=None, legendsize=None, fontname=None,
+                    labelname=None, dt=None, average=None, overlap=None,
+                    window=None, fraction_labels=None,
+                    fraction_label_num=None, **plotkwargs):
+        """
+        General purpose function for plotting the various spectrum figures.
+
+        Parameters
+        ----------
+        plottype: str
+            The "spectrum" plots that are required: 'power_spectrum',
+            'periodogram', or 'spectrogram'
+        """
+
         from matplotlib import pyplot as pl
         import matplotlib as mpl
 
         if plottype.lower() not in ['spectrogram', 'periodogram',
-                                    'power_spectrum']:
+                                    'power']:
             raise ValueError("Spectrum plot type is not known")
 
         if len(self) == 0:
@@ -285,23 +411,27 @@ class MultiHeterodynedData(object):
             # get the number of time series' for the requested detector
             ndet = len(self[det])
 
-        speckeys = {}
-        speckeys['dt'] = dt
-        speckeys['thresh'] = thresh
-        speckeys['remove_outliers'] = remove_outliers
-        speckeys['labelsize'] = labelsize
-        speckeys['labelname'] = labelname
-        speckeys['fontsize'] = fontsize
-        speckeys['fontname'] = fontname
-        speckeys['legendsize'] = legendsize
-        if figsize is not None:
-            speckeys['figsize'] = figsize
-        if plottype.lower() == 'powerspectrum':
-            speckeys['average'] = average
-            if figsize is not None:
-        if plottype.lower() == 'spectrogram':
-            speckeys['overlap'] = overlap
-            speckeys['window'] = window
+        # set keyword arguments
+        speckwargs = {}
+        for key, value in zip(['thresh', 'remove_outliers', 'labelsize',
+                               'labelname', 'fontsize', 'fontname',
+                               'legendsize', 'fraction_labels',
+                               'fraction_label_num', 'figsize'], [thresh,
+                               remove_outliers, labelsize, labelname, fontsize,
+                               fontname, legendsize, fraction_labels,
+                               fraction_label_num, figsize]):
+            if value is not None:
+                speckwargs[key] = value
+
+        if plottype.lower() == 'power' and average is not None:
+            speckwargs['average'] = average
+        if plottype.lower() in ['spectrogram', 'power']:
+            if overlap is not None:
+                speckwargs['overlap'] = overlap
+            if window is not None:
+                speckwargs['window'] = window
+            if dt is not None:
+                speckwargs['dt'] = dt
 
         nplots = 1
         if together:
@@ -313,22 +443,26 @@ class MultiHeterodynedData(object):
                 hets = self  # datasets to plot
 
             # create the figure
-            if figsize[0] == 12 and figsize[1] == 4:
-                # check default size and increase
-                figsize = (figsize[0], figsize[1]*nplots)
+            if figsize is None:
+                # create default size
+                if plottype.lower() == 'spectrogram':
+                    figsize = (12, 4*nplots)
+                else:
+                    figsize = (6, 5*nplots)
 
             figs, axs = pl.subplots(nplots, 1, figsize=figsize)
 
             for ax, het in zip(axs, hets):
                 if plottype.lower() == 'periodogram':
                     plfunc = het.periodogram
-                elif plottype.lower() == 'power_spectrum':
+                elif plottype.lower() == 'power':
                     plfunc = het.power_spectrum
                 else:
                     plfunc = het.spectrogram
 
-                _ = plfunc(**speckeys,  **plotkwargs)
+                _ = plfunc(**speckwargs, ax=ax, **plotkwargs)
 
+            figs.tight_layout()
         else:
             # a list of figures
             figs = []
@@ -340,12 +474,17 @@ class MultiHeterodynedData(object):
 
             # loop over data and produce plots
             for het in hets:
-                figs.append(het.plot(which=which, figsize=figsize,
-                                     remove_outliers=remove_outliers,
-                                     thresh=thresh, zero_time=zero_time,
-                                     labelsize=labelsize, fontsize=fontsize,
-                                     legendsize=legendsize, fontname=fontname,
-                                     labelname=labelname, **plotkwargs))
+                if plottype.lower() == 'periodogram':
+                    plfunc = het.periodogram
+                    figidx = 2
+                elif plottype.lower() == 'power':
+                    plfunc = het.power_spectrum
+                    figidx = 2
+                else:
+                    plfunc = het.spectrogram
+                    figidx = 3
+
+                figs.append(plfunc(**speckwargs, **plotkwargs)[figidx])
 
         return figs
 
@@ -1571,7 +1710,7 @@ class HeterodynedData(object):
         return fig
 
     def spectrogram(self, dt=86400, window=None, overlap=0.5, plot=True,
-                    ax=None, rcparams={}, remove_outliers=False, thresh=3.5,
+                    ax=None, remove_outliers=False, thresh=3.5,
                     fraction_labels=True, fraction_label_num=4,
                     figsize=(12, 4), labelsize=None, fontsize=None,
                     fontname=None, labelname=None, legendsize=None,
@@ -1602,12 +1741,6 @@ class HeterodynedData(object):
         ax: (axes, figure)
             If `ax` is a :class:`matplotlib.axes.Axes` then the spectrogram
             will be plotted on the supplied axis.
-        rcparams: dict, None
-            A dictionary of Matplotlib configuration parameters
-            (:class:`matplotlib.RcParams`) for plotting. If ``None``, and an
-            :class:`~matplotlib.axes.Axes` or
-            :class:`~matplotlib.figure.Figure` is not supplied, the some
-            default styles will be used.
         remove_outliers: bool, False
             Set to ``True`` to remove outliers points before generating the
             spectrogram. This is not required if the class was created with
@@ -1658,7 +1791,6 @@ class HeterodynedData(object):
         speckwargs['dt'] = dt
         speckwargs['window'] = window
         speckwargs['overlap'] = overlap
-        speckwargs['rcparams'] = rcparams
         speckwargs['remove_outliers'] = remove_outliers
         speckwargs['thresh'] = thresh
         speckwargs['fraction_labels'] = fraction_labels
@@ -1718,14 +1850,13 @@ class HeterodynedData(object):
                        fraction_label_num=4, average='median', dt=86400,
                        figsize=(6, 5), labelsize=None, labelname=None,
                        fontsize=None, fontname=None, legendsize=None,
-                       **plotkwargs):
+                       window=None, overlap=0.5, **plotkwargs):
         """
         Compute and plot the power spectrum of the data. This compute the
         spectrogram, and averages the power over time.
 
         See :meth:`~cwinpy.data.HeterodynedData.spectrogram` for input
-        parameters, excluding `window` and `overlap`. The default figure
-        size is (6, 5).
+        parameters. The default figure size is (6, 5).
 
         Parameters
         ----------
@@ -1754,6 +1885,8 @@ class HeterodynedData(object):
         speckwargs['fraction_label_num'] = fraction_label_num
         speckwargs['dt'] = dt
         speckwargs['average'] = average
+        speckwargs['window'] = window
+        speckwargs['overlap'] = overlap
 
         return self._plot_power('power', speckwargs, figsize=figsize,
                                 labelsize=labelsize, fontsize=fontsize,

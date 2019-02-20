@@ -561,30 +561,39 @@ def test_spectrum_plots():
     Test the spectrogram, periodogram and power spectrum plots.
     """
 
-    times = np.linspace(1000000000., 1000172740., 2*1440)
-    data = (np.random.normal(0., 1.0, size=2*1440) +
-            1j*np.random.normal(0., 1.0, size=2*1440))
+    times1 = np.linspace(1000000000., 1000172740., 2*1440)
+    data1 = (np.random.normal(0., 1.0, size=2*1440) +
+             1j*np.random.normal(0., 1.0, size=2*1440))
+    detector1 = 'H1'
 
-    het = HeterodynedData(data, times=times, detector='H1')
+    times2 = np.linspace(1000000000., 1000172740., 2*1440)
+    data2 = (np.random.normal(0., 1.0, size=2*1440) +
+             1j*np.random.normal(0., 1.0, size=2*1440))
+    detector2 = 'L1'
+
+    data = {detector1: HeterodynedData(data1, times=times1),
+            detector2: HeterodynedData(data2, times=times2)}
+
+    mhd = MultiHeterodynedData(data)
 
     # test errors
     with pytest.raises(ValueError):
-        _, _, _, _ = het.spectrogram(dt='a')
+        _ = mhd.spectrogram(dt='a')
 
     with pytest.raises(ValueError):
-        _, _, _, _ = het.spectrogram(dt=200000)
+        _ = mhd.spectrogram(dt=200000)
 
     with pytest.raises(TypeError):
-        _, _, _, _ = het.spectrogram(overlap='a')
+        _ = mhd.spectrogram(overlap='a')
 
     with pytest.raises(ValueError):
-        _, _, _, _ = het.spectrogram(overlap=-1)
+        _ = mhd.spectrogram(overlap=-1)
 
     with pytest.raises(ValueError):
-        _, _, _ = het.power_spectrum(average='a')
+        _ = mhd.power_spectrum(average='a')
 
     # create a spectrogram
-    freqs, power, stimes, fig = het.spectrogram(dt=3600)
+    freqs, power, stimes, fig = data[detector1].spectrogram(dt=3600)
 
     assert isinstance(fig, Figure)
     assert freqs.shape[0] == 60
@@ -592,17 +601,17 @@ def test_spectrum_plots():
     assert stimes.shape[0] == power.shape[1]
 
     # create a power spectrum
-    freqs, power, fig = het.power_spectrum(dt=86400)
+    freqs, power, fig = data[detector1].power_spectrum(dt=86400)
 
     assert isinstance(fig, Figure)
-    assert power.shape[0] == len(data) // 2
+    assert power.shape[0] == len(data1) // 2
     assert freqs.shape[0] == power.shape[0]
 
     # create a periodogram
-    freqs, power, fig = het.periodogram()
+    freqs, power, fig = data[detector1].periodogram()
 
     assert isinstance(fig, Figure)
-    assert power.shape[0] == len(data)
+    assert power.shape[0] == len(data1)
     assert freqs.shape[0] == power.shape[0]
 
     # do the same, but with some data removed to test zero padding
@@ -615,7 +624,7 @@ def test_spectrum_plots():
     freqs, power, fig = newhet.power_spectrum(dt=86400)
 
     assert isinstance(fig, Figure)
-    assert power.shape[0] == len(data) // 2
+    assert power.shape[0] == len(data1) // 2
     assert freqs.shape[0] == power.shape[0]
 
     # add a DCC signal and check it's at 0 Hz
