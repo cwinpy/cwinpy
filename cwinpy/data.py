@@ -172,9 +172,10 @@ class MultiHeterodynedData(object):
             self.__currentidx += 1
             return self.to_list[self.__currentidx-1]
 
-    def plot(self, det=None, together=False, which='abs', rcparams={},
-             figsize=(12, 4), remove_outliers=False, thresh=3.5,
-             zero_time=True, **plotkwargs):
+    def plot(self, det=None, together=False, which='abs', figsize=(12, 4),
+             remove_outliers=False, thresh=3.5, zero_time=True, labelsize=14,
+             fontsize=16, legendsize=None, fontname='Gentium',
+             labelname='Carlito', **plotkwargs):
         """
         Plot all, or some of, the time series' contained in the class. The
         general arguments can be seen in
@@ -225,14 +226,19 @@ class MultiHeterodynedData(object):
                 hets = self  # datasets to plot
 
             # create the figure
-            mpl.rcParams['text.usetex'] = True
-            figs, axs = pl.subplots(nplots, 1, figsize=(12, 4*nplots))
+            if figsize[0] == 12 and figsize[1] == 4:
+                # check default size and increase
+                figsize = (figsize[0], figsize[1]*nplots)
+
+            figs, axs = pl.subplots(nplots, 1, figsize=figsize)
             
             for ax, het in zip(axs, hets):
-                _ = het.plot(which=which, ax=ax, rcparams=rcparams,
+                _ = het.plot(which=which, ax=ax,
                              remove_outliers=remove_outliers,
                              thresh=thresh, zero_time=zero_time,
-                             **plotkwargs)
+                             labelsize=labelsize, fontsize=fontsize,
+                             legendsize=legendsize, fontname=fontname,
+                             labelname=labelname, **plotkwargs)
         else:
             # a list of figures
             figs = []
@@ -244,11 +250,12 @@ class MultiHeterodynedData(object):
 
             # loop over data and produce plots
             for het in hets:
-                figs.append(het.plot(which=which, rcparams=rcparams,
-                                     figsize=figsize,
+                figs.append(het.plot(which=which, figsize=figsize,
                                      remove_outliers=remove_outliers,
                                      thresh=thresh, zero_time=zero_time,
-                                     **plotkwargs))
+                                     labelsize=labelsize, fontsize=fontsize,
+                                     legendsize=legendsize, fontname=fontname,
+                                     labelname=labelname, **plotkwargs))
 
         return figs
 
@@ -366,14 +373,6 @@ class HeterodynedData(object):
         The modified z-score threshold for outlier removal (see
         :meth:`~cwinpy.data.HeterodynedData.find_outliers`)
     """
-
-    # set default Matplotlib setup parameters for plots
-    defaultmplparams = {'backend': 'Agg',
-                        'axes.linewidth': 0.5,  # set axes linewidths to 0.5
-                        'axes.grid': True,      # add a grid
-                        'grid.linewidth': 0.5,
-                        'font.family': 'sans-serif',
-                        'font.size': 15}
 
     # set some default detector color maps for plotting
     coldic = {'H1': 'r', 'L1': 'g', 'V1': 'b', 'G1': 'm'}
@@ -1276,9 +1275,10 @@ class HeterodynedData(object):
         # return boolean array of real or imaginary indices above the threshold
         return (modzscore[0] > thresh) | (modzscore[1] > thresh)
 
-    def plot(self, rcparams={}, which='abs', figsize=(12, 4), ax=None,
+    def plot(self, which='abs', figsize=(12, 4), ax=None,
              remove_outliers=False, thresh=3.5, zero_time=True,
-             **plotkwargs):
+             labelsize=14, fontsize=16, legendsize=None,
+             fontname='Gentium', labelname='Carlito', **plotkwargs):
         """
         Plot the data time series.
 
@@ -1288,9 +1288,6 @@ class HeterodynedData(object):
             Say whehther to plot the absolute value of the data, ``'abs'``, the
             ``'real'`` component of the data, the ``'imag'`` component of
             the data, or ``'both'`` the real and imaginary components.
-        rcparams: dict, {}
-            A dictionary of Matplotlib configuration parameter. Default values
-            will be used if not set.
         figsize: tuple, (12, 4)
             A tuple with the size of the figure. Values set in `rcparams` will
             override this value.
@@ -1303,6 +1300,18 @@ class HeterodynedData(object):
             :meth:`~cwinpy.data.HeterodynedData.find_outliers`).
         zero_time: bool, True
             Start the time axis at zero.
+        labelsize: int, 14
+            Set the fontsize for the axes tick labels.
+        fontsize: int, 16
+            Set the fontsize for the axes labels.
+        legendsize: int
+            Set the fontsize for the legend (defaults to be the same as the
+            value or `fontsize`).
+        fontname: str, 'Gentium'
+            Set the font name for the axes labels and legend.
+        labelname: str, 'Carlito'
+            Set the font name for the axes tick labels. If not set, this will
+            default to the value given in `fontname`.
         plotkwargs:
             Keyword arguments to be passed to :func:`matplotlib.pyplot.plot`.
         
@@ -1353,20 +1362,6 @@ class HeterodynedData(object):
             from matplotlib.axes import Axes
             import matplotlib as mpl
 
-            # make sure usetex is True (it doesn't work properly using it
-            # inside the rc_content manager)
-            mpl.rcParams['text.usetex'] = True
-
-            if len(rcparams) == 0:
-                rcparams = self.defaultmplparams.copy()
-
-            # set default figure sizes
-            if 'figure.figsize' not in rcparams:
-                rcparams['figure.figsize'] = figsize
-
-            if 'figure.autolayout' not in rcparams:
-                rcparams['figure.autolayout'] = True
-
             # set 'label' and 'color' defaults
             if self.detector is not None:
                 if 'label' not in plotkwargs:
@@ -1384,63 +1379,95 @@ class HeterodynedData(object):
                 # set marker to a circle
                 plotkwargs['marker'] = 'o'
 
-            with mpl.rc_context(rc=rcparams):
-                if isinstance(ax, Axes):
-                    fig = ax.get_figure()
-                    thisax = ax
-                else:
-                    fig, thisax = pl.subplots()
+            if isinstance(ax, Axes):
+                fig = ax.get_figure()
+                thisax = ax
+            else:
+                fig, thisax = pl.subplots(figsize=figsize)
 
-                if which.lower() != 'both':
-                    thisax.plot(pltimes, pldata, **plotkwargs)
-                else:
-                    # plot real and imaginary components
-                    plotkwargs['markerfacecolor'] = 'None'
-                    for i in range(2):
-                        copykwargs = plotkwargs.copy()
-                        if i == 0:
-                            copykwargs['marker'] = 'o'
-                            if 'label' in plotkwargs:
-                                copykwargs['label'] = 'Real {}'.format(plotkwargs['label'])
-                            else:
-                                copykwargs['label'] = 'Real'
+            if which.lower() != 'both':
+                thisax.plot(pltimes, pldata, **plotkwargs)
+            else:
+                # plot real and imaginary components
+                plotkwargs['markerfacecolor'] = 'None'
+                for i in range(2):
+                    copykwargs = plotkwargs.copy()
+                    if i == 0:
+                        copykwargs['marker'] = 'o'
+                        if 'label' in plotkwargs:
+                            copykwargs['label'] = 'Real {}'.format(plotkwargs['label'])
                         else:
-                            copykwargs['marker'] = '+'
-                            if 'label' in plotkwargs:
-                                copykwargs['label'] = 'Imag {}'.format(plotkwargs['label'])
-                            else:
-                                copykwargs['label'] = 'Imag'
+                            copykwargs['label'] = 'Real'
+                    else:
+                        copykwargs['marker'] = '+'
+                        if 'label' in plotkwargs:
+                            copykwargs['label'] = 'Imag {}'.format(plotkwargs['label'])
+                        else:
+                            copykwargs['label'] = 'Imag'
 
-                        thisax.plot(pltimes, pldata[i], **copykwargs)
-                    plotkwargs['label'] = True  # add to produce legend below
+                    thisax.plot(pltimes, pldata[i], **copykwargs)
+                plotkwargs['label'] = True  # add to produce legend below
 
-                if zero_time:
-                    thisax.set_xlabel('GPS - {}'.format(int(t0)))
-                    thisax.set_xlim([0., pltimes[-1]])
-                else:
-                    thisax.set_xlabel('GPS time')
-                    thisax.set_xlim([pltimes[0], pltimes[-1]])
+            if zero_time:
+                thisax.set_xlabel('GPS - {}'.format(int(t0)),
+                                  fontsize=fontsize, fontname=fontname)
+                thisax.set_xlim([0., pltimes[-1]])
+            else:
+                thisax.set_xlabel('GPS time', fontsize=fontsize,
+                                  fontname=fontname)
+                thisax.set_xlim([pltimes[0], pltimes[-1]])
 
-                if which.lower() in ['abs', 'absolute']:
-                    thisax.set_ylabel('$|B_k|$')
-                elif which.lower() in ['real', 're']:
-                    thisax.set_ylabel('$\\Re{(B_k)}$')
-                elif which.lower() in ['imag', 'im']:
-                    thisax.set_ylabel('$\\Im{(B_k)}$')
-                else:
-                    thisax.set_ylabel('$B_k$')
+            if which.lower() in ['abs', 'absolute']:
+                thisax.set_ylabel('$|B_k|$', fontsize=fontsize,
+                                  fontname=fontname)
+            elif which.lower() in ['real', 're']:
+                thisax.set_ylabel('$\\Re{(B_k)}$', fontsize=fontsize,
+                                  fontname=fontname)
+            elif which.lower() in ['imag', 'im']:
+                thisax.set_ylabel('$\\Im{(B_k)}$', fontsize=fontsize,
+                                  fontname=fontname)
+            else:
+                thisax.set_ylabel('$B_k$', fontsize=fontsize,
+                                  fontname=fontname)
 
-                if 'label' in plotkwargs:
-                    thisax.legend(loc='upper right')
+            if 'label' in plotkwargs:
+                from matplotlib.font_manager import FontProperties
+
+                if legendsize is None:
+                    legendsize = fontsize
+
+                legfont = FontProperties(family=fontname,
+                                         size=legendsize)
+                thisax.legend(loc='upper right', numpoints=1, prop=legfont)
+
+            # set the axes tick label size
+            thisax.tick_params(which='both', labelsize=labelsize)
+
+            # set the axes tick label font
+            if labelname is None:
+                labelname = fontname
+
+            for tick in (thisax.get_xticklabels() + thisax.get_yticklabels()):
+                tick.set_fontname(labelname)
+
+            # add a grid
+            thisax.grid(True, linewidth=0.5, linestyle='--')
+
+            # set axes to use scientific notation
+            thisax.ticklabel_format(axis='y', style='sci', useMathText=True)
+            thisax.ticklabel_format(axis='x', style='sci', scilimits=(0, 5),
+                                    useMathText=True)
         except Exception as e:
             raise RuntimeError("Problem with plotting: {}".format(e))
+
+        fig.tight_layout()
 
         return fig
 
     def spectrogram(self, dt=86400, window=None, overlap=0.5, plot=True,
                     ax=None, rcparams={}, remove_outliers=False, thresh=3.5,
                     fraction_labels=True, fraction_label_num=4,
-                    **plotkwargs):
+                    figsize=(12, 4), **plotkwargs):
         """
         Compute and plot a spectrogram from the data using the
         :func:`matplotlib.mlab.specgram` function.
@@ -1486,7 +1513,9 @@ class HeterodynedData(object):
         fraction_label_num: int, 4
             The fraction labels will be spaced at `Fs`/`fraction_label_num`
             intervals, between the upper and lower Nyquist values. The default
-            if 4, i.e., spacing will be at a quarter of the Nyquist frequency. 
+            if 4, i.e., spacing will be at a quarter of the Nyquist frequency.
+        figsize: tuple, (12, 4)
+            A tuple containing the size (in inches) to set for the figure. 
         plotkwargs:
             Keyword arguments for :func:`matplotlib.pyplot.imshow`.
 
@@ -1515,11 +1544,12 @@ class HeterodynedData(object):
         speckwargs['fraction_labels'] = fraction_labels
         speckwargs['fraction_label_num'] = fraction_label_num
 
-        return self._plot_power('spectrogram', speckwargs, **plotkwargs)
+        return self._plot_power('spectrogram', speckwargs, figsize=figsize,
+                                **plotkwargs)
 
     def periodogram(self, plot=True, ax=None, rcparams={},
                     remove_outliers=False, thresh=3.5, fraction_labels=True,
-                    fraction_label_num=4, **plotkwargs):
+                    fraction_label_num=4, figsize=(6, 5), **plotkwargs):
         """
         Compute and plot a two-sided periodogram of the data using
         :func:`scipy.signal.periodogram`. Note that this uses zero-padded
@@ -1528,7 +1558,8 @@ class HeterodynedData(object):
         gaps, but doesn't work for complex data.
 
         See :meth:`~cwinpy.data.HeterodynedData.spectrogram` for input
-        parameters, excluding `dt`, `window` and `overlap`. 
+        parameters, excluding `dt`, `window` and `overlap`. The default figure
+        size is (6, 5).
 
         Parameters
         ----------
@@ -1554,18 +1585,20 @@ class HeterodynedData(object):
         speckwargs['fraction_labels'] = fraction_labels
         speckwargs['fraction_label_num'] = fraction_label_num
 
-        return self._plot_power('periodogram', speckwargs, **plotkwargs)
+        return self._plot_power('periodogram', speckwargs, figsize=figsize,
+                                **plotkwargs)
 
     def power_spectrum(self, plot=True, ax=None, rcparams={},
                        remove_outliers=False, thresh=3.5, fraction_labels=True,
                        fraction_label_num=4, average='median', dt=86400,
-                       **plotkwargs):
+                       figsize=(6, 5), **plotkwargs):
         """
         Compute and plot the power spectrum of the data. This compute the
         spectrogram, and averages the power over time.
 
-        See :meth:`~cwinpy.data.HeterodynedData.spectrogram` for input parameters,
-        excluding `window` and `overlap`. 
+        See :meth:`~cwinpy.data.HeterodynedData.spectrogram` for input
+        parameters, excluding `window` and `overlap`. The default figure
+        size is (6, 5).
 
         Parameters
         ----------
@@ -1596,9 +1629,10 @@ class HeterodynedData(object):
         speckwargs['dt'] = dt
         speckwargs['average'] = average
 
-        return self._plot_power('power', speckwargs, **plotkwargs)
+        return self._plot_power('power', speckwargs, figsize=figsize,
+                                **plotkwargs)
 
-    def _plot_power(self, ptype, speckwargs={}, **plotkwargs):
+    def _plot_power(self, ptype, speckwargs={}, figsize=None, **plotkwargs):
         """
         General function for plotting the
         :meth:`~cwinpy.data.HeterodynedData.spectrogram`,
@@ -1614,6 +1648,8 @@ class HeterodynedData(object):
             :meth:`~cwinpy.data.HeterodynedData.power_spectrum`.
         speckwargs: dict
             A dictionary of spectrum generation keyword arguments.
+        figsize: tuple
+            The size (in inches) of the created figure.
         plotkwargs:
             Additional plotting keyword arguments.
         """
@@ -1730,27 +1766,11 @@ class HeterodynedData(object):
             from matplotlib.axes import Axes
             import matplotlib as mpl
 
-            # make sure usetex is True (it doesn't work properly using it
-            # inside the rc_content manager)
-            mpl.rcParams['text.usetex'] = True
-
-            # set default figure sizes
-            if ptype == 'spectrogram':
-                if 'figure.figsize' not in rcparams:
-                    rcparams['figure.figsize'] = (12, 4)
-            else:
-                if 'figure.figsize' not in rcparams:
-                    rcparams['figure.figsize'] = (6, 5)
-
             fraction_labels = speckwargs.get('fraction_labels', True)
             fraction_label_num = speckwargs.get('fraction_label_num', 4)
 
             # set whether to output frequency labels as fractions
             if fraction_labels:
-                # add to LaTeX preamble
-                if 'xfrac' not in mpl.rcParams['text.latex.preamble']:
-                    mpl.rcParams['text.latex.preamble'].append('\\usepackage{xfrac}')
-
                 # set at quarters of the sample frequency
                 if not isinstance(fraction_label_num, int):
                     raise TypeError("'fraction_label_num' must be an integer")
@@ -1765,10 +1785,10 @@ class HeterodynedData(object):
                     if tick == 0.:
                         labels.append('$0$')
                     else:
+                        # set the fraction label
                         sign = '-' if tick < 0. else ''
-                        label = "${0}\\sfrac{{{1}}}{{{2}}}$".format(sign,
-                                                                    1,
-                                                                    int(np.abs(tick)))
+                        label = u"${0}\^{1}\u2044_{2}$".format(sign, 1,
+                                                               int(np.abs(tick)))
                         labels.append(label)
 
                 if ptype != 'spectrogram':
@@ -1793,26 +1813,25 @@ class HeterodynedData(object):
                 if 'norm' not in plotkwargs:
                     plotkwargs['norm'] = colors.Normalize()
 
-                with mpl.rc_context(rc=rcparams):
-                    if isinstance(ax, Axes):
-                        fig = ax.get_figure()
-                        thisax = ax
-                    else:
-                        fig, thisax = pl.subplots()
+                if isinstance(ax, Axes):
+                    fig = ax.get_figure()
+                    thisax = ax
+                else:
+                    fig, thisax = pl.subplots(figsize=figsize)
 
-                    thisax.imshow(np.sqrt(np.flipud(power)), **plotkwargs)
+                thisax.imshow(np.sqrt(np.flipud(power)), **plotkwargs)
 
-                    if self.detector is not None:
-                        from matplotlib.offsetbox import AnchoredText
-                        legend = AnchoredText(self.detector, loc=1)
-                        thisax.add_artist(legend)
+                if self.detector is not None:
+                    from matplotlib.offsetbox import AnchoredText
+                    legend = AnchoredText(self.detector, loc=1)
+                    thisax.add_artist(legend)
 
-                    thisax.set_xlabel('GPS - {}'.format(int(times[0])))
-                    thisax.set_ylabel('Frequency (Hz)')
+                thisax.set_xlabel('GPS - {}'.format(int(times[0])))
+                thisax.set_ylabel('Frequency (Hz)')
 
-                    if fraction_labels:
-                        thisax.set_yticks(ticks)
-                        thisax.set_yticklabels(labels)
+                if fraction_labels:
+                    thisax.set_yticks(ticks)
+                    thisax.set_yticklabels(labels)
             else:
                 # set plot color
                 color = None
@@ -1830,25 +1849,24 @@ class HeterodynedData(object):
                     if 'label' not in plotkwargs:
                         plotkwargs['label'] = self.detector
 
-                with mpl.rc_context(rc=rcparams):
-                    if isinstance(ax, Axes):
-                        fig = ax.get_figure()
-                        thisax = ax
-                    else:
-                        fig, thisax = pl.subplots()
+                if isinstance(ax, Axes):
+                    fig = ax.get_figure()
+                    thisax = ax
+                else:
+                    fig, thisax = pl.subplots(figsize=figsize)
 
-                    thisax.plot(frequencies, power, **plotkwargs)
+                thisax.plot(frequencies, power, **plotkwargs)
 
-                    if self.detector is not None:
-                        thisax.legend()
+                if self.detector is not None:
+                    thisax.legend()
 
-                    thisax.set_ylabel('Power')
-                    thisax.set_xlabel(r'Frequency (Hz)')
-                    thisax.set_xlim([-Fs / 2, Fs / 2])
+                thisax.set_ylabel('Power')
+                thisax.set_xlabel('Frequency (Hz)')
+                thisax.set_xlim([-Fs / 2, Fs / 2])
 
-                    if fraction_labels:
-                        thisax.set_xticks(ticks)
-                        thisax.set_xticklabels(labels)
+                if fraction_labels:
+                    thisax.set_xticks(ticks)
+                    thisax.set_xticklabels(labels)
         except Exception as e:
             raise RuntimeError("Problem creating spectrogram: {}".format(e))
 
