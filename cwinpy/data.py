@@ -158,8 +158,29 @@ class MultiHeterodynedData(object):
 
     @property
     def detectors(self):
-        # return the list of detectors contained in the object
+        """
+        Return the list of detectors contained in the object.
+        """
+
         return list(self.__data.keys())
+
+    @property
+    def pars(self):
+        """
+        Return the list of heterodyne source parameter files for each data set
+        contained in the object.
+        """
+
+        return [het.par for het in self]
+
+    @property
+    def freq_factors(self):
+        """
+        Return the this of heterodyne frequency scaling factors for each data
+        set contained in the object.
+        """
+
+        return [het.freq_factor for het in self]
 
     def __iter__(self):
         self.__currentidx = 0  # reset iterator index
@@ -1356,6 +1377,14 @@ class HeterodynedData(object):
 
         return np.diff(np.concatenate(([0], self.change_point_indices,
                                        [len(self)])))
+
+    @property
+    def num_chunks(self):
+        """
+        The number of chunks into which the data has been split.
+        """
+
+        return len(self.change_point_indices)
 
     def _chop_data(self, data, threshold='default', minlength=5):
         # find change point

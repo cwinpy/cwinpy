@@ -1,0 +1,6 @@
+###########
+Likelihoods
+###########
+
+.. autoclass:: cwinpy.likelihood.TargetedPulsarLikelihood
+   :members:

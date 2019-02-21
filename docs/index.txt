@@ -17,3 +17,4 @@ API interface
    :maxdepth: 2
 
    data
+   likelihood
