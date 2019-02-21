@@ -162,11 +162,11 @@ class MultiHeterodynedData(object):
         return list(self.__data.keys())
 
     def __iter__(self):
+        self.__currentidx = 0  # reset iterator index
         return self
 
     def __next__(self):
         if self.__currentidx >= len(self):
-            self.__currentidx = 0  # reset iterator index
             raise StopIteration
         else:
             self.__currentidx += 1
