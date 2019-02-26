@@ -1,4 +1,5 @@
 numpy>=1.15
+bilby
 astropy
 matplotlib
 lalsuite==6.52.1.dev20190207

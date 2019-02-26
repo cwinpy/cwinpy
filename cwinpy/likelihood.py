@@ -4,20 +4,32 @@ Classes providing likelihood functions.
 
 import numpy as np
 from bilby import Likelihood, PriorDict
-from .data import HeterodynedData, MultiHeterodynedData
 import lalpulsar
 from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 from collections import OrderedDict
 import copy
 import re
 
+from .data import HeterodynedData, MultiHeterodynedData
+from .utils import logfactorial
+
 
 class TargetedPulsarLikelihood(Likelihood):
     """
     A likelihood, based on the :class:`bilby.core.likelihood.Likelihood`, for
     use in source parameter estimation for continuous wave signals, with
-    particular focus on emission from known pulsars.
-    
+    particular focus on emission from known pulsars. As a default, this class
+    will assume a Student's t-likelihood function, as defined in Equation
+    12 of [1]_. This likelihood function assumes that the noise process in each
+    dataset can be broken down into multiple chunks of zero mean stationary
+    Gaussian noise, each with unknown, and independent, values of the standard
+    deviation (see :meth:`~cwinpy.data.HeterodynedData.bayesian_blocks` and
+    Appendix B of [1]_). The Gaussian likelihood for each chunk is analytically
+    marginalised over the standard deviation, using a Jeffreys prior, and the
+    product of the likelihoods for each gives the overall likelihood function.
+    A Gaussian likelihood function can also be used (Equation 13 of [1]_), if
+    estimates of the noise standard deviation for each chunk are available.
+
     Parameters
     ----------
     data: (str, HeterodynedData, MultiHeterodynedData)
@@ -32,6 +44,12 @@ class TargetedPulsarLikelihood(Likelihood):
         A string setting which likelihood function to use. This can either be
         'studentst' (the default), or 'gaussian' ('roq' should be added in the
         future).
+
+    References
+    ----------
+
+    .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
+       <https:arxiv.org/abs/1705.08978v1>`_, 2017.
     """
 
     # a set of parameters that define the "amplitude" of the signal (i.e.,
@@ -109,26 +127,31 @@ class TargetedPulsarLikelihood(Likelihood):
         self.include_binary = False
         self.update_ssb = False
         for key in self.priors:
-            if key.upper() not in self.AMPLITUDE_PARAMS:
+            if (key.upper() not in self.AMPLITUDE_PARAMS or
+                    key.upper() not in self.BINARY_PARAMS or
+                    key.upper() not in self.POSITIONAL_PARAMETERS):
                 if self.priors[key].is_fixed:
                     # check if it's the same value as the par files
                     for het in self.data:
-                        if het.par[key.upper()] != self.priors[key].peak:
+                        if self._is_vector_param(key.upper()):
+                            name, idx = self._vector_param_name_index(key.upper())
+                            checkval = het.par[name][idx]
+                        else:
+                            checkval = het.par[key.upper()]
+
+                        if checkval != self.priors[key].peak:
                             self.include_phase = True
+                            if key.upper() in self.BINARY_PARAMS:
+                                self.include_binary = True
+                            elif key.upper() in self.POSITIONAL_PARAMETERS:
+                                self.update_ssb = True
                             break
                 else:
                     self.include_phase = True
-            if key.upper() in self.BINARY_PARAMS:
-                if self.priors[key].is_fixed:
-                    # check if it's the same value as the par files
-                    for het in self.data:
-                        if het.par[key.upper()] != self.priors[key].peak:
-                            self.include_binary = True
-                            break
-                else:
-                    self.include_binary = True
-            if key.upper() in self.POSITIONAL_PARAMETERS:
-                self.update_ssb = True
+                    if key.upper() in self.BINARY_PARAMS:
+                        self.include_binary = True
+                    elif key.upper() in self.POSITIONAL_PARAMETERS:
+                        self.update_ssb = True
 
         # check if any non-GR "amplitude" parameters are set
         self.nonGR = False
@@ -174,29 +197,35 @@ class TargetedPulsarLikelihood(Likelihood):
     def dot_products(self):
         """
         Calculate the (noise-weighted) dot products of the data and the
-        antenna pattern functions. E.g., for the data this is the real value
+        antenna pattern functions (see Appendix C of [1]_). E.g., for the data this is the real value
 
         .. math::
 
-           (d/\sigma) \cdot (d*/\sigma) = \sum_i \\frac{d_id_i^*}{\sigma_i^2} \equiv \sum_i \\frac{\Re{(d)}^2 + \Im{(d)}^2}{\sigma_i_^2}.
+           (d/\\sigma) \\cdot (d*/\\sigma) = \\sum_i \\frac{d_id_i^*}{\\sigma_i^2} \\equiv \\sum_i \\frac{\\Re{(d)}^2 + \\Im{(d)}^2}{\\sigma_i_^2}.
         
         For the antenna patterns, for example :math:`F_+` and
         :math:`F_{\\times}`, we would have
 
         .. math::
 
-           (F_+/\sigma) \cdot (F_+/\sigma) = \sum_i \\frac{{F_+}_i^2}{\sigma_i^2},
+           (F_+/\\sigma) \\cdot (F_+/\\sigma) = \\sum_i \\frac{{F_+}_i^2}{\\sigma_i^2},
            
-           (F_\\times/\sigma) \cdot (F_\\times/\sigma) = \sum_i \\frac{{F_\\times}_i^2}{\sigma_i^2},
+           (F_\\times/\\sigma) \\cdot (F_\\times/\\sigma) = \\sum_i \\frac{{F_\\times}_i^2}{\\sigma_i^2},
            
-           (F_+/\sigma) \cdot (F_{\\times}/\sigma) = \sum_i \\frac{{F_+}_i{F_\\times}_i}{\sigma_i^2},
+           (F_+/\\sigma) \\cdot (F_{\\times}/\\sigma) = \\sum_i \\frac{{F_+}_i{F_\\times}_i}{\\sigma_i^2},
            
-           (d/\sigma) \cdot (F_+/\sigma) = \sum_i \\frac{d_i{F_+}_i}{\sigma_i^2},
+           (d/\\sigma) \\cdot (F_+/\\sigma) = \\sum_i \\frac{d_i{F_+}_i}{\\sigma_i^2},
 
-           (d/\sigma) \cdot (F_\\times/\sigma) = \sum_i \\frac{d_i{F_\\times}_i}{\sigma_i^2},
+           (d/\\sigma) \\cdot (F_\\times/\\sigma) = \\sum_i \\frac{d_i{F_\\times}_i}{\\sigma_i^2},
         
         For non-GR signals, also involving the vector and scalar modes, there
         are similar products.
+
+        References
+        ----------
+        
+        .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
+           <https:arxiv.org/abs/1705.08978v1>`_, 2017.
         """
 
         self.products = []  # list of products for each data set
@@ -284,24 +313,164 @@ class TargetedPulsarLikelihood(Likelihood):
         The log-likelihood function.
         """
 
-        loglikelihood = 0.
+        loglikelihood = 0.  # the log likelihood value
 
         # loop over the data and models
         for data, model, prods, par in zip(self.data, self.models,
                                            self.products, self.basepars):
+
             # update parameters in the base par
             for pname, pval in self.parameters.items():
                 if self._is_vector_param(pname.upper()):
-                    par[pname.upper()] = self._parse_vector_param(par, pname.upper(), pval)
+                    name = self._vector_param_name_index(pname.upper())[0]
+                    par[name] = self._parse_vector_param(par, pname.upper(), pval)
                 else:
                     par[pname.upper()] = pval
-            
+
             # calculate the model
             m = model.model(par, usephase=self.include_phase,
                             updateSSB=self.update_ssb,
                             updateBSB=self.include_binary)
 
-            # calculate the likelihood ...
+            # calculate the likelihood
+            for i, cpidx, cplen in zip(range(data.num_chunks),
+                                       data.change_point_indices,
+                                       data.chunk_lengths):
+                # loop over stationary data chunks
+
+                if self.include_phase:
+                    # likelihood without pre-summed products
+                    if self.likelihood == 'gaussian':
+                        stds = data.stds[cpidx:cpidx + cplen]
+                    else:
+                        stds = 1.
+
+                    # data and model for chunk
+                    dd = data.data[cpidx:cpidx + cplen]/stds
+                    mm = m[cpidx:cpidx + cplen]/stds
+
+                    summodel = np.vdot(mm, mm).real
+                    sumdatamodel = np.vdot(dd, mm).real
+                else:
+                    # likelihood with pre-summed products
+                    mp = m[0]  # tensor plus model component
+                    mc = m[1]  # tensor cross model component
+
+                    summodel = (prods['TpdotTp'][i] * (mp.real**2 +
+                                                       mp.imag**2) +
+                                prods['TcdotTc'][i] * (mc.real**2 +
+                                                       mc.imag**2) +
+                                2.*prods['TpdotTc'][i] * (mp.real * mc.real +
+                                                          mp.imag * mc.imag))
+
+                    sumdatamodel = (prods['ddotTp'][i].real * mp.real +
+                                    prods['ddotTp'][i].imag * mp.imag +
+                                    prods['ddotTc'][i].real * mc.real +
+                                    prods['ddotTc'][i].imag * mc.imag)
+
+                    if self.nonGR:
+                        # non-GR amplitudes
+                        mx = m[2]
+                        my = m[3]
+                        mb = m[4]
+                        ml = m[5]
+
+                        summodel += (prods['VxdotVx'][i] * (mx.real**2 +
+                                                            mx.imag**2) +
+                                     prods['VydotVy'][i] * (my.real**2 +
+                                                            my.imag**2) +
+                                     prods['SbdotSb'][i] * (mb.real**2 +
+                                                            mb.imag**2) +
+                                     prods['SldotSl'][i] * (ml.real**2 +
+                                                            ml.imag**2) +
+                                     2.*(prods['TpdotVx'][i] * (mp.real * mx.real +
+                                                                mp.imag * mx.imag) +
+                                         prods['TpdotVy'][i] * (mp.real * my.real +
+                                                                mp.imag * my.imag) +
+                                         prods['TpdotSb'][i] * (mp.real * mb.real +
+                                                                mp.imag * mb.imag) +
+                                         prods['TpdotSl'][i] * (mp.real * ml.real +
+                                                                mp.imag * ml.imag) +
+                                         prods['TcdotVx'][i] * (mc.real * mx.real +
+                                                                mc.imag * mx.imag) +
+                                         prods['TcdotVy'][i] * (mc.real * my.real +
+                                                                mc.imag * my.imag) +
+                                         prods['TcdotSb'][i] * (mc.real * mb.real +
+                                                                mc.imag * mb.imag) +
+                                         prods['TcdotSl'][i] * (mc.real * ml.real +
+                                                                mc.imag * ml.imag) +
+                                         prods['VxdotVy'][i] * (mx.real * my.real) +
+                                                               (mx.imag * my.imag) +
+                                         prods['VxdotSb'][i] * (mx.real * mb.real + 
+                                                                mx.imag * mb.imag) +
+                                         prods['VxdotSl'][i] * (mx.real * ml.real +
+                                                                mx.imag * ml.imag) +
+                                         prods['VydotSb'][i] * (my.real * mb.real +
+                                                                my.imag * mb.imag) +
+                                         prods['VydotSl'][i] * (my.real * ml.real +
+                                                                my.imag * ml.imag) +
+                                         prods['SbdotSl'][i] * (mb.real * ml.real +
+                                                                mb.imag * ml.imag)))
+
+                        sumdatamodel += (prods['ddotVx'][i].real * mx.real +
+                                         prods['ddotVx'][i].imag * mx.imag +
+                                         prods['ddotVy'][i].real * my.real +
+                                         prods['ddotVy'][i].imag * my.imag +
+                                         prods['ddotSb'][i].real * mb.real +
+                                         prods['ddotSb'][i].imag * mb.imag +
+                                         prods['ddotSl'][i].real * ml.real +
+                                         prods['ddotSl'][i].imag * ml.imag)
+
+                # compute "Chi-squared"
+                chisquare = prods['ddotd'][i] - 2.*sumdatamodel + summodel
+
+                if self.likelihood == 'gaussian':
+                    loglikelihood += 0.5 * chisquare
+                    # normalisation
+                    loglikelihood -= np.log(lal.TWOPI * stds[0]**2)
+                else:
+                    loglikelihood += (logfactorial(cplen - 1) - lal.LN2 -
+                                      cplen * lal.LNPI -
+                                      cplen * np.log(chisquare))
+
+        return loglikelihood
+
+    def noise_log_likelihood(self):
+        """
+        The log-likelihood for the data being consistent with the noise model,
+        i.e., when the signal is zero. See Equations 14 and 15 of [1]_.
+
+        Returns
+        -------
+        float:
+            The noise-only log-likelihood
+
+        References
+        ----------
+        
+        .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
+           <https:arxiv.org/abs/1705.08978v1>`_, 2017.
+        """
+
+        loglikelihood = 0.  # the log likelihood value
+
+        # loop over the data and models
+        for data, prods in zip(self.data, self.products):
+            # calculate the likelihood
+            for i, cpidx, cplen in zip(range(data.num_chunks),
+                                       data.change_point_indices,
+                                       data.chunk_lengths):
+                # loop over stationary data chunks
+                if self.likelihood == 'gaussian':
+                    loglikelihood += 0.5 * prods['ddotd'][i]
+                    # normalisation
+                    loglikelihood -= np.log(lal.TWOPI * data.vars[cpidx])
+                else:
+                    loglikelihood += (logfactorial(cplen - 1) - lal.LN2 -
+                                      cplen * lal.LNPI -
+                                      cplen * np.log(prods['ddotd'][i]))
+
+        return loglikelihood
 
     def _is_vector_param(self, name):
         """
@@ -314,7 +483,7 @@ class TargetedPulsarLikelihood(Likelihood):
             return False
 
         # strip out any underscores from name and remove trailing index
-        noscores = re.strip('_')[:-len(intvals[-1])]
+        noscores = re.sub('_', '', name)[:-len(intvals[-1])]
 
         if noscores in self.VECTOR_PARAMS:
             return True
@@ -329,7 +498,7 @@ class TargetedPulsarLikelihood(Likelihood):
         intvals = re.findall(r'\d+', name)
 
         # strip out any underscores from name and remove trailing index
-        noscores = re.strip('_')[:-len(intvals[-1])]
+        noscores = re.sub('_', '', name)[:-len(intvals[-1])]
 
         # glitch values start from 1 so subtract 1 from pos
         if name[:2] == 'GL':
@@ -339,10 +508,12 @@ class TargetedPulsarLikelihood(Likelihood):
 
     def _parse_vector_param(self, par, name, value):
         """
-        Return a vector parameter.
+        Set a vector parameter with the given single value at the place
+        specified in the `name`.
         """
 
         vname, vpos = self._vector_param_name_index(name)
         vec = par[vname]
+        vec[vpos] = value
 
-        return vec[pos] = value
+        return vec
