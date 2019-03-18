@@ -128,6 +128,13 @@ class TargetedPulsarLikelihood(Likelihood):
         self.include_binary = False
         self.update_ssb = False
         for key in self.priors:
+            if ((key.upper() not in self.AMPLITUDE_PARAMS +
+                                self.BINARY_PARAMS +
+                                self.POSITIONAL_PARAMETERS) and
+                    not self._is_vector_param(key.upper())):
+                raise ValueError("Unknown parameter '{}' being "
+                                 "used!".format(key))
+
             if (key.upper() not in self.AMPLITUDE_PARAMS or
                     key.upper() not in self.BINARY_PARAMS or
                     key.upper() not in self.POSITIONAL_PARAMETERS):
