@@ -57,7 +57,7 @@ class TargetedPulsarLikelihood(Likelihood):
     AMPLITUDE_PARAMS = ['H0', 'PHI0', 'PSI', 'IOTA', 'COSIOTA', 'C21', 'C22',
                         'PHI21', 'PHI22', 'I21', 'I31', 'LAMBDA', 'COSTHETA',
                         'THETA', 'Q22', 'DIST']
-    
+
     # the set of potential non-GR "amplitude" parameters
     NONGR_AMPLITUDE_PARAM = ['PHI01TENSOR', 'PHI02TENSOR',
                              'PHI01VECTOR', 'PHI02VECTOR',
@@ -202,28 +202,28 @@ class TargetedPulsarLikelihood(Likelihood):
         .. math::
 
            (d/\\sigma) \\cdot (d*/\\sigma) = \\sum_i \\frac{d_id_i^*}{\\sigma_i^2} \\equiv \\sum_i \\frac{\\Re{(d)}^2 + \\Im{(d)}^2}{\\sigma_i_^2}.
-        
+
         For the antenna patterns, for example :math:`F_+` and
         :math:`F_{\\times}`, we would have
 
         .. math::
 
            (F_+/\\sigma) \\cdot (F_+/\\sigma) = \\sum_i \\frac{{F_+}_i^2}{\\sigma_i^2},
-           
+
            (F_\\times/\\sigma) \\cdot (F_\\times/\\sigma) = \\sum_i \\frac{{F_\\times}_i^2}{\\sigma_i^2},
-           
+
            (F_+/\\sigma) \\cdot (F_{\\times}/\\sigma) = \\sum_i \\frac{{F_+}_i{F_\\times}_i}{\\sigma_i^2},
-           
+
            (d/\\sigma) \\cdot (F_+/\\sigma) = \\sum_i \\frac{d_i{F_+}_i}{\\sigma_i^2},
 
            (d/\\sigma) \\cdot (F_\\times/\\sigma) = \\sum_i \\frac{d_i{F_\\times}_i}{\\sigma_i^2},
-        
+
         For non-GR signals, also involving the vector and scalar modes, there
         are similar products.
 
         References
         ----------
-        
+
         .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
            <https:arxiv.org/abs/1705.08978v1>`_, 2017.
         """
@@ -237,7 +237,6 @@ class TargetedPulsarLikelihood(Likelihood):
             # initialise arrays in dictionary (Tp and Tc are the tensor plus
             # and cross, Vx and Vy are the vector "x" and "y", Sl and Sb are
             # the scalar longitudinal and breathing, d is the data)
-            self.quadratures[-1][name] = np.zeros(data.num_chunks)
             knames = ['d', 'Tp', 'Tc', 'Vx', 'Vy', 'Sb', 'Sl']
             for i, a in enumerate(knames):
                 for b in knames[::-1][:len(knames)-i]:
@@ -269,12 +268,12 @@ class TargetedPulsarLikelihood(Likelihood):
 
                 # get the interpolated response functions
                 t0 = float(model.resp.t0)
-                
+
                 # interpolation times
-                resptimes = np.arange(0., lal.DAYSID_SI,
-                                      lal.DAYSID_SI / model.resp.ntimebins)
+                _ = np.arange(0., lal.DAYSID_SI,
+                              lal.DAYSID_SI / model.resp.ntimebins)
                 inttimes = data.times[cpidx:cpidx + cplen] - t0
-                
+
                 # dictionary of chunk data and antenna responses
                 rs = OrderedDict()
                 rs['d'] = data.data[cpidx:cpidx + cplen]
@@ -300,12 +299,12 @@ class TargetedPulsarLikelihood(Likelihood):
                             self.products[-1][kname][i] = np.vdot(rs[a]/stds,
                                                                   rs[b]/stds).real
                         else:
-                            self.products[-1][kname][i] = np.dot(rs[a]/stds, 
+                            self.products[-1][kname][i] = np.dot(rs[a]/stds,
                                                                  rs[b]/stds)
 
                         if 'd' in [a, b] and a != b:
                             # get "whitened" versions for Students-t likelihood
-                            self.products[-1][kname + 'White'] = np.dot(rs[a]/stdstrue, 
+                            self.products[-1][kname + 'White'] = np.dot(rs[a]/stdstrue,
                                                                         rs[b]/stdstrue)
 
     def log_likelihood(self):
@@ -401,7 +400,7 @@ class TargetedPulsarLikelihood(Likelihood):
                                                                 mc.imag * ml.imag) +
                                          prods['VxdotVy'][i] * (mx.real * my.real) +
                                                                (mx.imag * my.imag) +
-                                         prods['VxdotSb'][i] * (mx.real * mb.real + 
+                                         prods['VxdotSb'][i] * (mx.real * mb.real +
                                                                 mx.imag * mb.imag) +
                                          prods['VxdotSl'][i] * (mx.real * ml.real +
                                                                 mx.imag * ml.imag) +

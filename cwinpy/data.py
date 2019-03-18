@@ -1182,7 +1182,8 @@ class HeterodynedData(object):
         noise amplitude spectral density (in 1/sqrt(Hz)).
 
         If generating noise from a given detector's design curve, a frequency
-        is required, which itself requires a 
+        is required, which itself requires a pulsar parameter file to have been
+        supplied.
 
         Parameters
         ----------
@@ -1578,7 +1579,7 @@ class HeterodynedData(object):
             default to the value given in `fontname`.
         plotkwargs:
             Keyword arguments to be passed to :func:`matplotlib.pyplot.plot`.
-        
+
         Returns
         -------
         figure:
@@ -1596,7 +1597,7 @@ class HeterodynedData(object):
         >>> het = HeterdynedData(times=times, fakeasd=1e-48)
         >>> # plot real data
         >>> fig = het.plot(which='both')
-        
+
         """
 
         if remove_outliers and not self.__remove_outliers:
@@ -1988,7 +1989,7 @@ class HeterodynedData(object):
             dt = speckwargs.get('dt', 86400)
             overlap = speckwargs.get('overlap', 0.5)
             window = speckwargs.get('window', None)
-            
+
             if not isinstance(dt, (float, int)):
                 raise ValueError("Time bin must be an integer or float")
 
@@ -2135,7 +2136,7 @@ class HeterodynedData(object):
                 if fraction_labels:
                     thisax.set_yticks(ticks)
                     thisax.set_yticklabels(labels)
-                
+
                 # set axes to use scientific notation
                 thisax.ticklabel_format(axis='x', style='sci',
                                         scilimits=(0, 5),
