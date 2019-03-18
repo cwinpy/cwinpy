@@ -18,6 +18,9 @@ class TestTargetedPulsarLikelhood(object):
     """
 
     parfile = 'J0123+3456.par'
+    times = np.linspace(1000000000., 1000086340., 1440)
+    data = np.random.normal(0., 1e-25, size=(1440, 2))
+    detector = 'H1'
 
     @classmethod
     def setup_class(cls):
@@ -52,12 +55,19 @@ PHI0     2.4
         with pytest.raises(TypeError):
             TargetedPulsarLikelihood(None, None)
 
-        times = np.linspace(1000000000., 1000086340., 1440)
-        data = np.random.normal(0., 1e-25, size=(1440, 2))
-        detector = 'H1'
+        # create HeterodynedData object (no par file)
+        het = HeterodynedData(self.data, times=self.times,
+                              detector=self.detector)
 
-        # create HeterodynedData object
-        het = HeterodynedData(data, times=times, detector=detector, par=self.parfile)
+        priors = dict()
+        priors['h0'] = Uniform(0., 1.e-23, 'h0')
+
+        # error with no par file
+        with pytest.raises(ValueError):
+            TargetedPulsarLikelihood(het, PriorDict(priors))
+        
+        het = HeterodynedData(self.data, times=self.times,
+                              detector=self.detector, par=self.parfile)
         mhet = MultiHeterodynedData(het)  # multihet object for testing
 
         with pytest.raises(TypeError):
@@ -76,31 +86,23 @@ PHI0     2.4
         priors['a'] = Uniform(0., 1., 'blah')
         priors['b'] = 2.
 
-        # create a pulsar parameter file
-        parcontent = """\
-PSRJ     J0123+3456
-RAJ      01:23:45.6789
-DECJ     34:56:54.321
-F0       567.89
-F1       -1.2e-12
-PEPOCH   56789
-H0       9.87e-26
-COSIOTA  0.3
-PSI      1.1
-PHI0     2.4
-"""
-
-        parfile = 'J0123+3456.par'
-
-        # add content to the par file
-        with open(parfile, 'w') as fp:
-            fp.write(parcontent)
-
-        times = np.linspace(1000000000., 1000086340., 1440)
-        data = np.random.normal(0., 1e-25, size=(1440, 2))
-        detector = 'H1'
-
-        het = HeterodynedData(data, times=times, detector=detector, par=self.parfile)
+        het = HeterodynedData(self.data, times=self.times,
+                              detector=self.detector, par=self.parfile)
 
         with pytest.raises(ValueError):
             like = TargetedPulsarLikelihood(het, PriorDict(priors))
+
+    def test_wrong_likelihood(self):
+        """
+        Test with a bad likelihood name.
+        """
+
+        het = HeterodynedData(self.data, times=self.times,
+                              detector=self.detector, par=self.parfile)
+
+        priors = dict()
+        priors['h0'] = Uniform(0., 1.e-23, 'h0')
+
+        with pytest.raises(ValueError):
+            like = TargetedPulsarLikelihood(het, PriorDict(priors),
+                                            likelihood='blah')
