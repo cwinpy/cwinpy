@@ -3,7 +3,7 @@ Classes providing likelihood functions.
 """
 
 import numpy as np
-from bilby import Likelihood, PriorDict
+from bilby.core import Likelihood, PriorDict
 import lalpulsar
 from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 from collections import OrderedDict
