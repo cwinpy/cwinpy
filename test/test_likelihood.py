@@ -119,7 +119,9 @@ PHI0     2.4
         priors = dict()
         priors['h0'] = Uniform(0., 1.e-23, 'h0')
 
-        like = TargetedPulsarLikelihood(het, PriorDict(priors))
-        like.parameters = {'h0': 0.}
+        for likelihood in ['gaussian', 'studentst']:
+            like = TargetedPulsarLikelihood(het, PriorDict(priors),
+                                            likelihood=likelihood)
+            like.parameters = {'h0': 0.}
 
-        assert like.log_likelihood() == like.noise_log_likelihood
+            assert like.log_likelihood() == like.noise_log_likelihood
