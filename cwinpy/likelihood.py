@@ -356,13 +356,13 @@ class TargetedPulsarLikelihood(Likelihood):
                                        data.chunk_lengths):
                 # loop over stationary data chunks
 
-                if self.include_phase:
-                    # likelihood without pre-summed products
-                    if self.likelihood == 'gaussian':
-                        stds = data.stds[cpidx:cpidx + cplen]
-                    else:
-                        stds = 1.
+                # likelihood without pre-summed products
+                if self.likelihood == 'gaussian':
+                    stds = data.stds[cpidx:cpidx + cplen]
+                else:
+                    stds = 1.
 
+                if self.include_phase:
                     # data and model for chunk
                     dd = data.data[cpidx:cpidx + cplen]/stds
                     mm = m[cpidx:cpidx + cplen]/stds
