@@ -1014,8 +1014,11 @@ class HeterodynedData(object):
                 cps = np.concatenate(([0], np.asarray(change_points),
                                       [len(datasub)])).astype('int')
             else:
-                cps = np.concatenate(([0], self.change_point_indices,
-                                      [len(datasub)])).astype('int')
+                if len(self.change_point_indices) == 1:
+                    cps = np.array([0, len(datasub)], dtype=np.int)
+                else:
+                    cps = np.concatenate(([0], self.change_point_indices,
+                                          [len(datasub)])).astype('int')
 
             if self.stds is None:
                 self.stds = np.zeros(len(self))
@@ -1358,7 +1361,10 @@ class HeterodynedData(object):
         Return a list of indices of statistical change points in the data.
         """
 
-        return [cps[0] for cps in self.__change_point_indices_and_ratios]
+        if len(self.__change_point_indices_and_ratios) == 0:
+            return [0]
+        else:
+            return [cps[0] for cps in self.__change_point_indices_and_ratios]
 
     @property
     def change_point_ratios(self):
@@ -1367,7 +1373,10 @@ class HeterodynedData(object):
         change points in the data.
         """
 
-        return [cps[1] for cps in self.__change_point_indices_and_ratios]
+        if len(self.__change_point_indices_and_ratios) == 0:
+            return [-np.inf]
+        else:
+            return [cps[1] for cps in self.__change_point_indices_and_ratios]
 
     @property
     def chunk_lengths(self):
@@ -1376,8 +1385,11 @@ class HeterodynedData(object):
         split.
         """
 
-        return np.diff(np.concatenate(([0], self.change_point_indices,
-                                       [len(self)])))
+        if len(self.__change_point_indices_and_ratios) == 0:
+            return [len(self)]
+        else:
+            return np.diff(np.concatenate(([0], self.change_point_indices,
+                                           [len(self)])))
 
     @property
     def num_chunks(self):
@@ -1385,7 +1397,10 @@ class HeterodynedData(object):
         The number of chunks into which the data has been split.
         """
 
-        return len(self.change_point_indices)
+        if len(self.change_point_indices) == 0:
+            return 1
+        else:
+            return len(self.change_point_indices)
 
     def _chop_data(self, data, threshold='default', minlength=5):
         # find change point

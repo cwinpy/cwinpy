@@ -5,8 +5,10 @@ Classes providing likelihood functions.
 import numpy as np
 from bilby.core.likelihood import Likelihood
 from bilby.core.prior import PriorDict
+import lal
 import lalpulsar
 from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from collections import OrderedDict
 import copy
 import re
@@ -58,6 +60,10 @@ class TargetedPulsarLikelihood(Likelihood):
     AMPLITUDE_PARAMS = ['H0', 'PHI0', 'PSI', 'IOTA', 'COSIOTA', 'C21', 'C22',
                         'PHI21', 'PHI22', 'I21', 'I31', 'LAMBDA', 'COSTHETA',
                         'THETA', 'Q22', 'DIST']
+
+    # amplitude parameters for the "source" model
+    SOURCE_AMPLITUDE_PARAMETERS = ['H0', 'I21', 'I31', 'LAMBDA', 'COSTHETA',
+                                   'THETA', 'Q22', 'DIST']
 
     # the set of potential non-GR "amplitude" parameters
     NONGR_AMPLITUDE_PARAM = ['PHI01TENSOR', 'PHI02TENSOR',
@@ -135,9 +141,7 @@ class TargetedPulsarLikelihood(Likelihood):
                 raise ValueError("Unknown parameter '{}' being "
                                  "used!".format(key))
 
-            if (key.upper() not in self.AMPLITUDE_PARAMS or
-                    key.upper() not in self.BINARY_PARAMS or
-                    key.upper() not in self.POSITIONAL_PARAMETERS):
+            if key.upper() not in self.AMPLITUDE_PARAMS:
                 if self.priors[key].is_fixed:
                     # check if it's the same value as the par files
                     for het in self.data:
@@ -174,7 +178,10 @@ class TargetedPulsarLikelihood(Likelihood):
             self.models.append(HeterodynedCWSimulator(het.par, het.detector,
                                                       het.times))
             # copy of heterodyned parameters
-            self.basepars.append(copy.deepcopy(het.par))
+            newpar = PulsarParametersPy()                                                          
+            for item in het.par.items():
+                newpar[item[0]] = item[1] 
+            self.basepars.append(newpar)
 
         # if phase evolution is not in the model set the pre-summed products
         # of the data and antenna patterns
@@ -257,7 +264,8 @@ class TargetedPulsarLikelihood(Likelihood):
                         # set "whitened" versions of the antenna pattern product
                         # for SNR calculations, for when using the Students-t
                         # likelihood
-                        self.products[-1][kname + 'White'] = np.zeros(data.num_chunks)
+                        if 'd' not in [a, b]:
+                            self.products[-1][kname + 'White'] = np.zeros(data.num_chunks)
 
                     self.products[-1][kname] = np.zeros(data.num_chunks,
                                                         dtype=dtype)
@@ -267,35 +275,31 @@ class TargetedPulsarLikelihood(Likelihood):
                                        data.change_point_indices,
                                        data.chunk_lengths):
                 # set the noise standard deviation for a Gaussian likelihood
-                if self.likelihood == 'gaussian':
-                    stdstrue = data.stds[cpidx:cpidx + cplen]
-                else:
-                    stdsunity = 1.
-
-                stds = stdstrue if self.likelihood == 'gaussian' else stdsunity
+                stdstrue = data.stds[cpidx:cpidx + cplen]
+                stds = stdstrue if self.likelihood == 'gaussian' else 1.
 
                 # get the interpolated response functions
                 t0 = float(model.resp.t0)
 
                 # interpolation times
-                _ = np.arange(0., lal.DAYSID_SI,
-                              lal.DAYSID_SI / model.resp.ntimebins)
+                ftimes = np.arange(0., lal.DAYSID_SI,
+                                   lal.DAYSID_SI / model.resp.ntimebins)
                 inttimes = data.times[cpidx:cpidx + cplen] - t0
 
                 # dictionary of chunk data and antenna responses
                 rs = OrderedDict()
                 rs['d'] = data.data[cpidx:cpidx + cplen]
-                rs['Tp'] = np.interp(inttimes, model.resp.fplus.data,
+                rs['Tp'] = np.interp(inttimes, ftimes, model.resp.fplus.data,
                                      period=lal.DAYSID_SI)
-                rs['Tc'] = np.interp(inttimes, model.resp.fcross.data,
+                rs['Tc'] = np.interp(inttimes, ftimes, model.resp.fcross.data,
                                      period=lal.DAYSID_SI)
-                rs['Vx'] = np.interp(inttimes, model.resp.fx.data,
+                rs['Vx'] = np.interp(inttimes, ftimes, model.resp.fx.data,
                                      period=lal.DAYSID_SI)
-                rs['Vy'] = np.interp(inttimes, model.resp.fy.data,
+                rs['Vy'] = np.interp(inttimes, ftimes, model.resp.fy.data,
                                      period=lal.DAYSID_SI)
-                rs['Sb'] = np.interp(inttimes, model.resp.fb.data,
+                rs['Sb'] = np.interp(inttimes, ftimes, model.resp.fb.data,
                                      period=lal.DAYSID_SI)
-                rs['Sl'] = np.interp(inttimes, model.resp.fl.data,
+                rs['Sl'] = np.interp(inttimes, ftimes, model.resp.fl.data,
                                      period=lal.DAYSID_SI)
 
                 # get all required combinations of responses and data
@@ -310,7 +314,7 @@ class TargetedPulsarLikelihood(Likelihood):
                             self.products[-1][kname][i] = np.dot(rs[a]/stds,
                                                                  rs[b]/stds)
 
-                        if 'd' in [a, b] and a != b:
+                        if 'd' not in [a, b]:
                             # get "whitened" versions for Students-t likelihood
                             self.products[-1][kname + 'White'] = np.dot(rs[a]/stdstrue,
                                                                         rs[b]/stdstrue)
@@ -333,6 +337,13 @@ class TargetedPulsarLikelihood(Likelihood):
                     par[name] = self._parse_vector_param(par, pname.upper(), pval)
                 else:
                     par[pname.upper()] = pval
+
+                    if pname.upper() in self.SOURCE_AMPLITUDE_PARAMETERS:
+                        # reset waveform parameters (otherwise these can
+                        # potentially be given by the previous value if the
+                        # new value is zero)
+                        par['C21'] = 0.
+                        par['C22'] = 0.
 
             # calculate the model
             m = model.model(par, usephase=self.include_phase,
@@ -442,6 +453,7 @@ class TargetedPulsarLikelihood(Likelihood):
 
         return loglikelihood
 
+    @property
     def noise_log_likelihood(self):
         """
         The log-likelihood for the data being consistent with the noise model,

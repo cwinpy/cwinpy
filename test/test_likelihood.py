@@ -20,6 +20,7 @@ class TestTargetedPulsarLikelhood(object):
     parfile = 'J0123+3456.par'
     times = np.linspace(1000000000., 1000086340., 1440)
     data = np.random.normal(0., 1e-25, size=(1440, 2))
+    onesdata = np.ones((1440, 2))
     detector = 'H1'
 
     @classmethod
@@ -106,3 +107,19 @@ PHI0     2.4
         with pytest.raises(ValueError):
             like = TargetedPulsarLikelihood(het, PriorDict(priors),
                                             likelihood='blah')
+
+    def test_likelihood_null_likelihood(self):
+        """
+        Test likelihood and null likelihood.
+        """
+
+        het = HeterodynedData(self.data, times=self.times,
+                              detector=self.detector, par=self.parfile)
+
+        priors = dict()
+        priors['h0'] = Uniform(0., 1.e-23, 'h0')
+
+        like = TargetedPulsarLikelihood(het, PriorDict(priors))
+        like.parameters = {'h0': 0.}
+
+        assert like.log_likelihood() == like.noise_log_likelihood
