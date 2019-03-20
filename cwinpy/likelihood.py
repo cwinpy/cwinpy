@@ -453,7 +453,6 @@ class TargetedPulsarLikelihood(Likelihood):
 
         return loglikelihood
 
-    @property
     def noise_log_likelihood(self):
         """
         The log-likelihood for the data being consistent with the noise model,
