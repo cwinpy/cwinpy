@@ -2,4 +2,4 @@ numpy>=1.15
 bilby
 astropy
 matplotlib
-lalsuite>=6.53
+lalsuite==6.53.1.dev20190320
