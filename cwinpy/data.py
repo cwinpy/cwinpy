@@ -1017,7 +1017,7 @@ class HeterodynedData(object):
                 if len(self.change_point_indices) == 1:
                     cps = np.array([0, len(datasub)], dtype=np.int)
                 else:
-                    cps = np.concatenate(([0], self.change_point_indices,
+                    cps = np.concatenate((self.change_point_indices,
                                           [len(datasub)])).astype('int')
 
             if self.stds is None:
@@ -1364,7 +1364,7 @@ class HeterodynedData(object):
         if len(self.__change_point_indices_and_ratios) == 0:
             return [0]
         else:
-            return [cps[0] for cps in self.__change_point_indices_and_ratios]
+            return [0] + [cps[0] for cps in self.__change_point_indices_and_ratios]
 
     @property
     def change_point_ratios(self):
@@ -1376,7 +1376,7 @@ class HeterodynedData(object):
         if len(self.__change_point_indices_and_ratios) == 0:
             return [-np.inf]
         else:
-            return [cps[1] for cps in self.__change_point_indices_and_ratios]
+            return [-np.inf] + [cps[1] for cps in self.__change_point_indices_and_ratios]
 
     @property
     def chunk_lengths(self):
@@ -1388,7 +1388,7 @@ class HeterodynedData(object):
         if len(self.__change_point_indices_and_ratios) == 0:
             return [len(self)]
         else:
-            return np.diff(np.concatenate(([0], self.change_point_indices,
+            return np.diff(np.concatenate((self.change_point_indices,
                                            [len(self)])))
 
     @property
