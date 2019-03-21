@@ -1,0 +1,17 @@
+###############
+Code comparison
+###############
+
+Here we document comparisons between the analysis produced using ``cwinpy``
+compared with the `LALSuite <https://git.ligo.org/lscsoft/lalsuite>`_ code
+``lalapps_pulsar_parameter_estimation_nested``, which is described in
+Pitkin et al., `arXiv:1705.08978v1 <https://arxiv.org/abs/1705.08978v1>`_.
+
+The codes will be run on identical data and in configurations that are as
+close as possible. Links to the various comparisons are given below:
+
+.. toctree::
+   :maxdepth: 1
+
+   single-detector-noise-only
+

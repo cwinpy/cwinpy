@@ -1,0 +1,21 @@
+Single detector, noise-only
+===========================
+
+Here we compare ``lalapps_pulsar_parameter_estimation_nested`` with ``cwinpy`` in the case of
+simulated Gaussian noise from a single detector (H1 in this case). The parameters being
+estimated are :math:`h_0`, :math:`\phi_0`, :math:`\psi` and :math:`\cos{\iota}`, all with uniform priors.
+
+The script for this comparison is:
+
+.. literalinclude:: scripts/single_detector_noise_only.py
+   :language: python
+
+This produces the following comparison corner plot (cwinpy in blue and `lalapps_pulsar_parameter_estimation_nested` in red):
+
+.. image:: scripts/outputs/single_detector_noise_only_corner.png
+
+A comparison of the natural logarithms of the model evidence and noise evidence
+are given is shown below:
+
+.. literalinclude:: scripts/outputs/single_detector_noise_only_compare.txt
+

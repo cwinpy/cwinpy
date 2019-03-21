@@ -1,0 +1,7 @@
+*_data.txt
+*.hdf
+*_SNR
+*_Znoise
+*.json
+*.par
+*_prior.txt

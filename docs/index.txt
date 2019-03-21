@@ -18,3 +18,14 @@ API interface
 
    data
    likelihood
+
+Code comparisons
+================
+
+Some comparisons between ``cwinpy`` and others equivalent codes are documented
+below:
+
+.. toctree::
+   :maxdepth: 1
+
+   comparisons/comparisons
