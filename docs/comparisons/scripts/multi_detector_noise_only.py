@@ -2,7 +2,7 @@
 
 """
 Compare cwinpy with lalapps_pulsar_parameter_estimation_nested for noise-only
-data for a single detector.
+data for multiple detectors (H1, L1 and V1).
 """
 
 import os
@@ -10,7 +10,7 @@ import subprocess as sp
 import numpy as np
 import corner
 from collections import OrderedDict
-from cwinpy import HeterodynedData
+from cwinpy import HeterodynedData, MultiHeterodynedData
 from cwinpy import TargetedPulsarLikelihood
 import bilby
 from bilby.core.prior import Uniform, PriorDict
@@ -31,7 +31,7 @@ PSI      1.1
 PHI0     2.4
 """
 
-label = 'single_detector_noise_only'
+label = 'multi_detector_noise_only'
 outdir = 'outputs'
 
 if not os.path.isdir(outdir):
@@ -43,14 +43,22 @@ with open(parfile, 'w') as fp:
     fp.write(parcontent)
 
 # create some fake heterodyned data
-detector = 'H1'  # the detector to use
+detectors = ['H1', 'L1', 'V1']  # the detector to use
 asd = 1e-24  # noise amplitude spectral density
 times = np.linspace(1000000000., 1000086340., 1440)  # times
-het = HeterodynedData(times=times, par=parfile, fakeasd=asd, detector=detector)
+het = {}
+hetfiles = []
+for detector in detectors:
+    het[detector] = HeterodynedData(times=times, par=parfile, fakeasd=asd, detector=detector)
 
-# output the data
-hetfile = os.path.join(outdir, '{}_data.txt'.format(label))
-np.savetxt(hetfile, np.vstack((het.times, het.data.real, het.data.imag)).T)
+    # output the data
+    hetfile = os.path.join(outdir, '{}_{}_data.txt'.format(label, detector))
+    np.savetxt(hetfile, np.vstack((het[detector].times,
+                                   het[detector].data.real,
+                                   het[detector].data.imag)).T)
+    hetfiles.append(hetfile)
+
+mhet = MultiHeterodynedData(het)
 
 # create priors
 phi0range = [0., np.pi]
@@ -84,7 +92,6 @@ except KeyError:
 execpath = os.path.join(execpath, 'bin')
 
 lppen = os.path.join(execpath, 'lalapps_pulsar_parameter_estimation_nested')
-#lppe = os.path.join(execpath, 'lalapps_pulsar_parameter_estimation')
 n2p = os.path.join(execpath, 'lalinference_nest2pos') 
 
 Nlive = 1024  # number of nested sampling live points
@@ -97,8 +104,8 @@ outfile = os.path.join(outdir, '{}_nest.hdf'.format(label))
 # set the command line arguments
 runcmd = ' '.join([lppen,
                    '--verbose',
-                   '--input-files', hetfile,
-                   '--detectors', detector,
+                   '--input-files', ','.join(hetfiles),
+                   '--detectors', ','.join(detectors),
                    '--par-file', parfile,
                    '--prior-file', priorfile,
                    '--Nlive', '{}'.format(Nlive),
@@ -128,7 +135,7 @@ for i, p in enumerate(priors.keys()):
     postsamples[:,i] = post[p].samples[:,0]
 
 # set the likelihood for bilby
-likelihood = TargetedPulsarLikelihood(het, PriorDict(priors))
+likelihood = TargetedPulsarLikelihood(mhet, PriorDict(priors))
 
 # run bilby
 result = bilby.run_sampler(

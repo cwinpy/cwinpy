@@ -1,4 +1,4 @@
-Evidence (lalapps_pulsar_parameter_estimation_nested): 162951.74220478337
-Evidence (cwinpy): 162951.68290016844
-Noise evidence (lalapps_pulsar_parameter_estimation_nested): 162957.61279264177
-Noise evidence (cwinpy): 162957.61279264177
+Evidence (lalapps_pulsar_parameter_estimation_nested): 162933.49355768418
+Evidence (cwinpy): 162933.60100578557
+Noise evidence (lalapps_pulsar_parameter_estimation_nested): 162939.67214263265
+Noise evidence (cwinpy): 162939.67214263265

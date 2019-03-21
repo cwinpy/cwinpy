@@ -14,4 +14,4 @@ close as possible. Links to the various comparisons are given below:
    :maxdepth: 1
 
    single-detector-noise-only
-
+   multi-detector-noise-only
