@@ -17,4 +17,5 @@ close as possible. Links to the various comparisons are given below:
    single-detector-software-injection-linear
    single-detector-software-injection-circular
    multi-detector-noise-only
-   
+   multi-detector-software-injection-linear
+   multi-detector-software-injection-circular 
