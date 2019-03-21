@@ -27,7 +27,7 @@ def logfactorial(n):
     float
     """
 
-    if isinstance(n, (int, float)):
+    if isinstance(n, (int, float, np.int64, np.int32)):
         if isinstance(n, float):
             if not n.is_integer():
                 raise ValueError("Can't find the factorial of a non-integer value")
