@@ -216,7 +216,7 @@ class TargetedPulsarLikelihood(Likelihood):
 
         .. math::
 
-           (d/\\sigma) \\cdot (d*/\\sigma) = \\sum_i \\frac{d_id_i^*}{\\sigma_i^2} \\equiv \\sum_i \\frac{\\Re{(d)}^2 + \\Im{(d)}^2}{\\sigma_i_^2}.
+           (d/\\sigma) \\cdot (d^*/\\sigma) = \\sum_i \\frac{d_id_i^*}{\\sigma_i^2} \\equiv \\sum_i \\frac{\\Re{(d)}^2 + \\Im{(d)}^2}{\\sigma_i^2}.
 
         For the antenna patterns, for example :math:`F_+` and
         :math:`F_{\\times}`, we would have
