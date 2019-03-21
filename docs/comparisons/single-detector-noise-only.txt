@@ -10,7 +10,7 @@ The script for this comparison is:
 .. literalinclude:: scripts/single_detector_noise_only.py
    :language: python
 
-This produces the following comparison corner plot (cwinpy in blue and `lalapps_pulsar_parameter_estimation_nested` in red):
+This produces the following comparison corner plot (``cwinpy`` in blue and ``lalapps_pulsar_parameter_estimation_nested`` in red):
 
 .. image:: scripts/outputs/single_detector_noise_only_corner.png
 
