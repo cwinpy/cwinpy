@@ -14,4 +14,7 @@ close as possible. Links to the various comparisons are given below:
    :maxdepth: 1
 
    single-detector-noise-only
+   single-detector-software-injection-linear
+   single-detector-software-injection-circular
    multi-detector-noise-only
+   
