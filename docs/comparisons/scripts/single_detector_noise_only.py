@@ -8,6 +8,7 @@ data for a single detector.
 import os
 import subprocess as sp
 import numpy as np
+from scipy.stats import ks_2samp
 import corner
 from collections import OrderedDict
 from cwinpy import HeterodynedData
@@ -16,6 +17,11 @@ import bilby
 from bilby.core.prior import Uniform, PriorDict
 from matplotlib import pyplot as pl
 from lalapps.pulsarpputils import pulsar_nest_to_posterior
+from astropy.utils.data import download_file
+
+
+# URL for ephemeris files
+DOWNLOAD_URL = 'https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/src/{}'
 
 # create a fake pulsar parameter file
 parcontent = """\
@@ -94,6 +100,11 @@ priorsamples = 40000  # number of samples from the prior
 
 outfile = os.path.join(outdir, '{}_nest.hdf'.format(label))
 
+# set ephemeris files
+efile = download_file(DOWNLOAD_URL.format('earth00-40-DE405.dat.gz'), cache=True)
+sfile = download_file(DOWNLOAD_URL.format('sun00-40-DE405.dat.gz'), cache=True)
+tfile = download_file(DOWNLOAD_URL.format('te405_2000-2040.dat.gz'), cache=True)
+
 # set the command line arguments
 runcmd = ' '.join([lppen,
                    '--verbose',
@@ -104,11 +115,10 @@ runcmd = ' '.join([lppen,
                    '--Nlive', '{}'.format(Nlive),
                    '--Nmcmcinitial', '{}'.format(Nmcmcinitial),
                    '--outfile', outfile,
-                   '--ephem-earth', os.path.join(os.environ['CONDA_PREFIX'], 'share', 'lalpulsar', 'earth00-40-DE405.dat.gz'),
-                   '--ephem-sun', os.path.join(os.environ['CONDA_PREFIX'], 'share', 'lalpulsar', 'sun00-40-DE405.dat.gz'), 
-                   '--ephem-timecorr', os.path.join(os.environ['CONDA_PREFIX'], 'share', 'lalpulsar', 'te405_2000-2040.dat.gz')])
+                   '--ephem-earth', efile,
+                   '--ephem-sun', sfile, 
+                   '--ephem-timecorr', tfile])
 
-#print(runcmd)
 with sp.Popen(runcmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True, bufsize=1, universal_newlines=True) as p:
     for line in p.stderr:
         print(line, end='')
@@ -135,6 +145,15 @@ result = bilby.run_sampler(
     likelihood=likelihood, priors=priors, sampler='cpnest', nlive=Nlive,
     outdir=outdir, label=label)
 
+# calculate the Kolmogorov-Smirnov test for each 1d marginalised distribution
+# from the two codes, and output the minimum p-value of the KS test statistic
+# over all parameters
+minpvalue = np.inf
+for p in priors.keys():
+    _, pvalue = ks_2samp(post[p].samples[:,0], result.posterior[p])
+    if pvalue < minpvalue:
+        minpvalue = pvalue
+
 # compare evidences
 comparefile = os.path.join(outdir, '{}_compare.txt'.format(label))
 with open(comparefile, 'w') as fp:
@@ -142,6 +161,7 @@ with open(comparefile, 'w') as fp:
     fp.write('Evidence (cwinpy): {}\n'.format(result.log_evidence))
     fp.write('Noise evidence (lalapps_pulsar_parameter_estimation_nested): {}\n'.format(evnoise))
     fp.write('Noise evidence (cwinpy): {}\n'.format(result.log_noise_evidence))
+    fp.write('Minimum K-S test p-value: {}\n'.format(minpvalue))
 
 # plot results
 fig = result.plot_corner(save=False, parameters=list(priors.keys()))

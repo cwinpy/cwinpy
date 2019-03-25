@@ -134,7 +134,6 @@ runcmd = ' '.join([lppen,
                    '--ephem-sun', sfile, 
                    '--ephem-timecorr', tfile])
 
-print(runcmd)
 with sp.Popen(runcmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True, bufsize=1, universal_newlines=True) as p:
     for line in p.stderr:
         print(line, end='')
