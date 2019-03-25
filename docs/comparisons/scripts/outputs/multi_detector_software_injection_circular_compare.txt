@@ -1,0 +1,5 @@
+Evidence (lalapps_pulsar_parameter_estimation_nested): 488846.40616034914
+Evidence (cwinpy): 488846.44532584364
+Noise evidence (lalapps_pulsar_parameter_estimation_nested): 488353.7600820792
+Noise evidence (cwinpy): 488353.7600820792
+Minimum K-S test p-value: 0.762073225067537
