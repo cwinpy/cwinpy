@@ -15,9 +15,11 @@ from cwinpy import HeterodynedData
 from cwinpy import TargetedPulsarLikelihood
 import bilby
 from bilby.core.prior import Uniform, PriorDict
+from bilby.core.grid import Grid
 from matplotlib import pyplot as pl
 from lalapps.pulsarpputils import pulsar_nest_to_posterior
 from astropy.utils.data import download_file
+import h5py
 
 
 # URL for ephemeris files
@@ -90,7 +92,6 @@ except KeyError:
 execpath = os.path.join(execpath, 'bin')
 
 lppen = os.path.join(execpath, 'lalapps_pulsar_parameter_estimation_nested')
-#lppe = os.path.join(execpath, 'lalapps_pulsar_parameter_estimation')
 n2p = os.path.join(execpath, 'lalinference_nest2pos') 
 
 Nlive = 1024  # number of nested sampling live points
@@ -137,6 +138,10 @@ postsamples = np.zeros((lp, len(priors)))
 for i, p in enumerate(priors.keys()):
     postsamples[:,i] = post[p].samples[:,0]
 
+# get "information gain"
+info = h5py.File(outpost)['lalinference']['lalinference_nest'].attrs['information_nats']
+everr = np.sqrt(info/Nlive)  # the uncertainty on the evidence
+
 # set the likelihood for bilby
 likelihood = TargetedPulsarLikelihood(het, PriorDict(priors))
 
@@ -144,24 +149,97 @@ likelihood = TargetedPulsarLikelihood(het, PriorDict(priors))
 result = bilby.run_sampler(
     likelihood=likelihood, priors=priors, sampler='cpnest', nlive=Nlive,
     outdir=outdir, label=label)
+#result = bilby.core.result.read_in_result(label=label, outdir=outdir)
+
+# evaluate the likelihood on a grid
+gridpoints = 35
+grid_size = dict()
+evdiff = 0.
+for p in priors.keys():
+    grid_size[p] = np.linspace(np.min(result.posterior[p]), np.max(result.posterior[p]), gridpoints)
+
+grid = Grid(likelihood, PriorDict(priors), grid_size=grid_size)
+grid_evidence = grid.log_evidence
+
+# compare evidences
+comparefile = os.path.join(outdir, '{}_compare.txt'.format(label))
+filetxt = """\
+.. csv-table:: Evidence table
+   :widths: auto
+   :header: "Method", ":math:`\\\\ln{{(Z)}}`", ":math:`\\\\ln{{(Z)}}` noise", ":math:`\\\\ln{{}}` Odds"
+
+   "``lalapps_pulsar_parameter_estimation_nested``", "{0:.3f}", "{1:.3f}", "{2:.3f}±{3:.3f}"
+   "cwinpy", "{4:.3f}", "{5:.3f}", "{6:.3f}±{7:.3f}"
+   "cwinpy (grid)", "{8:.3f}", "", "{9:.3f}"
+
+.. csv-table:: Parameter table
+   :widths: auto
+   :header: "Method", ":math:`h_0`", ":math:`\\\\phi_0` (rad)", ":math:`\\\\psi` (rad)", ":math:`\\\\cos{{\\\\iota}}`"
+
+   "``lalapps_pulsar_parameter_estimation_nested``", "{10:.2f}±{11:.2f}×10\ :sup:`{12:d}`", "{13:.2f}±{14:.2f}", "{15:.2f}±{16:.2f}", "{17:.2f}±{18:.2f}"
+   "cwinpy", "{19:.2f}±{20:.2f}×10\ :sup:`{21:d}`", "{22:.2f}±{23:.2f}", "{24:.2f}±{25:.2f}", "{26:.2f}±{27:.2f}"
+
+.. csv-table:: Maximum a-posteriori
+   :widths: auto
+   :header: "Method", ":math:`h_0`", ":math:`\\\\phi_0` (rad)", ":math:`\\\\psi` (rad)", ":math:`\\\\cos{{\\\\iota}}`", ":math:`\\\\ln{{(L)}}` max"
+
+   "``lalapps_pulsar_parameter_estimation_nested``", "{28:.2f}×10\ :sup:`{29:d}`", "{30:.2f}", "{31:.2f}", "{32:.2f}", "{33:.2f}"
+   "cwinpy", "{34:.2f}×10\ :sup:`{35:d}`", "{36:.2f}", "{37:.2f}", "{38:.2f}", "{39:.2f}"
+
+Minimum K-S test p-value: {40:.4f}
+"""
+
+values = 41*[None]
+values[0:4] = evsig, evnoise, (evsig - evnoise), everr
+values[4:8] = result.log_evidence, result.log_noise_evidence, (result.log_evidence - result.log_noise_evidence), result.log_evidence_err
+values[8:10] = grid_evidence, (grid_evidence - result.log_noise_evidence)
+
+# output parameter means and standard deviations
+idx = 10
+for method in ['lalapps', 'cwinpy']:
+    for p in priors.keys():
+        mean = post[p].samples[:,0].mean() if method == 'lalapps' else result.posterior[p].mean()
+        std = post[p].samples[:,0].std() if method == 'lalapps' else result.posterior[p].std()
+        if p == 'h0':
+            exponent = int(np.floor(np.log10(mean)))
+            mean = mean / 10**exponent
+            std = std / 10**exponent
+            values[idx] = mean
+            values[idx + 1] = std
+            values[idx + 2] = exponent
+            idx += 3
+        else:
+            values[idx] = mean
+            values[idx + 1] = std
+            idx += 2
+
+# output parameter maximum a-posteriori points
+maxidx = (result.posterior['log_likelihood'] + result.posterior['log_prior']).idxmax() 
+for method in ['lalapps', 'cwinpy']:
+    for p in priors.keys():
+        maxpval = post.maxP[1][p] if method == 'lalapps' else result.posterior[p][maxidx]
+        if p == 'h0':
+            exponent = int(np.floor(np.log10(maxpval)))
+            values[idx] = maxpval / 10**exponent
+            values[idx + 1] = exponent
+            idx += 2
+        else:
+            values[idx] = maxpval
+            idx += 1
+    values[idx] = post.maxP[1]['logl'] if method == 'lalapps' else result.posterior['log_likelihood'][maxidx]
+    idx += 1
 
 # calculate the Kolmogorov-Smirnov test for each 1d marginalised distribution
 # from the two codes, and output the minimum p-value of the KS test statistic
 # over all parameters
-minpvalue = np.inf
+values[idx] = np.inf
 for p in priors.keys():
     _, pvalue = ks_2samp(post[p].samples[:,0], result.posterior[p])
-    if pvalue < minpvalue:
-        minpvalue = pvalue
+    if pvalue < values[idx]:
+        values[idx] = pvalue
 
-# compare evidences
-comparefile = os.path.join(outdir, '{}_compare.txt'.format(label))
 with open(comparefile, 'w') as fp:
-    fp.write('Evidence (lalapps_pulsar_parameter_estimation_nested): {}\n'.format(evsig))
-    fp.write('Evidence (cwinpy): {}\n'.format(result.log_evidence))
-    fp.write('Noise evidence (lalapps_pulsar_parameter_estimation_nested): {}\n'.format(evnoise))
-    fp.write('Noise evidence (cwinpy): {}\n'.format(result.log_noise_evidence))
-    fp.write('Minimum K-S test p-value: {}\n'.format(minpvalue))
+    fp.write(filetxt.format(*values))
 
 # plot results
 fig = result.plot_corner(save=False, parameters=list(priors.keys()))
@@ -169,6 +247,11 @@ fig = corner.corner(postsamples, fig=fig, color='r', bins=50, smooth=0.9,
                     quantiles=[0.16, 0.84],
                     levels=(1 - np.exp(-0.5), 1 - np.exp(-2), 1 - np.exp(-9 / 2.)),
                     fill_contours=True, hist_kwargs={'density': True})
+axes = fig.get_axes()
+axidx = 0
+for p in priors.keys():
+    axes[axidx].plot(grid.sample_points[p], np.exp(grid.marginalize_ln_posterior(
+    not_parameter=p) - grid_evidence), 'k--')
+    axidx += 5
 
 fig.savefig(os.path.join(outdir, '{}_corner.png'.format(label)), dpi=300)
-

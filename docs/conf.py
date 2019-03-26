@@ -86,7 +86,16 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'requirements.txt']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'requirements.txt',
+                    'comparisons/scripts/outputs/*_data.txt',
+                    'comparisons/scripts/outputs/*_prior.txt',
+                    'comparisons/scripts/outputs/*_SNR',
+                    'comparisons/scripts/outputs/*_Znoise',
+                    'comparisons/scripts/outputs/*.par',
+                    'comparisons/scripts/outputs/*.hdf',
+                    'comparisons/scripts/outputs/*.json',
+                    'comparisons/scripts/outputs/*.json.old',
+                    'comparisons/scripts/outputs/cpnest*/*']
 
 add_function_parentheses = True
 add_module_names = False
