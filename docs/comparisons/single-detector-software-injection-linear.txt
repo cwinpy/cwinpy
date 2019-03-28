@@ -5,17 +5,13 @@ Here we compare ``lalapps_pulsar_parameter_estimation_nested`` with ``cwinpy`` i
 simulated Gaussian noise from a single detector (H1 in this case) containing a software injected signal with close-to linear polarisation. The parameters being
 estimated are :math:`h_0`, :math:`\phi_0`, :math:`\psi` and :math:`\cos{\iota}`, all with uniform priors.
 
-The script for this comparison, using the `CPNest <https://johnveitch.github.io/cpnest/>`_ nested sampling algorithm, is shown below:
-
-.. literalinclude:: scripts/single_detector_software_injection_linear.py
-   :language: python
-
-This produces the following comparison corner plot (``cwinpy`` in blue and ``lalapps_pulsar_parameter_estimation_nested`` in red):
+The script for this comparison, using the `CPNest <https://johnveitch.github.io/cpnest/>`_ nested sampling algorithm, is shown at the bottom of the page_. It produces the following comparison data:
 
 .. image:: scripts/outputs/single_detector_software_injection_linear_corner.png
 
-A comparison of the natural logarithms of the model evidence and noise evidence
-are given is shown below:
+.. include:: scripts/outputs/single_detector_software_injection_linear_compare.txt
 
-.. literalinclude:: scripts/outputs/single_detector_software_injection_linear_compare.txt
+.. _page:
 
+.. literalinclude:: scripts/single_detector_software_injection_linear.py
+   :language: python
