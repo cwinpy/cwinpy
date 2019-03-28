@@ -152,7 +152,6 @@ result = bilby.run_sampler(
 # evaluate the likelihood on a grid
 gridpoints = 35
 grid_size = dict()
-evdiff = 0.
 for p in priors.keys():
     grid_size[p] = np.linspace(np.min(result.posterior[p]), np.max(result.posterior[p]), gridpoints)
 

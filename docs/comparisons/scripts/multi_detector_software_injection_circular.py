@@ -1,24 +1,29 @@
 #!/usr/bin/env python
 
 """
-Compare cwinpy with lalapps_pulsar_parameter_estimation_nested for
-data for multiple detectors (H1, L1 and V1) containing a software injection
+Compare cwinpy with lalapps_pulsar_parameter_estimation_nested for noise-only
+data for a multiple detectors (H1, L1 and V1) containing a software injection
 with close-to-circular polarisation.
 """
 
 import os
 import subprocess as sp
 import numpy as np
-from scipy.stats import ks_2samp
 import corner
 from collections import OrderedDict
 from cwinpy import HeterodynedData, MultiHeterodynedData
 from cwinpy import TargetedPulsarLikelihood
 import bilby
 from bilby.core.prior import Uniform, PriorDict
+from bilby.core.grid import Grid
 from matplotlib import pyplot as pl
 from lalapps.pulsarpputils import pulsar_nest_to_posterior
 from astropy.utils.data import download_file
+from matplotlib.lines import Line2D
+import matplotlib.font_manager as font_manager
+
+# comparison function
+from comparitors import comparisons
 
 
 # URL for ephemeris files
@@ -110,8 +115,6 @@ n2p = os.path.join(execpath, 'lalinference_nest2pos')
 
 Nlive = 1024  # number of nested sampling live points
 Nmcmcinitial = 0  # set to 0 so that prior samples are not resampled
-tolerance = 0.1   # nested sampling stopping criterion (0.1 is default value)
-priorsamples = 40000  # number of samples from the prior
 
 outfile = os.path.join(outdir, '{}_nest.hdf'.format(label))
 
@@ -130,9 +133,9 @@ runcmd = ' '.join([lppen,
                    '--Nlive', '{}'.format(Nlive),
                    '--Nmcmcinitial', '{}'.format(Nmcmcinitial),
                    '--outfile', outfile,
-                   '--ephem-earth', efile,
-                   '--ephem-sun', sfile, 
-                   '--ephem-timecorr', tfile])
+                   '--ephem-earth', os.path.join(os.environ['CONDA_PREFIX'], 'share', 'lalpulsar', 'earth00-40-DE405.dat.gz'),
+                   '--ephem-sun', os.path.join(os.environ['CONDA_PREFIX'], 'share', 'lalpulsar', 'sun00-40-DE405.dat.gz'), 
+                   '--ephem-timecorr', os.path.join(os.environ['CONDA_PREFIX'], 'share', 'lalpulsar', 'te405_2000-2040.dat.gz')])
 
 with sp.Popen(runcmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True, bufsize=1, universal_newlines=True) as p:
     for line in p.stderr:
@@ -158,32 +161,41 @@ likelihood = TargetedPulsarLikelihood(mhet, PriorDict(priors))
 # run bilby
 result = bilby.run_sampler(
     likelihood=likelihood, priors=priors, sampler='cpnest', nlive=Nlive,
-    outdir=outdir, label=label)
+    outdir=outdir, label=label, use_ratio=False)
 
-# calculate the Kolmogorov-Smirnov test for each 1d marginalised distribution
-# from the two codes, and output the minimum p-value of the KS test statistic
-# over all parameters
-minpvalue = np.inf
+# evaluate the likelihood on a grid
+gridpoints = 35
+grid_size = dict()
 for p in priors.keys():
-    _, pvalue = ks_2samp(post[p].samples[:,0], result.posterior[p])
-    if pvalue < minpvalue:
-        minpvalue = pvalue
+    grid_size[p] = np.linspace(np.min(result.posterior[p]), np.max(result.posterior[p]), gridpoints)
 
-# compare evidences
-comparefile = os.path.join(outdir, '{}_compare.txt'.format(label))
-with open(comparefile, 'w') as fp:
-    fp.write('Evidence (lalapps_pulsar_parameter_estimation_nested): {}\n'.format(evsig))
-    fp.write('Evidence (cwinpy): {}\n'.format(result.log_evidence))
-    fp.write('Noise evidence (lalapps_pulsar_parameter_estimation_nested): {}\n'.format(evnoise))
-    fp.write('Noise evidence (cwinpy): {}\n'.format(result.log_noise_evidence))
-    fp.write('Minimum K-S test p-value: {}\n'.format(minpvalue))
+grid = Grid(likelihood, PriorDict(priors), grid_size=grid_size)
+grid_evidence = grid.log_evidence
+
+# output comparisons
+comparisons(label, outdir, grid, priors, cred=0.9)
 
 # plot results
-fig = result.plot_corner(save=False, parameters=injection_parameters)
+fig = result.plot_corner(save=False, parameters=list(priors.keys()), color='b')
 fig = corner.corner(postsamples, fig=fig, color='r', bins=50, smooth=0.9,
                     quantiles=[0.16, 0.84],
                     levels=(1 - np.exp(-0.5), 1 - np.exp(-2), 1 - np.exp(-9 / 2.)),
                     fill_contours=True, hist_kwargs={'density': True})
+axes = fig.get_axes()
+axidx = 0
+for p in priors.keys():
+    axes[axidx].plot(grid.sample_points[p], np.exp(grid.marginalize_ln_posterior(
+    not_parameter=p) - grid_evidence), 'k--')
+    axidx += 5
 
-fig.savefig(os.path.join(outdir, '{}_corner.png'.format(label)), dpi=300)
+# custom legend
+legend_elements = [Line2D([], [], color='r', label='lalapps_pulsar_parameter_estimation_nested'),
+                   Line2D([], [], color='b', label='cwinpy'),
+                   Line2D([], [], color='k', ls='--', label='cwinpy (grid)')]
+font = font_manager.FontProperties(family='monospace')
+leg = axes[3].legend(handles=legend_elements, loc='upper right', frameon=False, prop=font,
+                     handlelength=3)
+for line in leg.get_lines():
+    line.set_linewidth(1.0)
 
+fig.savefig(os.path.join(outdir, '{}_corner.png'.format(label)), dpi=200)

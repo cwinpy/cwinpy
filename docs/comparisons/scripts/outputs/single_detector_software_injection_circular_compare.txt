@@ -1,4 +1,25 @@
-Evidence (lalapps_pulsar_parameter_estimation_nested): 163001.49991644596
-Evidence (cwinpy): 163001.50992885543
-Noise evidence (lalapps_pulsar_parameter_estimation_nested): 162809.3710018422
-Noise evidence (cwinpy): 162809.3710018422
+.. csv-table:: Evidence table
+   :widths: auto
+   :header: "Method", ":math:`\\ln{(Z)}`", ":math:`\\ln{(Z)}` noise", ":math:`\\ln{}` Odds"
+
+   "``lalapps_pulsar_parameter_estimation_nested``", "162949.813", "162775.200", "174.613±0.102"
+   "``cwinpy``", "162949.877", "162775.200", "174.677±nan"
+   "``cwinpy`` (grid)", "162949.818", "", "174.618"
+
+.. csv-table:: Parameter table
+   :widths: auto
+   :header: "Method", ":math:`h_0`", ":math:`\\phi_0` (rad)", ":math:`\\psi` (rad)", ":math:`\\cos{\\iota}`"
+
+   "``lalapps_pulsar_parameter_estimation_nested``", "1.41±0.25×10\ :sup:`-25`", "2.14±0.52", "0.84±0.52", "-0.75±0.14"
+   "90% credible intervals", "[1.03, 1.82]×10\ :sup:`-25`", "[1.36, 2.82]", "[0.11, 1.57]", "[-1.00, -0.55]"
+   "``cwinpy``", "1.42±0.26×10\ :sup:`-25`", "2.16±0.52", "0.86±0.52", "-0.74±0.14"
+   "90% credible intervals", "[1.05, 1.83]×10\ :sup:`-25`", "[1.36, 2.84]", "[0.10, 1.56]", "[-1.00, -0.55]"
+
+.. csv-table:: Maximum a-posteriori
+   :widths: auto
+   :header: "Method", ":math:`h_0`", ":math:`\\phi_0` (rad)", ":math:`\\psi` (rad)", ":math:`\\cos{\\iota}`", ":math:`\\ln{(L)}` max"
+
+   "``lalapps_pulsar_parameter_estimation_nested``", "1.88×10\ :sup:`-25`", "2.65", "1.37", "-0.52", "162962.21"
+   "``cwinpy``", "1.63×10\ :sup:`-25`", "2.80", "1.50", "-0.62", "162962.23"
+
+Minimum K-S test p-value: 0.0299
