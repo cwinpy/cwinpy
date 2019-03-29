@@ -69,6 +69,7 @@ het = HeterodynedData(times=times, par=parfile, injpar=parfile,
 
 # output the data
 hetfile = os.path.join(outdir, '{}_data.txt'.format(label))
+#het = HeterodynedData(hetfile, par=parfile, detector=detector)
 np.savetxt(hetfile, np.vstack((het.times, het.data.real, het.data.imag)).T)
 
 # create priors
@@ -107,8 +108,6 @@ n2p = os.path.join(execpath, 'lalinference_nest2pos')
 
 Nlive = 1024  # number of nested sampling live points
 Nmcmcinitial = 0  # set to 0 so that prior samples are not resampled
-tolerance = 0.1   # nested sampling stopping criterion (0.1 is default value)
-priorsamples = 40000  # number of samples from the prior
 
 outfile = os.path.join(outdir, '{}_nest.hdf'.format(label))
 
@@ -164,13 +163,12 @@ for p in priors.keys():
     grid_size[p] = np.linspace(np.min(result.posterior[p]), np.max(result.posterior[p]), gridpoints)
 
 grid = Grid(likelihood, PriorDict(priors), grid_size=grid_size)
-grid_evidence = grid.log_evidence
 
 # output comparisons
 comparisons(label, outdir, grid, priors, cred=0.9)
 
 # plot results
-fig = result.plot_corner(save=False, parameters=injection_parameters)
+fig = result.plot_corner(save=False, parameters=injection_parameters, color='b')
 fig = corner.corner(postsamples, fig=fig, color='r', bins=50, smooth=0.9,
                     quantiles=[0.16, 0.84],
                     levels=(1 - np.exp(-0.5), 1 - np.exp(-2), 1 - np.exp(-9 / 2.)),
@@ -179,7 +177,7 @@ axes = fig.get_axes()
 axidx = 0
 for p in priors.keys():
     axes[axidx].plot(grid.sample_points[p], np.exp(grid.marginalize_ln_posterior(
-    not_parameter=p) - grid_evidence), 'k--')
+    not_parameter=p) - grid.log_evidence), 'k--')
     axidx += 5
 
 # custom legend

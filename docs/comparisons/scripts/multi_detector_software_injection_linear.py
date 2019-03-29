@@ -170,7 +170,6 @@ for p in priors.keys():
     grid_size[p] = np.linspace(np.min(result.posterior[p]), np.max(result.posterior[p]), gridpoints)
 
 grid = Grid(likelihood, PriorDict(priors), grid_size=grid_size)
-grid_evidence = grid.log_evidence
 
 # output comparisons
 comparisons(label, outdir, grid, priors, cred=0.9)
@@ -185,7 +184,7 @@ axes = fig.get_axes()
 axidx = 0
 for p in priors.keys():
     axes[axidx].plot(grid.sample_points[p], np.exp(grid.marginalize_ln_posterior(
-    not_parameter=p) - grid_evidence), 'k--')
+    not_parameter=p) - grid.log_evidence), 'k--')
     axidx += 5
 
 # custom legend
