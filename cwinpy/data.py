@@ -13,6 +13,9 @@ import lalpulsar
 # import utility functions
 from .utils import logfactorial, gcd_array
 
+# import colors from gwpy
+from gwpy.plot.colors import GW_OBSERVATORY_COLORS
+
 
 class MultiHeterodynedData(object):
     """
@@ -625,8 +628,7 @@ class HeterodynedData(object):
     """
 
     # set some default detector color maps for plotting
-    coldic = {'H1': 'r', 'L1': 'g', 'V1': 'b', 'G1': 'm'}
-    colmapdic = {'H1': 'Reds', 'L1': 'Greens', 'V1': 'Blues', 'G1': 'PuRd'}
+    colmapdic = {'H1': 'Reds', 'L1': 'Blues', 'V1': 'PuRd', 'G1': 'Greys'}
 
     # set some default plotting values
     PLOTTING_DEFAULTS = {'labelsize': 14,         # font size for axes tick labels
@@ -1657,8 +1659,9 @@ class HeterodynedData(object):
                 if 'label' not in plotkwargs:
                     plotkwargs['label'] = self.detector
 
-                if self.detector in self.coldic and 'color' not in plotkwargs:
-                    plotkwargs['color'] = self.coldic[self.detector]
+                if (self.detector in GW_OBSERVATORY_COLORS and
+                        'color' not in plotkwargs):
+                    plotkwargs['color'] = GW_OBSERVATORY_COLORS[self.detector]
 
             # set some default plotting styles
             if 'ls' not in plotkwargs:
