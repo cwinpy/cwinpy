@@ -2164,14 +2164,14 @@ class HeterodynedData(object):
                 color = None
                 label = None
                 if self.detector is not None:
-                    if self.detector in self.coldic:
-                        color = self.coldic[self.detector]
+                    if self.detector in GW_OBSERVATORY_COLORS:
+                        color = GW_OBSERVATORY_COLORS[self.detector]
                     label = self.detector
 
                 if self.detector is not None:
                     if 'color' not in plotkwargs:
-                        if self.detector in self.coldic:
-                            plotkwargs['color'] = self.coldic[self.detector]
+                        if self.detector in GW_OBSERVATORY_COLORS:
+                            plotkwargs['color'] = GW_OBSERVATORY_COLORS[self.detector]
 
                     if 'label' not in plotkwargs:
                         plotkwargs['label'] = self.detector
