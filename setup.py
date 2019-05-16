@@ -14,6 +14,12 @@ except ImportError:
     from distutils.core import setup
 
 
+def readfile(filename):
+    with open(filename, encoding="utf-8") as fp:
+        filecontents = fp.read()
+    return filecontents
+
+
 VERSION = versioneer.get_version()
 
 
