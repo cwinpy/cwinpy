@@ -6,31 +6,15 @@ sources.
 """
 
 import os
-import re
-import sys
+import versioneer
 
 try:
     from setuptools import setup
 except ImportError:
     from distutils.core import setup
 
-MAJOR, MINOR1, MINOR2, RELEASE, SERIAL = sys.version_info
 
-READFILE_KWARGS = {"encoding": "utf-8"} if MAJOR >= 3 else {}
-
-
-def readfile(filename):
-    with open(filename, **READFILE_KWARGS) as fp:
-        filecontents = fp.read()
-    return filecontents
-
-
-VERSION_REGEX = re.compile("__version__ = \"(.*?)\"")
-CONTENTS = readfile(os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "cwinpy", "__init__.py"))
-
-VERSION = VERSION_REGEX.findall(CONTENTS)[0]
+VERSION = versioneer.get_version()
 
 
 setup(name="cwinpy",
