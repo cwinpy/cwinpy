@@ -18,6 +18,7 @@ API interface
 
    data
    likelihood
+   hierarchical
 
 Code comparisons
 ================
