@@ -2,8 +2,10 @@
 Classes for hierarchical parameter inference.
 """
 
-import numpy
+import numpy as np
 import bilby
+from scipy.stats import gaussian_kde
+from scipy.interpolate import interp1d
 
 
 # allowed distributions and their required hyperparameters
@@ -36,7 +38,7 @@ class BaseDistribution(object):
     def disttype(self):
         return self._disttype
 
-    @type.setter
+    @disttype.setter
     def disttype(self, disttype):
         if disttype.lower() not in DISTRIBUTION_REQUIREMENTS.keys():
             raise ValueError('Distribution name "{}" is not '
@@ -69,9 +71,34 @@ class BaseDistribution(object):
     def values(self):
         return list(self.hyperparameters.values())
 
+    @property
+    def unpacked_parameters(self):
+        params = []
+        for key, value in self.hyperparameters.items():
+            if isinstance(value, (list, np.ndarray)):
+                for i in range(len(value)):
+                    params.append('{0}{1:02d}'.format(key, i))
+            else:
+                params.append(key)
+        return params
+
+    @property
+    def unpacked_values(self):
+        values = []
+        for key, value in self.hyperparameters.items():
+            if isinstance(value, (list, np.ndarray)):
+                for i in range(len(value)):
+                    values.append(value[i])
+            else:
+                values.append(value)
+        return values
+
     def __getitem__(self, item):
         if item.lower() in self.parameters:
             return self.hyperparameters[item.lower()]
+        elif item.lower() in self.unpacked_parameters:
+            return self.unpacked_values[
+                self.unpacked_parameters.index(item.lower())]
         elif item.lower() in DISTRIBUTION_REQUIREMENTS[self.disttype]:
             return None
         else:
@@ -101,6 +128,9 @@ class BaseDistribution(object):
 
         Returns
         -------
+        bool:
+            A single boolean, or list of boolean values, stating whether the
+            parameter is defined (known) or None (unknown and to be estimated).
         """
         
         value = self[item]
@@ -126,7 +156,7 @@ class GaussianDistribution(BaseDistribution):
     ----------
     name: str
         See :class:`~cwinpy.hierarchical.BaseDistribution`
-    means: array_like
+    mus: array_like
         A list of values of the means of each mode of the Gaussian.
     sigmas: array_like
         A list of values of the standard deviations of each mode of the
@@ -139,7 +169,98 @@ class GaussianDistribution(BaseDistribution):
         unknown.
     """
 
+    def __init__(self, name, mus, sigmas, nmodes=1):
+        gaussianparameters = {'mu': [], 'sigma': []}
 
+        if nmodes < 1:
+            raise ValueError('Gaussian must have at least one mode')
+
+        if isinstance(mus, (int, float)):
+            mus = [mus]
+        
+        if isinstance(sigmas, (int, float)):
+            sigmas = [sigmas]
+
+        if (not isinstance(mus, (list, np.ndarray)) or not
+                isinstance(sigmas, (list, np.ndarray))):
+            raise TypeError('Means and standard deviations must be lists')
+
+        self.nmodes = np.max([nmodes, len(mus), len(sigmas)])
+
+        for i in range(self.nmodes):
+            if len(mus) < (i + 1):
+                gaussianparameters['mu'].append(None)
+            else:
+                gaussianparameters['mu'].append(mus[i])
+
+            if len(sigmas) < (i + 1):
+                gaussianparameters['sigma'].append(None)
+            else:
+                gaussianparameters['sigma'].append(sigmas[i])
+
+        # initialise
+        super().__init__(name, 'gaussian', gaussianparameters)
+
+
+class ExponentialDistribution(BaseDistribution):
+    """
+    A distribution to define estimating the parameters of an
+    exponential distribution.
+
+    Parameters
+    ----------
+    name: str
+        See :class:`~cwinpy.hierarchical.BaseDistribution`
+    mu: array_like
+        The mean of the exponential distribution.
+    """
+
+    def __init__(self, name, mu):
+        if mu is not None:
+            if not isinstance(mu, (int, float)):
+                raise TypeError('Mean must be a number')
+            
+            if mu <= 0.:
+                raise ValueError('Mean must be a positive number')
+
+        # initialise
+        super().__init__(name, 'exponential', dict(mu=mu))
+
+
+def create_distribution(distribution, name=None, distkwargs={}):
+    """
+    Create a distribution.
+
+    Parameters
+    ----------
+    distribution: :class:`cwinpy.hierarchical.BaseDistribution`, str
+        A predefined distribution, or string giving a valid distribution name.
+        This is the distribution who's hyperparameters that are going to be
+        inferred. If using a string, the distribution keyword arguments must be
+        passed using ``distkwargs``.
+    distkwargs: dict
+        A dictionary of keyword arguments for the distribution that is being
+        inferred.
+
+    Returns
+    -------
+    distribution
+        The distribution class.
+    """
+    
+    if isinstance(distribution, BaseDistribution):
+        return distribution
+    elif isinstance(distribution, str):
+        if distribution.lower() not in DISTRIBUTION_REQUIREMENTS.keys():
+            raise ValueError('Unknown distribution type '
+                             '"{}"'.format(distribution))
+        
+        if distribution.lower() == 'gaussian':
+            return GaussianDistribution(name, **distkwargs)
+        elif distribution.lower() == 'exponential':
+            return ExponentialDistribution(name, **distkwargs)
+    else:
+        raise TypeError("Unknown distribution")
 
 
 class MassQuadrupoleDistribution(object):
@@ -164,7 +285,22 @@ class MassQuadrupoleDistribution(object):
         parameter estimation using bilby for a set of individual CW sources.
         These can be from MCMC or nested sampler runs, but only the latter can
         be used if requiring a properly normalised evidence value.
-    distribution: :class:`cwinpy.hierarchical.BaseDistribution`
+    q22range: array_like
+        A list of values at which the :math:`Q_{22}` parameter posteriors
+        should be interpolated, or a lower and upper bound in the range of
+        values, which will be split into ``q22bins`` points spaced linearly in
+        log-space.
+    q22bins: int
+        The number of bins in :math:`Q_{22}` at which the posterior will be
+        interpolated.
+    distribution: :class:`cwinpy.hierarchical.BaseDistribution`, str
+        A predefined distribution, or string giving a valid distribution name.
+        This is the distribution who's hyperparameters that are going to be
+        inferred. If using a string, the distribution keyword arguments must be
+        passed using ``distkwargs``.
+    distkwargs: dict
+        A dictionary of keyword arguments for the distribution that is being
+        inferred.
 
     .. todo::
 
@@ -183,23 +319,27 @@ class MassQuadrupoleDistribution(object):
        (`arXiv:1807.06726 <https://arxiv.org/abs/1807.06726>`_)
     """
 
-    def __init__(self, data, q22range, q22bins=100, distribution=None):
-        self._data = None
-        self._posterior_kdes = None
-        self._posterior_kdes_interp = None
+    def __init__(self, data=None, q22range=None, q22bins=100,
+                 distribution=None, distkwargs=None, bw='scott'):
+        self._posterior_samples = []
+        self._posterior_kdes = []
+        self._likelihood_kdes_interp = []
 
         # set the values of q22 at which to calculate the KDE interpolator
         self.set_q22range(q22range, q22bins)
 
-        self.add_data(data)  # set the data
+        # set the data
+        self.add_data(data, bw=bw)
+
+        # set the distribution
+        self.set_distribution(distribution, distkwargs)
 
     def set_q22range(self, q22range, q22bins=100):
         """
         Set the values of :math:`Q_{22}`, either directly, or as a set of
-        points linear in
-        log-space defined by a lower and upper bounds and number of bins, at
-        which to evaluate the posterior samples via their KDE to make an
-        interpolator.
+        points linear in log-space defined by a lower and upper bounds and
+        number of bins, at which to evaluate the posterior samples via their
+        KDE to make an interpolator.
 
         Parameters
         ----------
@@ -207,6 +347,10 @@ class MassQuadrupoleDistribution(object):
             If this array contains two values it is assumed that these are the
             lower and upper bounds of a range, and the Q22
         """
+
+        if q22range is None:
+            self._q22_interp_values = None
+            return 
 
         if len(q22range) == 2:
             if q22range[1] < q22range[0]:
@@ -219,19 +363,38 @@ class MassQuadrupoleDistribution(object):
             raise ValueError('Q22 range is badly defined')
 
     @property
-    def data(self):
-        return self._data
+    def interpolated_log_kdes(self):
+        """
+        Return the list of interpolation functions for the natural logarithm of
+        the :math:`Q_{22}` likelihood functions after a Gaussian KDE has been
+        applied.
+        """
 
-    @data.setter
-    def data(self, data):
+        return self._likelihood_kdes_interp
+
+    def add_data(self, data, bw='scott'):
         """
         Set the data, i.e., the individual source posterior distributions, on
         which the hierarchical analysis will be performed.
 
         The posterior samples must include the ``Q22`` :math:`l=m=2` parameter
         for this inference to be performed. The samples will be converted to
-        a KDE (reflected about zero to avoid edge effects, and re-normalised)
-        which can be used as the data for hierarchical inference.
+        a KDE (reflected about zero to avoid edge effects, and re-normalised),
+        using :meth:`scipy.stats.gaussian_kde`, which ultimately can be used as
+        the data for hierarchical inference. For speed, interpolation functions
+        of the natural logarithm of the KDEs, are stored. If the posterior
+        samples come with a Bayesian evidence value, and the prior is present,
+        then these are used to convert the posterior distribution into a
+        likelihood, which is what is then stored in the interpolation function.
+
+        Parameters
+        ----------
+        data: :class:`bilby.core.result.ResultList`
+            A list, or single, results from bilby containing posterior samples
+            for a set of sources, or individual source.
+        bw: str, 'scott'
+            The Gaussian KDE bandwidth calculation method as required by
+            :meth:`scipy.stats.gaussian_kde`.
         """
 
         # check the data is a ResultList
@@ -241,43 +404,75 @@ class MassQuadrupoleDistribution(object):
                 data = bilby.core.result.ResultList([data])
             elif isinstance(data, list):
                 data = bilby.core.result.ResultList(data)
+            elif data is None:
+                return
             else:
                 raise TypeError('Data is not a known type')
 
         # create KDEs
         for result in data:
+            self._bw = bw
+
             # check all posteriors contain Q22
             if 'Q22' not in result.search_parameter_keys:
                 raise RuntimeError("Results do not contain Q22")
 
             try:
-                from statsmodels.nonparametric.bandwidths import bw_scott
-                from sklearn.neighbors import KernelDensity
-
                 samples = result.samples['Q22']
-
-                # get the Gaussian kernel bandwidth
-                bw = bw_scott(samples)
 
                 # get reflected samples
                 samps = np.concatenate((samples, -samples))[:, np.newaxis]
 
                 # calculate KDE
-                kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(samps)
+                kde = gaussian_kde(samps, bw_method=bw)
+                self._posterior_kdes.append(kde)
 
-                # use sklearn KDE as it returns natural logarithms of KDE (and so doesn't go to zero)
-                interpvals = kde.score_samples(self._q22_interp_values[:, np.newaxis]) + np.log(2.) # multiply by 2 to make sure pdf normalises to 1
+                # use log pdf for the kde
+                interpvals = (kde.logpdf(self._q22_interp_values)
+                    + np.log(2.))  # multiply by 2 so pdf normalises to 1
             except:
                 raise RuntimeError("Problem creating KDE")
-            
-            # create interpolator
 
-            # append interpolator
+            # convert posterior to likelihood (if possible)
+            if np.isfinite(result.log_evidence):
+                # multiply by evidence
+                interpvals += result.log_evidence
 
-        # append data
-        if self._data is None:
-            self._data = data
-        else:
-            self._data.append(data)
+            # divide by Q22 prior
+            if 'Q22' not in result.priors:
+                raise KeyError('Prior contains no Q22 value')
+            prior = result.priors['Q22']
+            interpvals -= prior.ln_prob(self._q22_interp_values)
 
-        
+            # create and add interpolator
+            self._likelihood_kdes_interp.append(
+                interp1d(self._q22_interp_values), interpvals)
+
+            # append samples
+            self._posteriors_samples.append(samples)
+
+    def set_distribution(self, distribution, distkwargs={}):
+        """
+        Set the distribution who's hyperparameters are going to be inferred.
+
+        Parameters
+        ----------
+        distribution: :class:`cwinpy.hierarchical.BaseDistribution`, str
+            A predefined distribution, or string giving a valid distribution
+            name. If using a string, the distribution keyword arguments must be
+            passed using ``distkwargs``.
+        distkwargs: dict
+            A dictionary of keyword arguments for the distribution that is being
+            inferred. 
+        """
+
+        self._distribution = None
+
+        if distribution is None:
+            return
+
+        if isinstance(distribution, BaseDistribution):
+            self._distribution = distribution
+        elif isinstance(distribution, str):
+            if distribution.lower() in DISTRIBUTION_REQUIREMENTS.values():
+                if 
