@@ -4,8 +4,10 @@ Classes for hierarchical parameter inference.
 
 import numpy as np
 import bilby
-from scipy.stats import gaussian_kde
+from scipy.stats import (gaussian_kde, truncnorm, expon)
 from scipy.interpolate import interp1d
+from collections import OrderedDict
+from itertools import compress
 
 
 # allowed distributions and their required hyperparameters
@@ -15,8 +17,8 @@ DISTRIBUTION_REQUIREMENTS = {'exponential': ['mu'],
 
 class BaseDistribution(object):
     """
-    The base class the distribution, as defined by a set of hyperparameters,
-    that you want to fit.
+    The base class for the distribution, as defined by a set of
+    hyperparameters, that you want to fit.
 
     Parameters
     ----------
@@ -26,13 +28,21 @@ class BaseDistribution(object):
         The type of distribution, e.g., 'exponential', 'gaussian' 
     hyperparameters: dict
         A dictionary of hyperparameters for the distribution with the keys
-        giving the parameter names, and values giving their (fixed) values.
+        giving the parameter names, and values giving their fixed value, or
+        a :class:`bilby.core.prior.Prior` for values that are to be inferred.
+    low: float
+        The lower bound of the distribution
+    high: float
+        The upper bound of the distribution
     """
 
-    def __init__(self, name, disttype, hyperparameters={}):
+    def __init__(self, name, disttype, hyperparameters={}, low=-np.inf,
+                 high=np.inf):
         self.name = name  # the parameter name
         self.disttype = disttype
         self.hyperparameters = hyperparameters
+        self.low = low
+        self.high = high
 
     @property
     def disttype(self):
@@ -63,6 +73,9 @@ class BaseDistribution(object):
         else:
             raise TypeError("hyperparameters must be a dictionary")
 
+        # set fixed values
+        self.fixed = self._hyperparameters
+
     @property
     def parameters(self):
         return list(self.hyperparameters.keys())
@@ -77,7 +90,7 @@ class BaseDistribution(object):
         for key, value in self.hyperparameters.items():
             if isinstance(value, (list, np.ndarray)):
                 for i in range(len(value)):
-                    params.append('{0}{1:02d}'.format(key, i))
+                    params.append('{0}_{{{1:d}}}'.format(key, i))
             else:
                 params.append(key)
         return params
@@ -115,42 +128,101 @@ class BaseDistribution(object):
         else:
             self._hyperparameters[item.lower()] = value
 
-    def known(self, item):
+    @property
+    def fixed(self):
         """
-        Check if a given hyperparameter is known, i.e., it has a set value, or
-        is unknown, i.e., it is not set, or it has a value of None. For
-        hyperparameters that are defined as lists return a boolean list.
+        Return a dictionary keyed to parameter names and with boolean values
+        indicating whether the parameter is fixed (True), or to be inferred
+        (False).
+        """
+
+        return self._fixed
+
+    @fixed.setter
+    def fixed(self, hyperparameters):
+        self._fixed = OrderedDict()
+
+        for param, value in hyperparameters.items():
+            if isinstance(value, bilby.core.prior.Prior):
+                self._fixed[param] = False
+            elif isinstance(value, (list, np.ndarray)):
+                self._fixed[param] = []
+                for i in range(len(value)):
+                    if isinstance(value[i], bilby.core.prior.Prior):
+                        self._fixed[param].append(False)
+                    elif isinstance(value[i], (int, float)):
+                        self._fixed[param.append(True)]
+                    else:
+                        raise TypeError("Hyperparameter type is not valid")
+            elif isinstance(value, (int, float)):
+                self._fixed[param] = True
+            else:
+                raise TypeError("Hyperparameter type is not valid")
+
+    @property
+    def unpacked_fixed(self):
+        """
+        Return a flattened version of ``fixed``, with multivalued parameters
+        indexed.
+        """
+
+        fixed = OrderedDict()
+
+        for param, value in zip(self.unpacked_parameters, self.unpacked_values):
+            if isinstance(value, bilby.core.prior.Prior):
+                fixed[param] = False
+            elif isinstance(value, (int, float)):
+                fixed[param] = True
+            else:
+                raise TypeError("Hyperparameter type is not valid")
+
+        return fixed
+
+    @property
+    def unknown_parameters(self):
+        """
+        A list of the parameters that are to be inferred.
+        """
+
+        return list(compress(self.unpacked_parameters,
+                             ~np.array(self.unpacked_fixed)))
+
+    @property
+    def unknown_priors(self):
+        """
+        A list of the :class:`~bilby.core.prior.Prior`s for the parameters
+        that are to be inferred.
+        """
+
+        return list(compress(self.unpacked_values,
+                             ~np.array(self.unpacked_fixed)))
+    
+    def log_pdf(self, hyperparameters, value):
+        """
+        The natural logarithm of the distribution's probability density
+        function at the given value.
 
         Parameters
         ----------
-        item: str
-            The name of the hyperparameter to check
+        hyperparameters: dict
+            A dictionary of the hyperparameter values that define the current
+            state of the distribution.
+        value: float
+            The value at which to evaluate the probability.
 
         Returns
         -------
-        bool:
-            A single boolean, or list of boolean values, stating whether the
-            parameter is defined (known) or None (unknown and to be estimated).
+        lnpdf:
+            The natural logarithm of the probability.
         """
-        
-        value = self[item]
-        if value is not None:
-            if isinstance(value, (list, np.ndarray)):
-                isknown = [True] * len(value)
-                for i in range(len(value)):
-                    if value[i] is None:
-                        isknown[i] = False
-                return isknown
-            else:
-                return True
-        else:
-            return False
+
+        return np.nan
 
 
-class GaussianDistribution(BaseDistribution):
+class BoundedGaussianDistribution(BaseDistribution):
     """
     A distribution to define estimating the parameters of a (potentially
-    multi-modal) Gaussian distribution.
+    multi-modal) bounded Gaussian distribution.
     
     Parameters
     ----------
@@ -161,45 +233,97 @@ class GaussianDistribution(BaseDistribution):
     sigmas: array_like
         A list of values of the standard deviations of each mode of the
         Gaussian.
-    nmodes: int (optional)
-        The number of modes of the Gaussian distribution. If this is not set
-        then the number is taken from the maximum of the lengths of either
-        `means` or `sigmas`. If this is longer than either `means` or `sigmas`
-        then those additional values are filled in a None, i.e., they are
-        unknown.
+    low: float
+        The lower bound of the distribution (defaults to 0, i.e., only positive
+        values are allowed)
+    high: float
+        The upper bound of the distribution (default to infinity)
     """
 
-    def __init__(self, name, mus, sigmas, nmodes=1):
+    def __init__(self, name, mus=[], sigmas=[], low=0., high=np.nan):
         gaussianparameters = {'mu': [], 'sigma': []}
 
-        if nmodes < 1:
+        if isinstance(mus, (int, float, bilby.core.prior.Prior)):
+            mus = [mus]
+        elif not isinstance(mus, (list, np.ndarray)):
+            raise TypeError("Unknown type fot 'mus'")
+        
+        if isinstance(sigmas, (int, float, bilby.core.prior.Prior)):
+            sigmas = [sigmas]
+        elif not isinstance(sigmas, (list, np.ndarray)):
+            raise TypeError("Unknown type fot 'sigmas'")
+
+        # set the number of modes
+        self.nmodes = len(mus)
+
+        if len(mus) != len(sigmas):
+            raise ValueError("'mus' and 'sigmas' must be the same length")
+
+        if self.nmodes < 1:
             raise ValueError('Gaussian must have at least one mode')
 
-        if isinstance(mus, (int, float)):
-            mus = [mus]
-        
-        if isinstance(sigmas, (int, float)):
-            sigmas = [sigmas]
-
-        if (not isinstance(mus, (list, np.ndarray)) or not
-                isinstance(sigmas, (list, np.ndarray))):
-            raise TypeError('Means and standard deviations must be lists')
-
-        self.nmodes = np.max([nmodes, len(mus), len(sigmas)])
-
         for i in range(self.nmodes):
-            if len(mus) < (i + 1):
-                gaussianparameters['mu'].append(None)
-            else:
-                gaussianparameters['mu'].append(mus[i])
-
-            if len(sigmas) < (i + 1):
-                gaussianparameters['sigma'].append(None)
-            else:
-                gaussianparameters['sigma'].append(sigmas[i])
+            gaussianparameters['mu'].append(mus[i])
+            gaussianparameters['sigma'].append(sigmas[i])
 
         # initialise
-        super().__init__(name, 'gaussian', gaussianparameters)
+        super().__init__(name, 'gaussian', hyperparameters=gaussianparameters,
+                         low=low, high=high)
+
+    def log_pdf(self, hyperparameters, value):
+        """
+        The natural logarithm of the pdf of a 1d (potentially multi-modal)
+        Gaussian probability distribution.
+
+        Parameters
+        ----------
+        hyperparameters: dict
+            A dictionary containing the current values of the hyperparameters
+            that need to be inferred.
+        value: float
+            The value at which the probability is to be evaluated.
+
+        Returns
+        -------
+        logpdf:
+            The natural logarithm of the probability at the given value.
+        """
+
+        if value < self.low or value > self.high:
+            return -np.inf
+
+        mus = self['mu']
+        sigmas = self['sigma']
+
+        # get current mus and sigmas from values
+        for i in range(self.nmodes):
+            if not self.fixed['mu'][i]:
+                param = 'mu_{}'.format(i)
+                try:
+                    mus[i] = hyperparameters[param]
+                except KeyError:
+                    raise KeyError("Cannot calculate log probability when "
+                                   "value '{}' is not given".format(param))
+            
+            if not self.fixed['sigma'][i]:
+                param = 'sigma_{}'.format(i)
+                try:
+                    sigmas[i] = hyperparameters[param]
+                except KeyError:
+                    raise KeyError("Cannot calculate log probability when "
+                                   "value '{}' is not given".format(param))
+
+        # get log pdf
+        logpdf = -np.inf
+        for mu, sigma in zip(mus, sigmas):
+            logpdf = np.logaddexp(logpdf, truncnorm.logpdf(value, self.low,
+                                                           self.high, loc=mu,
+                                                           scale=sigma))
+
+        # properly normalise
+        logpdf -= np.log(self.nmodes)
+
+        return logpdf
 
 
 class ExponentialDistribution(BaseDistribution):
@@ -216,28 +340,61 @@ class ExponentialDistribution(BaseDistribution):
     """
 
     def __init__(self, name, mu):
-        if mu is not None:
-            if not isinstance(mu, (int, float)):
-                raise TypeError('Mean must be a number')
-            
-            if mu <= 0.:
-                raise ValueError('Mean must be a positive number')
+        if not isinstance(mu, bilby.core.prior.Prior):
+            raise TypeError('Mean must be a Prior distribution')
 
         # initialise
-        super().__init__(name, 'exponential', dict(mu=mu))
+        super().__init__(name, 'exponential', hyperparameters=dict(mu=mu),
+                         low=0., high=np.inf)
+
+    def log_pdf(self, hyperparameters, value):
+        """
+        The natural logarithm of the pdf of an exponential distribution.
+
+        Parameters
+        ----------
+        hyperparameters: dict
+            A dictionary containing the current values of the hyperparameters
+            that need to be inferred.
+        value: float
+            The value at which the probability is to be evaluated.
+
+        Returns
+        -------
+        logpdf:
+            The natural logarithm of the probability at the given value.
+        """
+
+        if value < self.low or value > self.high:
+            return -np.inf
+
+        try:
+            mu = hyperparameters['mu']
+        except KeyError:
+            raise KeyError("Cannot evaluate the probability when mu is not "
+                           "given")
+
+        # get log pdf
+        logpdf = expon.logpdf(value, scale=mu)
+
+        # properly normalise
+        logpdf -= np.log(self.nmodes)
+
+        return logpdf
 
 
-def create_distribution(distribution, name=None, distkwargs={}):
+def create_distribution(name, distribution, distkwargs={}):
     """
-    Create a distribution.
+    Function to create a distribution.
 
     Parameters
     ----------
-    distribution: :class:`cwinpy.hierarchical.BaseDistribution`, str
-        A predefined distribution, or string giving a valid distribution name.
-        This is the distribution who's hyperparameters that are going to be
-        inferred. If using a string, the distribution keyword arguments must be
-        passed using ``distkwargs``.
+    name: str
+        The name of the parameter which the distribution represents.
+    distribution: str, :class:`cwinpy.hierarchical.BaseDistribution`
+        A string giving a valid distribution name. This is the distribution for
+        which the hyperparameters are going to be inferred. If using a string,
+        the distribution keyword arguments must be passed using ``distkwargs``.
     distkwargs: dict
         A dictionary of keyword arguments for the distribution that is being
         inferred.
@@ -467,12 +624,99 @@ class MassQuadrupoleDistribution(object):
         """
 
         self._distribution = None
+        self._prior = None
+        self._likelihood = None
 
         if distribution is None:
             return
 
         if isinstance(distribution, BaseDistribution):
-            self._distribution = distribution
+            if distribution.name.upper() is not 'Q22':
+                raise ValueError("Distribution name must be 'Q22'")
+            elif distribution.disttype not in DISTRIBUTION_REQUIREMENTS.keys():
+                raise ValueError("Distribution type '{}' is not "
+                                 "known".format(distribution.disttype))
+            else:
+                self._distribution = distribution
         elif isinstance(distribution, str):
-            if distribution.lower() in DISTRIBUTION_REQUIREMENTS.values():
-                if 
+            self._distribution = create_distribution('Q22',
+                                                     distribution.lower(),
+                                                     **distkwargs)
+
+        # set the priors from the distribution
+        self._set_priors()
+
+        # set the likelihood function
+        self._set_likelihood()
+
+    def _set_priors(self):
+        """
+        Set the priors based on those supplied via the distribution class.
+        """
+
+        # get the priors from the distribution
+        if len(self._distribution.unknown_parameters) < 1:
+            raise ValueError("Distribution has no parameters to infer")
+        
+        # add priors as PriorDict
+        self._prior = {param: prior
+                       for param, prior in zip(self._distribution.unknown_parameters,
+                                               self._distribution.unknown_priors)}
+
+    def _set_likelihood(self):
+        """
+        Set the likelihood.
+        """
+
+        self._likelihood = MassQuadrupoleDistributionLikelihood(
+            self._distribution, self._likelihood_kdes_interp)
+
+
+class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
+    """
+    The likelihood function for the inferring the hyperparameters of the
+    mass quadrupole, :math:`Q_{22}`, distribution.
+    
+    Parameters
+    ----------
+    distribution: :class:`cwinpy.hierarchical.BaseDistribution`
+        The probability distribution for which the hyperparameters are going
+        to be inferred.
+    likelihoods: list
+        A list of interpolation functions each of which gives the likelihood
+        function for a single source.
+
+    """
+
+    def __init__(self, distribution, likelihoods):
+        if not isinstance(distribution, BaseDistribution):
+            raise TypeError("Distribution is not the correct type")
+        
+        # check that the distribution contains parameters to be inferred
+        if len(distribution.unknown_parameters) < 1:
+            raise ValueError("Distribution has no parameters to infer")
+
+        inferred_parameters = {param: None
+                               for param in distribution.unknown_parameters}
+        inferred_parameters[distribution.name] = None
+        self.distribution = distribution
+        self.likelihoods = likelihoods
+
+        super().__init__(parameters=inferred_parameters)
+
+    def log_likelihood(self):
+        """
+        Evaluate the log likelihood.
+        """
+
+        value = self.parameters[self.distribution.name]
+
+        # evaluate the hyperparameter distribution
+        log_prior = self.distribution.log_pdf(self.parameters, value)
+
+        # evaluate the log likelihood
+        log_like = -np.inf
+        for intfunc in self.likelihoods:
+            log_like = np.logaddexp(log_like, intfunc(value))
+        
+        return log_like + log_prior
