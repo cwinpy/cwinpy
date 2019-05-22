@@ -491,7 +491,7 @@ class MassQuadrupoleDistribution(object):
         # set the distribution
         self.set_distribution(distribution, distkwargs)
 
-    def set_q22range(self, q22range, q22bins=100):
+    def set_q22range(self, q22range, q22bins=100, prependzero=True):
         """
         Set the values of :math:`Q_{22}`, either directly, or as a set of
         points linear in log-space defined by a lower and upper bounds and
@@ -502,7 +502,15 @@ class MassQuadrupoleDistribution(object):
         ----------
         q22range: array_like
             If this array contains two values it is assumed that these are the
-            lower and upper bounds of a range, and the Q22
+            lower and upper bounds of a range, and the ``q22bins`` parameter
+            sets the number of bins in log-space that the range will be split
+            into. Otherwise, if more than two values are given it is assumed
+            these are the values for :math:`Q_{22}`.
+        q22bins: int
+            The number of bins the range is split into.
+        prependzero: bool
+            If setting an upper and lower range, this will prepend zero at the
+            start of the range. Default is True.
         """
 
         if q22range is None:
@@ -514,6 +522,10 @@ class MassQuadrupoleDistribution(object):
                 raise ValueError('Q22 range is badly defined')
             self._q22_interp_values = np.logspace(q22range[0], q22range[1],
                                                   q22bins)
+
+            if prependzero:
+                self._q22_interp_values = np.insert(self._q22_interp_values,
+                                                    0, 0)
         elif len(q22range) > 2:
             self._q22_interp_values = q22range
         else:
