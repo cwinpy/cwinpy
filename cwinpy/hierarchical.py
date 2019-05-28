@@ -3,11 +3,11 @@ Classes for hierarchical parameter inference.
 """
 
 import numpy as np
-import bilby
 from scipy.stats import (gaussian_kde, truncnorm, expon)
 from scipy.interpolate import interp1d
 from collections import OrderedDict
 from itertools import compress
+import bilby
 
 
 # allowed distributions and their required hyperparameters
@@ -404,14 +404,14 @@ def create_distribution(name, distribution, distkwargs={}):
     distribution
         The distribution class.
     """
-    
+
     if isinstance(distribution, BaseDistribution):
         return distribution
     elif isinstance(distribution, str):
         if distribution.lower() not in DISTRIBUTION_REQUIREMENTS.keys():
             raise ValueError('Unknown distribution type '
                              '"{}"'.format(distribution))
-        
+
         if distribution.lower() == 'gaussian':
             return GaussianDistribution(name, **distkwargs)
         elif distribution.lower() == 'exponential':
@@ -458,6 +458,18 @@ class MassQuadrupoleDistribution(object):
     distkwargs: dict
         A dictionary of keyword arguments for the distribution that is being
         inferred.
+    bw: str, scalar, callable
+        See the ``bw_method`` argument for :class:`scipy.stats.gaussian_kde`.
+    sampler: str
+        The name of the stochastic sampler method used by ``bilby`` for
+        sampling the posterior. This defaults to use 'dynesty'.
+    sampler_kwargs: dict
+        A dictionary of arguments required by the given sampler.
+    grid: dict
+        A dictionary of values that define a grid in the parameter and
+        hyperparameter space that can be used by a
+        :class:`bilby.core.grid.Grid`. If given sampling will be performed on
+        the grid, rather than using the stochastic sampler.
 
     .. todo::
 
@@ -477,7 +489,8 @@ class MassQuadrupoleDistribution(object):
     """
 
     def __init__(self, data=None, q22range=None, q22bins=100,
-                 distribution=None, distkwargs=None, bw='scott'):
+                 distribution=None, distkwargs=None, bw='scott',
+                 sampler='dynesty', sampler_kwargs={}, grid=None):
         self._posterior_samples = []
         self._posterior_kdes = []
         self._likelihood_kdes_interp = []
@@ -490,6 +503,12 @@ class MassQuadrupoleDistribution(object):
 
         # set the distribution
         self.set_distribution(distribution, distkwargs)
+
+        # set the sampler
+        if grid is None:
+            self.set_sampler(sampler, sampler_kwargs)
+        else:
+            self.set_grid(grid)
 
     def set_q22range(self, q22range, q22bins=100, prependzero=True):
         """
@@ -561,9 +580,10 @@ class MassQuadrupoleDistribution(object):
         data: :class:`bilby.core.result.ResultList`
             A list, or single, results from bilby containing posterior samples
             for a set of sources, or individual source.
-        bw: str, 'scott'
+        bw: str, scale, callable
             The Gaussian KDE bandwidth calculation method as required by
-            :meth:`scipy.stats.gaussian_kde`.
+            :class:`scipy.stats.gaussian_kde`. The default is the 'scott'
+            method.
         """
 
         # check the data is a ResultList
@@ -682,6 +702,77 @@ class MassQuadrupoleDistribution(object):
 
         self._likelihood = MassQuadrupoleDistributionLikelihood(
             self._distribution, self._likelihood_kdes_interp)
+    
+    def set_sampler(self, sampler='dynesty', sampler_kwargs={}):
+        """
+        Set the stochastic sampling method for ``bilby`` to use when sampling
+        the parameter and hyperparameter posteriors.
+
+        Parameters
+        ----------
+        sampler: str
+            The name of the stochastic sampler method used by ``bilby`` for
+            sampling the posterior. This defaults to use 'dynesty'.
+        sampler_kwargs: dict
+            A dictionary of arguments required by the given sampler.
+        """
+
+        self._sampler = sampler
+        if self._sampler not in bilby.core.sampler.IMPLEMENTED_SAMPLERS:
+            raise ValueError('Sampler "{}" is not implemented in '
+                             'bilby'.format(self._sampler))
+        self._sampler_kwargs = sampler_kwargs
+        self._use_grid = False  # set to not use the Grid sampling
+
+    def set_grid(self, grid):
+        """
+        Set a grid on which to evaluate the parameter and hyperparameter
+        posterior, as used by :class:`bilby.core.grid.Grid`.
+
+        Parameters
+        ----------
+        grid: dict
+            A dictionary of values that define a grid in the parameter and
+            hyperparameter space that can be used by a
+            :class:`bilby.core.grid.Grid` class.
+        """
+
+        self._grid = grid
+        self._use_grid = True
+
+    @property
+    def result(self):
+        """
+        Return the ``bilby`` object containing the results. If evaluating the
+        posterior over a grid this is a :class:`bilby.core.grid.Grid` object.
+        If sampling using a stochastic sampler, this is a
+        :class:`bilby.core.result.Result` object.
+        """
+
+        if self._use_grid:
+            return self._grid_result
+        else:
+            return self._result
+
+    def sample(self, **run_kwargs):
+        """
+        Sample the posterior distribution using ``bilby``. This can take
+        keyword argument required by the bilby ``run sampler()` <https://lscsoft.docs.ligo.org/bilby/samplers.html#bilby.run_sampler>`_ method.
+        """
+
+        if self._use_grid:
+            # set the grid
+            self._grid_result = bilby.core.grid.Grid(self._likelihood,
+                                                     self._prior,
+                                                     grid_size=self._grid)
+        else:
+            self._result = bilby.run_sampler(likelihood=self._likelihood,
+                                             priors=self._prior,
+                                             sampler=self._sampler,
+                                             **self._sampler_kwargs,
+                                             **run_kwargs)
+
+        return self.result
 
 
 class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
@@ -726,9 +817,9 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         # evaluate the hyperparameter distribution
         log_prior = self.distribution.log_pdf(self.parameters, value)
 
-        # evaluate the log likelihood
-        log_like = -np.inf
+        # evaluate the log likelihood (sum of each separate log likelihood)
+        log_like = 0.
         for intfunc in self.likelihoods:
-            log_like = np.logaddexp(log_like, intfunc(value))
-        
+            log_like += intfunc(value)
+
         return log_like + log_prior

@@ -4,7 +4,7 @@ Hierarchical analyses
 
 Classes for performing hierarchical analysis for continuous gravitational-wave
 sources, i.e., estimating the
-`hyperparameters <https://en.wikipedia.org/wiki/Hyperparameter>` defining the
+`hyperparameters <https://en.wikipedia.org/wiki/Hyperparameter>`_ defining the
 prior distributions for various source parameters.
 
 .. autoclass:: cwinpy.hierarchical.MassQuadrupoleDistribution
