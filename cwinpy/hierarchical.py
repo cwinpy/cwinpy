@@ -429,8 +429,8 @@ class MassQuadrupoleDistribution(object):
     The class currently can attempt to fit the hyperparameters for the
     following distributions:
 
-    * a :math:`n`-mode Gaussian distribution defined by either fixed or unknown
-      means and standard deviations
+    * a :math:`n`-mode bounded Gaussian distribution defined by either fixed or
+      unknown means and standard deviations;
     * an exponential distribution defined by an unknown mean.
 
     All distributions do not allow the quadrupole value to become negative.
@@ -446,13 +446,15 @@ class MassQuadrupoleDistribution(object):
         A list of values at which the :math:`Q_{22}` parameter posteriors
         should be interpolated, or a lower and upper bound in the range of
         values, which will be split into ``q22bins`` points spaced linearly in
-        log-space.
+        log-space. If not supplied this will instead be set using the posterior
+        samples, with a minimum value at zero and a maximum given by the
+        maximum of all posterior samples.
     q22bins: int
         The number of bins in :math:`Q_{22}` at which the posterior will be
         interpolated.
     distribution: :class:`cwinpy.hierarchical.BaseDistribution`, str
         A predefined distribution, or string giving a valid distribution name.
-        This is the distribution who's hyperparameters that are going to be
+        This is the distribution for which the hyperparameters are going to be
         inferred. If using a string, the distribution keyword arguments must be
         passed using ``distkwargs``.
     distkwargs: dict
@@ -471,9 +473,10 @@ class MassQuadrupoleDistribution(object):
         :class:`bilby.core.grid.Grid`. If given sampling will be performed on
         the grid, rather than using the stochastic sampler.
 
-    .. todo::
+    To do
+    -----
 
-    Distributions the could be added include:
+    Distributions that could be added include:
 
     * a power law distribution with an unknown spectral index, or a (single)
       broken power law with two unknown indices and a known or unknown break
@@ -568,7 +571,7 @@ class MassQuadrupoleDistribution(object):
         The posterior samples must include the ``Q22`` :math:`l=m=2` parameter
         for this inference to be performed. The samples will be converted to
         a KDE (reflected about zero to avoid edge effects, and re-normalised),
-        using :meth:`scipy.stats.gaussian_kde`, which ultimately can be used as
+        using :class:`scipy.stats.gaussian_kde`, which ultimately can be used as
         the data for hierarchical inference. For speed, interpolation functions
         of the natural logarithm of the KDEs, are stored. If the posterior
         samples come with a Bayesian evidence value, and the prior is present,
@@ -588,7 +591,7 @@ class MassQuadrupoleDistribution(object):
 
         # check the data is a ResultList
         if not isinstance(data, bilby.core.result.ResultList):
-            if isinstance(data, (bilby.core.Result, str)):
+            if isinstance(data, (bilby.core.result.Result, str)):
                 # convert to a ResultList
                 data = bilby.core.result.ResultList([data])
             elif isinstance(data, list):
@@ -597,6 +600,12 @@ class MassQuadrupoleDistribution(object):
                 return
             else:
                 raise TypeError('Data is not a known type')
+
+        if self._q22_interp_values is None:
+            # set q22 range from data
+            maxq22 = np.max([res.posterior['Q22'].max() for res in data])
+            minq22 = np.min([res.posterior['Q22'].min() for res in data])
+            self.set_q22range([minq22, maxq22])
 
         # create KDEs
         for result in data:
@@ -607,7 +616,7 @@ class MassQuadrupoleDistribution(object):
                 raise RuntimeError("Results do not contain Q22")
 
             try:
-                samples = result.samples['Q22']
+                samples = result.posterior['Q22']
 
                 # get reflected samples
                 samps = np.concatenate((samples, -samples))[:, np.newaxis]
@@ -757,7 +766,7 @@ class MassQuadrupoleDistribution(object):
     def sample(self, **run_kwargs):
         """
         Sample the posterior distribution using ``bilby``. This can take
-        keyword argument required by the bilby ``run sampler()` <https://lscsoft.docs.ligo.org/bilby/samplers.html#bilby.run_sampler>`_ method.
+        keyword argument required by the bilby `run sampler() <https://lscsoft.docs.ligo.org/bilby/samplers.html#bilby.run_sampler>`_ method.
         """
 
         if self._use_grid:
