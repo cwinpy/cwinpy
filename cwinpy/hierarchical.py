@@ -44,6 +44,9 @@ class BaseDistribution(object):
         self.low = low
         self.high = high
 
+        if self.low >= self.high:
+            raise ValueError("Lower bound is higher than upper bound!")
+
     @property
     def disttype(self):
         return self._disttype
@@ -90,7 +93,7 @@ class BaseDistribution(object):
         for key, value in self.hyperparameters.items():
             if isinstance(value, (list, np.ndarray)):
                 for i in range(len(value)):
-                    params.append('{0}_{{{1:d}}}'.format(key, i))
+                    params.append('{0}{1:d}'.format(key, i))
             else:
                 params.append(key)
         return params
@@ -151,7 +154,7 @@ class BaseDistribution(object):
                     if isinstance(value[i], bilby.core.prior.Prior):
                         self._fixed[param].append(False)
                     elif isinstance(value[i], (int, float)):
-                        self._fixed[param.append(True)]
+                        self._fixed[param].append(True)
                     else:
                         raise TypeError("Hyperparameter type is not valid")
             elif isinstance(value, (int, float)):
@@ -185,7 +188,7 @@ class BaseDistribution(object):
         """
 
         return list(compress(self.unpacked_parameters,
-                             ~np.array(self.unpacked_fixed)))
+                             ~np.array(self.unpacked_fixed.values())))
 
     @property
     def unknown_priors(self):
@@ -195,7 +198,7 @@ class BaseDistribution(object):
         """
 
         return list(compress(self.unpacked_values,
-                             ~np.array(self.unpacked_fixed)))
+                             ~np.array(self.unpacked_fixed.values())))
     
     def log_pdf(self, hyperparameters, value):
         """
@@ -240,18 +243,18 @@ class BoundedGaussianDistribution(BaseDistribution):
         The upper bound of the distribution (default to infinity)
     """
 
-    def __init__(self, name, mus=[], sigmas=[], low=0., high=np.nan):
+    def __init__(self, name, mus=[], sigmas=[], low=0., high=np.inf):
         gaussianparameters = {'mu': [], 'sigma': []}
 
         if isinstance(mus, (int, float, bilby.core.prior.Prior)):
             mus = [mus]
         elif not isinstance(mus, (list, np.ndarray)):
-            raise TypeError("Unknown type fot 'mus'")
+            raise TypeError("Unknown type for 'mus'")
         
         if isinstance(sigmas, (int, float, bilby.core.prior.Prior)):
             sigmas = [sigmas]
         elif not isinstance(sigmas, (list, np.ndarray)):
-            raise TypeError("Unknown type fot 'sigmas'")
+            raise TypeError("Unknown type for 'sigmas'")
 
         # set the number of modes
         self.nmodes = len(mus)
@@ -298,15 +301,15 @@ class BoundedGaussianDistribution(BaseDistribution):
         # get current mus and sigmas from values
         for i in range(self.nmodes):
             if not self.fixed['mu'][i]:
-                param = 'mu_{}'.format(i)
+                param = 'mu{}'.format(i)
                 try:
                     mus[i] = hyperparameters[param]
                 except KeyError:
                     raise KeyError("Cannot calculate log probability when "
                                    "value '{}' is not given".format(param))
-            
+
             if not self.fixed['sigma'][i]:
-                param = 'sigma_{}'.format(i)
+                param = 'sigma{}'.format(i)
                 try:
                     sigmas[i] = hyperparameters[param]
                 except KeyError:
@@ -377,9 +380,6 @@ class ExponentialDistribution(BaseDistribution):
         # get log pdf
         logpdf = expon.logpdf(value, scale=mu)
 
-        # properly normalise
-        logpdf -= np.log(self.nmodes)
-
         return logpdf
 
 
@@ -413,7 +413,7 @@ def create_distribution(name, distribution, distkwargs={}):
                              '"{}"'.format(distribution))
 
         if distribution.lower() == 'gaussian':
-            return GaussianDistribution(name, **distkwargs)
+            return BoundedGaussianDistribution(name, **distkwargs)
         elif distribution.lower() == 'exponential':
             return ExponentialDistribution(name, **distkwargs)
     else:

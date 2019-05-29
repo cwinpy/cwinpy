@@ -6,3 +6,4 @@ source = cwinpy
 ignore_errors = True
 omit =
     tests/*
+    cwinpy/_version.py
