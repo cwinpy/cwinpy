@@ -542,7 +542,8 @@ class MassQuadrupoleDistribution(object):
         if len(q22range) == 2:
             if q22range[1] < q22range[0]:
                 raise ValueError('Q22 range is badly defined')
-            self._q22_interp_values = np.logspace(q22range[0], q22range[1],
+            self._q22_interp_values = np.logspace(np.log10(q22range[0]),
+                                                  np.log10(q22range[1]),
                                                   q22bins)
 
             if prependzero:
@@ -601,6 +602,12 @@ class MassQuadrupoleDistribution(object):
             else:
                 raise TypeError('Data is not a known type')
 
+        for result in data:
+            # check all posteriors contain Q22
+            if ('Q22' not in result.search_parameter_keys or
+                    'Q22' not in result.posterior.columns):
+                raise RuntimeError("Results do not contain Q22")
+
         if self._q22_interp_values is None:
             # set q22 range from data
             maxq22 = np.max([res.posterior['Q22'].max() for res in data])
@@ -611,15 +618,11 @@ class MassQuadrupoleDistribution(object):
         for result in data:
             self._bw = bw
 
-            # check all posteriors contain Q22
-            if 'Q22' not in result.search_parameter_keys:
-                raise RuntimeError("Results do not contain Q22")
-
             try:
                 samples = result.posterior['Q22']
 
                 # get reflected samples
-                samps = np.concatenate((samples, -samples))[:, np.newaxis]
+                samps = np.concatenate((samples, -samples))
 
                 # calculate KDE
                 kde = gaussian_kde(samps, bw_method=bw)
@@ -628,8 +631,8 @@ class MassQuadrupoleDistribution(object):
                 # use log pdf for the kde
                 interpvals = (kde.logpdf(self._q22_interp_values)
                     + np.log(2.))  # multiply by 2 so pdf normalises to 1
-            except:
-                raise RuntimeError("Problem creating KDE")
+            except Exception as e:
+                raise RuntimeError("Problem creating KDE: {}".format(e))
 
             # convert posterior to likelihood (if possible)
             if np.isfinite(result.log_evidence):
@@ -644,10 +647,10 @@ class MassQuadrupoleDistribution(object):
 
             # create and add interpolator
             self._likelihood_kdes_interp.append(
-                interp1d(self._q22_interp_values), interpvals)
+                interp1d(self._q22_interp_values, interpvals))
 
             # append samples
-            self._posteriors_samples.append(samples)
+            self._posterior_samples.append(samples)
 
     def set_distribution(self, distribution, distkwargs={}):
         """
@@ -674,9 +677,6 @@ class MassQuadrupoleDistribution(object):
         if isinstance(distribution, BaseDistribution):
             if distribution.name.upper() is not 'Q22':
                 raise ValueError("Distribution name must be 'Q22'")
-            elif distribution.disttype not in DISTRIBUTION_REQUIREMENTS.keys():
-                raise ValueError("Distribution type '{}' is not "
-                                 "known".format(distribution.disttype))
             else:
                 self._distribution = distribution
         elif isinstance(distribution, str):

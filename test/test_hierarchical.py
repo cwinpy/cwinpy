@@ -2,13 +2,16 @@
 Test script for the hierarchical classes.
 """
 
+import os
 import pytest
 import numpy as np
 from cwinpy.hierarchical import (BaseDistribution,
                                  BoundedGaussianDistribution,
                                  ExponentialDistribution,
+                                 MassQuadrupoleDistribution,
                                  create_distribution)
 from bilby.core.prior import Uniform
+from bilby.core.result import ResultList
 
 
 class TestDistributionObjects(object):
@@ -164,3 +167,59 @@ class TestDistributionObjects(object):
         newdist = create_distribution(name, dist)
         assert isinstance(newdist, ExponentialDistribution)
         assert newdist['mu'] == dist['mu']
+
+
+class TestMassQuadrupoleDistribution(object):
+    """
+    Test the MassQuadrupoleDistribution object.
+    """
+
+    def test_mass_quadrupole_distribution(self):
+        # test data sets from bilby
+        testdata1 = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                 'data', 'hierarchical_test_set_0_result.json')
+        testdata2 = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                 'data', 'hierarchical_test_set_1_result.json')
+
+        # test invalid q22range (lower bounds is less than upper bound)
+        with pytest.raises(ValueError):
+            MassQuadrupoleDistribution(q22range=[100., 1.])
+
+        # test invalid q22range (only one value passed)
+        with pytest.raises(ValueError):
+            MassQuadrupoleDistribution(q22range=[100.])
+
+        # test invalid data type
+        with pytest.raises(TypeError):
+            MassQuadrupoleDistribution(data=1)
+
+        res = ResultList([testdata1, testdata2])
+
+        # remove Q22 from results to test error
+        del res[0].posterior['Q22']
+        with pytest.raises(RuntimeError):
+            MassQuadrupoleDistribution(data=res)
+
+        # distribution with wrong name (i.e., not 'Q22')
+        pdist = ExponentialDistribution('Blah', mu=Uniform(0., 1e37, 'mu'))
+        with pytest.raises(ValueError):
+            MassQuadrupoleDistribution(data=[testdata1, testdata2],
+                                       distribution=pdist)
+
+        # distribution with no priors to infer
+        pdist = BoundedGaussianDistribution('Q22', mus=[0.], sigmas=[1e34])
+        with pytest.raises(ValueError):
+            MassQuadrupoleDistribution(data=[testdata1, testdata2],
+                                       distribution=pdist)
+
+        # unknown sampler type
+        pdist = ExponentialDistribution('Q22', mu=Uniform(0., 1e37, 'mu'))
+        with pytest.raises(ValueError):
+            MassQuadrupoleDistribution(data=[testdata1, testdata2],
+                                       distribution=pdist, sampler='akgkfsfd')
+
+        # unknown bandwidth type for KDE
+        bw = 'lkgadkgds'
+        with pytest.raises(RuntimeError):
+            MassQuadrupoleDistribution(data=[testdata1, testdata2],
+                                       distribution=pdist, bw=bw)
