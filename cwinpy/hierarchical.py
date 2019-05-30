@@ -12,7 +12,7 @@ import bilby
 
 # allowed distributions and their required hyperparameters
 DISTRIBUTION_REQUIREMENTS = {'exponential': ['mu'],
-                             'gaussian': ['mu', 'sigma']}
+                             'gaussian': ['mu', 'sigma', 'weight']}
 
 
 class BaseDistribution(object):
@@ -25,7 +25,7 @@ class BaseDistribution(object):
     name: str
         The parameter for which this distribution is the prior.
     disttype: str
-        The type of distribution, e.g., 'exponential', 'gaussian' 
+        The type of distribution, e.g., 'exponential', 'gaussian'.
     hyperparameters: dict
         A dictionary of hyperparameters for the distribution with the keys
         giving the parameter names, and values giving their fixed value, or
@@ -188,7 +188,7 @@ class BaseDistribution(object):
         """
 
         return list(compress(self.unpacked_parameters,
-                             ~np.array(self.unpacked_fixed.values())))
+                             ~np.array(list(self.unpacked_fixed.values()))))
 
     @property
     def unknown_priors(self):
@@ -198,8 +198,8 @@ class BaseDistribution(object):
         """
 
         return list(compress(self.unpacked_values,
-                             ~np.array(self.unpacked_fixed.values())))
-    
+                             ~np.array(list(self.unpacked_fixed.values()))))
+
     def log_pdf(self, hyperparameters, value):
         """
         The natural logarithm of the distribution's probability density
@@ -220,13 +220,32 @@ class BaseDistribution(object):
         """
 
         return np.nan
+    
+    def sample(self, hyperparameters):
+        """
+        Draw a sample from the distribution as defined by the given
+        hyperparameters.
+        
+        Parameters
+        ----------
+        hyperparameters: dict
+            A dictionary of the hyperparameter values that define the current
+            state of the distribution.
+        
+        Returns
+        -------
+        sample:
+            A sample from the distribution.
+        """
+
+        return None
 
 
 class BoundedGaussianDistribution(BaseDistribution):
     """
     A distribution to define estimating the parameters of a (potentially
     multi-modal) bounded Gaussian distribution.
-    
+
     Parameters
     ----------
     name: str
@@ -236,6 +255,11 @@ class BoundedGaussianDistribution(BaseDistribution):
     sigmas: array_like
         A list of values of the standard deviations of each mode of the
         Gaussian.
+    weights: array_like
+        A list of values of the weights (relative probabilities) of
+        each mode. This will default to equal weights if not given. Note that
+        for truncated distributions equal weight does not necessarily mean
+        equal "height" of the mode.
     low: float
         The lower bound of the distribution (defaults to 0, i.e., only positive
         values are allowed)
@@ -243,24 +267,34 @@ class BoundedGaussianDistribution(BaseDistribution):
         The upper bound of the distribution (default to infinity)
     """
 
-    def __init__(self, name, mus=[], sigmas=[], low=0., high=np.inf):
-        gaussianparameters = {'mu': [], 'sigma': []}
+    def __init__(self, name, mus=[], sigmas=[], weights=None, low=0.,
+                 high=np.inf):
+        gaussianparameters = {'mu': [], 'sigma': [], 'weight': []}
 
         if isinstance(mus, (int, float, bilby.core.prior.Prior)):
             mus = [mus]
         elif not isinstance(mus, (list, np.ndarray)):
             raise TypeError("Unknown type for 'mus'")
-        
+
         if isinstance(sigmas, (int, float, bilby.core.prior.Prior)):
             sigmas = [sigmas]
         elif not isinstance(sigmas, (list, np.ndarray)):
             raise TypeError("Unknown type for 'sigmas'")
 
+        if weights is None:
+            weights = [1] * len(mus)
+        else:
+            if isinstance(weights, (int, float, bilby.core.prior.Prior)):
+                weights = [weights]
+            elif not isinstance(weights, (list, np.ndarray)):
+                raise TypeError("Unknown type for 'weights'")
+
         # set the number of modes
         self.nmodes = len(mus)
 
-        if len(mus) != len(sigmas):
-            raise ValueError("'mus' and 'sigmas' must be the same length")
+        if len(mus) != len(sigmas) or len(weights) != len(mus):
+            raise ValueError("'mus', 'sigmas' and 'weights' must be the same "
+                             "length")
 
         if self.nmodes < 1:
             raise ValueError('Gaussian must have at least one mode')
@@ -268,6 +302,7 @@ class BoundedGaussianDistribution(BaseDistribution):
         for i in range(self.nmodes):
             gaussianparameters['mu'].append(mus[i])
             gaussianparameters['sigma'].append(sigmas[i])
+            gaussianparameters['weight'].append(weights[i])
 
         # initialise
         super().__init__(name, 'gaussian', hyperparameters=gaussianparameters,
@@ -297,6 +332,7 @@ class BoundedGaussianDistribution(BaseDistribution):
 
         mus = self['mu']
         sigmas = self['sigma']
+        weights = self['weight']
 
         # get current mus and sigmas from values
         for i in range(self.nmodes):
@@ -316,17 +352,88 @@ class BoundedGaussianDistribution(BaseDistribution):
                     raise KeyError("Cannot calculate log probability when "
                                    "value '{}' is not given".format(param))
 
+            if not self.fixed['weight'][i]:
+                param = 'weight{}'.format(i)
+                try:
+                    weights[i] = hyperparameters[param]
+                except KeyError:
+                    raise KeyError("Cannot calculate log probability when "
+                                   "value '{}' is not given".format(param))
+
+        # normalise weights
+        lweights = np.log(np.asarray(weights) / np.sum(weights))
+
         # get log pdf
         logpdf = -np.inf
-        for mu, sigma in zip(mus, sigmas):
-            logpdf = np.logaddexp(logpdf, truncnorm.logpdf(value, self.low,
-                                                           self.high, loc=mu,
-                                                           scale=sigma))
-
-        # properly normalise
-        logpdf -= np.log(self.nmodes)
-
+        for mu, sigma, lweight in zip(mus, sigmas, lweights):
+            lpdf = lweight + truncnorm.logpdf(value, (self.low - mu) / sigma,
+                                              (self.high - mu) / sigma,
+                                              loc=mu, scale=sigma)
+            logpdf = np.logaddexp(logpdf, lpdf)
+                                                           
         return logpdf
+
+    def sample(self, hyperparameters):
+        """
+        Draw a sample from the bounded Gaussian distribution as defined by the
+        given hyperparameters.
+        
+        Parameters
+        ----------
+        hyperparameters: dict
+            A dictionary of the hyperparameter values that define the current
+            state of the distribution.
+        
+        Returns
+        -------
+        sample:
+            A sample from the distribution.
+        """
+
+        mus = self['mu']
+        sigmas = self['sigma']
+        weights = self['weight']
+
+        # get current mus and sigmas from values
+        for i in range(self.nmodes):
+            if not self.fixed['mu'][i]:
+                param = 'mu{}'.format(i)
+                try:
+                    mus[i] = hyperparameters[param]
+                except KeyError:
+                    raise KeyError("Cannot calculate log probability when "
+                                   "value '{}' is not given".format(param))
+
+            if not self.fixed['sigma'][i]:
+                param = 'sigma{}'.format(i)
+                try:
+                    sigmas[i] = hyperparameters[param]
+                except KeyError:
+                    raise KeyError("Cannot calculate log probability when "
+                                   "value '{}' is not given".format(param))
+
+            if not self.fixed['weight'][i]:
+                param = 'weight{}'.format(i)
+                try:
+                    weights[i] = hyperparameters[param]
+                except KeyError:
+                    raise KeyError("Cannot calculate log probability when "
+                                   "value '{}' is not given".format(param))
+            
+        # cumulative normalised weights
+        cweights = np.cumsum(np.asarray(weights) / np.sum(weights))
+
+        # pick mode
+        if self.nmodes == 1:
+            mode = 0
+        else:
+            mode = np.argwhere(cweights - np.random.rand() > 0)[0][0]
+
+        sample = truncnorm.rvs((self.low - mus[mode]) / sigmas[mode],
+                               (self.high - mus[mode]) / sigmas[mode],
+                               loc=mus[mode], scale=sigmas[mode], size=1)
+
+        return sample
 
 
 class ExponentialDistribution(BaseDistribution):
@@ -381,6 +488,35 @@ class ExponentialDistribution(BaseDistribution):
         logpdf = expon.logpdf(value, scale=mu)
 
         return logpdf
+
+    def sample(self, hyperparameters):
+        """
+        Draw a sample from the exponential distribution as defined by the
+        given hyperparameters.
+
+        Parameters
+        ----------
+        hyperparameters: dict
+            A dictionary of the hyperparameter values (``mu``) that define the
+            current state of the distribution.
+
+        Returns
+        -------
+        sample:
+            A sample from the distribution.
+        """
+
+        try:
+            mu = hyperparameters['mu']
+        except KeyError:
+            raise KeyError("Cannot evaluate the probability when mu is not "
+                           "given")
+
+        sample = -np.inf
+        while sample < self.low or sample > self.high:
+            sample = expon.rvs(scale=mu)
+
+        return sample
 
 
 def create_distribution(name, distribution, distkwargs={}):
@@ -537,7 +673,7 @@ class MassQuadrupoleDistribution(object):
 
         if q22range is None:
             self._q22_interp_values = None
-            return 
+            return
 
         if len(q22range) == 2:
             if q22range[1] < q22range[0]:
@@ -630,7 +766,7 @@ class MassQuadrupoleDistribution(object):
 
                 # use log pdf for the kde
                 interpvals = (kde.logpdf(self._q22_interp_values)
-                    + np.log(2.))  # multiply by 2 so pdf normalises to 1
+                              + np.log(2.))  # multiply by 2 so pdf normalises to 1
             except Exception as e:
                 raise RuntimeError("Problem creating KDE: {}".format(e))
 
@@ -664,7 +800,7 @@ class MassQuadrupoleDistribution(object):
             passed using ``distkwargs``.
         distkwargs: dict
             A dictionary of keyword arguments for the distribution that is being
-            inferred. 
+            inferred.
         """
 
         self._distribution = None
@@ -675,7 +811,7 @@ class MassQuadrupoleDistribution(object):
             return
 
         if isinstance(distribution, BaseDistribution):
-            if distribution.name.upper() is not 'Q22':
+            if distribution.name.upper() != 'Q22':
                 raise ValueError("Distribution name must be 'Q22'")
             else:
                 self._distribution = distribution
@@ -698,7 +834,7 @@ class MassQuadrupoleDistribution(object):
         # get the priors from the distribution
         if len(self._distribution.unknown_parameters) < 1:
             raise ValueError("Distribution has no parameters to infer")
-        
+
         # add priors as PriorDict
         self._prior = {param: prior
                        for param, prior in zip(self._distribution.unknown_parameters,
@@ -711,7 +847,7 @@ class MassQuadrupoleDistribution(object):
 
         self._likelihood = MassQuadrupoleDistributionLikelihood(
             self._distribution, self._likelihood_kdes_interp)
-    
+
     def set_sampler(self, sampler='dynesty', sampler_kwargs={}):
         """
         Set the stochastic sampling method for ``bilby`` to use when sampling
@@ -788,7 +924,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
     """
     The likelihood function for the inferring the hyperparameters of the
     mass quadrupole, :math:`Q_{22}`, distribution.
-    
+
     Parameters
     ----------
     distribution: :class:`cwinpy.hierarchical.BaseDistribution`
@@ -803,14 +939,14 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
     def __init__(self, distribution, likelihoods):
         if not isinstance(distribution, BaseDistribution):
             raise TypeError("Distribution is not the correct type")
-        
+
         # check that the distribution contains parameters to be inferred
         if len(distribution.unknown_parameters) < 1:
             raise ValueError("Distribution has no parameters to infer")
 
         inferred_parameters = {param: None
                                for param in distribution.unknown_parameters}
-        inferred_parameters[distribution.name] = None
+        inferred_parameters[distribution.name] = 0.
         self.distribution = distribution
         self.likelihoods = likelihoods
 
@@ -821,14 +957,20 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         Evaluate the log likelihood.
         """
 
-        value = self.parameters[self.distribution.name]
+        try:
+            value = self.distribution.sample(self.parameters)
+        except Exception as e:
+            raise RuntimeError('Could not draw sample from distribution: '
+                               '"{}"'.format(e))
+
+        self.parameters[self.distribution.name] = value
 
         # evaluate the hyperparameter distribution
-        log_prior = self.distribution.log_pdf(self.parameters, value)
+        log_hyper = self.distribution.log_pdf(self.parameters, value)
 
         # evaluate the log likelihood (sum of each separate log likelihood)
         log_like = 0.
         for intfunc in self.likelihoods:
             log_like += intfunc(value)
 
-        return log_like + log_prior
+        return log_like + log_hyper

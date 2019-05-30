@@ -11,7 +11,7 @@ from cwinpy.hierarchical import (BaseDistribution,
                                  MassQuadrupoleDistribution,
                                  create_distribution)
 from bilby.core.prior import Uniform
-from bilby.core.result import ResultList
+from bilby.core.result import (Result, ResultList)
 
 
 class TestDistributionObjects(object):
@@ -54,6 +54,7 @@ class TestDistributionObjects(object):
 
         assert dist['mu'] == hyper['mu']
         assert np.isnan(dist.log_pdf({}, 0))
+        assert dist.sample({}) is None
 
         # test failure when getting unknown item
         with pytest.raises(KeyError):
@@ -84,37 +85,54 @@ class TestDistributionObjects(object):
 
         with pytest.raises(TypeError):
             BoundedGaussianDistribution(name, mus=[1], sigmas='blah')
-        
+
+        with pytest.raises(TypeError):
+            BoundedGaussianDistribution(name, mus=[1], sigmas=[1],
+                                        weights='blah')
+
         with pytest.raises(ValueError):
             BoundedGaussianDistribution(name, mus=[1.], sigmas=[1., 2.])
-        
+
+        with pytest.raises(ValueError):
+            BoundedGaussianDistribution(name, mus=[1., 2.], sigmas=[1., 2.],
+                                        weights=[1])
+
         with pytest.raises(ValueError):
             BoundedGaussianDistribution(name)
-        
+
         dist = BoundedGaussianDistribution(name, mus=[1., 2.], sigmas=[1., 2.])
 
         assert dist.nmodes == 2
+        assert np.all(np.array(dist['weight']) == 1.)
 
         del dist
         # test log pdf
         dist = BoundedGaussianDistribution(name, mus=[Uniform(0., 1., 'mu0'), 2.],
-                                           sigmas=[Uniform(0., 1., 'sigma0'), 2.])
+                                           sigmas=[Uniform(0., 1., 'sigma0'), 2.],
+                                           weights=[Uniform(0., 1., 'weight0'), 2.])
 
         value = 1.
-        hyper = {'mu8': 0.5, 'sigma0': 0.5}
+        hyper = {'mu8': 0.5, 'sigma0': 0.5, 'weight0': 0.5}
         with pytest.raises(KeyError):
             dist.log_pdf(hyper, value)
-        
-        hyper = {'mu0': 0.5, 'sigma8': 0.5}
+
+        hyper = {'mu0': 0.5, 'sigma8': 0.5, 'weight0': 0.5}
         with pytest.raises(KeyError):
             dist.log_pdf(hyper, value)
-        
-        hyper = {'mu0': 0.5, 'sigma0': 0.5}
+
+        hyper = {'mu0': 0.5, 'sigma0': 0.5, 'weight8': 0.5}
+        with pytest.raises(KeyError):
+            dist.log_pdf(hyper, value)
+
+        hyper = {'mu0': 0.5, 'sigma0': 0.5, 'weight0': 0.5}
         assert np.isfinite(dist.log_pdf(hyper, value))
 
         # check negative values give -inf by default
         value = -1.
         assert dist.log_pdf(hyper, value) == -np.inf
+
+        # check drawn sample is within bounds
+        assert dist.low < dist.sample(hyper) < dist.high
 
     def test_exponential(self):
         """
@@ -131,6 +149,9 @@ class TestDistributionObjects(object):
         value = -1.
         hyper = {'mu': 0.5}
         assert dist.log_pdf(hyper, value) == -np.inf
+
+        # check drawn sample is within bounds
+        assert dist.low < dist.sample(hyper) < dist.high
 
         value = 1.
         hyper = {'kgsdg': 0.5}
@@ -223,3 +244,10 @@ class TestMassQuadrupoleDistribution(object):
         with pytest.raises(RuntimeError):
             MassQuadrupoleDistribution(data=[testdata1, testdata2],
                                        distribution=pdist, bw=bw)
+
+        # test sampler
+        mdist = MassQuadrupoleDistribution(data=[testdata1, testdata2],
+                                           distribution=pdist)
+        res = mdist.sample(**{'Nlive': 100})
+
+        assert isinstance(res, Result)
