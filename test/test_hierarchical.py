@@ -234,7 +234,7 @@ class TestMassQuadrupoleDistribution(object):
                                        distribution=pdist)
 
         # unknown sampler type
-        pdist = ExponentialDistribution('Q22', mu=Uniform(0., 1e37, 'mu'))
+        pdist = ExponentialDistribution('Q22', mu=Uniform(0., 1e32, 'mu'))
         with pytest.raises(ValueError):
             MassQuadrupoleDistribution(data=[testdata1, testdata2],
                                        distribution=pdist, sampler='akgkfsfd')
@@ -248,6 +248,15 @@ class TestMassQuadrupoleDistribution(object):
         # test sampler
         mdist = MassQuadrupoleDistribution(data=[testdata1, testdata2],
                                            distribution=pdist)
-        res = mdist.sample(**{'Nlive': 100})
+        res = mdist.sample(**{'Nlive': 100, 'save': False})
 
         assert isinstance(res, Result)
+
+        del res
+        del mdist
+
+        # test grid sampler
+        grid = {'mu': 100, 'Q22': 100}
+        mdist = MassQuadrupoleDistribution(data=[testdata1, testdata2],
+                                           distribution=pdist,
+                                           grid=grid)

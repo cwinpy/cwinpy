@@ -640,14 +640,14 @@ class MassQuadrupoleDistribution(object):
         # set the data
         self.add_data(data, bw=bw)
 
-        # set the distribution
-        self.set_distribution(distribution, distkwargs)
-
         # set the sampler
         if grid is None:
             self.set_sampler(sampler, sampler_kwargs)
         else:
             self.set_grid(grid)
+
+        # set the distribution
+        self.set_distribution(distribution, distkwargs)
 
     def set_q22range(self, q22range, q22bins=100, prependzero=True):
         """
@@ -846,7 +846,8 @@ class MassQuadrupoleDistribution(object):
         """
 
         self._likelihood = MassQuadrupoleDistributionLikelihood(
-            self._distribution, self._likelihood_kdes_interp)
+            self._distribution, self._likelihood_kdes_interp,
+            grid=self._use_grid)
 
     def set_sampler(self, sampler='dynesty', sampler_kwargs={}):
         """
@@ -882,6 +883,9 @@ class MassQuadrupoleDistribution(object):
             :class:`bilby.core.grid.Grid` class.
         """
 
+        if not isinstance(grid, dict):
+            raise TypeError('Grid must be a dictionary')
+
         self._grid = grid
         self._use_grid = True
 
@@ -906,7 +910,16 @@ class MassQuadrupoleDistribution(object):
         """
 
         if self._use_grid:
-            # set the grid
+            if self._distribution.name not in self._grid:
+                raise KeyError('Grid must contain the distribution name '
+                           '"{}"'.format(self._distribution.name))
+
+            # add distribution to the prior as a uniform distribution for
+            # the purposes of the grid
+            self._prior[self._distribution.name] = bilby.core.prior.Uniform(self._q22_interp_values[0],
+                                                                            self._q22_interp_values[-1],
+                                                                            'Q22')
+
             self._grid_result = bilby.core.grid.Grid(self._likelihood,
                                                      self._prior,
                                                      grid_size=self._grid)
@@ -936,7 +949,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
 
     """
 
-    def __init__(self, distribution, likelihoods):
+    def __init__(self, distribution, likelihoods, grid=False):
         if not isinstance(distribution, BaseDistribution):
             raise TypeError("Distribution is not the correct type")
 
@@ -949,6 +962,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         inferred_parameters[distribution.name] = 0.
         self.distribution = distribution
         self.likelihoods = likelihoods
+        self.grid = grid
 
         super().__init__(parameters=inferred_parameters)
 
@@ -957,13 +971,19 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         Evaluate the log likelihood.
         """
 
-        try:
-            value = self.distribution.sample(self.parameters)
-        except Exception as e:
-            raise RuntimeError('Could not draw sample from distribution: '
-                               '"{}"'.format(e))
+        if self.grid:
+            try:
+                value = self.parameters[self.distribution.name]
+            except KeyError:
+                raise KeyError("Distribution parameter is not set for grid")
+        else:
+            try:
+                value = self.distribution.sample(self.parameters)
+            except Exception as e:
+                raise RuntimeError('Could not draw sample from distribution: '
+                                   '"{}"'.format(e))
 
-        self.parameters[self.distribution.name] = value
+            self.parameters[self.distribution.name] = value
 
         # evaluate the hyperparameter distribution
         log_hyper = self.distribution.log_pdf(self.parameters, value)
@@ -971,6 +991,23 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         # evaluate the log likelihood (sum of each separate log likelihood)
         log_like = 0.
         for intfunc in self.likelihoods:
-            log_like += intfunc(value)
+            if value < np.min(intfunc.x) or value > np.max(intfunc.x):
+                return -np.inf
+            else:
+                log_like += intfunc(value)
 
         return log_like + log_hyper
+
+    def noise_log_likelihood(self):
+        """
+        The log-likelihood for the data being consistent with zero.
+        """
+
+        log_like = 0.
+        for intfunc in self.likelihoods:
+            if 0. < np.min(intfunc.x) or 0. > np.max(intfunc.x):
+                return -np.inf
+            else:
+                log_like += intfunc(0.)
+        
+        return log_like
