@@ -12,6 +12,7 @@ from cwinpy.hierarchical import (BaseDistribution,
                                  create_distribution)
 from bilby.core.prior import Uniform
 from bilby.core.result import (Result, ResultList)
+from bilby.core.grid import Grid
 
 
 class TestDistributionObjects(object):
@@ -126,6 +127,7 @@ class TestDistributionObjects(object):
 
         hyper = {'mu0': 0.5, 'sigma0': 0.5, 'weight0': 0.5}
         assert np.isfinite(dist.log_pdf(hyper, value))
+        assert np.exp(dist.log_pdf(hyper, value)) == dist.pdf(hyper, value) 
 
         # check negative values give -inf by default
         value = -1.
@@ -133,6 +135,26 @@ class TestDistributionObjects(object):
 
         # check drawn sample is within bounds
         assert dist.low < dist.sample(hyper) < dist.high
+
+        # draw multiple samples
+        N = 100
+        samples = dist.sample(hyper, size=N)
+        assert len(samples) == N
+        assert np.all((samples > dist.low) & (samples < dist.high))
+
+        # test with multiple modes
+        del dist
+        dist = BoundedGaussianDistribution(name, mus=[Uniform(0., 1., 'mu0'), Uniform(0., 1., 'mu1')],
+                                           sigmas=[Uniform(0., 1., 'sigma0'), Uniform(0., 1., 'sigma1')],
+                                           weights=[0.25, 0.75])
+
+        hyper = {'mu0': 0.5, 'sigma0': 0.5,
+                 'mu1': 0.7, 'sigma1': 0.8}
+
+        N = 100
+        samples = dist.sample(hyper, size=N)
+        assert len(samples) == N
+        assert np.all((samples > dist.low) & (samples < dist.high))
 
     def test_exponential(self):
         """
@@ -149,9 +171,16 @@ class TestDistributionObjects(object):
         value = -1.
         hyper = {'mu': 0.5}
         assert dist.log_pdf(hyper, value) == -np.inf
+        assert np.exp(dist.log_pdf(hyper, value)) == dist.pdf(hyper, value)
 
         # check drawn sample is within bounds
         assert dist.low < dist.sample(hyper) < dist.high
+
+        # draw multiple samples
+        N = 100
+        samples = dist.sample(hyper, size=N)
+        assert len(samples) == N
+        assert np.all((samples > dist.low) & (samples < dist.high))
 
         value = 1.
         hyper = {'kgsdg': 0.5}
@@ -245,6 +274,12 @@ class TestMassQuadrupoleDistribution(object):
             MassQuadrupoleDistribution(data=[testdata1, testdata2],
                                        distribution=pdist, bw=bw)
 
+        # wrong type for q22grid
+        q22grid = 'lsgdgkavbc'
+        with pytest.raises(TypeError):
+            MassQuadrupoleDistribution(data=[testdata1, testdata2],
+                                       distribution=pdist, q22grid=q22grid)
+
         # test sampler
         mdist = MassQuadrupoleDistribution(data=[testdata1, testdata2],
                                            distribution=pdist)
@@ -256,7 +291,16 @@ class TestMassQuadrupoleDistribution(object):
         del mdist
 
         # test grid sampler
-        grid = {'mu': 100, 'Q22': 100}
+        grid = 'Blah'
+        with pytest.raises(TypeError):
+            MassQuadrupoleDistribution(data=[testdata1, testdata2],
+                                       distribution=pdist,
+                                       grid=grid)
+
+        grid = {'mu': 100}
         mdist = MassQuadrupoleDistribution(data=[testdata1, testdata2],
                                            distribution=pdist,
                                            grid=grid)
+
+        res = mdist.sample()
+        assert isinstance(res, Grid)

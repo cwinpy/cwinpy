@@ -8,6 +8,7 @@ from scipy.interpolate import interp1d
 from collections import OrderedDict
 from itertools import compress
 import bilby
+from lintegrate import logtrapz
 
 
 # allowed distributions and their required hyperparameters
@@ -221,7 +222,27 @@ class BaseDistribution(object):
 
         return np.nan
     
-    def sample(self, hyperparameters):
+    def pdf(self, hyperparameters, value):
+        """
+        The distribution's probability density function at the given value.
+
+        Parameters
+        ----------
+        hyperparameters: dict
+            A dictionary of the hyperparameter values that define the current
+            state of the distribution.
+        value: float
+            The value at which to evaluate the probability.
+
+        Returns
+        -------
+        pdf:
+            The probability density.
+        """
+
+        return np.exp(self.log_pdf(hyperparameters, value))
+
+    def sample(self, hyperparameters, size=1):
         """
         Draw a sample from the distribution as defined by the given
         hyperparameters.
@@ -231,11 +252,13 @@ class BaseDistribution(object):
         hyperparameters: dict
             A dictionary of the hyperparameter values that define the current
             state of the distribution.
-        
+        size: int
+            The number of samples to draw from the distribution.
+
         Returns
         -------
         sample:
-            A sample from the distribution.
+            A sample, or set of samples, from the distribution.
         """
 
         return None
@@ -324,10 +347,11 @@ class BoundedGaussianDistribution(BaseDistribution):
         Returns
         -------
         logpdf:
-            The natural logarithm of the probability at the given value.
+            The natural logarithm of the probability density at the given
+            value.
         """
 
-        if value < self.low or value > self.high:
+        if np.any((value < self.low) | (value > self.high)):
             return -np.inf
 
         mus = self['mu']
@@ -360,20 +384,32 @@ class BoundedGaussianDistribution(BaseDistribution):
                     raise KeyError("Cannot calculate log probability when "
                                    "value '{}' is not given".format(param))
 
+        if np.any(np.asarray(sigmas) <= 0.):
+            return -np.inf
+
+        if np.any(np.asarray(weights) <= 0.):
+            return -np.inf
+
         # normalise weights
         lweights = np.log(np.asarray(weights) / np.sum(weights))
 
         # get log pdf
-        logpdf = -np.inf
+        if isinstance(value, (float, int)):
+            logpdf = -np.inf
+        elif isinstance(value, (list, np.ndarray)):
+            logpdf = np.full_like(value, -np.inf)
+        else:
+            raise TypeError("value must be a float or array-like")
+
         for mu, sigma, lweight in zip(mus, sigmas, lweights):
             lpdf = lweight + truncnorm.logpdf(value, (self.low - mu) / sigma,
                                               (self.high - mu) / sigma,
                                               loc=mu, scale=sigma)
             logpdf = np.logaddexp(logpdf, lpdf)
-                                                           
+
         return logpdf
 
-    def sample(self, hyperparameters):
+    def sample(self, hyperparameters, size=1):
         """
         Draw a sample from the bounded Gaussian distribution as defined by the
         given hyperparameters.
@@ -383,11 +419,13 @@ class BoundedGaussianDistribution(BaseDistribution):
         hyperparameters: dict
             A dictionary of the hyperparameter values that define the current
             state of the distribution.
-        
+        size: int
+            The number of samples to draw. Default is 1.
+
         Returns
         -------
         sample:
-            A sample from the distribution.
+            A sample, or set of samples, from the distribution.
         """
 
         mus = self['mu']
@@ -423,15 +461,23 @@ class BoundedGaussianDistribution(BaseDistribution):
         # cumulative normalised weights
         cweights = np.cumsum(np.asarray(weights) / np.sum(weights))
 
-        # pick mode
+        # pick mode and draw sample
         if self.nmodes == 1:
-            mode = 0
+            sample = truncnorm.rvs((self.low - mus[0]) / sigmas[0],
+                                   (self.high - mus[0]) / sigmas[0],
+                                   loc=mus[0], scale=sigmas[0], size=size)
         else:
-            mode = np.argwhere(cweights - np.random.rand() > 0)[0][0]
+            sample = np.zeros(size)
+            for i in range(size):
+                mode = np.argwhere(cweights - np.random.rand() > 0)[0][0]
 
-        sample = truncnorm.rvs((self.low - mus[mode]) / sigmas[mode],
-                               (self.high - mus[mode]) / sigmas[mode],
-                               loc=mus[mode], scale=sigmas[mode], size=1)
+                sample[i] = truncnorm.rvs((self.low - mus[mode]) / sigmas[mode],
+                                          (self.high - mus[mode]) / sigmas[mode],
+                                          loc=mus[mode], scale=sigmas[mode],
+                                          size=1)
+
+            if size == 1:
+                sample = sample[0]
 
         return sample
 
@@ -475,7 +521,7 @@ class ExponentialDistribution(BaseDistribution):
             The natural logarithm of the probability at the given value.
         """
 
-        if value < self.low or value > self.high:
+        if np.any((value < self.low) | (value > self.high)):
             return -np.inf
 
         try:
@@ -484,12 +530,15 @@ class ExponentialDistribution(BaseDistribution):
             raise KeyError("Cannot evaluate the probability when mu is not "
                            "given")
 
+        if mu <= 0.:
+            return -np.inf
+
         # get log pdf
         logpdf = expon.logpdf(value, scale=mu)
 
         return logpdf
 
-    def sample(self, hyperparameters):
+    def sample(self, hyperparameters, size=1):
         """
         Draw a sample from the exponential distribution as defined by the
         given hyperparameters.
@@ -499,11 +548,13 @@ class ExponentialDistribution(BaseDistribution):
         hyperparameters: dict
             A dictionary of the hyperparameter values (``mu``) that define the
             current state of the distribution.
+        size: int
+            The number of samples to draw from the distribution.
 
         Returns
         -------
         sample:
-            A sample from the distribution.
+            A sample, or set of samples, from the distribution.
         """
 
         try:
@@ -512,9 +563,22 @@ class ExponentialDistribution(BaseDistribution):
             raise KeyError("Cannot evaluate the probability when mu is not "
                            "given")
 
-        sample = -np.inf
-        while sample < self.low or sample > self.high:
-            sample = expon.rvs(scale=mu)
+        samples = expon.rvs(scale=mu, size=size)
+
+        while 1:
+            idx = (samples > self.low) & (samples < self.high)
+            nvalid = np.sum(idx)
+            
+            if nvalid != size:
+                sample = expon.rvs(scale=mu, size=(size - nvalid))
+                samples[~idx] = sample
+            else:
+                break
+
+        if size == 1:
+            sample = samples[0]
+        else:
+            sample = samples
 
         return sample
 
@@ -608,6 +672,14 @@ class MassQuadrupoleDistribution(object):
         hyperparameter space that can be used by a
         :class:`bilby.core.grid.Grid`. If given sampling will be performed on
         the grid, rather than using the stochastic sampler.
+    integration_method: str
+        The method to use for integration over the :math:`Q_{22}` parameter for
+        each source. Default is 'numerical' to perform trapezium rule
+        integration. Other allowed values are: 'sample' to sample over each
+        individual :math:`Q_{22}` parameter for each source; or, 'expectation',
+        which uses the :math:`Q_{22}` posterior samples to approximate the
+        expectation value of the hyperparameter distribution. At the moment,
+        these two additional methods may not be correct/reliable.
 
     To do
     -----
@@ -629,7 +701,8 @@ class MassQuadrupoleDistribution(object):
 
     def __init__(self, data=None, q22range=None, q22bins=100,
                  distribution=None, distkwargs=None, bw='scott',
-                 sampler='dynesty', sampler_kwargs={}, grid=None):
+                 sampler='dynesty', sampler_kwargs={}, grid=None,
+                 integration_method='numerical'):
         self._posterior_samples = []
         self._posterior_kdes = []
         self._likelihood_kdes_interp = []
@@ -645,6 +718,9 @@ class MassQuadrupoleDistribution(object):
             self.set_sampler(sampler, sampler_kwargs)
         else:
             self.set_grid(grid)
+
+        # set integration method
+        self.set_integration_method(integration_method)
 
         # set the distribution
         self.set_distribution(distribution, distkwargs)
@@ -845,9 +921,21 @@ class MassQuadrupoleDistribution(object):
         Set the likelihood.
         """
 
+        samples = None
+        q22grid = None
+        likelihoods = None
+
+        if self._integration_method == 'expectation':
+            samples = self._posterior_samples
+        elif self._integration_method == 'numerical':
+            q22grid = self._q22_interp_values
+            likelihoods = self._likelihood_kdes_interp
+        else:
+            likelihoods = self._likelihood_kdes_interp
+
         self._likelihood = MassQuadrupoleDistributionLikelihood(
-            self._distribution, self._likelihood_kdes_interp,
-            grid=self._use_grid)
+            self._distribution, likelihoods=likelihoods,
+            samples=samples, q22grid=q22grid)
 
     def set_sampler(self, sampler='dynesty', sampler_kwargs={}):
         """
@@ -872,15 +960,14 @@ class MassQuadrupoleDistribution(object):
 
     def set_grid(self, grid):
         """
-        Set a grid on which to evaluate the parameter and hyperparameter
-        posterior, as used by :class:`bilby.core.grid.Grid`.
+        Set a grid on which to evaluate the hyperparameter posterior, as used
+        by :class:`bilby.core.grid.Grid`.
 
         Parameters
         ----------
         grid: dict
-            A dictionary of values that define a grid in the parameter and
-            hyperparameter space that can be used by a
-            :class:`bilby.core.grid.Grid` class.
+            A dictionary of values that define a grid in the hyperparameter
+            space that can be used by a :class:`bilby.core.grid.Grid` class.
         """
 
         if not isinstance(grid, dict):
@@ -888,6 +975,32 @@ class MassQuadrupoleDistribution(object):
 
         self._grid = grid
         self._use_grid = True
+
+    def set_integration_method(self, integration_method='numerical'):
+        """
+        Set the method to use for integration over the :math:`Q_{22}` parameter
+        for each source.
+
+        Parameters
+        ----------
+        integration_method: str
+            Default is 'numerical' to perform trapezium rule integration.
+            Other allowed values are: 'sample' to sample over each individual
+            :math:`Q_{22}` parameter for each source; or, 'expectation', which
+            uses the :math:`Q_{22}` posterior samples to approximate the
+            expectation value of the hyperparameter distribution. At the
+            moment, these two additional methods may not be correct/reliable.
+        """
+
+        if not isinstance(integration_method, str):
+            raise TypeError("integration method must be a string")
+
+        if (integration_method.lower() not in ['numerical', 'sample',
+                                               'expectation']):
+            raise ValueError("Unrecognised integration method type "
+                             "'{}'".format(integration_method))
+
+        self._integration_method = integration_method.lower()
 
     @property
     def result(self):
@@ -909,17 +1022,11 @@ class MassQuadrupoleDistribution(object):
         keyword argument required by the bilby `run sampler() <https://lscsoft.docs.ligo.org/bilby/samplers.html#bilby.run_sampler>`_ method.
         """
 
+        # set use_ratio to False by default, i.e., don't use the likelihood
+        # ratio
+        run_kwargs.setdefault('use_ratio', False)
+
         if self._use_grid:
-            if self._distribution.name not in self._grid:
-                raise KeyError('Grid must contain the distribution name '
-                           '"{}"'.format(self._distribution.name))
-
-            # add distribution to the prior as a uniform distribution for
-            # the purposes of the grid
-            self._prior[self._distribution.name] = bilby.core.prior.Uniform(self._q22_interp_values[0],
-                                                                            self._q22_interp_values[-1],
-                                                                            'Q22')
-
             self._grid_result = bilby.core.grid.Grid(self._likelihood,
                                                      self._prior,
                                                      grid_size=self._grid)
@@ -946,10 +1053,20 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
     likelihoods: list
         A list of interpolation functions each of which gives the likelihood
         function for a single source.
-
+    q22grid: array_like
+        If given, the integration over the mass quadrupole distribution for
+        each source is performed numerically on at these grid points. If not
+        given, individual samples from :math:`Q_{22}` will be drawn from each
+        source (i.e., equivalent to having a new :math:`Q_{22}` parameter for
+        each source in the sampler).
+    samples: list
+        A list of arrays of :math:`Q_{22}` samples for each source. If this is
+        given then these samples will be used to approximate the integral over
+        independent :math:`Q_{22}` variables for each source.
     """
 
-    def __init__(self, distribution, likelihoods, grid=False):
+    def __init__(self, distribution, likelihoods=None, q22grid=None,
+                 samples=None):
         if not isinstance(distribution, BaseDistribution):
             raise TypeError("Distribution is not the correct type")
 
@@ -959,55 +1076,126 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
 
         inferred_parameters = {param: None
                                for param in distribution.unknown_parameters}
-        inferred_parameters[distribution.name] = 0.
         self.distribution = distribution
         self.likelihoods = likelihoods
-        self.grid = grid
+        self.q22grid = q22grid
+        self.samples = samples
 
         super().__init__(parameters=inferred_parameters)
+
+    @property
+    def likelihoods(self):
+        return self._likelihoods
+
+    @likelihoods.setter
+    def likelihoods(self, like):
+        if like is None:
+            self._likelihoods = None
+            self._nsources = 0
+        elif not isinstance(like, list):
+            raise TypeError("Likelihoods must be a list")
+        else:
+            self._likelihoods = like
+            self._nsources = len(like)
+
+    @property
+    def q22grid(self):
+        return self._q22grid
+
+    @q22grid.setter
+    def q22grid(self, q22grid):
+        if isinstance(q22grid, (list, np.ndarray)):
+            self._q22grid = np.asarray(q22grid)
+        elif q22grid is None:
+            self._q22grid = None
+        else:
+            raise TypeError("Q22 grid must be array-like")
+
+    @property
+    def samples(self):
+        return self._samples
+
+    @samples.setter
+    def samples(self, samples):
+        if samples is not None:
+            if not isinstance(samples, (list, np.ndarray)):
+                raise TypeError("samples value must be a list")
+            
+            if isinstance(samples, np.ndarray):
+                if len(samples.shape) != 2:
+                    raise ValueError("Samples must be a 2D array")
+            
+            for samplelist in samples:
+                if not isinstance(samplelist, (list, np.ndarray)):
+                    raise TypeError("Samples must be a list")
+                
+                if len(np.asarray(samplelist).shape) != 1:
+                    raise ValueError("Source samples must be a 1d list")
+
+            self._nsources = len(samples)
+
+        self._samples = samples
 
     def log_likelihood(self):
         """
         Evaluate the log likelihood.
         """
 
-        if self.grid:
-            try:
-                value = self.parameters[self.distribution.name]
-            except KeyError:
-                raise KeyError("Distribution parameter is not set for grid")
+        log_like = 0.  # initialise the log likelihood
+
+        if self.samples is not None:
+            # log-likelihood using expectation value from samples
+            for samps in self.samples:
+                log_like += np.log(np.mean(self.distribution.pdf(
+                    self.parameters, samps)))
+        elif self.q22grid is not None:
+            # log-likelihood numerically integrating over Q22
+            for intfunc in self.likelihoods:
+                # evaluate the hyperparameter distribution
+                logp = self.distribution.log_pdf(self.parameters, self.q22grid)
+
+                # evaluate the likelihood
+                logl = intfunc(self.q22grid)
+
+                log_like += logtrapz(logp + logl, self.q22grid)
         else:
+            # draw Q22 sample for each source (not sure if this will work!)
             try:
-                value = self.distribution.sample(self.parameters)
+                values = self.distribution.sample(self.parameters,
+                                                  size=len(self))
             except Exception as e:
-                raise RuntimeError('Could not draw sample from distribution: '
-                                   '"{}"'.format(e))
+                raise RuntimeError('Could not draw sample from '
+                                   'distribution: "{}"'.format(e))
 
-            self.parameters[self.distribution.name] = value
+            for i, intfunc in enumerate(self.likelihoods):
+                if (values[i] < np.min(intfunc.x) or
+                        values[i] > np.max(intfunc.x)):
+                    return -np.inf
 
-        # evaluate the hyperparameter distribution
-        log_hyper = self.distribution.log_pdf(self.parameters, value)
+                log_like += intfunc(values[i])
 
-        # evaluate the log likelihood (sum of each separate log likelihood)
-        log_like = 0.
-        for intfunc in self.likelihoods:
-            if value < np.min(intfunc.x) or value > np.max(intfunc.x):
-                return -np.inf
-            else:
-                log_like += intfunc(value)
+                # evaluate the hyperparameter distribution
+                log_like += self.distribution.log_pdf(self.parameters,
+                                                      values[i])
 
-        return log_like + log_hyper
+        return log_like
 
     def noise_log_likelihood(self):
         """
-        The log-likelihood for the data being consistent with zero.
+        The log-likelihood for the unknown hyperparameters being equal to
+        with zero.
+
+        Note
+        ----
+
+        For distributions with hyperparameter priors that exclude zero this
+        will always given :math:`-\infty`.
         """
 
-        log_like = 0.
-        for intfunc in self.likelihoods:
-            if 0. < np.min(intfunc.x) or 0. > np.max(intfunc.x):
-                return -np.inf
-            else:
-                log_like += intfunc(0.)
-        
-        return log_like
+        for p in self.parameters:
+            self.parameters[p] = 0.
+
+        return self.log_likelihood()
+
+    def __len__(self):
+        return self._nsources
