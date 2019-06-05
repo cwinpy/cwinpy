@@ -21,7 +21,7 @@ python-3.7:
     # add a latex install for the matplotlib testing
     #- sudo apt-get -qq update && sudo apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng
   before_script:
-    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng
+    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
     # Install the dependencies specified in the Pipfile
     - pip install --upgrade pip
     - pip install -r requirements.txt
