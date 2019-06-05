@@ -8,7 +8,7 @@ python:
   - "3.7"
 before_install:
   # add a latex install for the matplotlib testing
-  - sudo apt-get -qq update && sudo apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng
+  - sudo apt-get -qq update && sudo apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
 services:  # see https://docs.travis-ci.com/user/gui-and-headless-browsers/#using-services-xvfb
   - xvfb
 install:
