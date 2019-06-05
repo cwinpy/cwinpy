@@ -14,6 +14,7 @@ services:  # see https://docs.travis-ci.com/user/gui-and-headless-browsers/#usin
 install:
   - pip install --upgrade pip
   - pip install -r requirements.txt
+  - pip install -r hierarchical-requirements.txt
   # install packages for testing
   - pip install pytest coverage pytest-coverage coverage-badge
   - pip install codecov

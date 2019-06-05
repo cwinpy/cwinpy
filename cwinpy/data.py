@@ -11,7 +11,7 @@ import lal
 import lalpulsar
 
 # import utility functions
-from .utils import logfactorial, gcd_array
+from .utils import (logfactorial, gcd_array)
 
 # import colors from gwpy
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS

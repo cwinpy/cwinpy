@@ -1,0 +1,2 @@
+scipy
+lintegrate>=0.1.0

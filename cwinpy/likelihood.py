@@ -3,10 +3,9 @@ Classes providing likelihood functions.
 """
 
 import numpy as np
-from bilby.core.likelihood import Likelihood
-from bilby.core.prior import PriorDict
 import lal
 import lalpulsar
+import bilby
 from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from collections import OrderedDict
@@ -17,7 +16,7 @@ from .data import HeterodynedData, MultiHeterodynedData
 from .utils import logfactorial
 
 
-class TargetedPulsarLikelihood(Likelihood):
+class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
     """
     A likelihood, based on the :class:`bilby.core.likelihood.Likelihood`, for
     use in source parameter estimation for continuous wave signals, with
@@ -39,7 +38,7 @@ class TargetedPulsarLikelihood(Likelihood):
         A :class:`~cwinpy.data.HeterodynedData` or
         :class:`~cwinpy.data.MultiHeterodynedData` object containing all
         required data.
-    priors: bilby.PriorDict
+    priors: :class:`bilby.core.prior.PriorDict`
         A :class:`bilby.core.prior.PriorDict` containing the parameters that
         are to be sampled. This is required to be set before this class is
         initialised.
@@ -96,7 +95,7 @@ class TargetedPulsarLikelihood(Likelihood):
     def __init__(self, data, priors, par=None, det=None,
                  likelihood='studentst'):
 
-        Likelihood.__init__(self, dict())  # initialise likelihood class
+        super().__init__(dict())  # initialise likelihood class
 
         # set the data
         if isinstance(data, HeterodynedData):
@@ -119,7 +118,7 @@ class TargetedPulsarLikelihood(Likelihood):
             raise TypeError("'data' must be a HeterodynedData or "
                             "MultiHeterodynedData object.")
 
-        if not isinstance(priors, PriorDict):
+        if not isinstance(priors, bilby.core.prior.PriorDict):
             raise TypeError("Prior must be a bilby PriorDict")
         else:
             self.priors = priors

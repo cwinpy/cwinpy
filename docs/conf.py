@@ -37,7 +37,8 @@ extensions = [
     'sphinx.ext.autosummary',
     'sphinx.ext.autosectionlabel',
     'sphinx_tabs.tabs',
-    'recommonmark'
+    'recommonmark',
+    'sphinx.ext.todo'
 ]
 
 autosummary_generate = True
@@ -45,6 +46,7 @@ autodoc_docstring_signature = True
 autodoc_default_options = {
     'members-order': 'groupwise',
     'show-inheritance': True}
+todo_include_todos = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
