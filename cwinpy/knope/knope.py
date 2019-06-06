@@ -11,6 +11,7 @@ import numpy as np
 from cwinpy import __version__
 from ..data import MultiHeterodynedData
 from ..likelihood import TargetedPulsarLikelihood
+from .._version import get_versions
 
 import bilby
 from bilby_pipe.bilbyargparser import BilbyArgParser
@@ -39,11 +40,16 @@ def create_parser():
         ignore_unknown_config_file_keys=False,
         allow_abbrev=False
     )
-    parser.add("ini", type=str, is_config_file=True, help="Configuration ini file")
+    parser.add(
+        "--config",
+        type=str,
+        is_config_file=True,
+        help="Configuration ini file",
+    )
     parser.add(
         "--version",
         action="version",
-        version="%(prog)s {version}".format(version=__version__),
+        version="%(prog)s {version}".format(version=get_versions()['version']),
     )
     parser.add(
         "--periodic-restart-time",
@@ -68,7 +74,7 @@ def create_parser():
         default=None,
         help=(
             'The path to a TEMPO(2) style file containing the pulsar '
-            'parameters'
+            'parameters.'
         ),
     )
 
@@ -84,7 +90,6 @@ def create_parser():
     )
     dataparser.add('-f', '--data-file',
                    action='append',
-                   required=True,
                    help=(
                        'The path to a data file for a given detector. The '
                        'format should be of the form "DET:PATH", where DET is '
@@ -92,6 +97,32 @@ def create_parser():
                        'multiple arguments, e.g., --data-file H1:H1data.txt '
                        '--data-file L1:L1data.txt.'
                     ),
+    )
+
+    simparser = parser.add_argument_group('Simulated data')
+    simparser.add('--inj-par',
+                  type=str,
+                  default=None,
+                  help=(
+                      'The path to a TEMPO(2) style file containing the '
+                      'parameters of a simulated signal to "inject" into the '
+                      'data.'
+                  ),
+    )
+    simparser.add('--fake-asd',
+                  action='append',
+                  type=float,
+                  default=None,
+                  help=(
+                      "To generate fake Gaussian noise to analyse you can "
+                      "specify an amplitude spectral density (ASD) value for "
+                      "each given detector. If a single ASD is supplied this "
+                      "is used for all detectors. Alternatively: a file "
+                      "containing the ASD as a function of frequency can be "
+                      "supplied; or, just a detector name, or set of detector "
+                      "names can be given to generate the noise from the "
+                      "detector's design sensitivity."
+                  ),
     )
 
     outputparser = parser.add_argument_group('Output')
