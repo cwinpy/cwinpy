@@ -1,5 +1,6 @@
 numpy>=1.15
-bilby
+bilby>=0.5.1
+bilby_pipe>=0.2.0
 astropy
 matplotlib
 lalsuite>=6.54
