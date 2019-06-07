@@ -234,6 +234,36 @@ def create_parser():
                       'value it takes in a noise standard deviation.'
                   ),
     )
+    simparser.add('--fake-start',
+                  action='append',
+                  default=10000000000,
+                  help=(
+                      'The GPS start time for generating simulated noise '
+                      'data. This be added for each detector in the same way '
+                      'as used in the "--fake-asd" command (default: '
+                      '%(default)s).'
+                  ),
+    )
+    simparser.add('--fake-end',
+                  action='append',
+                  default=1000086400,
+                  help=(
+                      'The GPS end time for generating simulated noise data. '
+                      'This be added for each detector in the same way as '
+                      'used in the "--fake-asd" command (default: '
+                      '%(default)s)'
+                  ),
+    )
+    simparser.add('--fake-dt',
+                  action='append',
+                  default=60,
+                  help=(
+                      'The time step for generating simulated noise data. '
+                      'This be added for each detector in the same way as '
+                      'used in the "--fake-asd" command (default: '
+                      '%(default)s)'
+                  ),
+    )
 
     outputparser = parser.add_argument_group('Output')
     outputparser.add(
@@ -461,6 +491,11 @@ class KnopeRunner(object):
                 or 'fake_sigma' in kwargs
                 or 'fake_sigma_1f' in kwargs
                 or 'fake_sigma_2d' in kwargs)):
+
+            starts = kwargs.get('fake_start', 1000000000)  # default start time
+            ends = kwargs.get('fake_end', 1000086400)      # default end time
+            dts = kwargs.get('fake_dt', 60)                # default time step
+
             fakeasd2f = []
             issigma2f = False
             for kw in ['fake_asd', 'fake_asd_2f', 'fake_sigma',
@@ -485,6 +520,42 @@ class KnopeRunner(object):
                     if 'sigma' in kw:
                         issigma1f = True
                         break           
+
+            if isinstance(starts, str):
+                try:
+                    starts = ast.literal_eval(starts)
+                except ValueError:
+                    pass
+
+            if isinstance(ends, str):
+                try:
+                    ends = ast.literal_eval(ends)
+                except ValueError:
+                    pass
+
+            if isinstance(dts, str):
+                try:
+                    dts = ast.literal_eval(dts)
+                except ValueError:
+                    pass
+
+            if isinstance(starts, int):
+                if detectors is None:
+                    starts = [starts]
+                else:
+                    starts = len(detectors) * [starts]
+
+            if isinstance(ends, int):
+                if detectors is None:
+                    ends = [ends]
+                else:
+                    ends = len(detectors) * [ends]
+
+            if isinstance(dts, int):
+                if detectors is None:
+                    dts = [dts]
+                else:
+                    dts = len(detectors) * [dts]
 
             if isinstance(fakeasd2f, (str, float)):
                 # make into a list
@@ -516,17 +587,51 @@ class KnopeRunner(object):
                                 fakedata.pop(det)
 
                     fakedata = list(fakedata.values())
+                
+                if isinstance(starts, dict):
+                    # make into a list
+                    if list(starts.keys()) != detectors:
+                        raise ValueError("Fake data start times do not "
+                                         "contain consistent detectors")
+                    else:
+                        starts = list(starts.values())
+
+                if isinstance(ends, dict):
+                    # make into a list
+                    if list(ends.keys()) != detectors:
+                        raise ValueError("Fake data end times do not "
+                                         "contain consistent detectors")
+                    else:
+                        ends = list(ends.values())
+
+                if isinstance(dts, dict):
+                    # make into a list
+                    if list(dts.keys()) != detectors:
+                        raise ValueError("Fake data time steps do not "
+                                         "contain consistent detectors")
+                    else:
+                        dts = list(dts.values())
+
+                if (len(fakedata) != len(starts) or
+                        len(fakedata) != len(ends) or
+                        len(fakedata) != len(dts)):
+                    raise ValueError("Fake data values and times are not "
+                                     "consistent")
 
                 if isinstance(fakedata, list):
                     # parse through list
-                    for fdata in fakedata:
+                    for fdata, start, end, dt in zip(fakedata, starts, ends,
+                                                     dts):
                         detfdata = fdata.split(':')
+                        detstart = start.split(':')
+                        detend = end.split(':')
+                        detdt = dt.split(':')
                         if detectors is None:
                             if len(detfdata) == 2:
                                 try:
                                     asdval = float(detdata[1])
                                 except ValueError:
-                                    asdval = detdata[1]
+                                    asdval = detdata[1]    
 
                                 # check if actual data already exists
                                 if detdata[0] in self.hetdata.detectors:
@@ -535,10 +640,26 @@ class KnopeRunner(object):
                                             # data already exists
                                             continue
 
+                                for detcheck in [detstart, detend, detdt]:
+                                    if len(detcheck) == 2:
+                                        if detcheck[0] != detdata[0]:
+                                            raise ValueError("Inconsistent "
+                                                             "detectors!")
+
+                                    try:
+                                        int(detcheck[-1])
+                                    except ValueError:
+                                        raise TypeError("Problematic type!")
+
+                                times = np.arange(int(detstart[-1]),
+                                                  int(detend[-1]),
+                                                  int(detdt[-1]))
+
                                 self.hetdata.add_data(
                                     HeterodynedData(
                                         fakeasd=asdval,
                                         detector=detdata[0],
+                                        times=times,
                                         **self.datakwargs
                                     )
                                 )
@@ -722,6 +843,18 @@ def knope(**kwargs):
     fake_sigma_2f: float, str, list, dict
         Set the noise standard deviation for fake noise generation at twice
         the source rotation frequency. See the ``fake_sigma`` argument for usage.
+    fake_start: int, list, dict
+        The GPS start time for generating fake data. If requiring data at once
+        and twice the rotation frequency for the same detector, then the same
+        start time will be used for both frequencies.
+    fake_end: int, list, dict
+        The GPS end time for generating fake data. If requiring data at once
+        and twice the rotation frequency for the same detector, then the same
+        end time will be used for both frequencies.
+    fake_dt: int, list, dict:
+        The time step in seconds for generating fake data. If requiring data at
+        once and twice the rotation frequency for the same detector, then the
+        same time step will be used for both frequencies.
     data_kwargs: dict
         A dictionary of keyword arguments to pass to the
         :class:`cwinpy.data.HeterodynedData` objects.
