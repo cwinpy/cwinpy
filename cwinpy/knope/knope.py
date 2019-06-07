@@ -9,7 +9,8 @@ import signal
 import numpy as np
 
 from cwinpy import __version__
-from ..data import MultiHeterodynedData
+from ..data import (HeterodynedData,
+                    MultiHeterodynedData)
 from ..likelihood import TargetedPulsarLikelihood
 from .._version import get_versions
 
@@ -88,15 +89,53 @@ def create_parser():
                    ),
                    default=None,
     )
-    dataparser.add('-f', '--data-file',
+    dataparser.add('--data-file',
+                   default=None,
                    action='append',
                    help=(
-                       'The path to a data file for a given detector. The '
-                       'format should be of the form "DET:PATH", where DET is '
-                       'the detector name. Multiple files can be passed with '
-                       'multiple arguments, e.g., --data-file H1:H1data.txt '
-                       '--data-file L1:L1data.txt.'
+                       'The path to a heterodyned data file for a given '
+                       'detector. The format should be of the form '
+                       '"DET:PATH",  where DET is the detector name. '
+                       'Multiple files can be passed with multiple '
+                       'arguments, e.g., --data-file H1:H1data.txt '
+                       '--data-file L1:L1data.txt. This data will be assumed '
+                       'to be that in a search for a signal from the l=m=2 '
+                       'mass quadrupole and therefore heterodyned at twice '
+                       'the source\'s rotation frequency. To add data '
+                       'explicitly setting the heterodyned frequency at twice '
+                       'the rotation frequency use "--data-file-2f", or for '
+                       'data at the rotation frequency use "--data-file-1f".'
                     ),
+    )
+    dataparser.add('--data-file-2f',
+                   default=None,
+                   action='append',
+                   help=(
+                       'The path to a data file for a given detector where '
+                       'the data is explicitly given as being heterodyned at '
+                       'twice the source\'s rotation frequency. The inputs '
+                       'should be in the same format as those given to the '
+                       '"--data-file" flag. This flag should generally be '
+                       'preferred over the use of "--data-file".'
+                    ),
+    )
+    dataparser.add('--data-file-1f',
+                   default=None,
+                   action='append',
+                   help=(
+                       'The path to a data file for a given detector where '
+                       'the data is explicitly given as being heterodyned at '
+                       'the source\'s rotation freqeuncy. The inputs should '
+                       'be in the same format as those given to the '
+                       '"--data-file" flag.'
+                    ),
+    )
+    dataparser.add('--data-kwargs',
+                   default=None,
+                   help=(
+                       'A Python dictionary containing keywords to pass to '
+                       'the HeterodynedData object.'
+                   ),
     )
 
     simparser = parser.add_argument_group('Simulated data')
@@ -109,19 +148,90 @@ def create_parser():
                       'data.'
                   ),
     )
-    simparser.add('--fake-asd',
-                  action='append',
-                  type=float,
+    simparser.add('--inj-times',
                   default=None,
                   help=(
-                      "To generate fake Gaussian noise to analyse you can "
-                      "specify an amplitude spectral density (ASD) value for "
-                      "each given detector. If a single ASD is supplied this "
-                      "is used for all detectors. Alternatively: a file "
-                      "containing the ASD as a function of frequency can be "
-                      "supplied; or, just a detector name, or set of detector "
-                      "names can be given to generate the noise from the "
-                      "detector's design sensitivity."
+                      'A Python list of pairs of times between which to add '
+                      'the simulated signal (specified by the "--inj-par" '
+                      'flag) to the data. By default the signal is added into '
+                      'the whole data set.'
+                  ),
+    )
+    simparser.add('--fake-asd',
+                  action='append',
+                  default=None,
+                  help=(
+                      'This flag sets the code to perform the analysis on '
+                      'simulated Gaussian noise, with data samples drawn from '
+                      'a Gaussian distribution defined by a given amplitude '
+                      'spectral density. The flag is set in a similar way to '
+                      'the "--data-file" flag. The argument can either be a '
+                      'float giving an ASD value, or a string containing a '
+                      'detector alias to produce noise from the design curve '
+                      'for that detector, or a string containing a path to a '
+                      'file with the noise curve for a detector. This can be '
+                      'used in conjunction with the "--detector" flag, e.g., '
+                      '"--detector H1 --fake-asd 1e-23", or without the '
+                      '"--detector" flag, e.g., "--fake-asd H1:1e-23". Values '
+                      'for multiple detectors can be passed by repeated use '
+                      'of the flag, noting that if used in conjunction with '
+                      'the "--detector" flag detectors and ASD values should '
+                      'be added in the same order, e.g., "--detector H1 '
+                      '--fake-asd H1 --detector L1 --fake-asd L1". This flag '
+                      'is ignored is "--data-file" values for the same '
+                      'detector have already been passed. The fake data that '
+                      'is produced is assumed to be that for a signal at '
+                      'twice the source rotation frequency. To explicitly set '
+                      'fake data at once or twice the rotation frequency '
+                      'use the "--fake-asd-1f" and "--fake-asd-2f" flags '
+                      'instead.'
+                  ),
+    )
+    simparser.add('--fake-asd-1f',
+                  action='append',
+                  default=None,
+                  help=(
+                      'This flag sets the data to be Gaussian noise '
+                      'explicitly for a source emitting at the rotation '
+                      'frequency. See the documentation for "--fake-asd" for '
+                      'details of its use.'
+                  ),
+    )
+    simparser.add('--fake-asd-2f',
+                  action='append',
+                  default=None,
+                  help=(
+                      'This flag sets the data to be Gaussian noise '
+                      'explicitly for a source emitting at twice the rotation '
+                      'frequency. See the documentation for "--fake-asd" for '
+                      'details of its use.'
+                  ),
+    )
+    simparser.add('--fake-sigma',
+                  action='append',
+                  default=None,
+                  help=(
+                      'This flag is equivalent to "--fake-asd", but '
+                      'instead of taking in an amplitude spectral density '
+                      'value it takes in a noise standard deviation.'
+                  ),
+    )
+    simparser.add('--fake-sigma-1f',
+                  action='append',
+                  default=None,
+                  help=(
+                      'This flag is equivalent to "--fake-asd-1f", but '
+                      'instead of taking in an amplitude spectral density '
+                      'value it takes in a noise standard deviation.'
+                  ),
+    )
+    simparser.add('--fake-sigma-2f',
+                  action='append',
+                  default=None,
+                  help=(
+                      'This flag is equivalent to "--fake-asd-2f", but '
+                      'instead of taking in an amplitude spectral density '
+                      'value it takes in a noise standard deviation.'
                   ),
     )
 
@@ -203,97 +313,282 @@ class KnopeRunner(object):
         # pulsar parameters
         self.pulsar = kwargs.get('pulsar', None)
 
+        # keyword arguments for creating the HeterodynedData objects
+        self.datakwargs = kwargs.get('data_kwargs', {})
+ 
         if 'par_file' not in kwargs:
             raise KeyError('A pulsar parameter file must be provided')
         else:
-            self.parfile = kwargs['par_file']
+            self.datakwargs['par'] = kwargs['par_file']
+
+        # injection parameters
+        self.datakwargs.setdefault('injpar', kwargs.get('inj_par', None))
+        self.datakwargs.setdefault('inject', (
+            False if self.datakwargs['injpar'] is None else True)
+        )
+
+        # get list of times at which to inject the signal
+        self.datakwargs.setdefault('injtimes', kwargs.get('inj_times', None))
+        try:
+            self.datakwargs['injtimes'] = ast.literal_eval(
+                self.datakwargs['injtimes']
+            )
+        except ValueError:
+            pass
+
+        if self.datakwargs['injtimes'] is not None:
+            if not isinstance(self.datakwargs['injtimes'], (list, np.ndarray)): 
+                raise TypeError('Injection times must be a list')
 
         # data parameters
         if 'detector' in kwargs:
             if isinstance(kwargs['detector'], str):
-                self.detectors = [kwargs['detector']]
+                detectors = [kwargs['detector']]
             elif isinstance(kwargs['detector'], list):
-                self.detectors = []
+                detectors = []
                 for det in kwargs['detector']:
                     try:
                         # remove additional quotation marks from string
                         thisdet = ast.literal_eval(det)
                     except ValueError:
                         thisdet = det
-                        
+
                     if isinstance(det, str):
-                        self.detectors.append(det)
+                        detectors.append(det)
                     else:
                         raise TypeError("Detector must be a string")
         else:
-            self.detectors = None
-        
-        if 'data_file' in kwargs: 
-            self.datafiles = {}
-            try:
-                data = ast.literal_eval(kwargs['data_file'])
-            except ValueError:
-                data = kwargs['data_file']
+            detectors = None
 
-            if isinstance(data, str):
+        # empty heterodyned data object
+        self.hetdata = MultiHeterodynedData()
+
+        # set the heterodyned data structure
+        resetdetectors = True if detectors is None else False
+        if ('data_file' in kwargs or 'data_file_1f' in kwargs
+                or 'data_file_2f' in kwargs): 
+            data2f = []
+            for kw in ['data_file', 'data_file_2f']:
+                if kw in kwargs:
+                    try:
+                        data2f = ast.literal_eval(kwargs[kw])
+                    except ValueError:
+                        data2f = kwargs[kw]
+                    break
+
+            data1f = []
+            if 'data_file_1f' in kwargs:
+                try:
+                    data1f = ast.literal_eval(kwargs['data_file_1f'])
+                except ValueError:
+                    data1f = kwargs['data_file_1f']
+
+            if isinstance(data2f, str):
                 # make into a list
-                data = [data]
+                data2f = [data2f]
 
-            if isinstance(data, dict):
+            if isinstance(data1f, str):
                 # make into a list
-                if self.detectors is None:
-                    self.detectors = list(data.keys())
-                else:
-                    for det in data.keys():
-                        if det not in self.detectors:
-                            data.pop(det)
+                data1f = [data1f]
 
-                data = list(data.values())
+            for freq, data in zip([1., 2.], [data1f, data2f]):
+                self.datakwargs['freqfactor'] = freq
 
-            if isinstance(data, list):
-                # pass through list and check strings
-                detlist = []
-                for dfile in data:
-                    detdata = dfile.split(':')  # split detector and path
-                    if self.detectors is None:
-                        if len(detdata) == 2:
-                            detlist.append(detdata[0])
-                            self.datafiles[detdata[0]] = detdata[1]
-                        else:
-                            raise ValueError("Data string must be of the form "
-                                             "'DET:FILEPATH'")
+                if isinstance(data, dict):
+                    # make into a list
+                    if detectors is None:
+                        detectors = list(data.keys())
                     else:
-                        if len(detdata) == 2:
-                            if detdata[0] not in self.detectors:
-                                raise ValueError("Data file does not have "
-                                                 "consistent detector")
-                            self.datafiles[detdata[0]] = detdata[1]
-                        elif len(detdata) == 1 and len(self.detectors) == 1:
-                            self.datafiles[self.detectors[0]] = dfile
+                        for det in data.keys():
+                            if det not in detectors:
+                                data.pop(det)
+
+                    data = list(data.values())
+
+                if isinstance(data, list):
+                    # pass through list and check strings
+                    for dfile in data:
+                        detdata = dfile.split(':')  # split detector and path
+                        if detectors is None:
+                            if len(detdata) == 2:
+                                self.hetdata.add_data(
+                                    HeterodynedData(
+                                        data=detdata[1],
+                                        detector=detdata[0],
+                                        **self.datakwargs
+                                    )
+                                )
+                            else:
+                                raise ValueError("Data string must be of the form "
+                                                 "'DET:FILEPATH'")
                         else:
-                            raise ValueError("Data string must be of the form "
-                                             "'DET:FILEPATH'")
+                            if len(detdata) == 2:
+                                if detdata[0] not in detectors:
+                                    raise ValueError("Data file does not have "
+                                                     "consistent detector")
+                                self.hetdata.add_data(
+                                    HeterodynedData(
+                                        data=detdata[1],
+                                        detector=detdata[0],
+                                        **self.datakwargs
+                                    )
+                                )
+                            elif len(detdata) == 1 and len(detectors) == 1:
+                                self.hetdata.add_data(
+                                    data=dfile,
+                                    detector=detectors[0],
+                                    **self.datakwargs
+                                )
+                            else:
+                                raise ValueError("Data string must be of the form "
+                                                 "'DET:FILEPATH'")
+                else:
+                    raise TypeError("Data files are not of a recognised type")
 
-                # set detectors
-                if self.detectors is None:
-                    self.detectors = detlist
+                # remove any detectors than are not requested
+                if detectors is not None:
+                    for det in list(self.hetdata.detectors):
+                        if det not in detectors:
+                            self.hetdata.pop(det)
             else:
-                raise TypeError("Data files are not of a recognised type")
+                raise KeyError("Data files must be given")
 
-            # remove any detectors than are not required
-            if len(self.detectors) < len(self.datafiles):
-                for det in list(self.datafiles.keys()):
-                    if det not in self.detectors:
-                        self.datafiles.pop(det)
+        # set fake data
+        detectors = None if resetdetectors else detectors
+        if (('fake_asd' in kwargs
+                or 'fake_asd_1f' in kwargs
+                or 'fake_asd_2f' in kwargs
+                or 'fake_sigma' in kwargs
+                or 'fake_sigma_1f' in kwargs
+                or 'fake_sigma_2d' in kwargs)):
+            fakeasd2f = []
+            issigma2f = False
+            for kw in ['fake_asd', 'fake_asd_2f', 'fake_sigma',
+                       'fake_sigma_2f']:
+                if kw in kwargs:
+                    try:
+                        fakeasd2f = ast.literal_eval(kwargs[kw])
+                    except ValueError:
+                        fakeasd2f = kwargs[kw]
+                    if 'sigma' in kw:
+                        issigma2f = True
+                        break
 
-            if len(self.datafiles) < len(self.detectors):
-                raise ValueError("Fewer data files than specified detectors")
-        else:
-            raise KeyError("Data files must be given")
+            fakeasd1f = []
+            issigma1f = False
+            for kw in ['fake_asd_1f', 'fake_sigma_1f']:
+                if kw in kwargs:
+                    try:
+                        fakeasd1f = ast.literal_eval(kwargs[kw])
+                    except ValueError:
+                        fakeasd1f = kwargs[kw]
+                    if 'sigma' in kw:
+                        issigma1f = True
+                        break           
 
-        # output parameters
-        self.outdir = kwargs.get('outdir', None)
-        self.label = kwargs.get('label', None)
+            if isinstance(fakeasd2f, (str, float)):
+                # make into a list
+                if detectors is None:
+                    fakeasd2f = [fakeasd2f]
+                else:
+                    fakeasd2f = len(detectors) * [fakeasd2f]
+
+            if isinstance(fakeasd1f, (str, float)):
+                # make into a list
+                if detectors is None:
+                    fakeasd1f = [fakeasd1f]
+                else:
+                    fakeasd1f = len(detectors) * [fakeasd1f]
+
+            for freq, fakedata, issigma in zip([1., 2.],
+                                               [fakeasd1f, fakeasd2f],
+                                               [issigma1f, issigma2f]):
+                self.datakwargs['freqfactor'] = freq
+                self.datakwargs['issigma'] = issigma
+
+                if isinstance(fakedata, dict):
+                    # make into a list
+                    if detectors is None:
+                        detectors = list(fakedata.keys())
+                    else:
+                        for det in fakedata.keys():
+                            if det not in detectors:
+                                fakedata.pop(det)
+
+                    fakedata = list(fakedata.values())
+
+                if isinstance(fakedata, list):
+                    # parse through list
+                    for fdata in fakedata:
+                        detfdata = fdata.split(':')
+                        if detectors is None:
+                            if len(detfdata) == 2:
+                                try:
+                                    asdval = float(detdata[1])
+                                except ValueError:
+                                    asdval = detdata[1]
+
+                                # check if actual data already exists
+                                if detdata[0] in self.hetdata.detectors:
+                                    for het in self.hetdata[detdata[0]]:
+                                        if het.freq_factor == freq:
+                                            # data already exists
+                                            continue
+
+                                self.hetdata.add_data(
+                                    HeterodynedData(
+                                        fakeasd=asdval,
+                                        detector=detdata[0],
+                                        **self.datakwargs
+                                    )
+                                )
+                            else:
+                                raise ValueError("Fake data string must be of "
+                                                 "the form 'DET:ASD'")
+                        else:
+                            if len(detfdata) == 2:
+                                if detfdata[0] not in detectors:
+                                    raise ValueError("Fake data input does not have "
+                                                     "consistent detector")
+
+                                try:
+                                    asdval = float(detdata[1])
+                                except ValueError:
+                                    asdval = detdata[1]
+
+                                # check if actual data already exists
+                                if detdata[0] in self.hetdata.detectors:
+                                    for het in self.hetdata[detdata[0]]:
+                                        if het.freq_factor == freq:
+                                            # data already exists
+                                            continue
+
+                                self.hetdata.add_data(
+                                    HeterodynedData(
+                                        fakeasd=asdval,
+                                        detector=detdata[0],
+                                        **self.datakwargs
+                                    )
+                                )
+                            elif len(detfdata) == 1 and len(detectors) == 1:
+                                try:
+                                    asdval = float(detfdata)
+                                except ValueError:
+                                    asdval = detfdata
+
+                                self.hetdata.add_data(
+                                    fakeasd=asdval,
+                                    detector=detectors[0],
+                                    **self.datakwargs
+                                )
+                            else:
+                                raise ValueError("Fake data string must be of the form "
+                                                 "'DET:FILEPATH'")
+                else:
+                    raise TypeError("Fake data not of the correct type")
+
+        if len(self.hetdata) == 0:
+            raise ValueError("No data has been supplied!")
 
         # sampler parameters
         self.sampler = kwargs.get('sampler', 'dynesty')
@@ -308,17 +603,15 @@ class KnopeRunner(object):
         if not isinstance(self.prior, (str, bilby.core.prior.PriorDict)):
             raise ValueError('The prior is not defined')
 
+        # output parameters
+        if 'outdir' in kwargs:
+            self.sampler_kwargs.setdefault('outdir', kwargs.get('outdir'))
+        if 'label' in kwargs:
+            self.sampler_kwargs.setdefault('label', kwargs.get('label'))
+
         # default restart time to 1000000 seconds if not running through CLI
         self.periodic_restart_time = kwargs.get('periodic_restart_time',
                                                 10000000)
-
-    def set_data(self):
-        """
-        Set the :class:`cwinpy.data.MultiHeterodynedData` object.
-        """
-
-        self.hetdata = MultiheterodynedData(data=self.datafiles,
-                                            par=self.parfile)
 
     def set_likelihood(self):
         """
@@ -349,7 +642,9 @@ class KnopeRunner(object):
         self.result = bilby.run_sampler(
             sampler=self.sampler,
             prior=self.prior,
-            **self.sampler_kwargs)
+            likelihood=self.likelihood,
+            **self.sampler_kwargs
+        )
 
         return self.result
 
@@ -365,6 +660,10 @@ def knope(**kwargs):
         The name of the pulsar being analysed.
     par_file: str
         The path to a TEMPO(2) style pulsar parameter file for the source.
+    inj_par: str
+        The path to a TEMPO(2) style pulsar parameter file containing the
+        parameters of a simulated signal to be injected into the data. If
+        this is not given a simulated signal will not be added.
     detector: str, list
         A string, or list of strings, containing the abbreviated names for
         the detectors being analysed (e.g., "H1", "L1", "V1").
@@ -376,7 +675,59 @@ def knope(**kwargs):
         ``detector`` argument, or as a dictionary with each file path keyed to
         the associated detector. in the latter case the ``detector`` keyword
         argument is not required, unless wanting to analyse fewer detectors
-        than passed.
+        than passed. This data is assumed to have been heterodyned at twice the
+        source's rotation frequency - to explicitly add data heterodyned at
+        once or twice the source's rotation frequency use the ``data_file_1f``
+        and ``data_file_2f` arguments.
+    data_file_2f: str, list, dict
+        Data files that have been heterodyned at twice the source's rotation
+        frequency. See the documentation for ``data_file`` above for usage.
+    data_file_1f: str, list, dict
+        Data files that have been heterodyned at the source's rotation
+        frequency. See the documentation for ``data_file`` above for usage.
+    fake_asd: float, str, list, dict
+        This specifies the creation of fake Gaussian data drawn from a
+        distribution with a given noise amplitude spectral density (ASD). If
+        passing a float (and set of ``detector``'s are specified), then this
+        value is used when generating the noise for all detectors. If this is
+        a string then it should give a detector alias, which specifies using
+        the noise ASD for the design sensitivity curve of that detector, or it
+        should give a path to a file containing a frequency series of the
+        ASD. If a list, then this should be a different float or string for
+        each supplied detector. If a dictionary, then this should be a set
+        of floats or string keyed to detector names. The simulated noise
+        produced with this argument is assumed to be at twice the source
+        rotation frequency. To explicitly specify fake data generation at once
+        or twice the source rotation frequency use the equivalent
+        ``fake_asd_1f`` and ``fake_asd_2f`` arguments respectively. If wanting
+        to supply noise standard deviations rather than ASD use the
+        ``fake_sigma`` arguments instead. This argument is ignored if
+        ``data_file``'s are supplied.
+    fake_asd_1f: float, str, list, dict
+        Set the amplitude spectral density for fake noise generation at the
+        source rotation frequency. See the ``fake_asd`` argument for usage.
+    fake_asd_2f: float, str, list, dict
+        Set the amplitude spectral density for fake noise generation at twice
+        the source rotation frequency. See the ``fake_asd`` argument for usage.
+    fake_sigma: float, str, list, dict
+        Set the standard deviation for generating fake Gaussian noise. See the
+        ``fake_asd`` argument for usage. The simulated noise produced with this
+        argument is assumed to be at twice the source rotation frequency. To
+        explicitly specify fake data generation at once or twice the source
+        rotation frequency use the equivalent ``fake_sigma_1f`` and
+        ``fake_sigma_2f`` arguments respectively.
+    fake_sigma_1f: float, str, list, dict
+        Set the noise standard deviation for fake noise generation at the
+        source rotation frequency. See the ``fake_sigma`` argument for usage.
+    fake_sigma_2f: float, str, list, dict
+        Set the noise standard deviation for fake noise generation at twice
+        the source rotation frequency. See the ``fake_sigma`` argument for usage.
+    data_kwargs: dict
+        A dictionary of keyword arguments to pass to the
+        :class:`cwinpy.data.HeterodynedData` objects.
+    inj_times: list
+        A list of pairs of times between which the simulated signal (if given
+        with the ``inj_par`` argument) will be added to the data.
     sampler: str
         The sampling algorithm to use within bilby. The default is "dynesty".
     sampler_kwargs: dict

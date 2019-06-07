@@ -2,6 +2,7 @@
 Classes for dealing with data products.
 """
 
+import os
 import numpy as np
 import warnings
 from collections import OrderedDict
@@ -147,6 +148,9 @@ class MultiHeterodynedData(object):
             return self.__data[det]
         else:
             return None
+
+    def pop(self, det):
+        return self.__data.pop(det)
 
     @property
     def to_list(self):
@@ -615,6 +619,9 @@ class HeterodynedData(object):
         the amplitude spectral density for that detector at design sensitivity
         will be used (this requires a `par` value to be included, which
         contains the source rotation frequency).
+    issigma: bool
+        Set to ``True`` if the ``fakeasd`` value passed is actually a noise
+        standard deviation value rather than an amplitude spectral density.
     bbthreshold: (str, float), "default"
         The threshold method, or value for the
         :meth:`~cwinpy.data.HeterodynedData.bayesian_blocks` function.
@@ -638,8 +645,8 @@ class HeterodynedData(object):
 
     def __init__(self, data=None, times=None, par=None, detector=None,
                  window=30, inject=False, injpar=None, injtimes=None,
-                 freqfactor=2.0, fakeasd=None, bbthreshold="default",
-                 remove_outliers=False, thresh=3.5):
+                 freqfactor=2.0, fakeasd=None, issigma=False,
+                 bbthreshold="default", remove_outliers=False, thresh=3.5):
         self.window = window  # set the window size
         self.__bbthreshold = bbthreshold
         self.__remove_outliers = remove_outliers
@@ -659,7 +666,7 @@ class HeterodynedData(object):
 
         # add noise, or create data containing noise
         if fakeasd is not None:
-            self.add_noise(fakeasd)
+            self.add_noise(fakeasd, issigma=issigma)
 
         # set and add a simulated signal
         self.injection = bool(inject)
@@ -1195,7 +1202,8 @@ class HeterodynedData(object):
         asd: (float, str)
             The noise amplitude spectral density (1/sqrt(Hz)) at which to
             generate the Gaussian noise, or a string containing a valid
-            detector name for which the design sensitivity ASD can be used.
+            detector name for which the design sensitivity ASD can be used, or
+            a file containing an amplitude spectral density frequency series.
         issigma: bool, False
             If `issigma` is ``True`` then the value passed to `asd` is assumed
             to be a dimensionless time domain standard deviation for the noise
@@ -1205,46 +1213,75 @@ class HeterodynedData(object):
         if isinstance(asd, str):
             import lalsimulation as lalsim
 
-            aliases = {'AV': ['Virgo', 'V1', 'AdV', 'AdvancedVirgo', 'AV'],
-                       'AL': ['H1', 'L1', 'LHO', 'LLO', 'aLIGO', 'AdvancedLIGO', 'AL'],
-                       'IL': ['iH1', 'iL1', 'InitialLIGO', 'IL'],
-                       'IV': ['iV1', 'InitialVirgo', 'IV'],
-                       'G1': ['G1', 'GEO', 'GEOHF'],
-                       'IG': ['IG', 'GEO600', 'InitialGEO'],
-                       'T1': ['T1', 'TAMA', 'TAMA300'],
-                       'K1': ['K1', 'KAGRA', 'LCGT']}
-
-            # set mapping of detector names to lalsimulation PSD functions
-            simmap = {'AV': lalsim.SimNoisePSDAdvVirgo,  # advanced Virgo
-                      'AL': lalsim.SimNoisePSDaLIGOZeroDetHighPower,  # aLIGO
-                      'IL': lalsim.SimNoisePSDiLIGOSRD,               # iLIGO
-                      'IV': lalsim.SimNoisePSDVirgo,                  # iVirgo
-                      'IG': lalsim.SimNoisePSDGEO,                    # GEO600
-                      'G1': lalsim.SimNoisePSDGEOHF,                  # GEOHF
-                      'T1': lalsim.SimNoisePSDTAMA,                   # TAMA
-                      'K1': lalsim.SimNoisePSDKAGRA}                  # KAGRA
-
-            # check if string is valid
-            detalias = None
-            for dkey in aliases:
-                if asd.upper() in aliases[dkey]:
-                    detalias = dkey
-
-            if detalias is None:
-                raise ValueError("Detector '{}' is not as known detector "
-                                 "alias".format(asd))
-
-            if self.par is None:
-                raise AttributeError("A source parameter file containing a "
-                                     "frequency is required")
-
+            # check a frequency is available
             freqs = self.par['F']
             if freqs is None:
                 raise ValueError("Heterodyne parameter file contains no "
                                  "frequency value")
 
-            # set amplitude spectral density value
-            asdval = np.sqrt(simmap[detalias](self.freq_factor * freqs[0]))
+            # check if the str is a file or not
+            if os.path.isfile(asd):
+                # frequency series to contain the PSD
+                psdfs = lal.CreateREAL8FrequencySeries(
+                            "",
+                            lal.LIGOTimeGPS(1000000000),  # dummy epoch
+                            self.freq_factor * freqs[0],  # frequency to find
+                            0.1,  # dummy delta f
+                            lal.HertzUnit,
+                            2  # need two points as last element is set to zero
+                        )
+
+                # read PSD from ASD file
+                try:
+                    ret = lalsim.SimNoisePSDFromFile(psdfs, psdfs.f0, asd)
+                except Exception as e:
+                    raise RuntimeError("Problem getting ASD from file")
+
+                # convert to ASD
+                asdval = np.sqrt(psdfs.data.data[0])
+            else:
+                # check is str is a detector alias
+                aliases = {'AV': ['Virgo', 'V1', 'AdV', 'AdvancedVirgo', 'AV'],
+                           'AL': ['H1', 'L1', 'LHO', 'LLO', 'aLIGO',
+                                  'AdvancedLIGO', 'AL'],
+                           'IL': ['iH1', 'iL1', 'InitialLIGO', 'IL'],
+                           'IV': ['iV1', 'InitialVirgo', 'IV'],
+                           'G1': ['G1', 'GEO', 'GEOHF'],
+                           'IG': ['IG', 'GEO600', 'InitialGEO'],
+                           'T1': ['T1', 'TAMA', 'TAMA300'],
+                           'K1': ['K1', 'KAGRA', 'LCGT']}
+
+                # set mapping of detector names to lalsimulation PSD functions
+                simmap = {'AV': lalsim.SimNoisePSDAdvVirgo,  # advanced Virgo
+                          'AL': lalsim.SimNoisePSDaLIGOZeroDetHighPower,  # aLIGO
+                          'IL': lalsim.SimNoisePSDiLIGOSRD,               # iLIGO
+                          'IV': lalsim.SimNoisePSDVirgo,                  # iVirgo
+                          'IG': lalsim.SimNoisePSDGEO,                    # GEO600
+                          'G1': lalsim.SimNoisePSDGEOHF,                  # GEOHF
+                          'T1': lalsim.SimNoisePSDTAMA,                   # TAMA
+                          'K1': lalsim.SimNoisePSDKAGRA}                  # KAGRA
+
+                # check if string is valid
+                detalias = None
+                for dkey in aliases:
+                    if asd.upper() in aliases[dkey]:
+                        detalias = dkey
+
+                if detalias is None:
+                    raise ValueError("Detector '{}' is not as known detector "
+                                     "alias".format(asd))
+
+                if self.par is None:
+                    raise AttributeError("A source parameter file containing "
+                                         "a frequency is required")
+
+                freqs = self.par['F']
+                if freqs is None:
+                    raise ValueError("Heterodyne parameter file contains no "
+                                     "frequency value")
+
+                # set amplitude spectral density value
+                asdval = np.sqrt(simmap[detalias](self.freq_factor * freqs[0]))
 
             # convert to time domain standard deviation
             if self.dt is None:
