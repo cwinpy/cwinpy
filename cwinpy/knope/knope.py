@@ -65,11 +65,6 @@ def create_parser():
 
     pulsarparser = parser.add_argument_group('Pulsar inputs')
     pulsarparser.add(
-        '-p', '--pulsar',
-        default=None,
-        help='The name of the pulsar',
-    )
-    pulsarparser.add(
         '--par-file',
         required=True,
         default=None,
@@ -178,7 +173,7 @@ def create_parser():
                       'the "--detector" flag detectors and ASD values should '
                       'be added in the same order, e.g., "--detector H1 '
                       '--fake-asd H1 --detector L1 --fake-asd L1". This flag '
-                      'is ignored is "--data-file" values for the same '
+                      'is ignored if "--data-file" values for the same '
                       'detector have already been passed. The fake data that '
                       'is produced is assumed to be that for a signal at '
                       'twice the source rotation frequency. To explicitly set '
@@ -825,7 +820,7 @@ def knope(**kwargs):
         than passed. This data is assumed to have been heterodyned at twice the
         source's rotation frequency - to explicitly add data heterodyned at
         once or twice the source's rotation frequency use the ``data_file_1f``
-        and ``data_file_2f` arguments.
+        and ``data_file_2f`` arguments.
     data_file_2f: str, list, dict
         Data files that have been heterodyned at twice the source's rotation
         frequency. See the documentation for ``data_file`` above for usage.

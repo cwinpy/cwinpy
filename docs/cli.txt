@@ -1,0 +1,11 @@
+#######################
+Command line interfaces
+#######################
+
+Here we detail command line interfaces (i.e., executable scripts) to the code
+base for running actual analyses.
+
+.. toctree::
+   :maxdepth: 1
+
+   knope
