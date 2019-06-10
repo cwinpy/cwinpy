@@ -439,39 +439,31 @@ class KnopeRunner(object):
                     # pass through list and check strings
                     for dfile in data:
                         detdata = dfile.split(':')  # split detector and path
-                        if detectors is None:
-                            if len(detdata) == 2:
-                                self.hetdata.add_data(
-                                    HeterodynedData(
-                                        data=detdata[1],
-                                        detector=detdata[0],
-                                        **self.datakwargs
-                                    )
-                                )
-                            else:
-                                raise ValueError("Data string must be of the form "
-                                                 "'DET:FILEPATH'")
-                        else:
-                            if len(detdata) == 2:
+
+                        if len(detdata) == 2:
+                            if detectors is not None:
                                 if detdata[0] not in detectors:
-                                    raise ValueError("Data file does not have "
+                                   raise ValueError("Data file does not have "
                                                      "consistent detector")
-                                self.hetdata.add_data(
-                                    HeterodynedData(
-                                        data=detdata[1],
-                                        detector=detdata[0],
-                                        **self.datakwargs
-                                    )
-                                )
-                            elif len(detdata) == 1 and len(detectors) == 1:
-                                self.hetdata.add_data(
-                                    data=dfile,
-                                    detector=detectors[0],
-                                    **self.datakwargs
-                                )
-                            else:
-                                raise ValueError("Data string must be of the form "
-                                                 "'DET:FILEPATH'")
+                            thisdet = detdata[0]
+                            thisdata = detdata[1]
+                        elif len(detdata) == 1 and detectors is not None:
+                            try:
+                                thisdet = detectors[0]
+                            except Exception as e:
+                                raise ValueError("Detectors is not a list")
+                            thisdata = dfile
+                        else:
+                            raise ValueError("Data string must be of the form "
+                                             "'DET:FILEPATH'")
+
+                        self.hetdata.add_data(
+                            HeterodynedData(
+                                data=thisdata,
+                                detector=thisdet,
+                                **self.datakwargs
+                            )
+                        )
                 else:
                     raise TypeError("Data files are not of a recognised type")
 
@@ -495,6 +487,7 @@ class KnopeRunner(object):
             starts = kwargs.get('fake_start', 1000000000)  # default start time
             ends = kwargs.get('fake_end', 1000086400)      # default end time
             dts = kwargs.get('fake_dt', 60)                # default time step
+            ftimes = kwargs.get('fake_times', None)        # time array(s)
 
             fakeasd2f = []
             issigma2f = False
@@ -557,6 +550,13 @@ class KnopeRunner(object):
                 else:
                     dts = len(detectors) * [dts]
 
+            if isinstance(ftimes, (np.ndarray, list)) or ftimes is None:
+                if len(np.shape(ftimes)) == 1 or ftimes is None:
+                    if detectors is None:
+                        ftimes = [ftimes]
+                    else:
+                        ftimes = len(detectors) * [ftimes]
+
             if isinstance(fakeasd2f, (str, float)):
                 # make into a list
                 if detectors is None:
@@ -587,7 +587,7 @@ class KnopeRunner(object):
                                 fakedata.pop(det)
 
                     fakedata = list(fakedata.values())
-                
+
                 if isinstance(starts, dict):
                     # make into a list
                     if list(starts.keys()) != detectors:
@@ -612,99 +612,125 @@ class KnopeRunner(object):
                     else:
                         dts = list(dts.values())
 
+                if isinstance(ftimes, dict):
+                    # make into a list
+                    if list(ftimes.keys()) != detectors:
+                        raise ValueError("Fake data time arrays do not "
+                                         "contain consistent detectors")
+                    else:
+                        ftimes = list(ftimes.values())
+
                 if (len(fakedata) != len(starts) or
                         len(fakedata) != len(ends) or
-                        len(fakedata) != len(dts)):
+                        len(fakedata) != len(dts) or
+                        len(fakedata) != len(ftimes)):
                     raise ValueError("Fake data values and times are not "
                                      "consistent")
 
                 if isinstance(fakedata, list):
                     # parse through list
-                    for fdata, start, end, dt in zip(fakedata, starts, ends,
-                                                     dts):
-                        detfdata = fdata.split(':')
-                        detstart = start.split(':')
-                        detend = end.split(':')
-                        detdt = dt.split(':')
-                        if detectors is None:
-                            if len(detfdata) == 2:
-                                try:
-                                    asdval = float(detdata[1])
-                                except ValueError:
-                                    asdval = detdata[1]    
+                    for fdata, start, end, dt, ftime in zip(fakedata, starts,
+                                                            ends, dts, ftimes):
+                        try:
+                            # make sure value is a string so it can be "split"
+                            detfdata = str(fdata).split(':')
+                        except Exception as a:
+                                raise TypeError("Fake time value is the wrong "
+                                                "type: {}".format(e))
+ 
+                        if ftime is None:
+                            try:
+                                # make sure values are strings so they can be
+                                # "split"
+                                detstart = str(start).split(':')
+                                detend = str(end).split(':')
+                                detdt = str(dt).split(':')
+                            except Exception as a:
+                                raise TypeError("Fake time value is the wrong "
+                                                "type: {}".format(e))
 
-                                # check if actual data already exists
-                                if detdata[0] in self.hetdata.detectors:
-                                    for het in self.hetdata[detdata[0]]:
-                                        if het.freq_factor == freq:
-                                            # data already exists
-                                            continue
-
-                                for detcheck in [detstart, detend, detdt]:
-                                    if len(detcheck) == 2:
-                                        if detcheck[0] != detdata[0]:
-                                            raise ValueError("Inconsistent "
-                                                             "detectors!")
-
-                                    try:
-                                        int(detcheck[-1])
-                                    except ValueError:
-                                        raise TypeError("Problematic type!")
-
-                                times = np.arange(int(detstart[-1]),
-                                                  int(detend[-1]),
-                                                  int(detdt[-1]))
-
-                                self.hetdata.add_data(
-                                    HeterodynedData(
-                                        fakeasd=asdval,
-                                        detector=detdata[0],
-                                        times=times,
-                                        **self.datakwargs
-                                    )
-                                )
-                            else:
-                                raise ValueError("Fake data string must be of "
-                                                 "the form 'DET:ASD'")
-                        else:
-                            if len(detfdata) == 2:
+                        if len(detfdata) == 2:
+                            if detectors is not None:
                                 if detfdata[0] not in detectors:
                                     raise ValueError("Fake data input does not have "
                                                      "consistent detector")
+                            
+                            try:
+                                asdval = float(detfdata[1])
+                            except ValueError:
+                                asdval = detfdata[1]    
+
+                            thisdet = detfdata[0]
+
+                            # check if actual data already exists
+                            if thisdet in self.hetdata.detectors:
+                                for het in self.hetdata[thisdet]:
+                                    if het.freq_factor == freq:
+                                        # data already exists
+                                        continue
+
+                            if ftime is None:
+                                for detcheck in [detstart, detend, detdt]:
+                                    if len(detcheck) == 2:
+                                        if detcheck[0] != thisdet:
+                                            raise ValueError(
+                                                "Inconsistent detectors!"
+                                            )
 
                                 try:
-                                    asdval = float(detdata[1])
+                                    int(detcheck[-1])
                                 except ValueError:
-                                    asdval = detdata[1]
+                                    raise TypeError("Problematic type!")
 
-                                # check if actual data already exists
-                                if detdata[0] in self.hetdata.detectors:
-                                    for het in self.hetdata[detdata[0]]:
-                                        if het.freq_factor == freq:
-                                            # data already exists
-                                            continue
+                                ftime = np.arange(int(detstart[-1]),
+                                                  int(detend[-1]),
+                                                  int(detdt[-1]))
+                        elif len(detfdata) == 1 and detectors is not None:
+                            try:
+                                asdval = float(detfdata)
+                            except ValueError:
+                                asdval = detfdata
 
-                                self.hetdata.add_data(
-                                    HeterodynedData(
-                                        fakeasd=asdval,
-                                        detector=detdata[0],
-                                        **self.datakwargs
-                                    )
-                                )
-                            elif len(detfdata) == 1 and len(detectors) == 1:
+                            try:
+                                thisdet = detectors[0]
+                            except Exception as e:
+                                raise ValueError("Detectors is not a list")
+
+                            # check if actual data already exists
+                            if thisdet in self.hetdata.detectors:
+                                for het in self.hetdata[thisdet]:
+                                    if het.freq_factor == freq:
+                                        # data already exists
+                                        continue
+
+                            if ftime is None:
+                                for detcheck in [detstart, detend, detdt]:
+                                    if len(detcheck) == 2:
+                                        if detcheck[0] != thisdet:
+                                            raise ValueError(
+                                                "Inconsistent detectors!"
+                                            )
+
                                 try:
-                                    asdval = float(detfdata)
+                                    int(detcheck[-1])
                                 except ValueError:
-                                    asdval = detfdata
+                                    raise TypeError("Problematic type!")
 
-                                self.hetdata.add_data(
-                                    fakeasd=asdval,
-                                    detector=detectors[0],
-                                    **self.datakwargs
-                                )
-                            else:
-                                raise ValueError("Fake data string must be of the form "
-                                                 "'DET:FILEPATH'")
+                                ftime = np.arange(int(detstart[-1]),
+                                                  int(detend[-1]),
+                                                  int(detdt[-1]))
+                        else:
+                            raise ValueError("Fake data string must be of "
+                                             "the form 'DET:ASD'")
+
+                        self.hetdata.add_data(
+                            HeterodynedData(
+                                fakeasd=asdval,
+                                detector=thisdet,
+                                times=ftime,
+                                **self.datakwargs
+                            )
+                        )
                 else:
                     raise TypeError("Fake data not of the correct type")
 
@@ -855,6 +881,10 @@ def knope(**kwargs):
         The time step in seconds for generating fake data. If requiring data at
         once and twice the rotation frequency for the same detector, then the
         same time step will be used for both frequencies.
+    fake_times: dict, array_like
+        Instead of passing start times, end times and time steps for the fake
+        data generation, an array of GPS times (or a dictionary of arrays keyed
+        to the detector) can be passed instead.
     data_kwargs: dict
         A dictionary of keyword arguments to pass to the
         :class:`cwinpy.data.HeterodynedData` objects.
@@ -879,6 +909,8 @@ def knope(**kwargs):
         `prior <https://lscsoft.docs.ligo.org/bilby/prior.html>`_ file, or a
         bilby :class:`~bilby.core.prior.PriorDict` object. This defines the
         parameters that are to be estimated and their prior distributions.
+    config: str
+        The path to a configuration file containing the analysis arguments.
     periodic_restart_time: int
         The number of seconds after which the run will be evicted with a
         ``130`` exit code. This prevents hard evictions if running under
@@ -888,17 +920,28 @@ def knope(**kwargs):
         Python this defaults to 10000000. 
     """
 
-    if 'cwinpy_knope' == os.path.split(sys.argv[0])[-1]:
+    if ('cwinpy_knope' == os.path.split(sys.argv[0])[-1] or
+            'config' in kwargs):
         # get command line arguments
         parser = create_parser()
 
+        # parse config file or command line arguments
+        if 'config' in kwargs:
+            cliargs = ['--config', kwargs['config']]
+        else:
+            cliargs = sys.argv[1:]
+
         try:
-            args, unknown_args = parse_args(sys.argv[1:], parser)
+            args, unknown_args = parse_args(cliargs, parser)
         except BilbyPipeError as e:
             raise IOError("{}".format(e))
 
         # convert args to a dictionary
         dargs = vars(args)
+
+        if 'config' in kwargs:
+            # update with other keyword arguments
+            dargs.update(kwargs)
     else:
         dargs = kwargs
 
