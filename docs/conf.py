@@ -18,6 +18,7 @@
 import os
 import sys
 import cwinpy
+import subprocess
 sys.path.insert(0, os.path.abspath('../cwinpy/'))
 
 # -- General configuration ------------------------------------------------
@@ -97,7 +98,9 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'requirements.txt',
                     'comparisons/scripts/outputs/*.hdf',
                     'comparisons/scripts/outputs/*.json',
                     'comparisons/scripts/outputs/*.json.old',
-                    'comparisons/scripts/outputs/cpnest*/*']
+                    'comparisons/scripts/outputs/cpnest*/*',
+                    'knope/knope_help.txt',
+                    'knope/data/*']
 
 add_function_parentheses = True
 add_module_names = False
@@ -209,3 +212,10 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3/', None),
                        'matplotlib': ('https://matplotlib.org/', None),
                        'astropy': ('http://docs.astropy.org/en/stable/', None),
                        'bilby': ('https://lscsoft.docs.ligo.org/bilby/', None)}
+
+
+# generate cwinpy_knope help string for docs
+knope_help = subprocess.getoutput('cwinpy_knope --help')
+with open('knope/knope_help.txt', 'w') as fp:
+    fp.write(knope_help)
+

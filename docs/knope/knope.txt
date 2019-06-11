@@ -1,0 +1,119 @@
+#################################
+Known pulsar parameter estimation
+#################################
+
+cwinpy can be used for perform Bayesian inference to estimate the source
+parameters of a known pulsar from gravitational-wave observations. To sample
+from the joint parameter posterior distributions cwinpy uses the
+`bilby <https://lscsoft.docs.ligo.org/bilby/>`_ package as an interface to a
+variety of stochastic sampling methods.
+
+cwinpy comes with an executable, ``cwinpy_knope``
+("knope" = "\ **KNO**\ wn pulsar **P**\ arameter **E**\ stimation"), for performing
+this analysis, which tries to emulate, as much as possible, the functionality
+from the `LALSuite <https://lscsoft.docs.ligo.org/lalsuite/>`_ code
+``lalapps_pulsar_parameter_estimation_nested`` described in [1]_.
+
+There is also an API for running this analysis from within a Python shell or
+script as described :ref:`below<API>`.
+
+Running the analysis
+--------------------
+
+The script, and :ref:`API`, can be used to perform parameter estimation over
+a variety of signal parameter both on real data or simulated data. We will
+cover some examples in both cases and show equivalent ways of running the
+analysis via the use of: command line arguments to the ``cwinpy_knope`` script;
+a configuration files, or the :ref:`API`. The current command line arguments
+for ``cwinpy_knope`` are given :ref:`below<Command line arguments>`.
+
+Example: single detector data
+=============================
+
+In the first example we will show how to perform parameter estimation on some
+real gravitational-wave data. We will use a short segment of data from the O1 run of
+the LIGO detectors (the whole of which can be found on the
+`GWOSC website <https://www.gw-openscience.org/archive/O1/>`_) between GPS times of
+1132444817 and 1136419217. The O1 dataset contains a set of simulated pulsar signals that have been
+`"injected" <https://www.gw-openscience.org/o1_inj/>`_ into it. We will look
+at the injected signal named ``PULSAR8``, the parameters of which can be found
+`here <https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`_.
+
+The data we will use in this example is from the `LIGO Hanford
+<https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to "H1") and has been
+heterodyned using the known phase evolution of the simulated signal (see the
+description :ref:`here<Heterodyned Data>`), and low-pass filtered and
+down-sampled to a rate of one sample per minute. This data file (in a gzipped
+format) can be downloaded here:
+:download:`fine-H1-PULSAR08.txt.gz <data/fine-H1-PULSAR08.txt.gz>`
+
+A TEMPO(2)-style [2]_ pulsar parameter (``.par``) file for this simulated signal
+is reproduced below and can be downloaded :download:`here <data/PULSAR08.par>`,
+where it should be noted that the ``F0`` and ``F1`` parameters in that file are
+the expected **rotation** frequency and frequency derivative of the putative
+pulsar, so they are **half** that of the simulated gravitational-wave signal in
+the data.
+
+.. literalinclude:: data/PULSAR08.par
+
+Here we will try and estimate four of the signal's parameters: the
+gravitational-wave amplitude :math:`h_0`; the inclination angle :math:`iota`
+of the rotation axis to the line-of-sight; the initial rotational
+phase of the signal :math:`\phi_0`; and the polarisation angle of the
+source :math:`\psi`. To do this we have to define a file containing the prior probability
+distributions for these parameters. We can define the priors in a file
+as described in the documentation for the `bilby package
+<https://lscsoft.docs.ligo.org/bilby/prior.html>`_, which is reproduced below
+and can be downloaded :download:`here <data/example1_prior.txt>`:
+
+.. literalinclude:: data/example1_prior.txt
+
+Here we have set the prior on :math:`h_0` to be uniform between 0 and 10<sup>-22</sup>,
+where in this case the maximum has been chosen to be large compared to the expected
+signal strength. The combination of the :math:`\iota` and :math:`\psi` parameters has
+been chosen to be uniform over a sphere, which means using a uniform prior over
+:math:`\psi` between 0 and :math:`\pi/2` (there is a degeneracy meaning this doesn't
+have to cover the full range between 0 and :math:`2\pi` [1]_ [3]_), and a cosine
+distribution prior on :math:`\iota` (equivalently one could use a uniform prior on
+a :math:`\cos{\iota}` parameter between -1 and 1.) The :math:`\phi_0` parameter is
+the rotational phase, so only needs to span 0 to :math:`\pi` to cover the full phase
+of the equivalent gravitational-wave phase parameter in the case where the source
+is emitting at twice the rotational frequency.
+
+With the data at hand, and the priors defined, the analysis can now be run. It is
+recommended to run by setting up a configuration file, although as mentioned
+equivalent command line arguments can be passed to ``cwinpy_knope``. A configuration
+file this example is shown below, with comments describing the parameters inline:
+
+.. literalinclude:: data/example1_config.ini
+
+The analysis can then be run using:
+
+.. code-block:: bash
+
+   cwinpy_knope --config example1_config.ini
+
+Command line arguments
+----------------------
+
+The command line arguments for ``cwinpy_knope`` (as extracted using
+``cwinpy_knope --help``) are given below:
+
+.. literalinclude:: knope_help.txt
+
+API
+---
+
+.. automodule:: cwinpy.knope.knope
+   :members: knope
+
+``cwinpy_knope`` References
+---------------------------
+
+.. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
+       <https:arxiv.org/abs/1705.08978v1>`_, 2017.
+.. [2] `G. B. Hobbs, R. T. Edwards & R. N. Manchester
+   <https://ui.adsabs.harvard.edu/?#abs/2006MNRAS.369..655H>`_,
+   *MNRAS*, **369**, 655-672 (2006)
+.. [3] `D. I. Jones <https://ui.adsabs.harvard.edu/abs/2015MNRAS.453...53J>`_,
+   *MNRAS*, **453**, 53-66 (2015)

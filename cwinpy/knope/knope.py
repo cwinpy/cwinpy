@@ -67,7 +67,7 @@ def create_parser():
     pulsarparser.add(
         '--par-file',
         required=True,
-        default=None,
+        type=str,
         help=(
             'The path to a TEMPO(2) style file containing the pulsar '
             'parameters.'
@@ -82,10 +82,8 @@ def create_parser():
                        'Multiple detectors can be passed with multiple '
                        'arguments, e.g., --detector H1 --detector L1.'
                    ),
-                   default=None,
     )
     dataparser.add('--data-file',
-                   default=None,
                    action='append',
                    help=(
                        'The path to a heterodyned data file for a given '
@@ -103,7 +101,6 @@ def create_parser():
                     ),
     )
     dataparser.add('--data-file-2f',
-                   default=None,
                    action='append',
                    help=(
                        'The path to a data file for a given detector where '
@@ -115,7 +112,6 @@ def create_parser():
                     ),
     )
     dataparser.add('--data-file-1f',
-                   default=None,
                    action='append',
                    help=(
                        'The path to a data file for a given detector where '
@@ -126,7 +122,6 @@ def create_parser():
                     ),
     )
     dataparser.add('--data-kwargs',
-                   default=None,
                    help=(
                        'A Python dictionary containing keywords to pass to '
                        'the HeterodynedData object.'
@@ -136,7 +131,6 @@ def create_parser():
     simparser = parser.add_argument_group('Simulated data')
     simparser.add('--inj-par',
                   type=str,
-                  default=None,
                   help=(
                       'The path to a TEMPO(2) style file containing the '
                       'parameters of a simulated signal to "inject" into the '
@@ -144,7 +138,6 @@ def create_parser():
                   ),
     )
     simparser.add('--inj-times',
-                  default=None,
                   help=(
                       'A Python list of pairs of times between which to add '
                       'the simulated signal (specified by the "--inj-par" '
@@ -154,7 +147,6 @@ def create_parser():
     )
     simparser.add('--fake-asd',
                   action='append',
-                  default=None,
                   help=(
                       'This flag sets the code to perform the analysis on '
                       'simulated Gaussian noise, with data samples drawn from '
@@ -184,7 +176,6 @@ def create_parser():
     )
     simparser.add('--fake-asd-1f',
                   action='append',
-                  default=None,
                   help=(
                       'This flag sets the data to be Gaussian noise '
                       'explicitly for a source emitting at the rotation '
@@ -194,7 +185,6 @@ def create_parser():
     )
     simparser.add('--fake-asd-2f',
                   action='append',
-                  default=None,
                   help=(
                       'This flag sets the data to be Gaussian noise '
                       'explicitly for a source emitting at twice the rotation '
@@ -204,7 +194,6 @@ def create_parser():
     )
     simparser.add('--fake-sigma',
                   action='append',
-                  default=None,
                   help=(
                       'This flag is equivalent to "--fake-asd", but '
                       'instead of taking in an amplitude spectral density '
@@ -213,7 +202,6 @@ def create_parser():
     )
     simparser.add('--fake-sigma-1f',
                   action='append',
-                  default=None,
                   help=(
                       'This flag is equivalent to "--fake-asd-1f", but '
                       'instead of taking in an amplitude spectral density '
@@ -222,7 +210,6 @@ def create_parser():
     )
     simparser.add('--fake-sigma-2f',
                   action='append',
-                  default=None,
                   help=(
                       'This flag is equivalent to "--fake-asd-2f", but '
                       'instead of taking in an amplitude spectral density '
@@ -263,11 +250,9 @@ def create_parser():
     outputparser = parser.add_argument_group('Output')
     outputparser.add(
         '-o', '--outdir',
-        default=None,
         help='The output directory for the results',
     )
     outputparser.add('-l', '--label',
-                     default=None,
                      help='The output filename label for the results',
     )
 
@@ -281,7 +266,6 @@ def create_parser():
     )
     samplerparser.add(
         '--sampler-kwargs',
-        default=None,
         help=(
             'The keyword arguments for running the sampler. This should be in '
             'the format of a standard Python dictionary.'
@@ -297,6 +281,7 @@ def create_parser():
     )
     samplerparser.add(
         '--prior',
+        type=str,
         required=True,
         help=(
             'The path to a bilby-style prior file defining the parameters to '
@@ -319,7 +304,6 @@ class KnopeRunner(object):
 
     def __init__(self, kwargs):
         self.set_parameters(kwargs)
-        self.set_data()
         self.set_likelihood()
 
     def set_parameters(self, kwargs):
@@ -335,8 +319,10 @@ class KnopeRunner(object):
         if not isinstance(kwargs, dict):
             raise TypeError("Argument must be a dictionary")
 
-        # pulsar parameters
-        self.pulsar = kwargs.get('pulsar', None)
+        # remove any None keyword values
+        for key in list(kwargs.keys()):
+            if kwargs[key] is None:
+                kwargs.pop(key)
 
         # keyword arguments for creating the HeterodynedData objects
         self.datakwargs = kwargs.get('data_kwargs', {})
@@ -467,8 +453,6 @@ class KnopeRunner(object):
                     for det in list(self.hetdata.detectors):
                         if det not in detectors:
                             self.hetdata.pop(det)
-            else:
-                raise KeyError("Data files must be given")
 
         # set fake data
         detectors = None if resetdetectors else detectors
