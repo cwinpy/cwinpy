@@ -782,8 +782,6 @@ def knope(**kwargs):
 
     Parameters
     ----------
-    pulsar: str
-        The name of the pulsar being analysed.
     par_file: str
         The path to a TEMPO(2) style pulsar parameter file for the source.
     inj_par: str
