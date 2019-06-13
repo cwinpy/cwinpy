@@ -8,11 +8,10 @@ import ast
 import signal
 import numpy as np
 
-from cwinpy import __version__
+import cwinpy
 from ..data import (HeterodynedData,
                     MultiHeterodynedData)
 from ..likelihood import TargetedPulsarLikelihood
-from .._version import get_versions
 
 import bilby
 from bilby_pipe.bilbyargparser import BilbyArgParser
@@ -50,7 +49,7 @@ def create_parser():
     parser.add(
         "--version",
         action="version",
-        version="%(prog)s {version}".format(version=get_versions()['version']),
+        version="%(prog)s {version}".format(version=cwinpy.__version__),
     )
     parser.add(
         "--periodic-restart-time",
@@ -361,7 +360,7 @@ class KnopeRunner(object):
                     try:
                         # remove additional quotation marks from string
                         thisdet = ast.literal_eval(det)
-                    except ValueError:
+                    except (ValueError, SyntaxError):
                         thisdet = det
 
                     if isinstance(det, str):
@@ -383,7 +382,7 @@ class KnopeRunner(object):
                 if kw in kwargs:
                     try:
                         data2f = ast.literal_eval(kwargs[kw])
-                    except ValueError:
+                    except (ValueError, SyntaxError):
                         data2f = kwargs[kw]
                     break
 
@@ -475,7 +474,7 @@ class KnopeRunner(object):
                 if kw in kwargs:
                     try:
                         fakeasd2f = ast.literal_eval(kwargs[kw])
-                    except ValueError:
+                    except (ValueError, SyntaxError):
                         fakeasd2f = kwargs[kw]
                     if 'sigma' in kw:
                         issigma2f = True
@@ -487,7 +486,7 @@ class KnopeRunner(object):
                 if kw in kwargs:
                     try:
                         fakeasd1f = ast.literal_eval(kwargs[kw])
-                    except ValueError:
+                    except (ValueError, SyntaxError):
                         fakeasd1f = kwargs[kw]
                     if 'sigma' in kw:
                         issigma1f = True
@@ -496,19 +495,19 @@ class KnopeRunner(object):
             if isinstance(starts, str):
                 try:
                     starts = ast.literal_eval(starts)
-                except ValueError:
+                except (ValueError, SyntaxError):
                     pass
 
             if isinstance(ends, str):
                 try:
                     ends = ast.literal_eval(ends)
-                except ValueError:
+                except (ValueError, SyntaxError):
                     pass
 
             if isinstance(dts, str):
                 try:
                     dts = ast.literal_eval(dts)
-                except ValueError:
+                except (ValueError, SyntaxError):
                     pass
 
             if isinstance(starts, int):
@@ -925,5 +924,8 @@ def knope(**kwargs):
     # set up the run
     runner = KnopeRunner(dargs)
 
-    # run the sampler
-    runner.run_sampler()
+    # run the sampler (expect in testing)
+    if hasattr(cwinpy, '_called_from_test'):
+        return runner
+    else:    
+        runner.run_sampler()
