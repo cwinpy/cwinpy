@@ -343,7 +343,7 @@ class KnopeRunner(object):
             self.datakwargs['injtimes'] = ast.literal_eval(
                 self.datakwargs['injtimes']
             )
-        except ValueError:
+        except (ValueError, SyntaxError):
             pass
 
         if self.datakwargs['injtimes'] is not None:
@@ -390,7 +390,7 @@ class KnopeRunner(object):
             if 'data_file_1f' in kwargs:
                 try:
                     data1f = ast.literal_eval(kwargs['data_file_1f'])
-                except ValueError:
+                except (ValueError, SyntaxError):
                     data1f = kwargs['data_file_1f']
 
             if isinstance(data2f, str):
@@ -723,7 +723,7 @@ class KnopeRunner(object):
         if isinstance(self.sampler_kwargs, str):
             try:
                 self.sampler_kwargs = ast.literal_eval(self.sampler_kwargs)
-            except ValueError:
+            except (ValueError, SyntaxError):
                 raise ValueError("Unable to parser sampler keyword arguments")
         self.likelihoodtype = kwargs.get('likelihood', 'studentst')
         self.prior = kwargs.get('prior', None)

@@ -189,7 +189,7 @@ class TestKnope(object):
         # use the data_file_2f option instead
         t1kw4 = knope(
             par_file=self.parfile,
-            data_file=datafile,
+            data_file_2f=datafile,
             detector='H1',
             prior=self.priorbilby
         )
@@ -197,7 +197,7 @@ class TestKnope(object):
         # pass as keyword arguments (detector in data file string)
         t1kw5 = knope(
             par_file=self.parfile,
-            data_file='{}:{}'.format('H1', datafile),
+            data_file_2f='{}:{}'.format('H1', datafile),
             prior=self.priorbilby
         )
 
@@ -226,6 +226,7 @@ class TestKnope(object):
         # perform consistency checks
         for tv in [t1kw1, t1kw2, t1kw3, t1c1, t1kw4, t1kw5, t1kw6, t1c2]:
             assert len(tv.hetdata) == 1
+            assert tv.hetdata['H1'][0].par['F'][0] == self.f0
             assert tv.hetdata.detectors[0] == 'H1'
             assert tv.hetdata.freq_factors[0] == 2
             assert np.allclose(tv.hetdata['H1'][0].data.real, self.H1data[1][:, 1])
@@ -318,9 +319,61 @@ class TestKnope(object):
             for i, det, data in zip(range(2), ['H1', 'L1'], [self.H1data[1], self.L1data[1]]):
                 assert tv.hetdata.detectors[i] == det
                 assert tv.hetdata.freq_factors[0] == 2
+                assert tv.hetdata[det][0].par['F'][0] == self.f0
                 assert np.allclose(tv.hetdata[det][0].data.real, data[:, 1])
                 assert np.allclose(tv.hetdata[det][0].data.imag, data[:, 2])
                 assert np.allclose(tv.hetdata[det][0].times, self.times)
                 assert PriorDict(tv.prior) == self.priorbilby
+
+        # pass data at 1f
+        datafile = self.H1file[0]
+        t3kw1 = knope(
+            par_file=self.parfile,
+            data_file_1f=datafile,
+            detector='H1',
+            prior=self.priorbilby
+        )
+
+        # pass as keyword arguments (detector in data file string)
+        t3kw2 = knope(
+            par_file=self.parfile,
+            data_file_1f='{}:{}'.format('H1', datafile),
+            prior=self.priorbilby
+        )
+
+        # pass as keyword arguments (detector in data file dict)
+        t3kw3 = knope(
+            par_file=self.parfile,
+            data_file_1f={'H1': datafile},
+            prior=self.priorbilby
+        )
+
+        # pass as config file
+        config = (
+            "par-file = {}\n"
+            "data-file-1f = {}\n"
+            "prior = {}\n"
+            "detector = H1"
+        )
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                datafile,
+                self.priorfile)
+            )
+        t3c1 = knope(config=configfile)
+
+        # perform consistency checks
+        for tv in [t3kw1, t3kw2, t3kw3, t3c1]:
+            assert len(tv.hetdata) == 1
+            assert tv.hetdata.detectors[0] == 'H1'
+            assert tv.hetdata.freq_factors[0] == 1
+            assert tv.hetdata['H1'][0].par['F'][0] == self.f0
+            assert np.allclose(tv.hetdata['H1'][0].data.real, self.H1data[0][:, 1])
+            assert np.allclose(tv.hetdata['H1'][0].data.imag, self.H1data[0][:, 2])
+            assert np.allclose(tv.hetdata['H1'][0].times, self.times)
+            assert PriorDict(tv.prior) == self.priorbilby
+
+        # test with two detectors and two frequencies
 
         os.remove(configfile)
