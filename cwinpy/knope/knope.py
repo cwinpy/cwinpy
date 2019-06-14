@@ -417,7 +417,7 @@ class KnopeRunner(object):
 
                 if isinstance(data, list):
                     # pass through list and check strings
-                    for dfile in data:
+                    for i, dfile in enumerate(data):
                         detdata = dfile.split(':')  # split detector and path
 
                         if len(detdata) == 2:
@@ -429,7 +429,7 @@ class KnopeRunner(object):
                             thisdata = detdata[1]
                         elif len(detdata) == 1 and detectors is not None:
                             try:
-                                thisdet = detectors[0]
+                                thisdet = detectors[i]
                             except Exception as e:
                                 raise ValueError("Detectors is not a list")
                             thisdata = dfile
@@ -607,6 +607,7 @@ class KnopeRunner(object):
 
                 if isinstance(fakedata, list):
                     # parse through list
+                    detidx = 0
                     for fdata, start, end, dt, ftime in zip(fakedata, starts,
                                                             ends, dts, ftimes):
                         try:
@@ -670,7 +671,8 @@ class KnopeRunner(object):
                                 asdval = detfdata
 
                             try:
-                                thisdet = detectors[0]
+                                thisdet = detectors[detidx]
+                                detidx += 1
                             except Exception as e:
                                 raise ValueError("Detectors is not a list")
 

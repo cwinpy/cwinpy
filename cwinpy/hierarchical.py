@@ -1189,7 +1189,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         ----
 
         For distributions with hyperparameter priors that exclude zero this
-        will always given :math:`-\infty`.
+        will always given :math:`-\\infty`.
         """
 
         for p in self.parameters:
