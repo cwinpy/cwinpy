@@ -439,5 +439,32 @@ class TestKnope(object):
                 assert np.allclose(tv.hetdata[det][1].data.imag, data2f[:, 2])
                 assert np.allclose(tv.hetdata[det][1].times, self.times)
                 assert PriorDict(tv.prior) == self.priorbilby
+        os.remove(configfile)
+
+    def test_fake_data(self):
+        """
+        TODO: test the creation of fake data.
+        """
+
+        # pass as config file (with incompatible injection times)
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = H1\n"
+            "inj-times = 1"
+        )
+
+        configfile = 'config_test.ini'
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile)
+            )
+
+        with pytest.raises(TypeError):
+            knope(config=configfile)
 
         os.remove(configfile)

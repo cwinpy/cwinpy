@@ -115,7 +115,7 @@ def create_parser():
                    help=(
                        'The path to a data file for a given detector where '
                        'the data is explicitly given as being heterodyned at '
-                       'the source\'s rotation freqeuncy. The inputs should '
+                       'the source\'s rotation frequency. The inputs should '
                        'be in the same format as those given to the '
                        '"--data-file" flag.'
                     ),
