@@ -630,7 +630,7 @@ PHI0     2.4
     def test_plot(self):
         """
         Test plotting function (and at the same time test fake noise generaion)
-        (no testinf of injections yet as the code to find ephemeris files won't
+        (no testing of injections yet as the code to find ephemeris files won't
         work)
         """
 

@@ -1221,6 +1221,10 @@ class HeterodynedData(object):
         if isinstance(asd, str):
             import lalsimulation as lalsim
 
+            if self.par is None:
+                raise AttributeError("A source parameter file containing "
+                                     "a frequency is required")
+
             # check a frequency is available
             freqs = self.par['F']
             if freqs is None:
@@ -1278,10 +1282,6 @@ class HeterodynedData(object):
                 if detalias is None:
                     raise ValueError("Detector '{}' is not as known detector "
                                      "alias".format(asd))
-
-                if self.par is None:
-                    raise AttributeError("A source parameter file containing "
-                                         "a frequency is required")
 
                 freqs = self.par['F']
                 if freqs is None:
