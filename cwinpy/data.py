@@ -619,6 +619,10 @@ class HeterodynedData(object):
         the amplitude spectral density for that detector at design sensitivity
         will be used (this requires a `par` value to be included, which
         contains the source rotation frequency).
+    fakeseed: (int, class:`numpy.random.RandomState`), None
+        A seed for the random number generator used to create the fake data
+        (see :meth:`numpy.random.seed` and :class:`numpy.random.RandomState`
+        for more information).
     issigma: bool
         Set to ``True`` if the ``fakeasd`` value passed is actually a noise
         standard deviation value rather than an amplitude spectral density.
@@ -645,7 +649,7 @@ class HeterodynedData(object):
 
     def __init__(self, data=None, times=None, par=None, detector=None,
                  window=30, inject=False, injpar=None, injtimes=None,
-                 freqfactor=2.0, fakeasd=None, issigma=False,
+                 freqfactor=2.0, fakeasd=None, fakeseed=None, issigma=False,
                  bbthreshold="default", remove_outliers=False, thresh=3.5):
         self.window = window  # set the window size
         self.__bbthreshold = bbthreshold
@@ -666,7 +670,7 @@ class HeterodynedData(object):
 
         # add noise, or create data containing noise
         if fakeasd is not None:
-            self.add_noise(fakeasd, issigma=issigma)
+            self.add_noise(fakeasd, issigma=issigma, seed=fakeseed)
 
         # set and add a simulated signal
         self.injection = bool(inject)
@@ -1188,7 +1192,7 @@ class HeterodynedData(object):
 
         self.__freq_factor = float(freqfactor)
 
-    def add_noise(self, asd, issigma=False):
+    def add_noise(self, asd, issigma=False, seed=None):
         """
         Add white Gaussian noise to the data based on a supplied one-sided
         noise amplitude spectral density (in 1/sqrt(Hz)).
@@ -1208,6 +1212,10 @@ class HeterodynedData(object):
             If `issigma` is ``True`` then the value passed to `asd` is assumed
             to be a dimensionless time domain standard deviation for the noise
             level rather than an amplitude spectral density.
+        seed: (int, :class:`numpy.random.RandomState`), None
+            A seed for the random number generator used to create the fake data
+            (see :meth:`numpy.random.seed` and :class:`numpy.random.RandomState`
+            for more information).
         """
 
         if isinstance(asd, str):
@@ -1302,9 +1310,15 @@ class HeterodynedData(object):
             raise TypeError("ASD must be a float or a string with a detector "
                             "name.")
 
+        # set noise seed
+        if isinstance(seed, np.random.RandomState):
+            rstate = seed
+        else:
+            rstate = np.random.RandomState(seed)
+
         # get noise for real and imaginary components
-        noise = np.random.normal(loc=0., scale=sigmaval,
-                                 size=(len(self), 2))
+        noise = rstate.normal(loc=0., scale=sigmaval,
+                              size=(len(self), 2))
 
         # add the noise to the data
         self.__data.real += noise[:, 0]
