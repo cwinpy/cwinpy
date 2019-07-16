@@ -627,6 +627,66 @@ PHI0     2.4
 
         assert freqs[np.argmax(power)] == 0.
 
+    def test_simulated_data(self):
+        """
+        Test that simulated data is produced as expected.
+        """
+
+        times = np.linspace(1000000000., 1000086340., 1440)
+
+        # use invalid random seed
+        with pytest.raises(ValueError):
+            het1 = HeterodynedData(times=times, fakeasd=1e-24, detector='H1',
+                                   fakeseed=-1)
+
+        # create data using the same random seed and check it is identical
+        het1 = HeterodynedData(times=times, fakeasd=1e-24, detector='H1',
+                               fakeseed=16273)
+        het2 = HeterodynedData(times=times, fakeasd=1e-24, detector='H1',
+                               fakeseed=16273)
+
+        assert np.array_equal(het1.data, het2.data)
+
+        # create data using a different seed and check it is not the same
+        het3 = HeterodynedData(times=times, fakeasd=1e-24, detector='H1',
+                               fakeseed=788532)
+
+        assert not np.array_equal(het1.data, het3.data)
+
+        del het1
+        del het2
+        del het3
+
+        # do the same tests using a numpy RandomSeed
+        seed1 = np.random.RandomState(875329)
+        het1 = HeterodynedData(times=times, fakeasd=1e-24, detector='H1',
+                               fakeseed=seed1)
+        seed2 = np.random.RandomState(875329)
+        het2 = HeterodynedData(times=times, fakeasd=1e-24, detector='H1',
+                               fakeseed=seed2)
+
+        assert np.array_equal(het1.data, het2.data)
+
+        # check that passing the same RandomState again produces different data
+        het3 = HeterodynedData(times=times, fakeasd=1e-24, detector='H1',
+                               fakeseed=seed1)
+
+        assert not np.array_equal(het1.data, het3.data)
+
+        del het1
+        del het2
+        del het3
+
+        # check that using issigma returns data with the expected standard
+        # deviation
+        sigma = 1e-25
+
+        het1 = HeterodynedData(times=times, fakeasd=sigma, detector='H1',
+                               issigma=True)
+
+        assert ((0.9 * sigma < np.std(het1.data.real) < 1.1 * sigma) and
+                (0.9 * sigma < np.std(het1.data.imag) < 1.1 * sigma))
+
     def test_plot(self):
         """
         Test plotting function (and at the same time test fake noise generaion)
