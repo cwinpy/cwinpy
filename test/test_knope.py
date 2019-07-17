@@ -443,7 +443,7 @@ class TestKnope(object):
 
     def test_fake_data(self):
         """
-        TODO: test the creation of fake data.
+        TODO: test the creation of fake data using knope.
         """
 
         # pass as config file (with incompatible injection times)
@@ -467,6 +467,305 @@ class TestKnope(object):
         with pytest.raises(TypeError):
             knope(config=configfile)
 
-        # create injection 
+        # create fake data in one detector with no signal
+        # First test error for an inconsistent number of start times
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = H1\n"
+            "fake-start = [1000000000, 1000000000]\n"
+            "fake-end = 1000086400\n"
+            "fake-dt = 60\n"
+            "fake-asd = 1e-24"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile)
+            )
+
+        with pytest.raises(ValueError):
+            knope(config=configfile)
+
+        # Test inconsistent detector and start time
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = H1\n"
+            "fake-start = L1:1000000000\n"
+            "fake-end = 1000086400\n"
+            "fake-dt = 60\n"
+            "fake-asd = 1e-24"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile)
+            )
+
+        with pytest.raises(ValueError):
+            knope(config=configfile)
+
+        # Test inconsistent detector and end time
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = H1\n"
+            "fake-start = 1000000000\n"
+            "fake-end = L1:1000086400\n"
+            "fake-dt = 60\n"
+            "fake-asd = 1e-24"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile)
+            )
+
+        with pytest.raises(ValueError):
+            knope(config=configfile)
+
+        # Test inconsistent detector and time step
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = H1\n"
+            "fake-start = 1000000000\n"
+            "fake-end = 1000086400\n"
+            "fake-dt = L1:60\n"
+            "fake-asd = 1e-24"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile)
+            )
+
+        with pytest.raises(ValueError):
+            knope(config=configfile)
+
+        # Test seeded data is the same when called two different ways
+        seed = 178203
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = H1\n"
+            "fake-asd = 1e-24\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile,
+                seed)
+            )
+
+        fd1 = knope(config=configfile)
+
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "fake-asd = H1:1e-24\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile,
+                seed)
+            )
+
+        fd2 = knope(config=configfile)
+
+        assert ((fd1.hetdata.detectors == ['H1']) and
+                (fd2.hetdata.detectors == ['H1']))
+        assert np.array_equal(fd1.hetdata['H1'][0].times,
+                              np.arange(1000000000, 1000086400, 60))
+        assert np.array_equal(fd1.hetdata['H1'][0].data,
+                              fd2.hetdata['H1'][0].data)
+        assert len(fd1.hetdata.freq_factors) == 1
+        assert fd1.hetdata.freq_factors[0] == 2
+        assert fd2.hetdata.freq_factors[0] == 2
+
+        # Check that using fake-asd and fake-asd-2f are equivalent
+        fd3 = knope(par_file=self.parfile,
+                    prior=self.priorfile,
+                    fake_asd_2f={'H1': 1e-24},
+                    fake_seed=seed)
+
+        assert ((fd1.hetdata.detectors == ['H1']) and
+                (fd3.hetdata.detectors == ['H1']))
+        assert np.array_equal(fd3.hetdata['H1'][0].times,
+                              np.arange(1000000000, 1000086400, 60))
+        assert np.array_equal(fd1.hetdata['H1'][0].data,
+                              fd3.hetdata['H1'][0].data)
+        assert fd1.hetdata.freq_factors == fd3.hetdata.freq_factors
+
+        del fd1
+        del fd2
+        del fd3
+
+        # Test creating fake noise for one detector at 1f and 2f
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = H1\n"
+            "fake-asd-1f = 1e-24\n"
+            "fake-asd-2f = 2e-24\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile,
+                seed)
+            )
+
+        fd1 = knope(config=configfile)
+
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "fake-asd-1f = H1:1e-24\n"
+            "fake-asd-2f = H1:2e-24\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile,
+                seed)
+            )
+
+        fd2 = knope(config=configfile)
+
+        assert ((fd1.hetdata.detectors == ['H1']) and
+                (fd2.hetdata.detectors == ['H1']))
+        assert len(fd1.hetdata['H1']) == 2 and len(fd2.hetdata['H1']) == 2
+        assert np.array_equal(fd1.hetdata['H1'][0].times,
+                              np.arange(1000000000, 1000086400, 60))
+        assert np.array_equal(fd1.hetdata['H1'][0].times,
+                              fd1.hetdata['H1'][1].times)
+        assert np.array_equal(fd2.hetdata['H1'][0].times,
+                              fd1.hetdata['H1'][0].times)
+        assert np.array_equal(fd2.hetdata['H1'][0].times,
+                              fd2.hetdata['H1'][1].times)
+        assert np.array_equal(fd1.hetdata['H1'][0].data,
+                              fd2.hetdata['H1'][0].data)
+        assert np.array_equal(fd1.hetdata['H1'][1].data,
+                              fd2.hetdata['H1'][1].data)
+        assert len(fd1.hetdata.freq_factors) == 2
+        assert sorted(fd1.hetdata.freq_factors) == [1, 2]
+        assert sorted(fd2.hetdata.freq_factors) == [1, 2]
+
+        del fd1
+        del fd2
+
+        # Test creating fake noise for two detectors
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = [H1, L1]\n"
+            "fake-asd = [1e-24, 2e-24]\n"
+            "fake-start = [1000000000, 1000000100]\n"
+            "fake-end = [1000086400, 1000086500]\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile,
+                seed)
+            )
+
+        fd1 = knope(config=configfile)
+
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "fake-asd = [H1:1e-24, L1:2e-24]\n"
+            "fake-start = [H1:1000000000, L1:1000000100]\n"
+            "fake-end = [H1:1000086400, L1:1000086500]\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile,
+                seed)
+            )
+
+        fd2 = knope(config=configfile)
+
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "fake-asd = [H1:1e-24, L1:2e-24]\n"
+            "fake-start = [H1:1000000000, L1:1000000100]\n"
+            "fake-end = [H1:1000086400, L1:1000086500]"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile)
+            )
+
+        fd3 = knope(config=configfile)
+
+        assert ((len(fd1.hetdata.detectors) == 2) and
+                (len(fd2.hetdata.detectors) == 2) and
+                (len(fd3.hetdata.detectors) == 2))
+        assert fd1.hetdata.detectors == fd2.hetdata.detectors
+        assert fd3.hetdata.detectors == fd1.hetdata.detectors
+        assert 'L1' in fd1.hetdata.detectors and 'H1' in fd1.hetdata.detectors
+        assert np.array_equal(fd1.hetdata['H1'][0].times,
+                              np.arange(1000000000, 1000086400, 60))
+        assert np.array_equal(fd1.hetdata['H1'][0].times,
+                              fd2.hetdata['H1'][0].times)
+        assert np.array_equal(fd1.hetdata['L1'][0].times,
+                              np.arange(1000000100, 1000086500, 60))
+        assert np.array_equal(fd1.hetdata['L1'][0].times,
+                              fd2.hetdata['L1'][0].times)
+        assert np.array_equal(fd1.hetdata['H1'][0].data,
+                              fd2.hetdata['H1'][0].data)
+        assert np.array_equal(fd1.hetdata['L1'][0].data,
+                              fd2.hetdata['L1'][0].data)
+        assert not np.array_equal(fd1.hetdata['H1'][0].data,
+                                  fd3.hetdata['H1'][0].data)
+        assert not np.array_equal(fd1.hetdata['L1'][0].data,
+                                  fd3.hetdata['L1'][0].data)
 
         os.remove(configfile)

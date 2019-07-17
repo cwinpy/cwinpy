@@ -678,14 +678,25 @@ PHI0     2.4
         del het3
 
         # check that using issigma returns data with the expected standard
-        # deviation
+        # deviation and mean
         sigma = 1e-25
+        svar = sigma**2
 
         het1 = HeterodynedData(times=times, fakeasd=sigma, detector='H1',
                                issigma=True)
 
-        assert ((0.9 * sigma < np.std(het1.data.real) < 1.1 * sigma) and
-                (0.9 * sigma < np.std(het1.data.imag) < 1.1 * sigma))
+        # standard error on the variance
+        sevar = np.sqrt(2. * sigma**4 / (len(het1.data) -  1.))
+
+        # check variance is within +/- 3.5 sigma
+        assert ((svar - 3.5 * sevar < np.var(het1.data.real) < svar + 3.5 * sevar) and
+                (svar - 3.5 * sevar < np.var(het1.data.imag) < svar + 3.5 * sevar))
+
+        # standard error of the mean
+        semean = sigma / np.sqrt(len(het1.data))
+
+        assert ((-3.5 * semean < np.mean(het1.data.real) < 3.5 * semean) and
+                (-3.5 * semean < np.mean(het1.data.imag) < 3.5 * semean))
 
     def test_plot(self):
         """

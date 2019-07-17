@@ -217,32 +217,35 @@ def create_parser():
     )
     simparser.add('--fake-start',
                   action='append',
-                  default=10000000000,
                   help=(
                       'The GPS start time for generating simulated noise '
                       'data. This be added for each detector in the same way '
                       'as used in the "--fake-asd" command (default: '
-                      '%(default)s).'
+                      '1000000000).'
                   ),
     )
     simparser.add('--fake-end',
                   action='append',
-                  default=1000086400,
                   help=(
                       'The GPS end time for generating simulated noise data. '
                       'This be added for each detector in the same way as '
                       'used in the "--fake-asd" command (default: '
-                      '%(default)s)'
+                      '1000086400)'
                   ),
     )
     simparser.add('--fake-dt',
                   action='append',
-                  default=60,
                   help=(
                       'The time step for generating simulated noise data. '
                       'This be added for each detector in the same way as '
-                      'used in the "--fake-asd" command (default: '
-                      '%(default)s)'
+                      'used in the "--fake-asd" command (default: 60)'
+                  ),
+    )
+    simparser.add('--fake-seed',
+                  type=int,
+                  help=(
+                      'A positive integer random number generator seed used '
+                      'when generating the simulated data noise.'
                   ),
     )
 
@@ -466,6 +469,7 @@ class KnopeRunner(object):
             ends = kwargs.get('fake_end', 1000086400)      # default end time
             dts = kwargs.get('fake_dt', 60)                # default time step
             ftimes = kwargs.get('fake_times', None)        # time array(s)
+            fseed = kwargs.get('fake_seed', None)          # data seed
 
             fakeasd2f = []
             issigma2f = False
@@ -549,11 +553,17 @@ class KnopeRunner(object):
                 else:
                     fakeasd1f = len(detectors) * [fakeasd1f]
 
+            # set random seed
+            rstate = None
+            if fseed is not None:
+                rstate = np.random.RandomState(fseed)
+
             for freq, fakedata, issigma in zip([1., 2.],
                                                [fakeasd1f, fakeasd2f],
                                                [issigma1f, issigma2f]):
                 self.datakwargs['freqfactor'] = freq
                 self.datakwargs['issigma'] = issigma
+                self.datakwargs['fakeseed'] = rstate
 
                 if isinstance(fakedata, dict):
                     # make into a list
@@ -598,12 +608,25 @@ class KnopeRunner(object):
                     else:
                         ftimes = list(ftimes.values())
 
-                if (len(fakedata) != len(starts) or
-                        len(fakedata) != len(ends) or
-                        len(fakedata) != len(dts) or
-                        len(fakedata) != len(ftimes)):
-                    raise ValueError("Fake data values and times are not "
-                                     "consistent")
+                if len(fakedata) > 0:
+                    if len(starts) == 1 and len(fakedata) > 1:
+                        starts = len(fakedata) * starts
+
+                    if len(ends) == 1 and len(fakedata) > 1:
+                        ends = len(fakedata) * ends
+
+                    if len(dts) == 1 and len(fakedata) > 1:
+                        dts = len(fakedata) * dts
+
+                    if len(ftimes) == 1 and len(fakedata) > 1:
+                        ftimes = len(fakedata) * ftimes
+
+                    if (len(fakedata) != len(starts) or
+                            len(fakedata) != len(ends) or
+                            len(fakedata) != len(dts) or
+                            len(fakedata) != len(ftimes)):
+                        raise ValueError("Fake data values and times are not "
+                                         "consistent")
 
                 if isinstance(fakedata, list):
                     # parse through list
@@ -613,7 +636,7 @@ class KnopeRunner(object):
                         try:
                             # make sure value is a string so it can be "split"
                             detfdata = str(fdata).split(':')
-                        except Exception as a:
+                        except Exception as e:
                                 raise TypeError("Fake time value is the wrong "
                                                 "type: {}".format(e))
  
@@ -624,7 +647,7 @@ class KnopeRunner(object):
                                 detstart = str(start).split(':')
                                 detend = str(end).split(':')
                                 detdt = str(dt).split(':')
-                            except Exception as a:
+                            except Exception as e:
                                 raise TypeError("Fake time value is the wrong "
                                                 "type: {}".format(e))
 
@@ -666,9 +689,9 @@ class KnopeRunner(object):
                                                   int(detdt[-1]))
                         elif len(detfdata) == 1 and detectors is not None:
                             try:
-                                asdval = float(detfdata)
+                                asdval = float(detfdata[-1])
                             except ValueError:
-                                asdval = detfdata
+                                asdval = detfdata[-1]
 
                             try:
                                 thisdet = detectors[detidx]
@@ -863,6 +886,8 @@ def knope(**kwargs):
         Instead of passing start times, end times and time steps for the fake
         data generation, an array of GPS times (or a dictionary of arrays keyed
         to the detector) can be passed instead.
+    fake_seed: int, :class:`numpy.random.RandomState`
+        A seed for random number generation for the creation of fake data.
     data_kwargs: dict
         A dictionary of keyword arguments to pass to the
         :class:`cwinpy.data.HeterodynedData` objects.
