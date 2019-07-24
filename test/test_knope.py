@@ -76,6 +76,51 @@ class TestKnope(object):
         with open(cls.parfile, 'w') as fp:
             fp.write(parcontent.format(cls.f0))
 
+        # create a pulsar parameter file containing GW signal parameters
+        # (for comparison with lalapps_pulsar_parameter_estimation_nested)
+        parcontent = (
+            "PSRJ     J0341-1253\n"
+            "F0       {}\n"
+            "F1       6.5e-12\n"
+            "RAJ      03:41:00.0\n"
+            "DECJ     -12:53:00.0\n"
+            "PEPOCH   56789\n"
+            "C21      6.2e-24\n"
+            "C22      3.4e-25\n"
+            "PHI21    0.4\n"
+            "PHI22    1.3\n"
+            "PSI      1.1\n"
+            "IOTA     0.9\n"
+            "UNITS    TCB"
+        )
+
+        cls.parfilesig = 'knope_test_sig.par'
+        with open(cls.parfilesig, 'w') as fp:
+            fp.write(parcontent.format(cls.f0))
+
+        # set data pre-produced using lalapps_pulsar_parameter_estimation_nested
+        # with the same parameter file
+        cls.sigH11f = np.loadtxt(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         'data',
+                         'inj_test.txt_H1_1.0_signal_only')
+        )
+        cls.sigL11f = np.loadtxt(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         'data',
+                         'inj_test.txt_L1_1.0_signal_only')
+        )
+        cls.sigH12f = np.loadtxt(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         'data',
+                         'inj_test.txt_H1_2.0_signal_only')
+        )
+        cls.sigL12f = np.loadtxt(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         'data',
+                         'inj_test.txt_L1_2.0_signal_only')
+        )
+
         # create a prior file
         cls.priorfile = 'knope_test.prior'
         cls.priormin = 0.
@@ -96,6 +141,7 @@ class TestKnope(object):
         for dfile in cls.H1file + cls.L1file:
             os.remove(dfile)
         os.remove(cls.parfile)
+        os.remove(cls.parfilesig)
         os.remove(cls.priorfile)
 
     def test_knope_runner_input(self):
@@ -441,9 +487,9 @@ class TestKnope(object):
                 assert PriorDict(tv.prior) == self.priorbilby
         os.remove(configfile)
 
-    def test_fake_data(self):
+    def test_fake_data_exceptions(self):
         """
-        TODO: test the creation of fake data using knope.
+        Test the exceptions when creating fake data using knope.
         """
 
         # pass as config file (with incompatible injection times)
@@ -556,7 +602,15 @@ class TestKnope(object):
         with pytest.raises(ValueError):
             knope(config=configfile)
 
+        os.remove(configfile)
+
+    def test_fake_data_1det_1harm(self):
+        """
+        Test generation of fake data for one detector and one harmonic.
+        """
+
         # Test seeded data is the same when called two different ways
+        configfile = 'config_test.ini'
         seed = 178203
         config = (
             "par-file = {}\n"
@@ -623,6 +677,16 @@ class TestKnope(object):
         del fd2
         del fd3
 
+        os.remove(configfile)
+
+    def test_fake_data_1det_2harm(self):
+        """
+        Test generation of fake data for one detector and two harmonics.
+        """
+
+        configfile = 'config_test.ini'
+        seed = 178203
+
         # Test creating fake noise for one detector at 1f and 2f
         config = (
             "par-file = {}\n"
@@ -684,6 +748,16 @@ class TestKnope(object):
 
         del fd1
         del fd2
+
+        os.remove(configfile)
+
+    def test_fake_data_2det_1harm(self):
+        """
+        Test generation of fake data for two detectors and one harmonic.
+        """
+
+        configfile = 'config_test.ini'
+        seed = 178203
 
         # Test creating fake noise for two detectors
         config = (
@@ -767,5 +841,121 @@ class TestKnope(object):
                                   fd3.hetdata['H1'][0].data)
         assert not np.array_equal(fd1.hetdata['L1'][0].data,
                                   fd3.hetdata['L1'][0].data)
+
+        os.remove(configfile)
+
+    def test_fake_data_2det_2harm(self):
+        """
+        Test generation of fake data for two detectors and two harmonics.
+        """
+
+        configfile = 'config_test.ini'
+        seed = 178203
+
+        # Test creating fake noise for two detectors at 1f and 2f
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = [H1, L1]\n"
+            "fake-asd-1f = [1e-24, 2e-24]\n"
+            "fake-asd-2f = [2e-24, 4e-24]\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile,
+                seed)
+            )
+
+        fd1 = knope(config=configfile)
+
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "fake-asd-1f = [H1:1e-24, L1:2e-24]\n"
+            "fake-asd-2f = [H1:2e-24, L1:4e-24]\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfile,
+                self.parfile,
+                self.priorfile,
+                seed)
+            )
+
+        fd2 = knope(config=configfile)
+
+        assert ((len(fd1.hetdata.detectors) == 2) and
+                (len(fd2.hetdata.detectors) == 2))
+        assert fd1.hetdata.detectors == fd2.hetdata.detectors
+        assert 'L1' in fd1.hetdata.detectors and 'H1' in fd1.hetdata.detectors
+        assert np.array_equal(fd1.hetdata['H1'][0].times,
+                              np.arange(1000000000, 1000086400, 60))
+        assert np.array_equal(fd1.hetdata['H1'][0].times,
+                              fd2.hetdata['H1'][0].times)
+        assert np.array_equal(fd1.hetdata['H1'][0].times,
+                              fd1.hetdata['H1'][1].times)
+        assert np.array_equal(fd1.hetdata['L1'][0].times,
+                              fd2.hetdata['L1'][0].times)
+        assert np.array_equal(fd1.hetdata['L1'][0].times,
+                              fd1.hetdata['L1'][1].times)
+        assert np.array_equal(fd1.hetdata['H1'][0].data,
+                              fd2.hetdata['H1'][0].data)
+        assert np.array_equal(fd1.hetdata['H1'][1].data,
+                              fd2.hetdata['H1'][1].data)
+        assert np.array_equal(fd1.hetdata['L1'][0].data,
+                              fd2.hetdata['L1'][0].data)
+        assert np.array_equal(fd1.hetdata['L1'][1].data,
+                              fd2.hetdata['L1'][1].data)
+        assert len(fd1.hetdata.freq_factors) == 4
+        assert fd1.hetdata.freq_factors == [1, 2, 1, 2]
+        assert fd2.hetdata.freq_factors == [1, 2, 1, 2]
+
+        os.remove(configfile)
+
+    def test_fake_signal_2det_2harm(self):
+        """
+        Test generation of fake signal for two detectors and two harmonics.
+        """
+
+        configfile = 'config_test.ini'
+
+        # Test creating an injected signal for two detectors at 1f and 2f
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = [H1, L1]\n"
+            "fake-asd-1f = [1e-24, 2e-24]\n"
+            "fake-asd-2f = [2e-24, 4e-24]\n"
+            "fake-start = [1000000000, 1000100000]\n"
+            "fake-dt = [1800, 1800]"
+        )
+
+        with open(configfile, 'w') as fp:
+            fp.write(config.format(
+                self.parfilesig,
+                self.parfilesig,
+                self.priorfile)
+            )
+
+        fd1 = knope(config=configfile)
+
+        assert len(fd1.hetdata.detectors) == 2
+        assert 'L1' in fd1.hetdata.detectors and 'H1' in fd1.hetdata.detectors
+        assert np.array_equal(fd1.hetdata['H1'][0].times, self.sigH11f[:,0])
+        assert np.array_equal(fd1.hetdata['H1'][1].times, self.sigH12f[:,0])
+        assert np.array_equal(fd1.hetdata['L1'][0].times, self.sigL11f[:,0])
+        assert np.array_equal(fd1.hetdata['L1'][1].times, self.sigL12f[:,0])
+        assert np.allclose(fd1.hetdata['H1'][0].injection_data,
+                           self.sigH11f[:,1] + 1j * self.sigH11f[:,2],
+                           atol=0.)
 
         os.remove(configfile)
