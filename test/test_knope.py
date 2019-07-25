@@ -936,6 +936,7 @@ class TestKnope(object):
             "fake-asd-1f = [1e-24, 2e-24]\n"
             "fake-asd-2f = [2e-24, 4e-24]\n"
             "fake-start = [1000000000, 1000100000]\n"
+            "fake-end = [1000086400, 1000186400]\n"
             "fake-dt = [1800, 1800]"
         )
 
@@ -956,6 +957,15 @@ class TestKnope(object):
         assert np.array_equal(fd1.hetdata['L1'][1].times, self.sigL12f[:,0])
         assert np.allclose(fd1.hetdata['H1'][0].injection_data,
                            self.sigH11f[:,1] + 1j * self.sigH11f[:,2],
+                           atol=0.)
+        assert np.allclose(fd1.hetdata['H1'][1].injection_data,
+                           self.sigH12f[:,1] + 1j * self.sigH12f[:,2],
+                           atol=0.)
+        assert np.allclose(fd1.hetdata['L1'][0].injection_data,
+                           self.sigL11f[:,1] + 1j * self.sigL11f[:,2],
+                           atol=0.)
+        assert np.allclose(fd1.hetdata['L1'][1].injection_data,
+                           self.sigL12f[:,1] + 1j * self.sigL12f[:,2],
                            atol=0.)
 
         os.remove(configfile)
