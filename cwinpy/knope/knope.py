@@ -290,6 +290,23 @@ def create_parser():
             'be estimated and their prior probability distributions.'
         ),
     )
+    samplerparser.add(
+        '--grid',
+        action='store_true',
+        default=False,
+        help=(
+            'Set this flag to evaluate the posterior over a grid rather than '
+            'using a stochastic sampling method.'
+        )
+    )
+    samplerparser.add(
+        '--grid-kwargs',
+        help=(
+            'The keyword arguments for running the posterior evaluation over '
+            'a grid. This should be a the format of a standard Python '
+            'dictionary.'
+        )
+    )
 
     return parser
     
@@ -747,10 +764,17 @@ class KnopeRunner(object):
             try:
                 self.sampler_kwargs = ast.literal_eval(self.sampler_kwargs)
             except (ValueError, SyntaxError):
-                raise ValueError("Unable to parser sampler keyword arguments")
+                raise ValueError("Unable to parse sampler keyword arguments")
+        self.use_grid = kwargs.get('grid', False)
+        self.grid_kwargs = kwargs.get('grid_kwargs', {})
+        if isinstance(self.grid_kwargs, str):
+            try:
+                self.grid_kwargs = ast.literal_eval(self.grid_kwargs)
+            except (ValueError, SyntaxError):
+                raise ValueError("Unable to parse grid keyword arguments")
         self.likelihoodtype = kwargs.get('likelihood', 'studentst')
         self.prior = kwargs.get('prior', None)
-        if not isinstance(self.prior, (str, bilby.core.prior.PriorDict)):
+        if not isinstance(self.prior, (str, dict, bilby.core.prior.PriorDict)):
             raise ValueError('The prior is not defined')
 
         # output parameters
@@ -797,6 +821,23 @@ class KnopeRunner(object):
         )
 
         return self.result
+
+    def run_grid(self):
+        """
+        Run the sampling over a grid in parameter space.
+
+        Returns
+        -------
+        grid
+            A bilby Grid object.
+        """
+
+        self.grid = bilby.core.grid.Grid(
+            likelihood=self.likelihood,
+            priors=self.prior,
+            **self.grid_kwargs)
+
+        return self.grid
 
 
 def knope(**kwargs):
@@ -899,6 +940,10 @@ def knope(**kwargs):
     sampler_kwargs: dict
         A dictionary of keyword arguments to be used by the given sampler
         method.
+    grid: bool
+        If True then the posterior will be evaluated on a grid.
+    grid_kwargs: dict
+        A dictionary of keyword arguments to be used by the grid sampler.
     outdir: str
         The output directory for the results.
     label: str
@@ -952,7 +997,10 @@ def knope(**kwargs):
     runner = KnopeRunner(dargs)
 
     # run the sampler (expect in testing)
-    if hasattr(cwinpy, '_called_from_test'):
+    if runner.use_grid:
+        runner.run_grid()
+        return runner
+    elif hasattr(cwinpy, '_called_from_test'):
         return runner
     else:    
         runner.run_sampler()
