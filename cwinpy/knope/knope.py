@@ -776,6 +776,8 @@ class KnopeRunner(object):
         self.prior = kwargs.get('prior', None)
         if not isinstance(self.prior, (str, dict, bilby.core.prior.PriorDict)):
             raise ValueError('The prior is not defined')
+        else:
+            self.prior = bilby.core.prior.PriorDict(self.prior)
 
         # output parameters
         if 'outdir' in kwargs:
@@ -794,7 +796,7 @@ class KnopeRunner(object):
 
         self.likelihood = TargetedPulsarLikelihood(
             data=self.hetdata,
-            priors=bilby.core.prior.PriorDict(self.prior),
+            priors=self.prior,
             likelihood=self.likelihoodtype
         )
 
@@ -815,7 +817,7 @@ class KnopeRunner(object):
 
         self.result = bilby.run_sampler(
             sampler=self.sampler,
-            prior=self.prior,
+            priors=self.prior,
             likelihood=self.likelihood,
             **self.sampler_kwargs
         )
@@ -1000,7 +1002,7 @@ def knope(**kwargs):
     if runner.use_grid:
         runner.run_grid()
         return runner
-    elif hasattr(cwinpy, '_called_from_test'):
-        return runner
-    else:    
+    elif not hasattr(cwinpy, '_called_from_test'):    
         runner.run_sampler()
+
+    return runner
