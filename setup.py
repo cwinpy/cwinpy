@@ -38,7 +38,7 @@ setup(
         readfile(os.path.join(os.path.dirname(__file__), "requirements.txt")),
     entry_points={
         "console_scripts": [
-            "cwinpy_knope=cwinpy.knope.knope:knope",
+            "cwinpy_knope=cwinpy.knope.knope:knope_cli",
         ]
     },
     classifiers=["Programming Language :: Python :: 3.7"],

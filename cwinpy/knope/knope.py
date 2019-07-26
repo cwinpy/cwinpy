@@ -270,7 +270,8 @@ def create_parser():
         '--sampler-kwargs',
         help=(
             'The keyword arguments for running the sampler. This should be in '
-            'the format of a standard Python dictionary.'
+            'the format of a standard Python dictionary and must be given '
+            'within quotation marks, e.g., "{\'Nlive\':1000}".'
         ),
     )
     samplerparser.add(
@@ -304,7 +305,8 @@ def create_parser():
         help=(
             'The keyword arguments for running the posterior evaluation over '
             'a grid. This should be a the format of a standard Python '
-            'dictionary.'
+            'dictionary, and must be given within quotation marks, '
+            'e.g., "{\'grid_size\':100}".'
         )
     )
 
@@ -844,8 +846,7 @@ class KnopeRunner(object):
 
 def knope(**kwargs):
     """
-    Entry point to cwinpy_knope script, or for running an analysis directly
-    from Python.
+    Run knope within Python.
 
     Parameters
     ----------
@@ -1001,8 +1002,16 @@ def knope(**kwargs):
     # run the sampler (expect in testing)
     if runner.use_grid:
         runner.run_grid()
-        return runner
     elif not hasattr(cwinpy, '_called_from_test'):    
         runner.run_sampler()
 
     return runner
+
+
+def knope_cli(**kwargs):
+    """
+    Entry point to cwinpy_knope script. This just calls `knope`, but does not
+    return any objects.
+    """
+
+    run = knope(**kwargs)

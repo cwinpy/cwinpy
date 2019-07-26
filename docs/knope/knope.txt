@@ -2,13 +2,13 @@
 Known pulsar parameter estimation
 #################################
 
-cwinpy can be used for perform Bayesian inference to estimate the source
-parameters of a known pulsar from gravitational-wave observations. To sample
-from the joint parameter posterior distributions cwinpy uses the
+``cwinpy`` can be used for perform Bayesian inference on gravitational-wave data
+to estimate the gravitational-wave signal parameters for emission from a known pulsar.
+To sample from the joint parameter posterior distributions ``cwinpy`` uses the
 `bilby <https://lscsoft.docs.ligo.org/bilby/>`_ package as an interface to a
 variety of stochastic sampling methods.
 
-cwinpy comes with an executable, ``cwinpy_knope``
+``cwinpy`` comes with an executable, ``cwinpy_knope``
 ("knope" = "\ **KNO**\ wn pulsar **P**\ arameter **E**\ stimation"), for performing
 this analysis, which tries to emulate, as much as possible, the functionality
 from the `LALSuite <https://lscsoft.docs.ligo.org/lalsuite/>`_ code
@@ -22,7 +22,7 @@ Running the analysis
 
 The script, and :ref:`API`, can be used to perform parameter estimation over
 a variety of signal parameter both on real data or simulated data. We will
-cover some examples in both cases and show equivalent ways of running the
+cover some examples of both cases and show equivalent ways of running the
 analysis via the use of: command line arguments to the ``cwinpy_knope`` script;
 a configuration files, or the :ref:`API`. The current command line arguments
 for ``cwinpy_knope`` are given :ref:`below<Command line arguments>`.
@@ -83,7 +83,7 @@ is emitting at twice the rotational frequency.
 With the data at hand, and the priors defined, the analysis can now be run. It is
 recommended to run by setting up a configuration file, although as mentioned
 equivalent command line arguments can be passed to ``cwinpy_knope``. A configuration
-file this example is shown below, with comments describing the parameters inline:
+file for this example is shown below, with comments describing the parameters inline:
 
 .. literalinclude:: data/example1_config.ini
 
@@ -92,6 +92,26 @@ The analysis can then be run using:
 .. code-block:: bash
 
    cwinpy_knope --config example1_config.ini
+
+which should only take a few minutes. This will create a directory called ``example1``
+containing: the results as a bilby ``Results`` object saved in a
+`JSON <https://www.json.org/>`_ format file called ``example1_result.json`` (see
+`here <https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_
+for information on reading this information within Python); and, by default, a
+"`corner <https://corner.readthedocs.io/en/latest/>`_ plot" in the file
+``example1_corner.png`` showing 1D and 2D marginalised posterior probability
+distributions for each parameter, and pair of parameters.
+
+Rather than using the configuration file, all the arguments could be given on the
+command line (although using the configuration file is *highly* recommended), with
+the following:
+
+.. code-block:: bash
+
+   cwinpy_knope --detector H1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --outdir example1 --label example1 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example1_prior.txt
+
+where it should be noted that the ``--sampler-kwargs`` dictionary argument much be
+given within quotation marks.
 
 Command line arguments
 ----------------------
