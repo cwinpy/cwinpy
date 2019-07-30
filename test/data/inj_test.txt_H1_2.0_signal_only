@@ -1,5 +1,5 @@
 # This file has been created using lalapps_pulsar_parameter_estimation_nested with the commands:
-# lalapps_pulsar_parameter_estimation_nested --inject-file test.par --inject-output inj_test.txt --inject-only --fake-data H1,L1 --harmonics 1,2 --fake-starts 1000000000,1000000000,1000000000,1000000000 --fake-dt 1800,1800,1800,1800 --par-file test.par --outfile test.hdf --ephem-earth earth00-40-DE405.dat.gz --ephem-sun sun00-40-DE405.dat.gz --ephem-timecorr te405_2000-2040.dat.gz
+# lalapps_pulsar_parameter_estimation_nested --inject-file test.par --inject-output inj_test.txt --inject-only --fake-data H1,L1 --harmonics 1,2 --fake-starts 1000000000,1000000000,1000100000,1000100000 --fake-dt 1800,1800,1800,1800 --par-file test.par --outfile test.hdf --ephem-earth earth00-40-DE405.dat.gz --ephem-sun sun00-40-DE405.dat.gz --ephem-timecorr te405_2000-2040.dat.gz
 # The test.par file is the same as produced for the `parfilesig` variable in test_knope.py (with IOTA swapped for the equivalent COSIOTA value)
 1000000000.00000	-3.013881305952e-26	1.800017972163e-25
 1000001800.00000	-7.175629942106e-27	1.780296112662e-25
