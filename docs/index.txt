@@ -1,4 +1,4 @@
-Documentation for cwinpy
+Documentation for CWInPy
 ========================
 
 .. automodule:: cwinpy
@@ -24,7 +24,7 @@ API interface
 Code comparisons
 ================
 
-Some comparisons between ``cwinpy`` and other equivalent codes are documented
+Some comparisons between CWInPy and other equivalent codes are documented
 below:
 
 .. toctree::

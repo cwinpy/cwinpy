@@ -39,7 +39,8 @@ extensions = [
     'sphinx.ext.autosectionlabel',
     'sphinx_tabs.tabs',
     'recommonmark',
-    'sphinx.ext.todo'
+    'sphinx.ext.todo',
+    'sphinxcontrib.images'
 ]
 
 autosummary_generate = True
@@ -100,7 +101,13 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'requirements.txt',
                     'comparisons/scripts/outputs/*.json.old',
                     'comparisons/scripts/outputs/cpnest*/*',
                     'knope/knope_help.txt',
-                    'knope/data/*']
+                    'knope/data/*.txt',
+                    'knope/data/*.par',
+                    'knope/data/*.ini',
+                    'knope/data/*.txt.gz',
+                    'knope/data/example1/*.json',
+                    'knope/data/example1/*.pickle',
+                    'knope/data/example1/*_trace.png']
 
 add_function_parentheses = True
 add_module_names = False
@@ -218,4 +225,3 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3/', None),
 knope_help = subprocess.getoutput('cwinpy_knope --help')
 with open('knope/knope_help.txt', 'w') as fp:
     fp.write(knope_help)
-

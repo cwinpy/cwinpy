@@ -11,7 +11,7 @@ import numpy as np
 import corner
 from collections import OrderedDict
 from cwinpy import HeterodynedData
-from cwinpy import TargetedPulsarLikelihood
+from cwinpy.knope import knope
 import bilby
 from bilby.core.prior import Uniform, PriorDict
 from bilby.core.grid import Grid
@@ -139,13 +139,19 @@ postsamples = np.zeros((lp, len(priors)))
 for i, p in enumerate(priors.keys()):
     postsamples[:,i] = post[p].samples[:,0]
 
-# set the likelihood for bilby
-likelihood = TargetedPulsarLikelihood(het, PriorDict(priors))
+# run bilby via the knope interface
+runner = knope(
+    data_file=hetfile,
+    par_file=parfile,
+    prior=priors,
+    detector=detector,
+    sampler='dynesty',
+    sampler_kwargs={'Nlive': Nlive},
+    outdir=outdir,
+    label=label
+)
 
-# run bilby
-result = bilby.run_sampler(
-    likelihood=likelihood, priors=priors, sampler='cpnest', nlive=Nlive,
-    outdir=outdir, label=label, use_ratio=False)
+result = runner.result
 
 # evaluate the likelihood on a grid
 gridpoints = 35
@@ -153,7 +159,18 @@ grid_size = dict()
 for p in priors.keys():
     grid_size[p] = np.linspace(np.min(result.posterior[p]), np.max(result.posterior[p]), gridpoints)
 
-grid = Grid(likelihood, PriorDict(priors), grid_size=grid_size)
+grunner = knope(
+    data_file=hetfile,
+    par_file=parfile,
+    prior=priors,
+    detector=detector,
+    outdir=outdir,
+    label=label,
+    grid=True,
+    grid_kwargs={'grid_size': grid_size}
+)
+
+grid = grunner.grid
 
 # output comparisons
 comparisons(label, outdir, grid, priors, cred=0.9)
@@ -182,4 +199,3 @@ for line in leg.get_lines():
     line.set_linewidth(1.0)
 
 fig.savefig(os.path.join(outdir, '{}_corner.png'.format(label)), dpi=200)
-

@@ -126,9 +126,9 @@ runcmd = ' '.join([lppen,
                    '--Nlive', '{}'.format(Nlive),
                    '--Nmcmcinitial', '{}'.format(Nmcmcinitial),
                    '--outfile', outfile,
-                   '--ephem-earth', os.path.join(os.environ['CONDA_PREFIX'], 'share', 'lalpulsar', 'earth00-40-DE405.dat.gz'),
-                   '--ephem-sun', os.path.join(os.environ['CONDA_PREFIX'], 'share', 'lalpulsar', 'sun00-40-DE405.dat.gz'), 
-                   '--ephem-timecorr', os.path.join(os.environ['CONDA_PREFIX'], 'share', 'lalpulsar', 'te405_2000-2040.dat.gz')])
+                   '--ephem-earth', efile,
+                   '--ephem-sun', sfile, 
+                   '--ephem-timecorr', tfile])
 
 with sp.Popen(runcmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True, bufsize=1, universal_newlines=True) as p:
     for line in p.stderr:
@@ -191,4 +191,3 @@ for line in leg.get_lines():
     line.set_linewidth(1.0)
 
 fig.savefig(os.path.join(outdir, '{}_corner.png'.format(label)), dpi=200)
-

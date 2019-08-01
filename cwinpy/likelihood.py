@@ -340,9 +340,14 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     if pname.upper() in self.SOURCE_AMPLITUDE_PARAMETERS:
                         # reset waveform parameters (otherwise these can
                         # potentially be given by the previous value if the
-                        # new value is zero)
+                        # new value is zero). NOTE: in the future it might be
+                        # better to pass a copy of the PulsarParameters
+                        # structure to the model function, so that this is not
+                        # problem
                         par['C21'] = 0.
                         par['C22'] = 0.
+                        par['PHI22'] = 0.
+                        par['PHI21'] = 0.
 
             # calculate the model
             m = model.model(par, usephase=self.include_phase,

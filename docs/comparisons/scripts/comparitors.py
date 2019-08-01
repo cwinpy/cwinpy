@@ -6,7 +6,8 @@ runs and cwinpy runs
 import os
 import h5py
 import numpy as np
-from scipy.stats import ks_2samp
+from scipy.stats import ks_2samp, combine_pvalues
+from scipy.spatial.distance import jensenshannon
 from lalapps.pulsarpputils import pulsar_nest_to_posterior
 from bilby.core.result import read_in_result
 
@@ -37,7 +38,8 @@ FILETEXT = """\
    "``lalapps_pulsar_parameter_estimation_nested``", "{48:.2f}×10\ :sup:`{49:d}`", "{50:.2f}", "{51:.2f}", "{52:.2f}", "{53:.2f}"
    "``cwinpy``", "{54:.2f}×10\ :sup:`{55:d}`", "{56:.2f}", "{57:.2f}", "{58:.2f}", "{59:.2f}"
 
-Minimum K-S test p-value: {60:.4f}
+Combined K-S test p-value: {60:.4f}
+Maximum Jensen-Shannon divergence: {61:.4f}
 """
 
 
@@ -86,7 +88,7 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
     grid_evidence = grid.log_evidence
 
     # set values to output
-    values = 61*[None]
+    values = 62*[None]
     values[0:4] = evsig, evnoise, (evsig - evnoise), everr
     values[4:8] = result.log_evidence, result.log_noise_evidence, result.log_bayes_factor, result.log_evidence_err
     values[8:10] = grid_evidence, (grid_evidence - result.log_noise_evidence)
@@ -133,14 +135,31 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
         values[idx] = post.maxP[0][0] if method == 'lalapps' else result.posterior['log_likelihood'][maxidx]
         idx += 1
 
-    # calculate the Kolmogorov-Smirnov test for each 1d marginalised distribution
-    # from the two codes, and output the minimum p-value of the KS test statistic
-    # over all parameters
+    # calculate the Kolmogorov-Smirnov test for each 1d marginalised distribution,
+    # and the Jensen-Shannon divergence, from the two codes. Output the 
+    # combined p-value of the KS test statistic over all parameters, and the
+    # maximum Jensen-Shannon divergence over all parameters.
     values[idx] = np.inf
+    pvalues = []
+    jsvalues = []
     for p in priors.keys():
         _, pvalue = ks_2samp(post[p].samples[:,0], result.posterior[p])
-        if pvalue < values[idx]:
-            values[idx] = pvalue
+        pvalues.append(pvalue)
+
+        # calculate J-S divergence
+        bins = np.linspace(
+            np.min([np.min(post[p].samples[:,0]), np.min(result.posterior[p])]),
+            np.max([np.max(post[p].samples[:,0]), np.max(result.posterior[p])]),
+            100
+        )
+
+        hp, _ = np.histogram(post[p].samples[:,0], bins=bins, density=True)
+        hq, _ = np.histogram(result.posterior[p], bins=bins, density=True)
+        jsvalues.append(jensenshannon(hp, hq)**2)
+
+    values[idx] = combine_pvalues(pvalues)[1]
+    idx += 1
+    values[idx] = np.max(jsvalues)
 
     with open(comparefile, 'w') as fp:
         fp.write(FILETEXT.format(*values))

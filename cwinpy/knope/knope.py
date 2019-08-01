@@ -144,6 +144,18 @@ def create_parser():
                       'the whole data set.'
                   ),
     )
+    simparser.add('--show-truths',
+                  action='store_true',
+                  default=False,
+                  help=(
+                      'If plotting the results, setting this flag will '
+                      'overplot the "true" signal values. If adding a '
+                      'simulated signal then these parameter values will be '
+                      'taken from the file specified by the "--inj-par" flag, '
+                      'otherwise the values will be taken from the file '
+                      'specified by the "--par-file" flag.'
+                  ),
+    )
     simparser.add('--fake-asd',
                   action='append',
                   help=(
@@ -787,6 +799,38 @@ class KnopeRunner(object):
         if 'label' in kwargs:
             self.sampler_kwargs.setdefault('label', kwargs.get('label'))
 
+        show_truths = kwargs.get('show_truths', False)
+        if show_truths:
+            # don't overwrite 'injection_parameters' is they are already defined
+            if 'injection_parameters' not in self.sampler_kwargs:
+                if self.datakwargs['injpar'] is not None:
+                    injpartmp = self.hetdata.to_list[0].injpar
+                else:
+                    injpartmp = self.hetdata.to_list[0].par
+
+                # get "true" values of any parameters in the prior
+                injtruths = {}
+                for key in self.prior:
+                    injtruths[key] = injpartmp[key.upper()]
+
+                    # check iota and theta
+                    if key.lower() in ['iota', 'theta']:
+                        if (injtruths[key] is None and 
+                                injpartmp['COS{}'.format(key.upper())] is not None):
+                            injtruths[key] = np.arccos(injpartmp['COS{}'.format(key.upper())])
+                    elif key.lower() in ['cosiota', 'costheta']:
+                        if (injtruths[key] is None and
+                                injpartmp[key[3:].upper()] is not None):
+                            injtruths[key] = np.cos(injpartmp[key[3:].upper()])
+
+                self.sampler_kwargs.update(
+                    {'injection_parameters': injtruths}
+                )
+
+        # set use_ratio to False by default
+        if 'use_ratio' not in self.sampler_kwargs:
+            self.sampler_kwargs['use_ratio'] = False
+
         # default restart time to 1000000 seconds if not running through CLI
         self.periodic_restart_time = kwargs.get('periodic_restart_time',
                                                 10000000)
@@ -955,6 +999,12 @@ def knope(**kwargs):
     likelihood: str
         The likelihood function to use. At the moment this can be either
         'studentst' or 'gaussian', with 'studentst' being the default.
+    show_truths: bool
+        If plotting the results, setting this argument will overplot the
+        "true" signal values. If adding a simulated signal then these parameter
+        values will be taken from the file specified by the "inj_par" argument,
+        otherwise the values will be taken from the file specified by the
+        "par_file" argument.
     prior: str, PriorDict
         A string to a bilby-style
         `prior <https://lscsoft.docs.ligo.org/bilby/prior.html>`_ file, or a
