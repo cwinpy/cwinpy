@@ -38,8 +38,8 @@ FILETEXT = """\
    "``lalapps_pulsar_parameter_estimation_nested``", "{48:.2f}×10\ :sup:`{49:d}`", "{50:.2f}", "{51:.2f}", "{52:.2f}", "{53:.2f}"
    "``cwinpy``", "{54:.2f}×10\ :sup:`{55:d}`", "{56:.2f}", "{57:.2f}", "{58:.2f}", "{59:.2f}"
 
-Combined K-S test p-value: {60:.4f}
-Maximum Jensen-Shannon divergence: {61:.4f}
+| Combined K-S test p-value: {60:.4f}
+| Maximum Jensen-Shannon divergence: {61:.4f}
 """
 
 

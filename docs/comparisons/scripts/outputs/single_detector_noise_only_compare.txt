@@ -22,5 +22,5 @@
    "``lalapps_pulsar_parameter_estimation_nested``", "3.58×10\ :sup:`-26`", "1.81", "0.61", "0.48", "162973.85"
    "``cwinpy``", "3.14×10\ :sup:`-26`", "1.99", "0.07", "0.09", "162973.84"
 
-Combined K-S test p-value: 0.0005
-Maximum Jensen-Shannon divergence: 0.0139
+| Combined K-S test p-value: 0.0005
+| Maximum Jensen-Shannon divergence: 0.0139

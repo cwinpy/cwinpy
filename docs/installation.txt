@@ -2,10 +2,10 @@
 Installation
 ############
 
-Install cwinpy from source
+Install CWInPy from source
 --------------------------
 
-``cwinpy`` can be installed using `python pip <https://packaging.python.org/tutorials/installing-packages/#use-pip-for-installing>`_,
+CWInPy can be installed using `python pip <https://packaging.python.org/tutorials/installing-packages/#use-pip-for-installing>`_,
 from its source `git <https://git-scm.com/>`_ `repository <https://github.com/cwinpy/cwinpy>`_.
 
 First, clone the repository

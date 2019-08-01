@@ -98,7 +98,9 @@ this information within Python); and (due to the setting of ``'plot': True`` in 
 file ``example1_corner.png`` showing 1D and 2D marginalised posterior probability distributions for
 each parameter, and pair of parameters.
 
-.. thumbnail:: /example1/example1_corner.png
+.. thumbnail:: data/example1/example1_corner.png
+   :width: 300px
+   :align: center
 
 Rather than using the configuration file, all the arguments could be given on the command line
 (although using the configuration file is *highly* recommended), with the following command:
