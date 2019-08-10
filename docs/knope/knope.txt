@@ -61,7 +61,7 @@ be downloaded :download:`here <data/example1_prior.txt>`:
 
 .. literalinclude:: data/example1_prior.txt
 
-Here we have set the prior on :math:`h_0` to be uniform between 0 and 10<sup>-22</sup>, where in
+Here we have set the prior on :math:`h_0` to be uniform between 0 and 10\ :sup:`-22`, where in
 this case the maximum has been chosen to be large compared to the expected signal strength. The
 combination of the :math:`\iota` and :math:`\psi` parameters has been chosen to be uniform over a
 sphere, which means using a uniform prior over :math:`\psi` between 0 and :math:`\pi/2` (there is a
@@ -76,7 +76,7 @@ With the data at hand, and the priors defined, the analysis can now be run. It i
 by setting up a configuration file, although as mentioned equivalent command line arguments can be
 passed to ``cwinpy_knope`` (or a combination of a configuration file and command line arguments may
 be useful if defining some fixed setting for many analyses in the file, but making minor changes for
-individual case on the command line). A configuration file for this example is shown below, with
+individual cases on the command line.) A configuration file for this example is shown below, with
 comments describing the parameters inline:
 
 .. literalinclude:: data/example1_config.ini
@@ -87,9 +87,7 @@ The analysis can then be run using:
 
    cwinpy_knope --config example1_config.ini
 
-which should only take a few minutes (Note: you can hopefully ignore errors related to
-``XLALReadEphemerisFile`` and ``XLALInitBarycenter`` as the code should attempt to download the
-appropriate solar system ephemeris files if they cannot be found). This will create a directory
+which should only take a few minutes. This will create a directory
 called ``example1`` containing: the results as a bilby ``Results`` object saved in a `JSON
 <https://www.json.org/>`_ format file called ``example1_result.json`` (see `here
 <https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on reading
@@ -101,6 +99,11 @@ each parameter, and pair of parameters.
 .. thumbnail:: data/example1/example1_corner.png
    :width: 300px
    :align: center
+
+.. note::
+   You can hopefully ignore errors related to ``XLALReadEphemerisFile`` and ``XLALInitBarycenter``
+   as the code should attempt to download the appropriate solar system ephemeris files if they
+   cannot be found.
 
 Rather than using the configuration file, all the arguments could be given on the command line
 (although using the configuration file is *highly* recommended), with the following command:
