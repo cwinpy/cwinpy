@@ -3,5 +3,5 @@ bilby>=0.5.4
 bilby_pipe>=0.2.0
 astropy
 matplotlib
-lalsuite>=6.62
+lalsuite==6.60.1.dev20190808
 gwpy
