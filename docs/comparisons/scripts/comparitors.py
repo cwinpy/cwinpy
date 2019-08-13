@@ -51,8 +51,8 @@ def credible_interval(samples, ci=0.90):
     highbound = sortedsamples[-1]
     cregion = highbound - lowbound
     lsam = len(sortedsamples)
-    cllen = int(lsam*ci)
-    for j in range(lsam-cllen):
+    cllen = int(lsam * ci)
+    for j in range(lsam - cllen):
         if sortedsamples[j + cllen] - sortedsamples[j] < cregion:
             lowbound = sortedsamples[j]
             highbound = sortedsamples[j + cllen]
@@ -68,47 +68,58 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
     lalapps_pulsar_parameter_estimation_nested and cwinpy.
     """
 
-    lppenfile = os.path.join(outdir, '{}_post.hdf'.format(label))
+    lppenfile = os.path.join(outdir, "{}_post.hdf".format(label))
 
     # read in posterior samples from lalapps_pulsar_parameter_estimation_nested
     post, evsig, evnoise = pulsar_nest_to_posterior(lppenfile)
 
     # get uncertainty on ln(evidence)
-    info = h5py.File(lppenfile)['lalinference']['lalinference_nest'].attrs['information_nats']
-    nlive = h5py.File(lppenfile)['lalinference']['lalinference_nest'].attrs['number_live_points']
-    everr = np.sqrt(info/nlive)  # the uncertainty on the evidence
+    info = h5py.File(lppenfile)["lalinference"]["lalinference_nest"].attrs[
+        "information_nats"
+    ]
+    nlive = h5py.File(lppenfile)["lalinference"]["lalinference_nest"].attrs[
+        "number_live_points"
+    ]
+    everr = np.sqrt(info / nlive)  # the uncertainty on the evidence
 
     # read in cwinpy results
     result = read_in_result(outdir=outdir, label=label)
 
     # comparison file
-    comparefile = os.path.join(outdir, '{}_compare.txt'.format(label))
+    comparefile = os.path.join(outdir, "{}_compare.txt".format(label))
 
     # get grid-based evidence
     grid_evidence = grid.log_evidence
 
     # set values to output
-    values = 62*[None]
+    values = 62 * [None]
     values[0:4] = evsig, evnoise, (evsig - evnoise), everr
-    values[4:8] = result.log_evidence, result.log_noise_evidence, result.log_bayes_factor, result.log_evidence_err
+    values[4:8] = (
+        result.log_evidence,
+        result.log_noise_evidence,
+        result.log_bayes_factor,
+        result.log_evidence_err,
+    )
     values[8:10] = grid_evidence, (grid_evidence - result.log_noise_evidence)
 
     # output parameter means standard deviations, and credible intervals
     idx = 10
-    for method in ['lalapps', 'cwinpy']:
+    for method in ["lalapps", "cwinpy"]:
         values[idx + 9] = int(cred * 100)
         for p in priors.keys():
-            samples = post[p].samples[:,0] if method == 'lalapps' else result.posterior[p]
+            samples = (
+                post[p].samples[:, 0] if method == "lalapps" else result.posterior[p]
+            )
             mean = samples.mean()
             std = samples.std()
             low, high = credible_interval(samples, ci=cred)
-            if p == 'h0':
+            if p == "h0":
                 exponent = int(np.floor(np.log10(mean)))
-                values[idx] = mean / 10**exponent
-                values[idx + 1] = std / 10**exponent
+                values[idx] = mean / 10 ** exponent
+                values[idx + 1] = std / 10 ** exponent
                 values[idx + 2] = exponent
-                values[idx + 10] = low / 10**exponent
-                values[idx + 11] = high / 10**exponent
+                values[idx + 10] = low / 10 ** exponent
+                values[idx + 11] = high / 10 ** exponent
                 values[idx + 12] = exponent
                 idx += 3
             else:
@@ -120,46 +131,54 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
         idx += 10
 
     # output parameter maximum a-posteriori points
-    maxidx = (result.posterior['log_likelihood'] + result.posterior['log_prior']).idxmax() 
-    for method in ['lalapps', 'cwinpy']:
+    maxidx = (
+        result.posterior["log_likelihood"] + result.posterior["log_prior"]
+    ).idxmax()
+    for method in ["lalapps", "cwinpy"]:
         for p in priors.keys():
-            maxpval = post.maxP[1][p] if method == 'lalapps' else result.posterior[p][maxidx]
-            if p == 'h0':
+            maxpval = (
+                post.maxP[1][p] if method == "lalapps" else result.posterior[p][maxidx]
+            )
+            if p == "h0":
                 exponent = int(np.floor(np.log10(maxpval)))
-                values[idx] = maxpval / 10**exponent
+                values[idx] = maxpval / 10 ** exponent
                 values[idx + 1] = exponent
                 idx += 2
             else:
                 values[idx] = maxpval
                 idx += 1
-        values[idx] = post.maxP[0][0] if method == 'lalapps' else result.posterior['log_likelihood'][maxidx]
+        values[idx] = (
+            post.maxP[0][0]
+            if method == "lalapps"
+            else result.posterior["log_likelihood"][maxidx]
+        )
         idx += 1
 
     # calculate the Kolmogorov-Smirnov test for each 1d marginalised distribution,
-    # and the Jensen-Shannon divergence, from the two codes. Output the 
+    # and the Jensen-Shannon divergence, from the two codes. Output the
     # combined p-value of the KS test statistic over all parameters, and the
     # maximum Jensen-Shannon divergence over all parameters.
     values[idx] = np.inf
     pvalues = []
     jsvalues = []
     for p in priors.keys():
-        _, pvalue = ks_2samp(post[p].samples[:,0], result.posterior[p])
+        _, pvalue = ks_2samp(post[p].samples[:, 0], result.posterior[p])
         pvalues.append(pvalue)
 
         # calculate J-S divergence
         bins = np.linspace(
-            np.min([np.min(post[p].samples[:,0]), np.min(result.posterior[p])]),
-            np.max([np.max(post[p].samples[:,0]), np.max(result.posterior[p])]),
-            100
+            np.min([np.min(post[p].samples[:, 0]), np.min(result.posterior[p])]),
+            np.max([np.max(post[p].samples[:, 0]), np.max(result.posterior[p])]),
+            100,
         )
 
-        hp, _ = np.histogram(post[p].samples[:,0], bins=bins, density=True)
+        hp, _ = np.histogram(post[p].samples[:, 0], bins=bins, density=True)
         hq, _ = np.histogram(result.posterior[p], bins=bins, density=True)
-        jsvalues.append(jensenshannon(hp, hq)**2)
+        jsvalues.append(jensenshannon(hp, hq) ** 2)
 
     values[idx] = combine_pvalues(pvalues)[1]
     idx += 1
     values[idx] = np.max(jsvalues)
 
-    with open(comparefile, 'w') as fp:
+    with open(comparefile, "w") as fp:
         fp.write(FILETEXT.format(*values))
