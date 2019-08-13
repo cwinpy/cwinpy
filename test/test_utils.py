@@ -17,7 +17,7 @@ def test_logfactorial():
     with pytest.raises(ValueError):
         answer = logfactorial(a)
 
-    a = 'a'  # non-number type
+    a = "a"  # non-number type
     with pytest.raises(TypeError):
         answer = logfactorial(a)
 
@@ -26,10 +26,10 @@ def test_logfactorial():
         answer = logfactorial(a)
 
     a = 3
-    assert logfactorial(a) == np.log(3*2*1)
+    assert logfactorial(a) == np.log(3 * 2 * 1)
 
     a = 3.0
-    assert logfactorial(a) == np.log(3*2*1)
+    assert logfactorial(a) == np.log(3 * 2 * 1)
 
 
 def test_gcd_array():

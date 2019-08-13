@@ -780,9 +780,9 @@ class HeterodynedData(object):
 
     # set some default plotting values
     PLOTTING_DEFAULTS = {
-        "labelsize": 14,         # font size for axes tick labels
-        "fontsize": 16,          # font size for axes labels
-        "fontname": "Gentium",   # font name for axes labels
+        "labelsize": 14,  # font size for axes tick labels
+        "fontsize": 16,  # font size for axes labels
+        "fontname": "Gentium",  # font name for axes labels
         "labelname": "Carlito",  # font names for axes tick labels
     }
 
@@ -1429,14 +1429,14 @@ class HeterodynedData(object):
 
                 # set mapping of detector names to lalsimulation PSD functions
                 simmap = {
-                    "AV": lalsim.SimNoisePSDAdvVirgo,               # advanced Virgo
+                    "AV": lalsim.SimNoisePSDAdvVirgo,  # advanced Virgo
                     "AL": lalsim.SimNoisePSDaLIGOZeroDetHighPower,  # aLIGO
-                    "IL": lalsim.SimNoisePSDiLIGOSRD,               # iLIGO
-                    "IV": lalsim.SimNoisePSDVirgo,                  # iVirgo
-                    "IG": lalsim.SimNoisePSDGEO,                    # GEO600
-                    "G1": lalsim.SimNoisePSDGEOHF,                  # GEOHF
-                    "T1": lalsim.SimNoisePSDTAMA,                   # TAMA
-                    "K1": lalsim.SimNoisePSDKAGRA,                  # KAGRA
+                    "IL": lalsim.SimNoisePSDiLIGOSRD,  # iLIGO
+                    "IV": lalsim.SimNoisePSDVirgo,  # iVirgo
+                    "IG": lalsim.SimNoisePSDGEO,  # GEO600
+                    "G1": lalsim.SimNoisePSDGEOHF,  # GEOHF
+                    "T1": lalsim.SimNoisePSDTAMA,  # TAMA
+                    "K1": lalsim.SimNoisePSDKAGRA,  # KAGRA
                 }
 
                 # check if string is valid

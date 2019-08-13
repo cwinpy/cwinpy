@@ -32,14 +32,10 @@ setup(
     url="http://git.ligo.org/CW/software/",
     license="MIT",
     description="A Python module for Bayesian inferences with continuous gravitational wave sources",
-    long_description=\
-        readfile(os.path.join(os.path.dirname(__file__), "README.md")),
-    install_requires=\
-        readfile(os.path.join(os.path.dirname(__file__), "requirements.txt")),
-    entry_points={
-        "console_scripts": [
-            "cwinpy_knope=cwinpy.knope.knope:knope_cli",
-        ]
-    },
+    long_description=readfile(os.path.join(os.path.dirname(__file__), "README.md")),
+    install_requires=readfile(
+        os.path.join(os.path.dirname(__file__), "requirements.txt")
+    ),
+    entry_points={"console_scripts": ["cwinpy_knope=cwinpy.knope.knope:knope_cli"]},
     classifiers=["Programming Language :: Python :: 3.7"],
 )

@@ -27,19 +27,19 @@ PHI0     2.4
 """
 
 # add content to the par file
-parfile = 'J0123+3456.par'
-with open(parfile, 'w') as fp:
+parfile = "J0123+3456.par"
+with open(parfile, "w") as fp:
     fp.write(parcontent)
 
 # use knope to create the data and sample on a grid
-detector = 'H1'  # the detector to use
-times = np.linspace(1000000000., 1000086340., 1440)  # times
+detector = "H1"  # the detector to use
+times = np.linspace(1000000000.0, 1000086340.0, 1440)  # times
 asd = 1e-24
 
 # set prior on h0
 priors = dict()
-priors['h0'] = Uniform(0., 1e-24, 'h0')
-h0s = np.linspace(0., 1e-24, 500)  # h0 values to evaluate at
+priors["h0"] = Uniform(0.0, 1e-24, "h0")
+h0s = np.linspace(0.0, 1e-24, 500)  # h0 values to evaluate at
 
 run = knope(
     detector=detector,
@@ -48,10 +48,10 @@ run = knope(
     inj_par=parfile,
     fake_asd=asd,
     grid=True,
-    grid_kwargs={'grid_size': {'h0': h0s}},
-    prior=priors
+    grid_kwargs={"grid_size": {"h0": h0s}},
+    prior=priors,
 )
 
-pl.plot(h0s, np.exp(run.grid.ln_posterior - np.max(run.grid.ln_posterior)), 'b')
-pl.axvline(run.hetdata['H1'][0].par['H0'])
+pl.plot(h0s, np.exp(run.grid.ln_posterior - np.max(run.grid.ln_posterior)), "b")
+pl.axvline(run.hetdata["H1"][0].par["H0"])
 pl.show()

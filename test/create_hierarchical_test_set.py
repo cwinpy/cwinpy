@@ -21,7 +21,7 @@ from astropy.utils.data import download_file
 
 
 # URL for ephemeris files
-DOWNLOAD_URL = 'https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/src/{}'
+DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/src/{}"
 
 # create a two fake pulsar parameter files
 parcontent1 = """\
@@ -52,55 +52,63 @@ PHI0     1.3
 DIST     1.5
 """
 
-label = 'hierarchical_test_set'
-outdir = 'data'
+label = "hierarchical_test_set"
+outdir = "data"
 
 if not os.path.isdir(outdir):
     os.makedirs(outdir)
 
-detector = 'H1'  # the detector to use
+detector = "H1"  # the detector to use
 asd = [1e-24, 8e-25]  # noise amplitude spectral densities
-times = np.linspace(1000000000., 1000086340., 1440)  # times
+times = np.linspace(1000000000.0, 1000086340.0, 1440)  # times
 hets = []
 
 # add content to the par file and create fake data
 for i, content in enumerate([parcontent1, parcontent2]):
-    parfile = os.path.join(outdir, '{}_{}.par'.format(label, i))
-    with open(parfile, 'w') as fp:
+    parfile = os.path.join(outdir, "{}_{}.par".format(label, i))
+    with open(parfile, "w") as fp:
         fp.write(content)
 
     # create some fake heterodyned data
-    hets.append(HeterodynedData(times=times, par=parfile, fakeasd=asd[i],
-                                detector=detector))
+    hets.append(
+        HeterodynedData(times=times, par=parfile, fakeasd=asd[i], detector=detector)
+    )
 
     # output the data
-    hetfile = os.path.join(outdir, '{}_{}_data.txt'.format(label, i))
-    np.savetxt(hetfile, np.vstack((hets[i].times, hets[i].data.real,
-                                   hets[i].data.imag)).T)
+    hetfile = os.path.join(outdir, "{}_{}_data.txt".format(label, i))
+    np.savetxt(
+        hetfile, np.vstack((hets[i].times, hets[i].data.real, hets[i].data.imag)).T
+    )
 
 # create priors
-phi0range = [0., np.pi]
-psirange = [0., np.pi/2.]
-cosiotarange = [-1., 1.]
-q22range = [0., 1e38]
-#h0range = [0., 1e-23]
+phi0range = [0.0, np.pi]
+psirange = [0.0, np.pi / 2.0]
+cosiotarange = [-1.0, 1.0]
+q22range = [0.0, 1e38]
+# h0range = [0., 1e-23]
 
 # set prior for lalapps_pulsar_parameter_estimation_nested
-priorfile = os.path.join(outdir, '{}_prior.txt'.format(label))
+priorfile = os.path.join(outdir, "{}_prior.txt".format(label))
 priorcontent = """Q22 uniform {} {}
 PHI0 uniform {} {}
 PSI uniform {} {}
 COSIOTA uniform {} {}
 """
-with open(priorfile, 'w') as fp:
+with open(priorfile, "w") as fp:
     fp.write(priorcontent.format(*(q22range + phi0range + psirange + cosiotarange)))
 
 # set prior for bilby
 priors = OrderedDict()
-priors['Q22'] = Uniform(q22range[0], q22range[1], 'Q22', latex_label=r'$Q_{22}$')
-priors['phi0'] = Uniform(phi0range[0], phi0range[1], 'phi0', latex_label=r'$\phi_0$', unit='rad')
-priors['psi'] = Uniform(psirange[0], psirange[1], 'psi', latex_label=r'$\psi$', unit='rad')
-priors['cosiota'] = Uniform(cosiotarange[0], cosiotarange[1], 'cosiota', latex_label=r'$\cos{\iota}$')
+priors["Q22"] = Uniform(q22range[0], q22range[1], "Q22", latex_label=r"$Q_{22}$")
+priors["phi0"] = Uniform(
+    phi0range[0], phi0range[1], "phi0", latex_label=r"$\phi_0$", unit="rad"
+)
+priors["psi"] = Uniform(
+    psirange[0], psirange[1], "psi", latex_label=r"$\psi$", unit="rad"
+)
+priors["cosiota"] = Uniform(
+    cosiotarange[0], cosiotarange[1], "cosiota", latex_label=r"$\cos{\iota}$"
+)
 
 Nlive = 1024  # number of nested sampling live points
 
@@ -109,9 +117,15 @@ for i, het in enumerate(hets):
     # set the likelihood for bilby
     likelihood = TargetedPulsarLikelihood(het, PriorDict(priors))
 
-    thislabel = '{}_{}'.format(label, i)
+    thislabel = "{}_{}".format(label, i)
 
     # run bilby
     result = bilby.run_sampler(
-        likelihood=likelihood, priors=priors, sampler='cpnest', nlive=Nlive,
-        outdir=outdir, label=thislabel, use_ratio=False)
+        likelihood=likelihood,
+        priors=priors,
+        sampler="cpnest",
+        nlive=Nlive,
+        outdir=outdir,
+        label=thislabel,
+        use_ratio=False,
+    )
