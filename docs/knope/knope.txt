@@ -41,7 +41,7 @@ The data we will use in this example is from the `LIGO Hanford <https://www.ligo
 detector (abbreviated to "H1") and has been heterodyned using the known phase evolution of the
 simulated signal (see the description :ref:`here<Heterodyned Data>`), and low-pass filtered and
 down-sampled to a rate of one sample per minute. This data file (in a gzipped format) can be
-downloaded here: :download:`fine-H1-PULSAR08.txt.gz <data/fine-H1-PULSAR08.txt.gz>`
+downloaded here: :download:`fine-H1-PULSAR08.txt.gz <data/fine-H1-PULSAR08.txt.gz>`.
 
 A TEMPO(2)-style [2]_ pulsar parameter (``.par``) file for this simulated signal is reproduced below
 and can be downloaded :download:`here <data/PULSAR08.par>`, where it should be noted that the ``F0``
@@ -52,7 +52,7 @@ data.
 .. literalinclude:: data/PULSAR08.par
 
 Here we will try and estimate four of the signal's parameters: the gravitational-wave amplitude
-:math:`h_0`; the inclination angle :math:`iota` of the rotation axis to the line-of-sight; the
+:math:`h_0`; the inclination angle :math:`\iota` of the rotation axis to the line-of-sight; the
 initial rotational phase of the signal :math:`\phi_0`; and the polarisation angle of the source
 :math:`\psi`. To do this we have to define a file containing the prior probability distributions for
 these parameters. We can define the priors in a file as described in the documentation for the
@@ -87,11 +87,17 @@ The analysis can then be run using:
 
    cwinpy_knope --config example1_config.ini
 
-which should only take a few minutes. This will create a directory
-called ``example1`` containing: the results as a bilby ``Results`` object saved in a `JSON
-<https://www.json.org/>`_ format file called ``example1_result.json`` (see `here
-<https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on reading
-this information within Python); and (due to the setting of ``'plot': True`` in the
+which should only take a few minutes.
+
+.. note::
+   You can hopefully ignore errors related to ``XLALReadEphemerisFile`` and ``XLALInitBarycenter``
+   as the code should attempt to download the appropriate solar system ephemeris files if they
+   cannot be found.
+
+This will create a directory called ``example1`` containing: the results as a bilby ``Results``
+object saved in a `JSON <https://www.json.org/>`_ format file called ``example1_result.json`` (see
+`here <https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on
+reading this information within Python); and (due to the setting of ``'plot': True`` in the
 ``sampler_kwargs`` dictionary), a "`corner <https://corner.readthedocs.io/en/latest/>`_ plot" in the
 file ``example1_corner.png`` showing 1D and 2D marginalised posterior probability distributions for
 each parameter, and pair of parameters.
@@ -101,9 +107,8 @@ each parameter, and pair of parameters.
    :align: center
 
 .. note::
-   You can hopefully ignore errors related to ``XLALReadEphemerisFile`` and ``XLALInitBarycenter``
-   as the code should attempt to download the appropriate solar system ephemeris files if they
-   cannot be found.
+   The slight offset seen in the recovered phase is related to the uncompensated 150 &mu;s time
+   delay in the actuation function used to generate the simulated signal as discuss in [4]_.
 
 Rather than using the configuration file, all the arguments could be given on the command line
 (although using the configuration file is *highly* recommended), with the following command:
@@ -112,8 +117,25 @@ Rather than using the configuration file, all the arguments could be given on th
 
    cwinpy_knope --detector H1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --outdir example1 --label example1 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example1_prior.txt
 
-where it should be noted that the ``--sampler-kwargs`` dictionary argument much be given within
+where it should be noted that the ``--sampler-kwargs`` dictionary argument must be given within
 quotation marks.
+
+Example: multi-detector data
+=============================
+
+In this example we will replicate the analysis from the first `example
+<#example-single-detector-data>`_, but will use O1 data from more than one detector. It will again
+look at the hardware injection signal named `PULSAR8
+<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`_.
+
+The data we will use in this example is a short segment (between GPS times of 1132444817 and
+1136419217) from both the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to
+"H1") and the `LIGO Livingston <https://www.ligo.caltech.edu/LA>`_ detector (abbreviated to "L1").
+Both sets of data have been heterodyned using the known phase evolution of the simulated signal (see
+the description :ref:`here<Heterodyned Data>`), and low-pass filtered and down-sampled to a rate of
+one sample per minute. The data files (in a gzipped format) can be downloaded here:
+:download:`fine-H1-PULSAR08.txt.gz <data/fine-H1-PULSAR08.txt.gz>` and
+:download:`fine-L1-PULSAR08.txt.gz <data/fine-L1-PULSAR08.txt.gz>`.
 
 Command line arguments
 ----------------------
@@ -139,3 +161,5 @@ API
    *MNRAS*, **369**, 655-672 (2006)
 .. [3] `D. I. Jones <https://ui.adsabs.harvard.edu/abs/2015MNRAS.453...53J>`_,
    *MNRAS*, **453**, 53-66 (2015)
+.. [4] `C. Biwer et al. <https://ui.adsabs.harvard.edu/abs/2017PhRvD..95f2002B/abstract>`_,
+   *PRD*, **95**, 062002 (2017)
