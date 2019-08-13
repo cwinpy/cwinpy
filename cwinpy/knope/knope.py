@@ -9,16 +9,15 @@ import signal
 import numpy as np
 
 import cwinpy
-from ..data import (HeterodynedData,
-                    MultiHeterodynedData)
+from ..data import HeterodynedData, MultiHeterodynedData
 from ..likelihood import TargetedPulsarLikelihood
 
 import bilby
 from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.utils import (parse_args, BilbyPipeError)
+from bilby_pipe.utils import parse_args, BilbyPipeError
 
 
-description="""\
+description = """\
 A script to use Bayesian inference to estimate the parameters of a \
 continuous gravitational-wave signal from a known pulsar."""
 
@@ -38,14 +37,9 @@ def create_parser():
         prog=sys.argv[0],
         description=description,
         ignore_unknown_config_file_keys=False,
-        allow_abbrev=False
+        allow_abbrev=False,
     )
-    parser.add(
-        "--config",
-        type=str,
-        is_config_file=True,
-        help="Configuration ini file",
-    )
+    parser.add("--config", type=str, is_config_file=True, help="Configuration ini file")
     parser.add(
         "--version",
         action="version",
@@ -56,279 +50,289 @@ def create_parser():
         default=10800,
         type=int,
         help=(
-            'Time after which the job will be self-evicted with code 130. '
-            'After this, condor will restart the job. Default is 10800s. '
-            'This is used to decrease the chance of HTCondor hard evictions.'
+            "Time after which the job will be self-evicted with code 130. "
+            "After this, condor will restart the job. Default is 10800s. "
+            "This is used to decrease the chance of HTCondor hard evictions."
         ),
     )
 
-    pulsarparser = parser.add_argument_group('Pulsar inputs')
+    pulsarparser = parser.add_argument_group("Pulsar inputs")
     pulsarparser.add(
-        '--par-file',
+        "--par-file",
         required=True,
         type=str,
+        help=("The path to a TEMPO(2) style file containing the pulsar parameters."),
+    )
+
+    dataparser = parser.add_argument_group("Data inputs")
+    dataparser.add(
+        "-d",
+        "--detector",
+        action="append",
         help=(
-            'The path to a TEMPO(2) style file containing the pulsar '
-            'parameters.'
+            "The abbreviated name of a detector to analyse. "
+            "Multiple detectors can be passed with multiple "
+            "arguments, e.g., --detector H1 --detector L1."
+        ),
+    )
+    dataparser.add(
+        "--data-file",
+        action="append",
+        help=(
+            "The path to a heterodyned data file for a given "
+            "detector. The format should be of the form "
+            '"DET:PATH",  where DET is the detector name. '
+            "Multiple files can be passed with multiple "
+            "arguments, e.g., --data-file H1:H1data.txt "
+            "--data-file L1:L1data.txt. This data will be assumed "
+            "to be that in a search for a signal from the l=m=2 "
+            "mass quadrupole and therefore heterodyned at twice "
+            "the source's rotation frequency. To add data "
+            "explicitly setting the heterodyned frequency at twice "
+            'the rotation frequency use "--data-file-2f", or for '
+            'data at the rotation frequency use "--data-file-1f".'
+        ),
+    )
+    dataparser.add(
+        "--data-file-2f",
+        action="append",
+        help=(
+            "The path to a data file for a given detector where "
+            "the data is explicitly given as being heterodyned at "
+            "twice the source's rotation frequency. The inputs "
+            "should be in the same format as those given to the "
+            '"--data-file" flag. This flag should generally be '
+            'preferred over the use of "--data-file".'
+        ),
+    )
+    dataparser.add(
+        "--data-file-1f",
+        action="append",
+        help=(
+            "The path to a data file for a given detector where "
+            "the data is explicitly given as being heterodyned at "
+            "the source's rotation frequency. The inputs should "
+            "be in the same format as those given to the "
+            '"--data-file" flag.'
+        ),
+    )
+    dataparser.add(
+        "--data-kwargs",
+        help=(
+            "A Python dictionary containing keywords to pass to "
+            "the HeterodynedData object."
         ),
     )
 
-    dataparser = parser.add_argument_group('Data inputs')
-    dataparser.add('-d', '--detector',
-                   action='append',
-                   help=(
-                       'The abbreviated name of a detector to analyse. '
-                       'Multiple detectors can be passed with multiple '
-                       'arguments, e.g., --detector H1 --detector L1.'
-                   ),
+    simparser = parser.add_argument_group("Simulated data")
+    simparser.add(
+        "--inj-par",
+        type=str,
+        help=(
+            "The path to a TEMPO(2) style file containing the "
+            'parameters of a simulated signal to "inject" into the '
+            "data."
+        ),
     )
-    dataparser.add('--data-file',
-                   action='append',
-                   help=(
-                       'The path to a heterodyned data file for a given '
-                       'detector. The format should be of the form '
-                       '"DET:PATH",  where DET is the detector name. '
-                       'Multiple files can be passed with multiple '
-                       'arguments, e.g., --data-file H1:H1data.txt '
-                       '--data-file L1:L1data.txt. This data will be assumed '
-                       'to be that in a search for a signal from the l=m=2 '
-                       'mass quadrupole and therefore heterodyned at twice '
-                       'the source\'s rotation frequency. To add data '
-                       'explicitly setting the heterodyned frequency at twice '
-                       'the rotation frequency use "--data-file-2f", or for '
-                       'data at the rotation frequency use "--data-file-1f".'
-                    ),
+    simparser.add(
+        "--inj-times",
+        help=(
+            "A Python list of pairs of times between which to add "
+            'the simulated signal (specified by the "--inj-par" '
+            "flag) to the data. By default the signal is added into "
+            "the whole data set."
+        ),
     )
-    dataparser.add('--data-file-2f',
-                   action='append',
-                   help=(
-                       'The path to a data file for a given detector where '
-                       'the data is explicitly given as being heterodyned at '
-                       'twice the source\'s rotation frequency. The inputs '
-                       'should be in the same format as those given to the '
-                       '"--data-file" flag. This flag should generally be '
-                       'preferred over the use of "--data-file".'
-                    ),
+    simparser.add(
+        "--show-truths",
+        action="store_true",
+        default=False,
+        help=(
+            "If plotting the results, setting this flag will "
+            'overplot the "true" signal values. If adding a '
+            "simulated signal then these parameter values will be "
+            'taken from the file specified by the "--inj-par" flag, '
+            "otherwise the values will be taken from the file "
+            'specified by the "--par-file" flag.'
+        ),
     )
-    dataparser.add('--data-file-1f',
-                   action='append',
-                   help=(
-                       'The path to a data file for a given detector where '
-                       'the data is explicitly given as being heterodyned at '
-                       'the source\'s rotation frequency. The inputs should '
-                       'be in the same format as those given to the '
-                       '"--data-file" flag.'
-                    ),
+    simparser.add(
+        "--fake-asd",
+        action="append",
+        help=(
+            "This flag sets the code to perform the analysis on "
+            "simulated Gaussian noise, with data samples drawn from "
+            "a Gaussian distribution defined by a given amplitude "
+            "spectral density. The flag is set in a similar way to "
+            'the "--data-file" flag. The argument can either be a '
+            "float giving an ASD value, or a string containing a "
+            "detector alias to produce noise from the design curve "
+            "for that detector, or a string containing a path to a "
+            "file with the noise curve for a detector. This can be "
+            'used in conjunction with the "--detector" flag, e.g., '
+            '"--detector H1 --fake-asd 1e-23", or without the '
+            '"--detector" flag, e.g., "--fake-asd H1:1e-23". Values '
+            "for multiple detectors can be passed by repeated use "
+            "of the flag, noting that if used in conjunction with "
+            'the "--detector" flag detectors and ASD values should '
+            'be added in the same order, e.g., "--detector H1 '
+            '--fake-asd H1 --detector L1 --fake-asd L1". This flag '
+            'is ignored if "--data-file" values for the same '
+            "detector have already been passed. The fake data that "
+            "is produced is assumed to be that for a signal at "
+            "twice the source rotation frequency. To explicitly set "
+            "fake data at once or twice the rotation frequency "
+            'use the "--fake-asd-1f" and "--fake-asd-2f" flags '
+            "instead."
+        ),
     )
-    dataparser.add('--data-kwargs',
-                   help=(
-                       'A Python dictionary containing keywords to pass to '
-                       'the HeterodynedData object.'
-                   ),
+    simparser.add(
+        "--fake-asd-1f",
+        action="append",
+        help=(
+            "This flag sets the data to be Gaussian noise "
+            "explicitly for a source emitting at the rotation "
+            'frequency. See the documentation for "--fake-asd" for '
+            "details of its use."
+        ),
     )
-
-    simparser = parser.add_argument_group('Simulated data')
-    simparser.add('--inj-par',
-                  type=str,
-                  help=(
-                      'The path to a TEMPO(2) style file containing the '
-                      'parameters of a simulated signal to "inject" into the '
-                      'data.'
-                  ),
+    simparser.add(
+        "--fake-asd-2f",
+        action="append",
+        help=(
+            "This flag sets the data to be Gaussian noise "
+            "explicitly for a source emitting at twice the rotation "
+            'frequency. See the documentation for "--fake-asd" for '
+            "details of its use."
+        ),
     )
-    simparser.add('--inj-times',
-                  help=(
-                      'A Python list of pairs of times between which to add '
-                      'the simulated signal (specified by the "--inj-par" '
-                      'flag) to the data. By default the signal is added into '
-                      'the whole data set.'
-                  ),
+    simparser.add(
+        "--fake-sigma",
+        action="append",
+        help=(
+            'This flag is equivalent to "--fake-asd", but '
+            "instead of taking in an amplitude spectral density "
+            "value it takes in a noise standard deviation."
+        ),
     )
-    simparser.add('--show-truths',
-                  action='store_true',
-                  default=False,
-                  help=(
-                      'If plotting the results, setting this flag will '
-                      'overplot the "true" signal values. If adding a '
-                      'simulated signal then these parameter values will be '
-                      'taken from the file specified by the "--inj-par" flag, '
-                      'otherwise the values will be taken from the file '
-                      'specified by the "--par-file" flag.'
-                  ),
+    simparser.add(
+        "--fake-sigma-1f",
+        action="append",
+        help=(
+            'This flag is equivalent to "--fake-asd-1f", but '
+            "instead of taking in an amplitude spectral density "
+            "value it takes in a noise standard deviation."
+        ),
     )
-    simparser.add('--fake-asd',
-                  action='append',
-                  help=(
-                      'This flag sets the code to perform the analysis on '
-                      'simulated Gaussian noise, with data samples drawn from '
-                      'a Gaussian distribution defined by a given amplitude '
-                      'spectral density. The flag is set in a similar way to '
-                      'the "--data-file" flag. The argument can either be a '
-                      'float giving an ASD value, or a string containing a '
-                      'detector alias to produce noise from the design curve '
-                      'for that detector, or a string containing a path to a '
-                      'file with the noise curve for a detector. This can be '
-                      'used in conjunction with the "--detector" flag, e.g., '
-                      '"--detector H1 --fake-asd 1e-23", or without the '
-                      '"--detector" flag, e.g., "--fake-asd H1:1e-23". Values '
-                      'for multiple detectors can be passed by repeated use '
-                      'of the flag, noting that if used in conjunction with '
-                      'the "--detector" flag detectors and ASD values should '
-                      'be added in the same order, e.g., "--detector H1 '
-                      '--fake-asd H1 --detector L1 --fake-asd L1". This flag '
-                      'is ignored if "--data-file" values for the same '
-                      'detector have already been passed. The fake data that '
-                      'is produced is assumed to be that for a signal at '
-                      'twice the source rotation frequency. To explicitly set '
-                      'fake data at once or twice the rotation frequency '
-                      'use the "--fake-asd-1f" and "--fake-asd-2f" flags '
-                      'instead.'
-                  ),
+    simparser.add(
+        "--fake-sigma-2f",
+        action="append",
+        help=(
+            'This flag is equivalent to "--fake-asd-2f", but '
+            "instead of taking in an amplitude spectral density "
+            "value it takes in a noise standard deviation."
+        ),
     )
-    simparser.add('--fake-asd-1f',
-                  action='append',
-                  help=(
-                      'This flag sets the data to be Gaussian noise '
-                      'explicitly for a source emitting at the rotation '
-                      'frequency. See the documentation for "--fake-asd" for '
-                      'details of its use.'
-                  ),
+    simparser.add(
+        "--fake-start",
+        action="append",
+        help=(
+            "The GPS start time for generating simulated noise "
+            "data. This be added for each detector in the same way "
+            'as used in the "--fake-asd" command (default: '
+            "1000000000)."
+        ),
     )
-    simparser.add('--fake-asd-2f',
-                  action='append',
-                  help=(
-                      'This flag sets the data to be Gaussian noise '
-                      'explicitly for a source emitting at twice the rotation '
-                      'frequency. See the documentation for "--fake-asd" for '
-                      'details of its use.'
-                  ),
+    simparser.add(
+        "--fake-end",
+        action="append",
+        help=(
+            "The GPS end time for generating simulated noise data. "
+            "This be added for each detector in the same way as "
+            'used in the "--fake-asd" command (default: '
+            "1000086400)"
+        ),
     )
-    simparser.add('--fake-sigma',
-                  action='append',
-                  help=(
-                      'This flag is equivalent to "--fake-asd", but '
-                      'instead of taking in an amplitude spectral density '
-                      'value it takes in a noise standard deviation.'
-                  ),
+    simparser.add(
+        "--fake-dt",
+        action="append",
+        help=(
+            "The time step for generating simulated noise data. "
+            "This be added for each detector in the same way as "
+            'used in the "--fake-asd" command (default: 60)'
+        ),
     )
-    simparser.add('--fake-sigma-1f',
-                  action='append',
-                  help=(
-                      'This flag is equivalent to "--fake-asd-1f", but '
-                      'instead of taking in an amplitude spectral density '
-                      'value it takes in a noise standard deviation.'
-                  ),
-    )
-    simparser.add('--fake-sigma-2f',
-                  action='append',
-                  help=(
-                      'This flag is equivalent to "--fake-asd-2f", but '
-                      'instead of taking in an amplitude spectral density '
-                      'value it takes in a noise standard deviation.'
-                  ),
-    )
-    simparser.add('--fake-start',
-                  action='append',
-                  help=(
-                      'The GPS start time for generating simulated noise '
-                      'data. This be added for each detector in the same way '
-                      'as used in the "--fake-asd" command (default: '
-                      '1000000000).'
-                  ),
-    )
-    simparser.add('--fake-end',
-                  action='append',
-                  help=(
-                      'The GPS end time for generating simulated noise data. '
-                      'This be added for each detector in the same way as '
-                      'used in the "--fake-asd" command (default: '
-                      '1000086400)'
-                  ),
-    )
-    simparser.add('--fake-dt',
-                  action='append',
-                  help=(
-                      'The time step for generating simulated noise data. '
-                      'This be added for each detector in the same way as '
-                      'used in the "--fake-asd" command (default: 60)'
-                  ),
-    )
-    simparser.add('--fake-seed',
-                  type=int,
-                  help=(
-                      'A positive integer random number generator seed used '
-                      'when generating the simulated data noise.'
-                  ),
+    simparser.add(
+        "--fake-seed",
+        type=int,
+        help=(
+            "A positive integer random number generator seed used "
+            "when generating the simulated data noise."
+        ),
     )
 
-    outputparser = parser.add_argument_group('Output')
-    outputparser.add(
-        '-o', '--outdir',
-        help='The output directory for the results',
-    )
-    outputparser.add('-l', '--label',
-                     help='The output filename label for the results',
-    )
+    outputparser = parser.add_argument_group("Output")
+    outputparser.add("-o", "--outdir", help="The output directory for the results")
+    outputparser.add("-l", "--label", help="The output filename label for the results")
 
-    samplerparser = parser.add_argument_group('Sampler inputs')
-    samplerparser.add('-s', '--sampler',
-                      default='dynesty',
-                      help=(
-                          'The sampling algorithm to use bilby (default: '
-                          '%(default)s)'
-                      ),
+    samplerparser = parser.add_argument_group("Sampler inputs")
+    samplerparser.add(
+        "-s",
+        "--sampler",
+        default="dynesty",
+        help=("The sampling algorithm to use bilby (default: " "%(default)s)"),
     )
     samplerparser.add(
-        '--sampler-kwargs',
+        "--sampler-kwargs",
         help=(
-            'The keyword arguments for running the sampler. This should be in '
-            'the format of a standard Python dictionary and must be given '
-            'within quotation marks, e.g., "{\'Nlive\':1000}".'
+            "The keyword arguments for running the sampler. This should be in "
+            "the format of a standard Python dictionary and must be given "
+            "within quotation marks, e.g., \"{'Nlive':1000}\"."
         ),
     )
     samplerparser.add(
-        '--likelihood',
-        default='studentst',
+        "--likelihood",
+        default="studentst",
         help=(
-            'The name of the likelihood function to use. This can be either '
+            "The name of the likelihood function to use. This can be either "
             '"studentst" or "gaussian".'
         ),
     )
     samplerparser.add(
-        '--prior',
+        "--prior",
         type=str,
         required=True,
         help=(
-            'The path to a bilby-style prior file defining the parameters to '
-            'be estimated and their prior probability distributions.'
+            "The path to a bilby-style prior file defining the parameters to "
+            "be estimated and their prior probability distributions."
         ),
     )
     samplerparser.add(
-        '--grid',
-        action='store_true',
+        "--grid",
+        action="store_true",
         default=False,
         help=(
-            'Set this flag to evaluate the posterior over a grid rather than '
-            'using a stochastic sampling method.'
-        )
+            "Set this flag to evaluate the posterior over a grid rather than "
+            "using a stochastic sampling method."
+        ),
     )
     samplerparser.add(
-        '--grid-kwargs',
+        "--grid-kwargs",
         help=(
-            'The keyword arguments for running the posterior evaluation over '
-            'a grid. This should be a the format of a standard Python '
-            'dictionary, and must be given within quotation marks, '
-            'e.g., "{\'grid_size\':100}".'
-        )
+            "The keyword arguments for running the posterior evaluation over "
+            "a grid. This should be a the format of a standard Python "
+            "dictionary, and must be given within quotation marks, "
+            "e.g., \"{'grid_size':100}\"."
+        ),
     )
 
     return parser
-    
+
 
 class KnopeRunner(object):
     """
     Set up and run the known pulsar parameter estimation.
-    
+
     Parameters
     ----------
     kwargs: dict
@@ -358,39 +362,37 @@ class KnopeRunner(object):
                 kwargs.pop(key)
 
         # keyword arguments for creating the HeterodynedData objects
-        self.datakwargs = kwargs.get('data_kwargs', {})
- 
-        if 'par_file' not in kwargs:
-            raise KeyError('A pulsar parameter file must be provided')
+        self.datakwargs = kwargs.get("data_kwargs", {})
+
+        if "par_file" not in kwargs:
+            raise KeyError("A pulsar parameter file must be provided")
         else:
-            self.datakwargs['par'] = kwargs['par_file']
+            self.datakwargs["par"] = kwargs["par_file"]
 
         # injection parameters
-        self.datakwargs.setdefault('injpar', kwargs.get('inj_par', None))
-        self.datakwargs.setdefault('inject', (
-            False if self.datakwargs['injpar'] is None else True)
+        self.datakwargs.setdefault("injpar", kwargs.get("inj_par", None))
+        self.datakwargs.setdefault(
+            "inject", (False if self.datakwargs["injpar"] is None else True)
         )
 
         # get list of times at which to inject the signal
-        self.datakwargs.setdefault('injtimes', kwargs.get('inj_times', None))
+        self.datakwargs.setdefault("injtimes", kwargs.get("inj_times", None))
         try:
-            self.datakwargs['injtimes'] = ast.literal_eval(
-                self.datakwargs['injtimes']
-            )
+            self.datakwargs["injtimes"] = ast.literal_eval(self.datakwargs["injtimes"])
         except (ValueError, SyntaxError):
             pass
 
-        if self.datakwargs['injtimes'] is not None:
-            if not isinstance(self.datakwargs['injtimes'], (list, np.ndarray)): 
-                raise TypeError('Injection times must be a list')
+        if self.datakwargs["injtimes"] is not None:
+            if not isinstance(self.datakwargs["injtimes"], (list, np.ndarray)):
+                raise TypeError("Injection times must be a list")
 
         # data parameters
-        if 'detector' in kwargs:
-            if isinstance(kwargs['detector'], str):
-                detectors = [kwargs['detector']]
-            elif isinstance(kwargs['detector'], list):
+        if "detector" in kwargs:
+            if isinstance(kwargs["detector"], str):
+                detectors = [kwargs["detector"]]
+            elif isinstance(kwargs["detector"], list):
                 detectors = []
-                for det in kwargs['detector']:
+                for det in kwargs["detector"]:
                     try:
                         # remove additional quotation marks from string
                         thisdet = ast.literal_eval(det)
@@ -409,10 +411,13 @@ class KnopeRunner(object):
 
         # set the heterodyned data structure
         resetdetectors = True if detectors is None else False
-        if ('data_file' in kwargs or 'data_file_1f' in kwargs
-                or 'data_file_2f' in kwargs): 
+        if (
+            "data_file" in kwargs
+            or "data_file_1f" in kwargs
+            or "data_file_2f" in kwargs
+        ):
             data2f = []
-            for kw in ['data_file', 'data_file_2f']:
+            for kw in ["data_file", "data_file_2f"]:
                 if kw in kwargs:
                     try:
                         data2f = ast.literal_eval(kwargs[kw])
@@ -421,11 +426,11 @@ class KnopeRunner(object):
                     break
 
             data1f = []
-            if 'data_file_1f' in kwargs:
+            if "data_file_1f" in kwargs:
                 try:
-                    data1f = ast.literal_eval(kwargs['data_file_1f'])
+                    data1f = ast.literal_eval(kwargs["data_file_1f"])
                 except (ValueError, SyntaxError):
-                    data1f = kwargs['data_file_1f']
+                    data1f = kwargs["data_file_1f"]
 
             if isinstance(data2f, str):
                 # make into a list
@@ -435,8 +440,8 @@ class KnopeRunner(object):
                 # make into a list
                 data1f = [data1f]
 
-            for freq, data in zip([1., 2.], [data1f, data2f]):
-                self.datakwargs['freqfactor'] = freq
+            for freq, data in zip([1.0, 2.0], [data1f, data2f]):
+                self.datakwargs["freqfactor"] = freq
 
                 if isinstance(data, dict):
                     # make into a list
@@ -452,30 +457,32 @@ class KnopeRunner(object):
                 if isinstance(data, list):
                     # pass through list and check strings
                     for i, dfile in enumerate(data):
-                        detdata = dfile.split(':')  # split detector and path
+                        detdata = dfile.split(":")  # split detector and path
 
                         if len(detdata) == 2:
                             if detectors is not None:
                                 if detdata[0] not in detectors:
-                                   raise ValueError("Data file does not have "
-                                                     "consistent detector")
+                                    raise ValueError(
+                                        "Data file does not have consistent detector"
+                                    )
                             thisdet = detdata[0]
                             thisdata = detdata[1]
                         elif len(detdata) == 1 and detectors is not None:
                             try:
                                 thisdet = detectors[i]
                             except Exception as e:
-                                raise ValueError("Detectors is not a list")
+                                raise ValueError(
+                                    "Detectors is not a list: {}".format(e)
+                                )
                             thisdata = dfile
                         else:
-                            raise ValueError("Data string must be of the form "
-                                             "'DET:FILEPATH'")
+                            raise ValueError(
+                                "Data string must be of the form 'DET:FILEPATH'"
+                            )
 
                         self.hetdata.add_data(
                             HeterodynedData(
-                                data=thisdata,
-                                detector=thisdet,
-                                **self.datakwargs
+                                data=thisdata, detector=thisdet, **self.datakwargs
                             )
                         )
                 else:
@@ -489,43 +496,44 @@ class KnopeRunner(object):
 
         # set fake data
         detectors = None if resetdetectors else detectors
-        if (('fake_asd' in kwargs
-                or 'fake_asd_1f' in kwargs
-                or 'fake_asd_2f' in kwargs
-                or 'fake_sigma' in kwargs
-                or 'fake_sigma_1f' in kwargs
-                or 'fake_sigma_2d' in kwargs)):
+        if (
+            "fake_asd" in kwargs
+            or "fake_asd_1f" in kwargs
+            or "fake_asd_2f" in kwargs
+            or "fake_sigma" in kwargs
+            or "fake_sigma_1f" in kwargs
+            or "fake_sigma_2d" in kwargs
+        ):
 
-            starts = kwargs.get('fake_start', 1000000000)  # default start time
-            ends = kwargs.get('fake_end', 1000086400)      # default end time
-            dts = kwargs.get('fake_dt', 60)                # default time step
-            ftimes = kwargs.get('fake_times', None)        # time array(s)
-            fseed = kwargs.get('fake_seed', None)          # data seed
+            starts = kwargs.get("fake_start", 1000000000)  # default start time
+            ends = kwargs.get("fake_end", 1000086400)  # default end time
+            dts = kwargs.get("fake_dt", 60)  # default time step
+            ftimes = kwargs.get("fake_times", None)  # time array(s)
+            fseed = kwargs.get("fake_seed", None)  # data seed
 
             fakeasd2f = []
             issigma2f = False
-            for kw in ['fake_asd', 'fake_asd_2f', 'fake_sigma',
-                       'fake_sigma_2f']:
+            for kw in ["fake_asd", "fake_asd_2f", "fake_sigma", "fake_sigma_2f"]:
                 if kw in kwargs:
                     try:
                         fakeasd2f = ast.literal_eval(kwargs[kw])
                     except (ValueError, SyntaxError):
                         fakeasd2f = kwargs[kw]
-                    if 'sigma' in kw:
+                    if "sigma" in kw:
                         issigma2f = True
                         break
 
             fakeasd1f = []
             issigma1f = False
-            for kw in ['fake_asd_1f', 'fake_sigma_1f']:
+            for kw in ["fake_asd_1f", "fake_sigma_1f"]:
                 if kw in kwargs:
                     try:
                         fakeasd1f = ast.literal_eval(kwargs[kw])
                     except (ValueError, SyntaxError):
                         fakeasd1f = kwargs[kw]
-                    if 'sigma' in kw:
+                    if "sigma" in kw:
                         issigma1f = True
-                        break           
+                        break
 
             if isinstance(starts, str):
                 try:
@@ -589,12 +597,12 @@ class KnopeRunner(object):
             if fseed is not None:
                 rstate = np.random.RandomState(fseed)
 
-            for freq, fakedata, issigma in zip([1., 2.],
-                                               [fakeasd1f, fakeasd2f],
-                                               [issigma1f, issigma2f]):
-                self.datakwargs['freqfactor'] = freq
-                self.datakwargs['issigma'] = issigma
-                self.datakwargs['fakeseed'] = rstate
+            for freq, fakedata, issigma in zip(
+                [1.0, 2.0], [fakeasd1f, fakeasd2f], [issigma1f, issigma2f]
+            ):
+                self.datakwargs["freqfactor"] = freq
+                self.datakwargs["issigma"] = issigma
+                self.datakwargs["fakeseed"] = rstate
 
                 if isinstance(fakedata, dict):
                     # make into a list
@@ -610,32 +618,39 @@ class KnopeRunner(object):
                 if isinstance(starts, dict):
                     # make into a list
                     if list(starts.keys()) != detectors:
-                        raise ValueError("Fake data start times do not "
-                                         "contain consistent detectors")
+                        raise ValueError(
+                            "Fake data start times do not "
+                            "contain consistent detectors"
+                        )
                     else:
                         starts = list(starts.values())
 
                 if isinstance(ends, dict):
                     # make into a list
                     if list(ends.keys()) != detectors:
-                        raise ValueError("Fake data end times do not "
-                                         "contain consistent detectors")
+                        raise ValueError(
+                            "Fake data end times do not contain consistent detectors"
+                        )
                     else:
                         ends = list(ends.values())
 
                 if isinstance(dts, dict):
                     # make into a list
                     if list(dts.keys()) != detectors:
-                        raise ValueError("Fake data time steps do not "
-                                         "contain consistent detectors")
+                        raise ValueError(
+                            "Fake data time steps do not "
+                            "contain consistent detectors"
+                        )
                     else:
                         dts = list(dts.values())
 
                 if isinstance(ftimes, dict):
                     # make into a list
                     if list(ftimes.keys()) != detectors:
-                        raise ValueError("Fake data time arrays do not "
-                                         "contain consistent detectors")
+                        raise ValueError(
+                            "Fake data time arrays do not "
+                            "contain consistent detectors"
+                        )
                     else:
                         ftimes = list(ftimes.values())
 
@@ -652,46 +667,54 @@ class KnopeRunner(object):
                     if len(ftimes) == 1 and len(fakedata) > 1:
                         ftimes = len(fakedata) * ftimes
 
-                    if (len(fakedata) != len(starts) or
-                            len(fakedata) != len(ends) or
-                            len(fakedata) != len(dts) or
-                            len(fakedata) != len(ftimes)):
-                        raise ValueError("Fake data values and times are not "
-                                         "consistent")
+                    if (
+                        len(fakedata) != len(starts)
+                        or len(fakedata) != len(ends)
+                        or len(fakedata) != len(dts)
+                        or len(fakedata) != len(ftimes)
+                    ):
+                        raise ValueError(
+                            "Fake data values and times are not consistent"
+                        )
 
                 if isinstance(fakedata, list):
                     # parse through list
                     detidx = 0
-                    for fdata, start, end, dt, ftime in zip(fakedata, starts,
-                                                            ends, dts, ftimes):
+                    for fdata, start, end, dt, ftime in zip(
+                        fakedata, starts, ends, dts, ftimes
+                    ):
                         try:
                             # make sure value is a string so it can be "split"
-                            detfdata = str(fdata).split(':')
+                            detfdata = str(fdata).split(":")
                         except Exception as e:
-                                raise TypeError("Fake time value is the wrong "
-                                                "type: {}".format(e))
- 
+                            raise TypeError(
+                                "Fake time value is the wrong type: {}".format(e)
+                            )
+
                         if ftime is None:
                             try:
                                 # make sure values are strings so they can be
                                 # "split"
-                                detstart = str(start).split(':')
-                                detend = str(end).split(':')
-                                detdt = str(dt).split(':')
+                                detstart = str(start).split(":")
+                                detend = str(end).split(":")
+                                detdt = str(dt).split(":")
                             except Exception as e:
-                                raise TypeError("Fake time value is the wrong "
-                                                "type: {}".format(e))
+                                raise TypeError(
+                                    "Fake time value is the wrong type: {}".format(e)
+                                )
 
                         if len(detfdata) == 2:
                             if detectors is not None:
                                 if detfdata[0] not in detectors:
-                                    raise ValueError("Fake data input does not have "
-                                                     "consistent detector")
-                            
+                                    raise ValueError(
+                                        "Fake data input does not have "
+                                        "consistent detector"
+                                    )
+
                             try:
                                 asdval = float(detfdata[1])
                             except ValueError:
-                                asdval = detfdata[1]    
+                                asdval = detfdata[1]
 
                             thisdet = detfdata[0]
 
@@ -706,18 +729,16 @@ class KnopeRunner(object):
                                 for detcheck in [detstart, detend, detdt]:
                                     if len(detcheck) == 2:
                                         if detcheck[0] != thisdet:
-                                            raise ValueError(
-                                                "Inconsistent detectors!"
-                                            )
+                                            raise ValueError("Inconsistent detectors!")
 
                                 try:
                                     int(detcheck[-1])
                                 except ValueError:
                                     raise TypeError("Problematic type!")
 
-                                ftime = np.arange(int(detstart[-1]),
-                                                  int(detend[-1]),
-                                                  int(detdt[-1]))
+                                ftime = np.arange(
+                                    int(detstart[-1]), int(detend[-1]), int(detdt[-1])
+                                )
                         elif len(detfdata) == 1 and detectors is not None:
                             try:
                                 asdval = float(detfdata[-1])
@@ -741,21 +762,20 @@ class KnopeRunner(object):
                                 for detcheck in [detstart, detend, detdt]:
                                     if len(detcheck) == 2:
                                         if detcheck[0] != thisdet:
-                                            raise ValueError(
-                                                "Inconsistent detectors!"
-                                            )
+                                            raise ValueError("Inconsistent detectors!")
 
                                 try:
                                     int(detcheck[-1])
                                 except ValueError:
                                     raise TypeError("Problematic type!")
 
-                                ftime = np.arange(int(detstart[-1]),
-                                                  int(detend[-1]),
-                                                  int(detdt[-1]))
+                                ftime = np.arange(
+                                    int(detstart[-1]), int(detend[-1]), int(detdt[-1])
+                                )
                         else:
-                            raise ValueError("Fake data string must be of "
-                                             "the form 'DET:ASD'")
+                            raise ValueError(
+                                "Fake data string must be of the form 'DET:ASD'"
+                            )
 
                         self.hetdata.add_data(
                             HeterodynedData(
@@ -772,38 +792,38 @@ class KnopeRunner(object):
             raise ValueError("No data has been supplied!")
 
         # sampler parameters
-        self.sampler = kwargs.get('sampler', 'dynesty')
-        self.sampler_kwargs = kwargs.get('sampler_kwargs', {})
+        self.sampler = kwargs.get("sampler", "dynesty")
+        self.sampler_kwargs = kwargs.get("sampler_kwargs", {})
         if isinstance(self.sampler_kwargs, str):
             try:
                 self.sampler_kwargs = ast.literal_eval(self.sampler_kwargs)
             except (ValueError, SyntaxError):
                 raise ValueError("Unable to parse sampler keyword arguments")
-        self.use_grid = kwargs.get('grid', False)
-        self.grid_kwargs = kwargs.get('grid_kwargs', {})
+        self.use_grid = kwargs.get("grid", False)
+        self.grid_kwargs = kwargs.get("grid_kwargs", {})
         if isinstance(self.grid_kwargs, str):
             try:
                 self.grid_kwargs = ast.literal_eval(self.grid_kwargs)
             except (ValueError, SyntaxError):
                 raise ValueError("Unable to parse grid keyword arguments")
-        self.likelihoodtype = kwargs.get('likelihood', 'studentst')
-        self.prior = kwargs.get('prior', None)
+        self.likelihoodtype = kwargs.get("likelihood", "studentst")
+        self.prior = kwargs.get("prior", None)
         if not isinstance(self.prior, (str, dict, bilby.core.prior.PriorDict)):
-            raise ValueError('The prior is not defined')
+            raise ValueError("The prior is not defined")
         else:
             self.prior = bilby.core.prior.PriorDict(self.prior)
 
         # output parameters
-        if 'outdir' in kwargs:
-            self.sampler_kwargs.setdefault('outdir', kwargs.get('outdir'))
-        if 'label' in kwargs:
-            self.sampler_kwargs.setdefault('label', kwargs.get('label'))
+        if "outdir" in kwargs:
+            self.sampler_kwargs.setdefault("outdir", kwargs.get("outdir"))
+        if "label" in kwargs:
+            self.sampler_kwargs.setdefault("label", kwargs.get("label"))
 
-        show_truths = kwargs.get('show_truths', False)
+        show_truths = kwargs.get("show_truths", False)
         if show_truths:
             # don't overwrite 'injection_parameters' is they are already defined
-            if 'injection_parameters' not in self.sampler_kwargs:
-                if self.datakwargs['injpar'] is not None:
+            if "injection_parameters" not in self.sampler_kwargs:
+                if self.datakwargs["injpar"] is not None:
                     injpartmp = self.hetdata.to_list[0].injpar
                 else:
                     injpartmp = self.hetdata.to_list[0].par
@@ -814,26 +834,29 @@ class KnopeRunner(object):
                     injtruths[key] = injpartmp[key.upper()]
 
                     # check iota and theta
-                    if key.lower() in ['iota', 'theta']:
-                        if (injtruths[key] is None and 
-                                injpartmp['COS{}'.format(key.upper())] is not None):
-                            injtruths[key] = np.arccos(injpartmp['COS{}'.format(key.upper())])
-                    elif key.lower() in ['cosiota', 'costheta']:
-                        if (injtruths[key] is None and
-                                injpartmp[key[3:].upper()] is not None):
+                    if key.lower() in ["iota", "theta"]:
+                        if (
+                            injtruths[key] is None
+                            and injpartmp["COS{}".format(key.upper())] is not None
+                        ):
+                            injtruths[key] = np.arccos(
+                                injpartmp["COS{}".format(key.upper())]
+                            )
+                    elif key.lower() in ["cosiota", "costheta"]:
+                        if (
+                            injtruths[key] is None
+                            and injpartmp[key[3:].upper()] is not None
+                        ):
                             injtruths[key] = np.cos(injpartmp[key[3:].upper()])
 
-                self.sampler_kwargs.update(
-                    {'injection_parameters': injtruths}
-                )
+                self.sampler_kwargs.update({"injection_parameters": injtruths})
 
         # set use_ratio to False by default
-        if 'use_ratio' not in self.sampler_kwargs:
-            self.sampler_kwargs['use_ratio'] = False
+        if "use_ratio" not in self.sampler_kwargs:
+            self.sampler_kwargs["use_ratio"] = False
 
         # default restart time to 1000000 seconds if not running through CLI
-        self.periodic_restart_time = kwargs.get('periodic_restart_time',
-                                                10000000)
+        self.periodic_restart_time = kwargs.get("periodic_restart_time", 10000000)
 
     def set_likelihood(self):
         """
@@ -841,9 +864,7 @@ class KnopeRunner(object):
         """
 
         self.likelihood = TargetedPulsarLikelihood(
-            data=self.hetdata,
-            priors=self.prior,
-            likelihood=self.likelihoodtype
+            data=self.hetdata, priors=self.prior, likelihood=self.likelihoodtype
         )
 
     def run_sampler(self):
@@ -881,9 +902,8 @@ class KnopeRunner(object):
         """
 
         self.grid = bilby.core.grid.Grid(
-            likelihood=self.likelihood,
-            priors=self.prior,
-            **self.grid_kwargs)
+            likelihood=self.likelihood, priors=self.prior, **self.grid_kwargs
+        )
 
         return self.grid
 
@@ -1021,14 +1041,13 @@ def knope(**kwargs):
         Python this defaults to 10000000. 
     """
 
-    if ('cwinpy_knope' == os.path.split(sys.argv[0])[-1] or
-            'config' in kwargs):
+    if "cwinpy_knope" == os.path.split(sys.argv[0])[-1] or "config" in kwargs:
         # get command line arguments
         parser = create_parser()
 
         # parse config file or command line arguments
-        if 'config' in kwargs:
-            cliargs = ['--config', kwargs['config']]
+        if "config" in kwargs:
+            cliargs = ["--config", kwargs["config"]]
         else:
             cliargs = sys.argv[1:]
 
@@ -1040,7 +1059,7 @@ def knope(**kwargs):
         # convert args to a dictionary
         dargs = vars(args)
 
-        if 'config' in kwargs:
+        if "config" in kwargs:
             # update with other keyword arguments
             dargs.update(kwargs)
     else:
@@ -1052,7 +1071,7 @@ def knope(**kwargs):
     # run the sampler (expect in testing)
     if runner.use_grid:
         runner.run_grid()
-    elif not hasattr(cwinpy, '_called_from_test'):    
+    elif not hasattr(cwinpy, "_called_from_test"):
         runner.run_sampler()
 
     return runner
@@ -1064,4 +1083,4 @@ def knope_cli(**kwargs):
     return any objects.
     """
 
-    run = knope(**kwargs)
+    _ = knope(**kwargs)

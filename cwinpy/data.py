@@ -12,7 +12,7 @@ import lal
 import lalpulsar
 
 # import utility functions
-from .utils import (logfactorial, gcd_array)
+from .utils import logfactorial, gcd_array
 
 # import colors from gwpy
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
@@ -46,21 +46,32 @@ class MultiHeterodynedData(object):
     on additional keyword arguments.
     """
 
-    def __init__(self, data=None, times=None, detector=None, window=30,
-                 inject=False, par=None, injpar=None, freqfactor=2.0,
-                 bbthreshold="default", remove_outliers=False, thresh=3.5,
-                 **kwargs):
+    def __init__(
+        self,
+        data=None,
+        times=None,
+        detector=None,
+        window=30,
+        inject=False,
+        par=None,
+        injpar=None,
+        freqfactor=2.0,
+        bbthreshold="default",
+        remove_outliers=False,
+        thresh=3.5,
+        **kwargs
+    ):
 
         # set keyword argument
         self.__heterodyned_data_kwargs = {}
-        self.__heterodyned_data_kwargs['window'] = window
-        self.__heterodyned_data_kwargs['par'] = par
-        self.__heterodyned_data_kwargs['injpar'] = injpar
-        self.__heterodyned_data_kwargs['inject'] = inject
-        self.__heterodyned_data_kwargs['freqfactor'] = freqfactor
-        self.__heterodyned_data_kwargs['bbthreshold'] = bbthreshold
-        self.__heterodyned_data_kwargs['remove_outliers'] = remove_outliers
-        self.__heterodyned_data_kwargs['thresh'] = thresh
+        self.__heterodyned_data_kwargs["window"] = window
+        self.__heterodyned_data_kwargs["par"] = par
+        self.__heterodyned_data_kwargs["injpar"] = injpar
+        self.__heterodyned_data_kwargs["inject"] = inject
+        self.__heterodyned_data_kwargs["freqfactor"] = freqfactor
+        self.__heterodyned_data_kwargs["bbthreshold"] = bbthreshold
+        self.__heterodyned_data_kwargs["remove_outliers"] = remove_outliers
+        self.__heterodyned_data_kwargs["thresh"] = thresh
 
         self.__data = OrderedDict()  # initialise empty dict
         self.__currentidx = 0  # index for iterator
@@ -107,8 +118,10 @@ class MultiHeterodynedData(object):
                 else:
                     if isinstance(times, dict):
                         if detkey not in times:
-                            raise KeyError("`times` does not contain the "
-                                           "detector: {}".format(detkey))
+                            raise KeyError(
+                                "'times' does not contain the "
+                                "detector: {}".format(detkey)
+                            )
                         else:
                             dettimes = times[detkey]
                     else:
@@ -117,7 +130,7 @@ class MultiHeterodynedData(object):
                     self._add_data(data[detkey], detkey, dettimes)
         else:
             if isinstance(times, dict):
-                raise TypeError('`times` should not be a dictionary')
+                raise TypeError("'times' should not be a dictionary")
 
             self._add_data(data, detector, times)
 
@@ -133,8 +146,9 @@ class MultiHeterodynedData(object):
         if detector is None or data is None:
             raise ValueError("data and detector must be set")
 
-        het = HeterodynedData(data, times, detector=detector,
-                              **self.__heterodyned_data_kwargs)
+        het = HeterodynedData(
+            data, times, detector=detector, **self.__heterodyned_data_kwargs
+        )
 
         self._add_HeterodynedData(het)
 
@@ -198,12 +212,24 @@ class MultiHeterodynedData(object):
             raise StopIteration
         else:
             self.__currentidx += 1
-            return self.to_list[self.__currentidx-1]
+            return self.to_list[self.__currentidx - 1]
 
-    def plot(self, det=None, together=False, which='abs', figsize=(12, 4),
-             remove_outliers=False, thresh=3.5, zero_time=True, labelsize=None,
-             fontsize=None, legendsize=None, fontname=None,
-             labelname=None, **plotkwargs):
+    def plot(
+        self,
+        det=None,
+        together=False,
+        which="abs",
+        figsize=(12, 4),
+        remove_outliers=False,
+        thresh=3.5,
+        zero_time=True,
+        labelsize=None,
+        fontsize=None,
+        legendsize=None,
+        fontname=None,
+        labelname=None,
+        **plotkwargs
+    ):
         """
         Plot all, or some of, the time series' contained in the class. The
         general arguments can be seen in
@@ -255,17 +281,24 @@ class MultiHeterodynedData(object):
             # create the figure
             if figsize[0] == 12 and figsize[1] == 4:
                 # check default size and increase
-                figsize = (figsize[0], figsize[1]*nplots)
+                figsize = (figsize[0], figsize[1] * nplots)
 
             figs, axs = pl.subplots(nplots, 1, figsize=figsize)
 
             for ax, het in zip(axs, hets):
-                _ = het.plot(which=which, ax=ax,
-                             remove_outliers=remove_outliers,
-                             thresh=thresh, zero_time=zero_time,
-                             labelsize=labelsize, fontsize=fontsize,
-                             legendsize=legendsize, fontname=fontname,
-                             labelname=labelname, **plotkwargs)
+                _ = het.plot(
+                    which=which,
+                    ax=ax,
+                    remove_outliers=remove_outliers,
+                    thresh=thresh,
+                    zero_time=zero_time,
+                    labelsize=labelsize,
+                    fontsize=fontsize,
+                    legendsize=legendsize,
+                    fontname=fontname,
+                    labelname=labelname,
+                    **plotkwargs
+                )
         else:
             # a list of figures
             figs = []
@@ -277,21 +310,44 @@ class MultiHeterodynedData(object):
 
             # loop over data and produce plots
             for het in hets:
-                figs.append(het.plot(which=which, figsize=figsize,
-                                     remove_outliers=remove_outliers,
-                                     thresh=thresh, zero_time=zero_time,
-                                     labelsize=labelsize, fontsize=fontsize,
-                                     legendsize=legendsize, fontname=fontname,
-                                     labelname=labelname, **plotkwargs))
+                figs.append(
+                    het.plot(
+                        which=which,
+                        figsize=figsize,
+                        remove_outliers=remove_outliers,
+                        thresh=thresh,
+                        zero_time=zero_time,
+                        labelsize=labelsize,
+                        fontsize=fontsize,
+                        legendsize=legendsize,
+                        fontname=fontname,
+                        labelname=labelname,
+                        **plotkwargs
+                    )
+                )
 
         return figs
 
-    def power_spectrum(self, det=None, together=False, figsize=None,
-                       remove_outliers=None, thresh=None, labelsize=None,
-                       fontsize=None, legendsize=None, fontname=None,
-                       labelname=None, dt=None, fraction_labels=None,
-                       fraction_label_num=None, average=None,
-                       window=None, overlap=None, **plotkwargs):
+    def power_spectrum(
+        self,
+        det=None,
+        together=False,
+        figsize=None,
+        remove_outliers=None,
+        thresh=None,
+        labelsize=None,
+        fontsize=None,
+        legendsize=None,
+        fontname=None,
+        labelname=None,
+        dt=None,
+        fraction_labels=None,
+        fraction_label_num=None,
+        average=None,
+        window=None,
+        overlap=None,
+        **plotkwargs
+    ):
         """
         Plot all, or some of, the power spectra of the time series' contained
         in the class. The general arguments can be seen in
@@ -315,22 +371,42 @@ class MultiHeterodynedData(object):
             :class:`~matplotlib.figure.Figure` objects.
         """
 
-        return self._plot_power('power', det=det, together=together,
-                                figsize=figsize,
-                                remove_outliers=remove_outliers,
-                                thresh=thresh, labelsize=labelsize,
-                                fontsize=fontsize, labelname=labelname,
-                                fontname=fontname, dt=dt,
-                                fraction_labels=fraction_labels,
-                                fraction_label_num=fraction_label_num,
-                                average=average, window=window,
-                                overlap=overlap, **plotkwargs)
+        return self._plot_power(
+            "power",
+            det=det,
+            together=together,
+            figsize=figsize,
+            remove_outliers=remove_outliers,
+            thresh=thresh,
+            labelsize=labelsize,
+            fontsize=fontsize,
+            labelname=labelname,
+            fontname=fontname,
+            dt=dt,
+            fraction_labels=fraction_labels,
+            fraction_label_num=fraction_label_num,
+            average=average,
+            window=window,
+            overlap=overlap,
+            **plotkwargs
+        )
 
-    def periodogram(self, det=None, together=False, figsize=None,
-                    remove_outliers=None, thresh=None, labelsize=None,
-                    fontsize=None, legendsize=None, fontname=None,
-                    labelname=None, fraction_labels=None,
-                    fraction_label_num=None, **plotkwargs):
+    def periodogram(
+        self,
+        det=None,
+        together=False,
+        figsize=None,
+        remove_outliers=None,
+        thresh=None,
+        labelsize=None,
+        fontsize=None,
+        legendsize=None,
+        fontname=None,
+        labelname=None,
+        fraction_labels=None,
+        fraction_label_num=None,
+        **plotkwargs
+    ):
         """
         Plot all, or some of, the periodograms of the time series' contained
         in the class. The general arguments can be seen in
@@ -354,22 +430,41 @@ class MultiHeterodynedData(object):
             :class:`~matplotlib.figure.Figure` objects.
         """
 
-        return self._plot_power('periodogram', det=det, together=together,
-                                figsize=figsize,
-                                remove_outliers=remove_outliers,
-                                thresh=thresh, labelsize=labelsize,
-                                fontsize=fontsize, labelname=labelname,
-                                fontname=fontname,
-                                fraction_labels=fraction_labels,
-                                fraction_label_num=fraction_label_num,
-                                **plotkwargs)
+        return self._plot_power(
+            "periodogram",
+            det=det,
+            together=together,
+            figsize=figsize,
+            remove_outliers=remove_outliers,
+            thresh=thresh,
+            labelsize=labelsize,
+            fontsize=fontsize,
+            labelname=labelname,
+            fontname=fontname,
+            fraction_labels=fraction_labels,
+            fraction_label_num=fraction_label_num,
+            **plotkwargs
+        )
 
-    def spectrogram(self, det=None, together=False, figsize=None,
-                    remove_outliers=None, thresh=None, labelsize=None,
-                    fontsize=None, legendsize=None, fontname=None,
-                    labelname=None, fraction_labels=None,
-                    fraction_label_num=None, dt=None, overlap=None,
-                    window=None, **plotkwargs):
+    def spectrogram(
+        self,
+        det=None,
+        together=False,
+        figsize=None,
+        remove_outliers=None,
+        thresh=None,
+        labelsize=None,
+        fontsize=None,
+        legendsize=None,
+        fontname=None,
+        labelname=None,
+        fraction_labels=None,
+        fraction_label_num=None,
+        dt=None,
+        overlap=None,
+        window=None,
+        **plotkwargs
+    ):
         """
         Plot all, or some of, the spectograms of the time series' contained
         in the class. The general arguments can be seen in
@@ -393,22 +488,46 @@ class MultiHeterodynedData(object):
             :class:`~matplotlib.figure.Figure` objects.
         """
 
-        return self._plot_power('spectrogram', det=det, together=together,
-                                figsize=figsize, window=window,
-                                remove_outliers=remove_outliers,
-                                thresh=thresh, labelsize=labelsize,
-                                fontsize=fontsize, labelname=labelname,
-                                fontname=fontname, dt=dt,
-                                fraction_labels=fraction_labels,
-                                fraction_label_num=fraction_label_num,
-                                overlap=overlap, **plotkwargs)
+        return self._plot_power(
+            "spectrogram",
+            det=det,
+            together=together,
+            figsize=figsize,
+            window=window,
+            remove_outliers=remove_outliers,
+            thresh=thresh,
+            labelsize=labelsize,
+            fontsize=fontsize,
+            labelname=labelname,
+            fontname=fontname,
+            dt=dt,
+            fraction_labels=fraction_labels,
+            fraction_label_num=fraction_label_num,
+            overlap=overlap,
+            **plotkwargs
+        )
 
-    def _plot_power(self, plottype, det=None, together=False, figsize=None,
-                    remove_outliers=None, thresh=None, labelsize=None,
-                    fontsize=None, legendsize=None, fontname=None,
-                    labelname=None, dt=None, average=None, overlap=None,
-                    window=None, fraction_labels=None,
-                    fraction_label_num=None, **plotkwargs):
+    def _plot_power(
+        self,
+        plottype,
+        det=None,
+        together=False,
+        figsize=None,
+        remove_outliers=None,
+        thresh=None,
+        labelsize=None,
+        fontsize=None,
+        legendsize=None,
+        fontname=None,
+        labelname=None,
+        dt=None,
+        average=None,
+        overlap=None,
+        window=None,
+        fraction_labels=None,
+        fraction_label_num=None,
+        **plotkwargs
+    ):
         """
         General purpose function for plotting the various spectrum figures.
 
@@ -422,8 +541,7 @@ class MultiHeterodynedData(object):
         from matplotlib import pyplot as pl
         import matplotlib as mpl
 
-        if plottype.lower() not in ['spectrogram', 'periodogram',
-                                    'power']:
+        if plottype.lower() not in ["spectrogram", "periodogram", "power"]:
             raise ValueError("Spectrum plot type is not known")
 
         if len(self) == 0:
@@ -441,25 +559,44 @@ class MultiHeterodynedData(object):
 
         # set keyword arguments
         speckwargs = {}
-        for key, value in zip(['thresh', 'remove_outliers', 'labelsize',
-                               'labelname', 'fontsize', 'fontname',
-                               'legendsize', 'fraction_labels',
-                               'fraction_label_num', 'figsize'], [thresh,
-                               remove_outliers, labelsize, labelname, fontsize,
-                               fontname, legendsize, fraction_labels,
-                               fraction_label_num, figsize]):
+        for key, value in zip(
+            [
+                "thresh",
+                "remove_outliers",
+                "labelsize",
+                "labelname",
+                "fontsize",
+                "fontname",
+                "legendsize",
+                "fraction_labels",
+                "fraction_label_num",
+                "figsize",
+            ],
+            [
+                thresh,
+                remove_outliers,
+                labelsize,
+                labelname,
+                fontsize,
+                fontname,
+                legendsize,
+                fraction_labels,
+                fraction_label_num,
+                figsize,
+            ],
+        ):
             if value is not None:
                 speckwargs[key] = value
 
-        if plottype.lower() == 'power' and average is not None:
-            speckwargs['average'] = average
-        if plottype.lower() in ['spectrogram', 'power']:
+        if plottype.lower() == "power" and average is not None:
+            speckwargs["average"] = average
+        if plottype.lower() in ["spectrogram", "power"]:
             if overlap is not None:
-                speckwargs['overlap'] = overlap
+                speckwargs["overlap"] = overlap
             if window is not None:
-                speckwargs['window'] = window
+                speckwargs["window"] = window
             if dt is not None:
-                speckwargs['dt'] = dt
+                speckwargs["dt"] = dt
 
         nplots = 1
         if together:
@@ -473,17 +610,17 @@ class MultiHeterodynedData(object):
             # create the figure
             if figsize is None:
                 # create default size
-                if plottype.lower() == 'spectrogram':
-                    figsize = (12, 4*nplots)
+                if plottype.lower() == "spectrogram":
+                    figsize = (12, 4 * nplots)
                 else:
-                    figsize = (6, 5*nplots)
+                    figsize = (6, 5 * nplots)
 
             figs, axs = pl.subplots(nplots, 1, figsize=figsize)
 
             for ax, het in zip(axs, hets):
-                if plottype.lower() == 'periodogram':
+                if plottype.lower() == "periodogram":
                     plfunc = het.periodogram
-                elif plottype.lower() == 'power':
+                elif plottype.lower() == "power":
                     plfunc = het.power_spectrum
                 else:
                     plfunc = het.spectrogram
@@ -502,10 +639,10 @@ class MultiHeterodynedData(object):
 
             # loop over data and produce plots
             for het in hets:
-                if plottype.lower() == 'periodogram':
+                if plottype.lower() == "periodogram":
                     plfunc = het.periodogram
                     figidx = 2
-                elif plottype.lower() == 'power':
+                elif plottype.lower() == "power":
                     plfunc = het.power_spectrum
                     figidx = 2
                 else:
@@ -639,18 +776,34 @@ class HeterodynedData(object):
     """
 
     # set some default detector color maps for plotting
-    colmapdic = {'H1': 'Reds', 'L1': 'Blues', 'V1': 'PuRd', 'G1': 'Greys'}
+    colmapdic = {"H1": "Reds", "L1": "Blues", "V1": "PuRd", "G1": "Greys"}
 
     # set some default plotting values
-    PLOTTING_DEFAULTS = {'labelsize': 14,         # font size for axes tick labels
-                         'fontsize': 16,          # font size for axes labels
-                         'fontname': 'Gentium',   # font name for axes labels
-                         'labelname': 'Carlito'}  # font names for axes tick labels
+    PLOTTING_DEFAULTS = {
+        "labelsize": 14,         # font size for axes tick labels
+        "fontsize": 16,          # font size for axes labels
+        "fontname": "Gentium",   # font name for axes labels
+        "labelname": "Carlito",  # font names for axes tick labels
+    }
 
-    def __init__(self, data=None, times=None, par=None, detector=None,
-                 window=30, inject=False, injpar=None, injtimes=None,
-                 freqfactor=2.0, fakeasd=None, fakeseed=None, issigma=False,
-                 bbthreshold="default", remove_outliers=False, thresh=3.5):
+    def __init__(
+        self,
+        data=None,
+        times=None,
+        par=None,
+        detector=None,
+        window=30,
+        inject=False,
+        injpar=None,
+        injtimes=None,
+        freqfactor=2.0,
+        fakeasd=None,
+        fakeseed=None,
+        issigma=False,
+        bbthreshold="default",
+        remove_outliers=False,
+        thresh=3.5,
+    ):
         self.window = window  # set the window size
         self.__bbthreshold = bbthreshold
         self.__remove_outliers = remove_outliers
@@ -677,11 +830,11 @@ class HeterodynedData(object):
         if self.injection:
             # inject the signal
             if injpar is None:
-                self.inject_signal(injtimes=injtimes,
-                                   freqfactor=self.freq_factor)
+                self.inject_signal(injtimes=injtimes, freqfactor=self.freq_factor)
             else:
-                self.inject_signal(injpar=injpar, injtimes=injtimes,
-                                   freqfactor=self.freq_factor)
+                self.inject_signal(
+                    injpar=injpar, injtimes=injtimes, freqfactor=self.freq_factor
+                )
 
     @property
     def window(self):
@@ -721,7 +874,7 @@ class HeterodynedData(object):
         if isinstance(dataval, str):
             # read in data from a file
             try:
-                dataarray = np.loadtxt(dataval, comments=['#', '%'])
+                dataarray = np.loadtxt(dataval, comments=["#", "%"])
             except Exception as e:
                 raise IOError("Problem reading in data: {}".format(e))
 
@@ -749,9 +902,9 @@ class HeterodynedData(object):
             self.__data = dataarray.flatten()
         elif dataarray.shape[1] == 2:
             # real and imaginary components are separate
-            self.__data = dataarray[:, 0] + 1j*dataarray[:, 1]
+            self.__data = dataarray[:, 0] + 1j * dataarray[:, 1]
         elif dataarray.shape[1] == 3 or dataarray.shape[1] == 4:
-            self.__data = dataarray[:, 1] + 1j*dataarray[:, 2]
+            self.__data = dataarray[:, 1] + 1j * dataarray[:, 2]
             if dataarray.shape[1] == 4:
                 # set pre-calculated data standard deviations
                 self.__stds = dataarray[:, 3]
@@ -773,7 +926,7 @@ class HeterodynedData(object):
         # set the (minimum) time step and sampling frequency
         if len(self.times) > 1:
             self.__dt = np.min(np.diff(self.times))
-            self.__fs = 1./self.dt
+            self.__fs = 1.0 / self.dt
         else:
             warnings.warn("Your data is only one data point long!")
             self.__dt = None
@@ -811,7 +964,7 @@ class HeterodynedData(object):
         Set the data time stamps.
         """
 
-        self.__times = np.asarray(times, dtype='float64')
+        self.__times = np.asarray(times, dtype="float64")
         self.__tottime = self.times[-1] - self.times[0]
 
     @property
@@ -870,8 +1023,9 @@ class HeterodynedData(object):
                 try:
                     newpar = PulsarParametersPy(par)
                 except Exception as e:
-                    raise IOError("Could not read in pulsar parameter "
-                                  "file: {}".format(e))
+                    raise IOError(
+                        "Could not read in pulsar parameter " "file: {}".format(e)
+                    )
             else:
                 raise TypeError("'par' is not a recognised type")
         else:
@@ -937,20 +1091,19 @@ class HeterodynedData(object):
         """
 
         if N < 2:
-            raise ValueError("The running median window must be greater "
-                             "than 1")
+            raise ValueError("The running median window must be greater than 1")
 
         self.__running_median = np.zeros(len(self), dtype=np.complex)
         for i in range(len(self)):
-            if i < N//2:
+            if i < N // 2:
                 startidx = 0
-                endidx = i + (N//2) + 1
+                endidx = i + (N // 2) + 1
             elif i > len(self) - N:
-                startidx = i - (N//2) + 1
+                startidx = i - (N // 2) + 1
                 endidx = len(self)
             else:
-                startidx = i - (N//2) + 1
-                endidx = i + (N//2) + 1
+                startidx = i - (N // 2) + 1
+                endidx = i + (N // 2) + 1
 
             self.__running_median.real[i] = np.median(self.data.real[startidx:endidx])
             self.__running_median.imag[i] = np.median(self.data.imag[startidx:endidx])
@@ -1009,7 +1162,7 @@ class HeterodynedData(object):
         """
 
         if self.__stds is not None:
-            self.__vars = self.__stds**2
+            self.__vars = self.__stds ** 2
             return self.vars
         else:
             self.__vars = np.zeros(len(self))
@@ -1017,43 +1170,45 @@ class HeterodynedData(object):
         # subtract running median from the data
         datasub = self.subtract_running_median()
 
-        if (change_points is None and
-                self.__change_point_indices_and_ratios is None):
+        if change_points is None and self.__change_point_indices_and_ratios is None:
             # return the (sample) variance (hence 'ddof=1')
-            self.__vars = np.full(len(self),
-                                  np.hstack((datasub.real,
-                                             datasub.imag)).var(ddof=1))
+            self.__vars = np.full(
+                len(self), np.hstack((datasub.real, datasub.imag)).var(ddof=1)
+            )
 
         else:
             if change_points is not None:
-                cps = np.concatenate(([0], np.asarray(change_points),
-                                      [len(datasub)])).astype('int')
+                cps = np.concatenate(
+                    ([0], np.asarray(change_points), [len(datasub)])
+                ).astype("int")
             else:
                 if len(self.change_point_indices) == 1:
                     cps = np.array([0, len(datasub)], dtype=np.int)
                 else:
-                    cps = np.concatenate((self.change_point_indices,
-                                          [len(datasub)])).astype('int')
+                    cps = np.concatenate(
+                        (self.change_point_indices, [len(datasub)])
+                    ).astype("int")
 
             if self.stds is None:
                 self.stds = np.zeros(len(self))
 
-            for i in range(len(cps)-1):
-                if cps[i+1] < 1 or cps[i+1] > len(datasub):
+            for i in range(len(cps) - 1):
+                if cps[i + 1] < 1 or cps[i + 1] > len(datasub):
                     raise ValueError("Change point index is out of bounds")
 
-                if cps[i+1] <= cps[i]:
+                if cps[i + 1] <= cps[i]:
                     raise ValueError("Change point order is wrong")
 
-                datachunk = datasub[cps[i]:cps[i+1]]
+                datachunk = datasub[cps[i] : cps[i + 1]]
 
                 # get (sample) variance of chunk
-                self.__vars[cps[i]:cps[i+1]] = np.hstack((datachunk.real,
-                                                          datachunk.imag)).var(ddof=1)
+                self.__vars[cps[i] : cps[i + 1]] = np.hstack(
+                    (datachunk.real, datachunk.imag)
+                ).var(ddof=1)
 
         return self.vars
 
-    def inject_signal(self, injpar=None, injtimes=None, freqfactor=2.):
+    def inject_signal(self, injpar=None, injtimes=None, freqfactor=2.0):
         """
         Inject a simulated signal into the data.
 
@@ -1070,12 +1225,12 @@ class HeterodynedData(object):
         """
 
         if self.par is None:
-            raise ValueError("To perform an injection a parameter file "
-                             "must be supplied")
+            raise ValueError(
+                "To perform an injection a parameter file must be supplied"
+            )
 
         if self.detector is None:
-            raise ValueError("To perform an injection a detector "
-                             "must be supplied")
+            raise ValueError("To perform an injection a detector must be supplied")
 
         from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 
@@ -1098,12 +1253,16 @@ class HeterodynedData(object):
             inj = het.model(usephase=True, freqfactor=self.freq_factor)
         else:
             self.injpar = injpar
-            inj = het.model(self.injpar, updateSSB=True, updateBSB=True,
-                            usephase=True, freqfactor=self.freq_factor)
+            inj = het.model(
+                self.injpar,
+                updateSSB=True,
+                updateBSB=True,
+                usephase=True,
+                freqfactor=self.freq_factor,
+            )
 
         for timerange in self.injtimes:
-            timeidxs = ((self.__times >= timerange[0]) &
-                        (self.__times <= timerange[1]))
+            timeidxs = (self.__times >= timerange[0]) & (self.__times <= timerange[1])
             inj_data[timeidxs] = inj[timeidxs]
 
         # add injection to data
@@ -1134,8 +1293,7 @@ class HeterodynedData(object):
         try:
             timelist = np.atleast_2d(timelist)
         except Exception as e:
-            raise ValueError("Could not parse list of injection "
-                             "times: {}".format(e))
+            raise ValueError("Could not parse list of injection times: {}".format(e))
 
         for timerange in timelist:
             if timerange[0] >= timerange[1]:
@@ -1171,8 +1329,10 @@ class HeterodynedData(object):
 
         noinj = self.data - self.injection_data  # data with injection removed
 
-        return np.sqrt(((self.injection_data.real/noinj.real)**2).sum() +
-                       ((self.injection_data.imag/noinj.imag)**2).sum())
+        return np.sqrt(
+            ((self.injection_data.real / noinj.real) ** 2).sum()
+            + ((self.injection_data.imag / noinj.imag) ** 2).sum()
+        )
 
     @property
     def freq_factor(self):
@@ -1188,9 +1348,8 @@ class HeterodynedData(object):
         if not isinstance(freqfactor, (float, int)):
             raise TypeError("Frequency scale factor must be a number")
 
-        if freqfactor <= 0.:
-            raise ValueError("Frequency scale factor must be a positive "
-                             "number")
+        if freqfactor <= 0.0:
+            raise ValueError("Frequency scale factor must be a positive number")
 
         self.__freq_factor = float(freqfactor)
 
@@ -1224,26 +1383,28 @@ class HeterodynedData(object):
             import lalsimulation as lalsim
 
             if self.par is None:
-                raise AttributeError("A source parameter file containing "
-                                     "a frequency is required")
+                raise AttributeError(
+                    "A source parameter file containing a frequency is required"
+                )
 
             # check a frequency is available
-            freqs = self.par['F']
+            freqs = self.par["F"]
             if freqs is None:
-                raise ValueError("Heterodyne parameter file contains no "
-                                 "frequency value")
+                raise ValueError(
+                    "Heterodyne parameter file contains no " "frequency value"
+                )
 
             # check if the str is a file or not
             if os.path.isfile(asd):
                 # frequency series to contain the PSD
                 psdfs = lal.CreateREAL8FrequencySeries(
-                            "",
-                            lal.LIGOTimeGPS(1000000000),  # dummy epoch
-                            self.freq_factor * freqs[0],  # frequency to find
-                            0.1,  # dummy delta f
-                            lal.HertzUnit,
-                            2  # need two points as last element is set to zero
-                        )
+                    "",
+                    lal.LIGOTimeGPS(1000000000),  # dummy epoch
+                    self.freq_factor * freqs[0],  # frequency to find
+                    0.1,  # dummy delta f
+                    lal.HertzUnit,
+                    2,  # need two points as last element is set to zero
+                )
 
                 # read PSD from ASD file
                 try:
@@ -1255,25 +1416,28 @@ class HeterodynedData(object):
                 asdval = np.sqrt(psdfs.data.data[0])
             else:
                 # check is str is a detector alias
-                aliases = {'AV': ['Virgo', 'V1', 'AdV', 'AdvancedVirgo', 'AV'],
-                           'AL': ['H1', 'L1', 'LHO', 'LLO', 'aLIGO',
-                                  'AdvancedLIGO', 'AL'],
-                           'IL': ['iH1', 'iL1', 'InitialLIGO', 'IL'],
-                           'IV': ['iV1', 'InitialVirgo', 'IV'],
-                           'G1': ['G1', 'GEO', 'GEOHF'],
-                           'IG': ['IG', 'GEO600', 'InitialGEO'],
-                           'T1': ['T1', 'TAMA', 'TAMA300'],
-                           'K1': ['K1', 'KAGRA', 'LCGT']}
+                aliases = {
+                    "AV": ["Virgo", "V1", "AdV", "AdvancedVirgo", "AV"],
+                    "AL": ["H1", "L1", "LHO", "LLO", "aLIGO", "AdvancedLIGO", "AL"],
+                    "IL": ["iH1", "iL1", "InitialLIGO", "IL"],
+                    "IV": ["iV1", "InitialVirgo", "IV"],
+                    "G1": ["G1", "GEO", "GEOHF"],
+                    "IG": ["IG", "GEO600", "InitialGEO"],
+                    "T1": ["T1", "TAMA", "TAMA300"],
+                    "K1": ["K1", "KAGRA", "LCGT"],
+                }
 
                 # set mapping of detector names to lalsimulation PSD functions
-                simmap = {'AV': lalsim.SimNoisePSDAdvVirgo,  # advanced Virgo
-                          'AL': lalsim.SimNoisePSDaLIGOZeroDetHighPower,  # aLIGO
-                          'IL': lalsim.SimNoisePSDiLIGOSRD,               # iLIGO
-                          'IV': lalsim.SimNoisePSDVirgo,                  # iVirgo
-                          'IG': lalsim.SimNoisePSDGEO,                    # GEO600
-                          'G1': lalsim.SimNoisePSDGEOHF,                  # GEOHF
-                          'T1': lalsim.SimNoisePSDTAMA,                   # TAMA
-                          'K1': lalsim.SimNoisePSDKAGRA}                  # KAGRA
+                simmap = {
+                    "AV": lalsim.SimNoisePSDAdvVirgo,               # advanced Virgo
+                    "AL": lalsim.SimNoisePSDaLIGOZeroDetHighPower,  # aLIGO
+                    "IL": lalsim.SimNoisePSDiLIGOSRD,               # iLIGO
+                    "IV": lalsim.SimNoisePSDVirgo,                  # iVirgo
+                    "IG": lalsim.SimNoisePSDGEO,                    # GEO600
+                    "G1": lalsim.SimNoisePSDGEOHF,                  # GEOHF
+                    "T1": lalsim.SimNoisePSDTAMA,                   # TAMA
+                    "K1": lalsim.SimNoisePSDKAGRA,                  # KAGRA
+                }
 
                 # check if string is valid
                 detalias = None
@@ -1282,35 +1446,39 @@ class HeterodynedData(object):
                         detalias = dkey
 
                 if detalias is None:
-                    raise ValueError("Detector '{}' is not as known detector "
-                                     "alias".format(asd))
+                    raise ValueError(
+                        "Detector '{}' is not as known detector alias".format(asd)
+                    )
 
-                freqs = self.par['F']
+                freqs = self.par["F"]
                 if freqs is None:
-                    raise ValueError("Heterodyne parameter file contains no "
-                                     "frequency value")
+                    raise ValueError(
+                        "Heterodyne parameter file contains no frequency value"
+                    )
 
                 # set amplitude spectral density value
                 asdval = np.sqrt(simmap[detalias](self.freq_factor * freqs[0]))
 
             # convert to time domain standard deviation
             if self.dt is None:
-                raise ValueError("No time step present. Does your data only "
-                                 "consist of one value?")
+                raise ValueError(
+                    "No time step present. Does your data only consist of one value?"
+                )
 
-            sigmaval = 0.5*asdval/np.sqrt(self.dt)
+            sigmaval = 0.5 * asdval / np.sqrt(self.dt)
         elif isinstance(asd, float):
             if issigma:
                 sigmaval = asd
             else:
                 if self.dt is None:
-                    raise ValueError("No time step present. Does your data "
-                                     "only consist of one value?")
+                    raise ValueError(
+                        "No time step present. Does your data "
+                        "only consist of one value?"
+                    )
 
-                sigmaval = 0.5*asd/np.sqrt(self.dt)
+                sigmaval = 0.5 * asd / np.sqrt(self.dt)
         else:
-            raise TypeError("ASD must be a float or a string with a detector "
-                            "name.")
+            raise TypeError("ASD must be a float or a string with a detector name.")
 
         # set noise seed
         if isinstance(seed, np.random.RandomState):
@@ -1319,8 +1487,7 @@ class HeterodynedData(object):
             rstate = np.random.RandomState(seed)
 
         # get noise for real and imaginary components
-        noise = rstate.normal(loc=0., scale=sigmaval,
-                              size=(len(self), 2))
+        noise = rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 2))
 
         # add the noise to the data
         self.__data.real += noise[:, 0]
@@ -1332,8 +1499,7 @@ class HeterodynedData(object):
         # (re)compute change points (and variances)
         self.bayesian_blocks(threshold=self.__bbthreshold)
 
-    def bayesian_blocks(self, threshold='default', minlength=5,
-                        maxlength=np.inf):
+    def bayesian_blocks(self, threshold="default", minlength=5, maxlength=np.inf):
         """
         Apply a Bayesian-Block-style algorithm to cut the data (after
         subtraction of a running median) up into chunks with different
@@ -1384,16 +1550,20 @@ class HeterodynedData(object):
             raise ValueError("Minimum chunk length must be a positive integer")
 
         if maxlength <= minlength:
-            raise ValueError("Maximum chunk length must be greater than the "
-                             "minimum chunk length.")
+            raise ValueError(
+                "Maximum chunk length must be greater than the minimum chunk length."
+            )
 
         # chop up the data
         self.__change_point_indices_and_ratios = []
-        self._chop_data(self.subtract_running_median(), threshold=threshold,
-                        minlength=minlength)
+        self._chop_data(
+            self.subtract_running_median(), threshold=threshold, minlength=minlength
+        )
 
         # sort the indices
-        self.__change_point_indices_and_ratios = sorted(self.__change_point_indices_and_ratios)
+        self.__change_point_indices_and_ratios = sorted(
+            self.__change_point_indices_and_ratios
+        )
 
         # if any chunks are longer than maxlength, then split them
         if maxlength < len(self):
@@ -1405,7 +1575,9 @@ class HeterodynedData(object):
                 cppos += clength
 
             self.__change_point_indices_and_ratios += insertcps
-            self.__change_point_indices_and_ratios = sorted(self.__change_point_indices_and_ratios)
+            self.__change_point_indices_and_ratios = sorted(
+                self.__change_point_indices_and_ratios
+            )
 
         # (re)calculate the variances for each chunk
         _ = self.compute_variance(N=self.window)
@@ -1431,7 +1603,9 @@ class HeterodynedData(object):
         if len(self.__change_point_indices_and_ratios) == 0:
             return [-np.inf]
         else:
-            return [-np.inf] + [cps[1] for cps in self.__change_point_indices_and_ratios]
+            return [-np.inf] + [
+                cps[1] for cps in self.__change_point_indices_and_ratios
+            ]
 
     @property
     def chunk_lengths(self):
@@ -1443,8 +1617,7 @@ class HeterodynedData(object):
         if len(self.__change_point_indices_and_ratios) == 0:
             return [len(self)]
         else:
-            return np.diff(np.concatenate((self.change_point_indices,
-                                           [len(self)])))
+            return np.diff(np.concatenate((self.change_point_indices, [len(self)])))
 
     @property
     def num_chunks(self):
@@ -1457,15 +1630,15 @@ class HeterodynedData(object):
         else:
             return len(self.change_point_indices)
 
-    def _chop_data(self, data, threshold='default', minlength=5):
+    def _chop_data(self, data, threshold="default", minlength=5):
         # find change point
         lratio, cpidx, ntrials = self._find_change_point(data, minlength)
 
         # set the threshold
-        if threshold == 'default':
+        if threshold == "default":
             # default threshold for data splitting
             thresh = 4.07 + 1.33 * np.log10(len(data))
-        elif threshold == 'trials':
+        elif threshold == "trials":
             # assign equal prior probability for each hypothesis
             thresh = np.log(ntrials)
         elif isinstance(threshold, float):
@@ -1509,20 +1682,21 @@ class HeterodynedData(object):
             denominator sub-hypotheses.
         """
 
-        if len(subdata) < 2*minlength:
+        if len(subdata) < 2 * minlength:
             return (-np.inf, 0, 1)
 
         # don't try and split if all data is zero
-        if np.all(self.subtract_running_median() == (0.+0*1j)):
+        if np.all(self.subtract_running_median() == (0.0 + 0 * 1j)):
             return (-np.inf, 0, 1)
 
         dlen = len(subdata)
-        datasum = (np.abs(subdata)**2).sum()
+        datasum = (np.abs(subdata) ** 2).sum()
 
         # calculate the evidence that the data is drawn from a zero mean
         # Gaussian with a single unknown standard deviation
-        logsingle = (-lal.LN2 - dlen * lal.LNPI + logfactorial(dlen - 1) -
-                     dlen * np.log(datasum))
+        logsingle = (
+            -lal.LN2 - dlen * lal.LNPI + logfactorial(dlen - 1) - dlen * np.log(datasum)
+        )
 
         lsum = dlen - 2 * minlength + 1
         logtot = -np.inf
@@ -1531,21 +1705,30 @@ class HeterodynedData(object):
 
         # go through each possible splitting of the data in two
         for i in range(lsum):
-            if (np.all(subdata[:minlength+i] == (0.+0*1j)) or
-                    np.all(subdata[minlength+i:] == (0.+0*1j))):
+            if np.all(subdata[: minlength + i] == (0.0 + 0 * 1j)) or np.all(
+                subdata[minlength + i :] == (0.0 + 0 * 1j)
+            ):
                 # do this to avoid warnings about np.log(0.0)
                 logdouble[i] = -np.inf
             else:
-                sumforwards = (np.abs(subdata[:minlength+i])**2).sum()
-                sumbackwards = (np.abs(subdata[minlength+i:])**2).sum()
+                sumforwards = (np.abs(subdata[: minlength + i]) ** 2).sum()
+                sumbackwards = (np.abs(subdata[minlength + i :]) ** 2).sum()
 
                 dlenf = minlength + i
                 dlenb = dlen - (minlength + i)
 
-                logf = (-lal.LN2 - dlenf * lal.LNPI + logfactorial(dlenf - 1) -
-                        dlenf * np.log(sumforwards))
-                logb = (-lal.LN2 - dlenb * lal.LNPI + logfactorial(dlenb - 1) -
-                        dlenb * np.log(sumbackwards))
+                logf = (
+                    -lal.LN2
+                    - dlenf * lal.LNPI
+                    + logfactorial(dlenf - 1)
+                    - dlenf * np.log(sumforwards)
+                )
+                logb = (
+                    -lal.LN2
+                    - dlenb * lal.LNPI
+                    + logfactorial(dlenb - 1)
+                    - dlenb * np.log(sumbackwards)
+                )
 
                 # evidence for that split
                 logdouble[i] = logf + logb
@@ -1596,24 +1779,37 @@ class HeterodynedData(object):
         if not isinstance(thresh, float):
             raise TypeError("Threshold must be a float")
         else:
-            if thresh <= 0.:
+            if thresh <= 0.0:
                 raise ValueError("Threshold must be a positive number")
 
         modzscore = []
 
         for points in [self.data.real, self.data.imag]:
             median = np.median(points)
-            diff = np.abs(points - median)  # only 1d data, so different from https://stackoverflow.com/a/22357811/1862861
+            diff = np.abs(
+                points - median
+            )  # only 1d data, so different from https://stackoverflow.com/a/22357811/1862861
             mad = np.median(diff)
             modzscore.append(0.6745 * diff / mad)
 
         # return boolean array of real or imaginary indices above the threshold
         return (modzscore[0] > thresh) | (modzscore[1] > thresh)
 
-    def plot(self, which='abs', figsize=(12, 4), ax=None,
-             remove_outliers=False, thresh=3.5, zero_time=True,
-             labelsize=None, fontsize=None, legendsize=None,
-             fontname=None, labelname=None, **plotkwargs):
+    def plot(
+        self,
+        which="abs",
+        figsize=(12, 4),
+        ax=None,
+        remove_outliers=False,
+        thresh=3.5,
+        zero_time=True,
+        labelsize=None,
+        fontsize=None,
+        legendsize=None,
+        fontname=None,
+        labelname=None,
+        **plotkwargs
+    ):
         """
         Plot the data time series.
 
@@ -1676,13 +1872,13 @@ class HeterodynedData(object):
             idx = np.zeros(len(self), dtype=np.bool)
 
         # set the data to use
-        if which.lower() in ['abs', 'absolute']:
+        if which.lower() in ["abs", "absolute"]:
             pldata = np.abs(self.data[~idx])
-        elif which.lower() in ['real', 're']:
+        elif which.lower() in ["real", "re"]:
             pldata = self.data.real[~idx]
-        elif which.lower() in ['im', 'imag', 'imaginary']:
+        elif which.lower() in ["im", "imag", "imaginary"]:
             pldata = self.data.imag[~idx]
-        elif which.lower() == 'both':
+        elif which.lower() == "both":
             pldata = (self.data.real[~idx], self.data.imag[~idx])
         else:
             raise ValueError("'which' must be 'abs', 'real', 'imag' or 'both")
@@ -1694,36 +1890,34 @@ class HeterodynedData(object):
 
         # set plotting defaults
         if labelsize is None:
-            labelsize = self.PLOTTING_DEFAULTS['labelsize']
+            labelsize = self.PLOTTING_DEFAULTS["labelsize"]
         if labelname is None:
-            labelname = self.PLOTTING_DEFAULTS['labelname']
+            labelname = self.PLOTTING_DEFAULTS["labelname"]
         if fontsize is None:
-            fontsize = self.PLOTTING_DEFAULTS['fontsize']
+            fontsize = self.PLOTTING_DEFAULTS["fontsize"]
         if fontname is None:
-            fontname = self.PLOTTING_DEFAULTS['fontname']
+            fontname = self.PLOTTING_DEFAULTS["fontname"]
 
         try:
             from matplotlib import pyplot as pl
             from matplotlib.axes import Axes
-            import matplotlib as mpl
 
             # set 'label' and 'color' defaults
             if self.detector is not None:
-                if 'label' not in plotkwargs:
-                    plotkwargs['label'] = self.detector
+                if "label" not in plotkwargs:
+                    plotkwargs["label"] = self.detector
 
-                if (self.detector in GW_OBSERVATORY_COLORS and
-                        'color' not in plotkwargs):
-                    plotkwargs['color'] = GW_OBSERVATORY_COLORS[self.detector]
+                if self.detector in GW_OBSERVATORY_COLORS and "color" not in plotkwargs:
+                    plotkwargs["color"] = GW_OBSERVATORY_COLORS[self.detector]
 
             # set some default plotting styles
-            if 'ls' not in plotkwargs:
+            if "ls" not in plotkwargs:
                 # set the line style to "None"
-                plotkwargs['ls'] = 'None'
+                plotkwargs["ls"] = "None"
 
-            if 'marker' not in plotkwargs:
+            if "marker" not in plotkwargs:
                 # set marker to a circle
-                plotkwargs['marker'] = 'o'
+                plotkwargs["marker"] = "o"
 
             if isinstance(ax, Axes):
                 fig = ax.get_figure()
@@ -1731,78 +1925,74 @@ class HeterodynedData(object):
             else:
                 fig, thisax = pl.subplots(figsize=figsize)
 
-            if which.lower() != 'both':
+            if which.lower() != "both":
                 thisax.plot(pltimes, pldata, **plotkwargs)
             else:
                 # plot real and imaginary components
-                plotkwargs['markerfacecolor'] = 'None'
+                plotkwargs["markerfacecolor"] = "None"
                 for i in range(2):
                     copykwargs = plotkwargs.copy()
                     if i == 0:
-                        copykwargs['marker'] = 'o'
-                        if 'label' in plotkwargs:
-                            copykwargs['label'] = 'Real {}'.format(plotkwargs['label'])
+                        copykwargs["marker"] = "o"
+                        if "label" in plotkwargs:
+                            copykwargs["label"] = "Real {}".format(plotkwargs["label"])
                         else:
-                            copykwargs['label'] = 'Real'
+                            copykwargs["label"] = "Real"
                     else:
-                        copykwargs['marker'] = '+'
-                        if 'label' in plotkwargs:
-                            copykwargs['label'] = 'Imag {}'.format(plotkwargs['label'])
+                        copykwargs["marker"] = "+"
+                        if "label" in plotkwargs:
+                            copykwargs["label"] = "Imag {}".format(plotkwargs["label"])
                         else:
-                            copykwargs['label'] = 'Imag'
+                            copykwargs["label"] = "Imag"
 
                     thisax.plot(pltimes, pldata[i], **copykwargs)
-                plotkwargs['label'] = True  # add to produce legend below
+                plotkwargs["label"] = True  # add to produce legend below
 
             if zero_time:
-                thisax.set_xlabel('GPS - {}'.format(int(t0)),
-                                  fontsize=fontsize, fontname=fontname)
-                thisax.set_xlim([0., pltimes[-1]])
+                thisax.set_xlabel(
+                    "GPS - {}".format(int(t0)), fontsize=fontsize, fontname=fontname
+                )
+                thisax.set_xlim([0.0, pltimes[-1]])
             else:
-                thisax.set_xlabel('GPS time', fontsize=fontsize,
-                                  fontname=fontname)
+                thisax.set_xlabel("GPS time", fontsize=fontsize, fontname=fontname)
                 thisax.set_xlim([pltimes[0], pltimes[-1]])
 
-            if which.lower() in ['abs', 'absolute']:
-                thisax.set_ylabel('$|B_k|$', fontsize=fontsize,
-                                  fontname=fontname)
-            elif which.lower() in ['real', 're']:
-                thisax.set_ylabel('$\\Re{(B_k)}$', fontsize=fontsize,
-                                  fontname=fontname)
-            elif which.lower() in ['imag', 'im']:
-                thisax.set_ylabel('$\\Im{(B_k)}$', fontsize=fontsize,
-                                  fontname=fontname)
+            if which.lower() in ["abs", "absolute"]:
+                thisax.set_ylabel("$|B_k|$", fontsize=fontsize, fontname=fontname)
+            elif which.lower() in ["real", "re"]:
+                thisax.set_ylabel("$\\Re{(B_k)}$", fontsize=fontsize, fontname=fontname)
+            elif which.lower() in ["imag", "im"]:
+                thisax.set_ylabel("$\\Im{(B_k)}$", fontsize=fontsize, fontname=fontname)
             else:
-                thisax.set_ylabel('$B_k$', fontsize=fontsize,
-                                  fontname=fontname)
+                thisax.set_ylabel("$B_k$", fontsize=fontsize, fontname=fontname)
 
-            if 'label' in plotkwargs:
+            if "label" in plotkwargs:
                 from matplotlib.font_manager import FontProperties
 
                 if legendsize is None:
                     legendsize = fontsize
 
-                legfont = FontProperties(family=fontname,
-                                         size=legendsize)
-                thisax.legend(loc='upper right', numpoints=1, prop=legfont)
+                legfont = FontProperties(family=fontname, size=legendsize)
+                thisax.legend(loc="upper right", numpoints=1, prop=legfont)
 
             # set the axes tick label size
-            thisax.tick_params(which='both', labelsize=labelsize)
+            thisax.tick_params(which="both", labelsize=labelsize)
 
             # set the axes tick label font
             if labelname is None:
                 labelname = fontname
 
-            for tick in (thisax.get_xticklabels() + thisax.get_yticklabels()):
+            for tick in thisax.get_xticklabels() + thisax.get_yticklabels():
                 tick.set_fontname(labelname)
 
             # add a grid
-            thisax.grid(True, linewidth=0.5, linestyle='--')
+            thisax.grid(True, linewidth=0.5, linestyle="--")
 
             # set axes to use scientific notation
-            thisax.ticklabel_format(axis='y', style='sci', useMathText=True)
-            thisax.ticklabel_format(axis='x', style='sci', scilimits=(0, 5),
-                                    useMathText=True)
+            thisax.ticklabel_format(axis="y", style="sci", useMathText=True)
+            thisax.ticklabel_format(
+                axis="x", style="sci", scilimits=(0, 5), useMathText=True
+            )
         except Exception as e:
             raise RuntimeError("Problem with plotting: {}".format(e))
 
@@ -1810,12 +2000,25 @@ class HeterodynedData(object):
 
         return fig
 
-    def spectrogram(self, dt=86400, window=None, overlap=0.5, plot=True,
-                    ax=None, remove_outliers=False, thresh=3.5,
-                    fraction_labels=True, fraction_label_num=4,
-                    figsize=(12, 4), labelsize=None, fontsize=None,
-                    fontname=None, labelname=None, legendsize=None,
-                    **plotkwargs):
+    def spectrogram(
+        self,
+        dt=86400,
+        window=None,
+        overlap=0.5,
+        plot=True,
+        ax=None,
+        remove_outliers=False,
+        thresh=3.5,
+        fraction_labels=True,
+        fraction_label_num=4,
+        figsize=(12, 4),
+        labelsize=None,
+        fontsize=None,
+        fontname=None,
+        labelname=None,
+        legendsize=None,
+        **plotkwargs
+    ):
         """
         Compute and plot a spectrogram from the data using the
         :func:`matplotlib.mlab.specgram` function.
@@ -1889,24 +2092,42 @@ class HeterodynedData(object):
         """
 
         speckwargs = {}
-        speckwargs['dt'] = dt
-        speckwargs['window'] = window
-        speckwargs['overlap'] = overlap
-        speckwargs['remove_outliers'] = remove_outliers
-        speckwargs['thresh'] = thresh
-        speckwargs['fraction_labels'] = fraction_labels
-        speckwargs['fraction_label_num'] = fraction_label_num
+        speckwargs["dt"] = dt
+        speckwargs["window"] = window
+        speckwargs["overlap"] = overlap
+        speckwargs["remove_outliers"] = remove_outliers
+        speckwargs["thresh"] = thresh
+        speckwargs["fraction_labels"] = fraction_labels
+        speckwargs["fraction_label_num"] = fraction_label_num
 
-        return self._plot_power('spectrogram', speckwargs, figsize=figsize,
-                                labelsize=labelsize, fontsize=fontsize,
-                                labelname=labelname, fontname=fontname,
-                                legendsize=legendsize, **plotkwargs)
+        return self._plot_power(
+            "spectrogram",
+            speckwargs,
+            figsize=figsize,
+            labelsize=labelsize,
+            fontsize=fontsize,
+            labelname=labelname,
+            fontname=fontname,
+            legendsize=legendsize,
+            **plotkwargs
+        )
 
-    def periodogram(self, plot=True, ax=None,
-                    remove_outliers=False, thresh=3.5, fraction_labels=True,
-                    fraction_label_num=4, figsize=(6, 5), labelsize=None,
-                    labelname=None, fontsize=None, fontname=None,
-                    legendsize=None, **plotkwargs):
+    def periodogram(
+        self,
+        plot=True,
+        ax=None,
+        remove_outliers=False,
+        thresh=3.5,
+        fraction_labels=True,
+        fraction_label_num=4,
+        figsize=(6, 5),
+        labelsize=None,
+        labelname=None,
+        fontsize=None,
+        fontname=None,
+        legendsize=None,
+        **plotkwargs
+    ):
         """
         Compute and plot a two-sided periodogram of the data using
         :func:`scipy.signal.periodogram`. Note that this uses zero-padded
@@ -1934,24 +2155,45 @@ class HeterodynedData(object):
         """
 
         speckwargs = {}
-        speckwargs['plot'] = plot
-        speckwargs['ax'] = ax
-        speckwargs['remove_outliers'] = remove_outliers
-        speckwargs['thresh'] = thresh
-        speckwargs['fraction_labels'] = fraction_labels
-        speckwargs['fraction_label_num'] = fraction_label_num
+        speckwargs["plot"] = plot
+        speckwargs["ax"] = ax
+        speckwargs["remove_outliers"] = remove_outliers
+        speckwargs["thresh"] = thresh
+        speckwargs["fraction_labels"] = fraction_labels
+        speckwargs["fraction_label_num"] = fraction_label_num
 
-        return self._plot_power('periodogram', speckwargs, figsize=figsize,
-                                labelsize=labelsize, fontsize=fontsize,
-                                labelname=labelname, fontname=fontname,
-                                legendsize=legendsize, **plotkwargs)
+        return self._plot_power(
+            "periodogram",
+            speckwargs,
+            figsize=figsize,
+            labelsize=labelsize,
+            fontsize=fontsize,
+            labelname=labelname,
+            fontname=fontname,
+            legendsize=legendsize,
+            **plotkwargs
+        )
 
-    def power_spectrum(self, plot=True, ax=None,
-                       remove_outliers=False, thresh=3.5, fraction_labels=True,
-                       fraction_label_num=4, average='median', dt=86400,
-                       figsize=(6, 5), labelsize=None, labelname=None,
-                       fontsize=None, fontname=None, legendsize=None,
-                       window=None, overlap=0.5, **plotkwargs):
+    def power_spectrum(
+        self,
+        plot=True,
+        ax=None,
+        remove_outliers=False,
+        thresh=3.5,
+        fraction_labels=True,
+        fraction_label_num=4,
+        average="median",
+        dt=86400,
+        figsize=(6, 5),
+        labelsize=None,
+        labelname=None,
+        fontsize=None,
+        fontname=None,
+        legendsize=None,
+        window=None,
+        overlap=0.5,
+        **plotkwargs
+    ):
         """
         Compute and plot the power spectrum of the data. This compute the
         spectrogram, and averages the power over time.
@@ -1978,25 +2220,41 @@ class HeterodynedData(object):
         """
 
         speckwargs = {}
-        speckwargs['plot'] = plot
-        speckwargs['ax'] = ax
-        speckwargs['remove_outliers'] = remove_outliers
-        speckwargs['thresh'] = thresh
-        speckwargs['fraction_labels'] = fraction_labels
-        speckwargs['fraction_label_num'] = fraction_label_num
-        speckwargs['dt'] = dt
-        speckwargs['average'] = average
-        speckwargs['window'] = window
-        speckwargs['overlap'] = overlap
+        speckwargs["plot"] = plot
+        speckwargs["ax"] = ax
+        speckwargs["remove_outliers"] = remove_outliers
+        speckwargs["thresh"] = thresh
+        speckwargs["fraction_labels"] = fraction_labels
+        speckwargs["fraction_label_num"] = fraction_label_num
+        speckwargs["dt"] = dt
+        speckwargs["average"] = average
+        speckwargs["window"] = window
+        speckwargs["overlap"] = overlap
 
-        return self._plot_power('power', speckwargs, figsize=figsize,
-                                labelsize=labelsize, fontsize=fontsize,
-                                labelname=labelname, fontname=fontname,
-                                legendsize=legendsize, **plotkwargs)
+        return self._plot_power(
+            "power",
+            speckwargs,
+            figsize=figsize,
+            labelsize=labelsize,
+            fontsize=fontsize,
+            labelname=labelname,
+            fontname=fontname,
+            legendsize=legendsize,
+            **plotkwargs
+        )
 
-    def _plot_power(self, ptype, speckwargs={}, figsize=None, labelsize=None,
-                    labelname=None, fontsize=None, fontname=None,
-                    legendsize=None, **plotkwargs):
+    def _plot_power(
+        self,
+        ptype,
+        speckwargs={},
+        figsize=None,
+        labelsize=None,
+        labelname=None,
+        fontsize=None,
+        fontname=None,
+        legendsize=None,
+        **plotkwargs
+    ):
         """
         General function for plotting the
         :meth:`~cwinpy.data.HeterodynedData.spectrogram`,
@@ -2021,27 +2279,26 @@ class HeterodynedData(object):
         if not isinstance(ptype, str):
             raise TypeError("Power spectrum type must be a string")
 
-        if ptype not in ['spectrogram', 'periodogram', 'power']:
-            raise ValueError("Type must be 'spectrogram', 'periodogram', or "
-                             "'power'")
+        if ptype not in ["spectrogram", "periodogram", "power"]:
+            raise ValueError("Type must be 'spectrogram', 'periodogram', or " "'power'")
 
         # set plotting defaults
         if labelsize is None:
-            labelsize = self.PLOTTING_DEFAULTS['labelsize']
+            labelsize = self.PLOTTING_DEFAULTS["labelsize"]
         if labelname is None:
-            labelname = self.PLOTTING_DEFAULTS['labelname']
+            labelname = self.PLOTTING_DEFAULTS["labelname"]
         if fontsize is None:
-            fontsize = self.PLOTTING_DEFAULTS['fontsize']
+            fontsize = self.PLOTTING_DEFAULTS["fontsize"]
         if fontname is None:
-            fontname = self.PLOTTING_DEFAULTS['fontname']
+            fontname = self.PLOTTING_DEFAULTS["fontname"]
         if legendsize is None:
             legendsize = fontsize
 
         # get some options
-        remove_outliers = speckwargs.get('remove_outliers', False)
-        thresh = speckwargs.get('thresh', 3.5)
-        plot = speckwargs.get('plot', True)
-        ax = speckwargs.get('ax', None)
+        remove_outliers = speckwargs.get("remove_outliers", False)
+        thresh = speckwargs.get("thresh", 3.5)
+        plot = speckwargs.get("plot", True)
+        ax = speckwargs.get("ax", None)
 
         # get the zero padded data
         padded = self._zero_pad(remove_outliers=remove_outliers, thresh=thresh)
@@ -2054,29 +2311,29 @@ class HeterodynedData(object):
             times = self.times
             tottime = self.tottime
 
-        Fs = 1./gcd_array(np.diff(times))  # sampling frequency
+        Fs = 1.0 / gcd_array(np.diff(times))  # sampling frequency
 
-        if ptype in ['spectrogram', 'power']:
-            dt = speckwargs.get('dt', 86400)
-            overlap = speckwargs.get('overlap', 0.5)
-            window = speckwargs.get('window', None)
+        if ptype in ["spectrogram", "power"]:
+            dt = speckwargs.get("dt", 86400)
+            overlap = speckwargs.get("overlap", 0.5)
+            window = speckwargs.get("window", None)
 
             if not isinstance(dt, (float, int)):
                 raise ValueError("Time bin must be an integer or float")
 
-            if dt < 1./Fs or dt > (tottime + (1./Fs)):
+            if dt < 1.0 / Fs or dt > (tottime + (1.0 / Fs)):
                 raise ValueError("The time bin selected is invalid")
 
             # set the number of samples for each FFT block
-            nfft = int(dt*Fs)
+            nfft = int(dt * Fs)
 
             if isinstance(overlap, float):
-                if overlap >= 0. and overlap < 1.:
-                    noverlap = int(overlap*nfft)
+                if overlap >= 0.0 and overlap < 1.0:
+                    noverlap = int(overlap * nfft)
                 else:
                     raise ValueError("Overlap must be a float between 0 and 1")
             elif isinstance(overlap, int):
-                if overlap >= 0 and overlap <= len(self)-1:
+                if overlap >= 0 and overlap <= len(self) - 1:
                     noverlap = overlap
                 else:
                     raise ValueError("Overlap is out of allowed range")
@@ -2092,22 +2349,20 @@ class HeterodynedData(object):
             try:
                 from matplotlib.mlab import specgram
 
-                power, frequencies, stimes = specgram(padded, Fs=Fs,
-                                                      window=window,
-                                                      NFFT=nfft,
-                                                      noverlap=noverlap)
+                power, frequencies, stimes = specgram(
+                    padded, Fs=Fs, window=window, NFFT=nfft, noverlap=noverlap
+                )
             except Exception as e:
-                raise RuntimeError("Problem creating spectrogram: "
-                                   "{}".format(e))
+                raise RuntimeError("Problem creating spectrogram: {}".format(e))
 
-            if ptype == 'power':
+            if ptype == "power":
                 # average the spectrogram for a power spectrum
-                average = speckwargs.get('average', 'median')
+                average = speckwargs.get("average", "median")
 
-                if average not in ['median', 'mean']:
+                if average not in ["median", "mean"]:
                     raise ValueError("Average method must be 'median' or 'mean'")
 
-                if average == 'median':
+                if average == "median":
                     power = np.median(power, axis=-1)
                 else:
                     power = np.mean(power, axis=-1)
@@ -2116,19 +2371,17 @@ class HeterodynedData(object):
             try:
                 from scipy.signal import periodogram
 
-                frequencies, power = periodogram(padded, fs=Fs,
-                                                 return_onesided=False,
-                                                 detrend=lambda x: x)
+                frequencies, power = periodogram(
+                    padded, fs=Fs, return_onesided=False, detrend=lambda x: x
+                )
 
                 # sort results in frequency
-                frequencies, power = np.array(sorted(zip(frequencies,
-                                                         power))).T
+                frequencies, power = np.array(sorted(zip(frequencies, power))).T
             except Exception as e:
-                raise RuntimeError("Problem creating periodogram: "
-                                   "{}".format(e))
+                raise RuntimeError("Problem creating periodogram: {}".format(e))
 
         if ax is None and not plot:
-            if ptype == 'spectrogram':
+            if ptype == "spectrogram":
                 return frequencies, power, stimes
             else:
                 return frequencies, power
@@ -2139,8 +2392,8 @@ class HeterodynedData(object):
             from matplotlib.axes import Axes
             import matplotlib as mpl
 
-            fraction_labels = speckwargs.get('fraction_labels', True)
-            fraction_label_num = speckwargs.get('fraction_label_num', 4)
+            fraction_labels = speckwargs.get("fraction_labels", True)
+            fraction_label_num = speckwargs.get("fraction_label_num", 4)
 
             # set whether to output frequency labels as fractions
             if fraction_labels:
@@ -2155,36 +2408,37 @@ class HeterodynedData(object):
                 ticks = np.linspace(-2 / Fs, 2 / Fs, int(Fs / df) + 1)
                 labels = []
                 for tick in ticks:
-                    if tick == 0.:
-                        labels.append('$0$')
+                    if tick == 0.0:
+                        labels.append("$0$")
                     else:
                         # set the fraction label
-                        sign = '-' if tick < 0. else ''
-                        label = u"${0}^{{{1}}}\u2044_{{{2}}}$".format(sign, 1,
-                                                                      int(np.abs(tick)))
+                        sign = "-" if tick < 0.0 else ""
+                        label = u"${0}^{{{1}}}\u2044_{{{2}}}$".format(
+                            sign, 1, int(np.abs(tick))
+                        )
                         labels.append(label)
 
-                if ptype != 'spectrogram':
+                if ptype != "spectrogram":
                     ticks = np.linspace(-Fs / 2, Fs / 2, int(Fs / df) + 1)
 
-            if ptype == 'spectrogram':
+            if ptype == "spectrogram":
                 from matplotlib import colors
 
                 # set plotting keyword arguments
-                if 'cmap' not in plotkwargs:
+                if "cmap" not in plotkwargs:
                     if self.detector is not None:
                         if self.detector in self.colmapdic:
-                            plotkwargs['cmap'] = self.colmapdic[self.detector]
+                            plotkwargs["cmap"] = self.colmapdic[self.detector]
 
                 # extents of the plot
-                if 'extent' not in plotkwargs:
-                    plotkwargs['extent'] = [0, tottime, -2 / Fs, 2 / Fs]
+                if "extent" not in plotkwargs:
+                    plotkwargs["extent"] = [0, tottime, -2 / Fs, 2 / Fs]
 
-                if 'aspect' not in plotkwargs:
-                    plotkwargs['aspect'] = 'auto'
+                if "aspect" not in plotkwargs:
+                    plotkwargs["aspect"] = "auto"
 
-                if 'norm' not in plotkwargs:
-                    plotkwargs['norm'] = colors.Normalize()
+                if "norm" not in plotkwargs:
+                    plotkwargs["norm"] = colors.Normalize()
 
                 if isinstance(ax, Axes):
                     fig = ax.get_figure()
@@ -2196,38 +2450,36 @@ class HeterodynedData(object):
 
                 if self.detector is not None:
                     from matplotlib.offsetbox import AnchoredText
+
                     legend = AnchoredText(self.detector, loc=1)
                     thisax.add_artist(legend)
 
-                thisax.set_xlabel('GPS - {}'.format(int(times[0])), fontname=fontname,
-                                  fontsize=fontsize)
-                thisax.set_ylabel('Frequency (Hz)', fontname=fontname,
-                                  fontsize=fontsize)
+                thisax.set_xlabel(
+                    "GPS - {}".format(int(times[0])),
+                    fontname=fontname,
+                    fontsize=fontsize,
+                )
+                thisax.set_ylabel(
+                    "Frequency (Hz)", fontname=fontname, fontsize=fontsize
+                )
 
                 if fraction_labels:
                     thisax.set_yticks(ticks)
                     thisax.set_yticklabels(labels)
 
                 # set axes to use scientific notation
-                thisax.ticklabel_format(axis='x', style='sci',
-                                        scilimits=(0, 5),
-                                        useMathText=True)
+                thisax.ticklabel_format(
+                    axis="x", style="sci", scilimits=(0, 5), useMathText=True
+                )
             else:
                 # set plot color
-                color = None
-                label = None
                 if self.detector is not None:
-                    if self.detector in GW_OBSERVATORY_COLORS:
-                        color = GW_OBSERVATORY_COLORS[self.detector]
-                    label = self.detector
-
-                if self.detector is not None:
-                    if 'color' not in plotkwargs:
+                    if "color" not in plotkwargs:
                         if self.detector in GW_OBSERVATORY_COLORS:
-                            plotkwargs['color'] = GW_OBSERVATORY_COLORS[self.detector]
+                            plotkwargs["color"] = GW_OBSERVATORY_COLORS[self.detector]
 
-                    if 'label' not in plotkwargs:
-                        plotkwargs['label'] = self.detector
+                    if "label" not in plotkwargs:
+                        plotkwargs["label"] = self.detector
 
                 if isinstance(ax, Axes):
                     fig = ax.get_figure()
@@ -2240,14 +2492,13 @@ class HeterodynedData(object):
                 if self.detector is not None:
                     from matplotlib.font_manager import FontProperties
 
-                    legfont = FontProperties(family=fontname,
-                                             size=legendsize)
+                    legfont = FontProperties(family=fontname, size=legendsize)
                     thisax.legend(prop=legfont)
 
-                thisax.set_ylabel('Power', fontname=fontname,
-                                  fontsize=fontsize)
-                thisax.set_xlabel('Frequency (Hz)', fontname=fontname,
-                                  fontsize=fontsize)
+                thisax.set_ylabel("Power", fontname=fontname, fontsize=fontsize)
+                thisax.set_xlabel(
+                    "Frequency (Hz)", fontname=fontname, fontsize=fontsize
+                )
                 thisax.set_xlim([-Fs / 2, Fs / 2])
 
                 if fraction_labels:
@@ -2255,23 +2506,23 @@ class HeterodynedData(object):
                     thisax.set_xticklabels(labels)
 
                 # set axes to use scientific notation
-                thisax.ticklabel_format(axis='y', style='sci', useMathText=True)
+                thisax.ticklabel_format(axis="y", style="sci", useMathText=True)
 
             # set tick font name
-            for tick in (thisax.get_xticklabels() + thisax.get_yticklabels()):
+            for tick in thisax.get_xticklabels() + thisax.get_yticklabels():
                 tick.set_fontname(labelname)
 
             # set the axes tick label size
-            thisax.tick_params(which='both', labelsize=labelsize)
+            thisax.tick_params(which="both", labelsize=labelsize)
 
             # add a grid
-            thisax.grid(True, linewidth=0.5, linestyle='--')
+            thisax.grid(True, linewidth=0.5, linestyle="--")
         except Exception as e:
             raise RuntimeError("Problem creating spectrogram: {}".format(e))
 
         fig.tight_layout()
 
-        if ptype == 'spectrogram':
+        if ptype == "spectrogram":
             return frequencies, power, stimes, fig
         else:
             return frequencies, power, fig
@@ -2307,7 +2558,9 @@ class HeterodynedData(object):
         if len(times) < 2:
             raise ValueError("There must be at least two samples!")
 
-        dts = np.diff(times).astype(np.float32)  # convert to float32 due to precision errors
+        dts = np.diff(times).astype(
+            np.float32
+        )  # convert to float32 due to precision errors
 
         if np.all(dts == self.dt):
             # no zero padding required as data is evenly sampled
@@ -2318,8 +2571,7 @@ class HeterodynedData(object):
 
         # get the "new" padded time stamps
         tottime = times[-1] - times[0]
-        newtimes = np.linspace(times[0], times[-1],
-                               1 + int(tottime) // gcd)
+        newtimes = np.linspace(times[0], times[-1], 1 + int(tottime) // gcd)
 
         # get indices of original times im new times
         tidxs = np.where(np.in1d(newtimes, times))[0]

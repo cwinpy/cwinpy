@@ -4,12 +4,10 @@ Classes providing likelihood functions.
 
 import numpy as np
 import lal
-import lalpulsar
 import bilby
 from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from collections import OrderedDict
-import copy
 import re
 
 from .data import HeterodynedData, MultiHeterodynedData
@@ -56,44 +54,110 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
     # a set of parameters that define the "amplitude" of the signal (i.e.,
     # they do not effect the phase evolution of the signal)
-    AMPLITUDE_PARAMS = ['H0', 'PHI0', 'PSI', 'IOTA', 'COSIOTA', 'C21', 'C22',
-                        'PHI21', 'PHI22', 'I21', 'I31', 'LAMBDA', 'COSTHETA',
-                        'THETA', 'Q22', 'DIST']
+    AMPLITUDE_PARAMS = [
+        "H0",
+        "PHI0",
+        "PSI",
+        "IOTA",
+        "COSIOTA",
+        "C21",
+        "C22",
+        "PHI21",
+        "PHI22",
+        "I21",
+        "I31",
+        "LAMBDA",
+        "COSTHETA",
+        "THETA",
+        "Q22",
+        "DIST",
+    ]
 
     # amplitude parameters for the "source" model
-    SOURCE_AMPLITUDE_PARAMETERS = ['H0', 'I21', 'I31', 'LAMBDA', 'COSTHETA',
-                                   'THETA', 'Q22', 'DIST']
+    SOURCE_AMPLITUDE_PARAMETERS = [
+        "H0",
+        "I21",
+        "I31",
+        "LAMBDA",
+        "COSTHETA",
+        "THETA",
+        "Q22",
+        "DIST",
+    ]
 
     # the set of potential non-GR "amplitude" parameters
-    NONGR_AMPLITUDE_PARAM = ['PHI01TENSOR', 'PHI02TENSOR',
-                             'PHI01VECTOR', 'PHI02VECTOR',
-                             'PHI01SCALAR', 'PHI02SCALAR',
-                             'PSI1TENSOR', 'PSI2TENSOR',
-                             'PSI1VECTOR', 'PSI2VECTOR',
-                             'PSI1SCALAR', 'PSI2SCALAR',
-                             'H1PLUS', 'H2PLUS', 'H1CROSS', 'H2CROSS',
-                             'H1VECTORX', 'H2VECTORX',
-                             'H1VECTORY', 'H2VECTORY',
-                             'H1SCALARB', 'H2SCALARB',
-                             'H1SCALARL', 'H2SCALARL']
+    NONGR_AMPLITUDE_PARAM = [
+        "PHI01TENSOR",
+        "PHI02TENSOR",
+        "PHI01VECTOR",
+        "PHI02VECTOR",
+        "PHI01SCALAR",
+        "PHI02SCALAR",
+        "PSI1TENSOR",
+        "PSI2TENSOR",
+        "PSI1VECTOR",
+        "PSI2VECTOR",
+        "PSI1SCALAR",
+        "PSI2SCALAR",
+        "H1PLUS",
+        "H2PLUS",
+        "H1CROSS",
+        "H2CROSS",
+        "H1VECTORX",
+        "H2VECTORX",
+        "H1VECTORY",
+        "H2VECTORY",
+        "H1SCALARB",
+        "H2SCALARB",
+        "H1SCALARL",
+        "H2SCALARL",
+    ]
 
     # the set of positional parameters
-    POSITIONAL_PARAMETERS = ['RAJ', 'DECJ', 'RA', 'DEC', 'PMRA', 'PMDEC',
-                             'POSEPOCH']
+    POSITIONAL_PARAMETERS = ["RAJ", "DECJ", "RA", "DEC", "PMRA", "PMDEC", "POSEPOCH"]
 
     # the set of potential binary parameters
-    BINARY_PARAMS = ["PB", "ECC", "EPS1", "EPS2", "T0", "TASC", "A1", "OM",
-                     "PB_2", "ECC_2", "T0_2", "A1_2", "OM_2", "PB_3", "ECC_3",
-                     "T0_3", "A1_3", "OM_3", "XPBDOT", "EPS1DOT", "EPS2DOT",
-                     "OMDOT", "GAMMA", "PBDOT", "XDOT", "EDOT", "SINI", "DR",
-                     "DTHETA", "A0", "B0", "MTOT", "M2", "FB"]
+    BINARY_PARAMS = [
+        "PB",
+        "ECC",
+        "EPS1",
+        "EPS2",
+        "T0",
+        "TASC",
+        "A1",
+        "OM",
+        "PB_2",
+        "ECC_2",
+        "T0_2",
+        "A1_2",
+        "OM_2",
+        "PB_3",
+        "ECC_3",
+        "T0_3",
+        "A1_3",
+        "OM_3",
+        "XPBDOT",
+        "EPS1DOT",
+        "EPS2DOT",
+        "OMDOT",
+        "GAMMA",
+        "PBDOT",
+        "XDOT",
+        "EDOT",
+        "SINI",
+        "DR",
+        "DTHETA",
+        "A0",
+        "B0",
+        "MTOT",
+        "M2",
+        "FB",
+    ]
 
     # the parameters that are held as vectors
-    VECTOR_PARAMS = ['F', 'GLEP', 'GLPH', 'GLF0', 'GLF1', 'GLF2', 'GLF0D',
-                     'GLTD', 'FB']
+    VECTOR_PARAMS = ["F", "GLEP", "GLPH", "GLF0", "GLF1", "GLF2", "GLF0D", "GLTD", "FB"]
 
-    def __init__(self, data, priors, par=None, det=None,
-                 likelihood='studentst'):
+    def __init__(self, data, priors, par=None, det=None, likelihood="studentst"):
 
         super().__init__(dict())  # initialise likelihood class
 
@@ -104,19 +168,21 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 raise ValueError("'data' must contain a named detector.")
 
             if data.par is None:
-                raise ValueError("'data' must contain a heterodyne parameter "
-                                 "file.")
+                raise ValueError("'data' must contain a heterodyne parameter file.")
 
             self.data = MultiHeterodynedData(data)
         elif isinstance(data, MultiHeterodynedData):
             if None in data.pars:
-                raise ValueError("A data set does not have an associated "
-                                 "heterodyned parameter set.")
+                raise ValueError(
+                    "A data set does not have an associated "
+                    "heterodyned parameter set."
+                )
 
             self.data = data
         else:
-            raise TypeError("'data' must be a HeterodynedData or "
-                            "MultiHeterodynedData object.")
+            raise TypeError(
+                "'data' must be a HeterodynedData or MultiHeterodynedData object."
+            )
 
         if not isinstance(priors, bilby.core.prior.PriorDict):
             raise TypeError("Prior must be a bilby PriorDict")
@@ -133,12 +199,13 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         self.include_binary = False
         self.update_ssb = False
         for key in self.priors:
-            if ((key.upper() not in self.AMPLITUDE_PARAMS +
-                                self.BINARY_PARAMS +
-                                self.POSITIONAL_PARAMETERS) and
-                    not self._is_vector_param(key.upper())):
-                raise ValueError("Unknown parameter '{}' being "
-                                 "used!".format(key))
+            if (
+                key.upper()
+                not in self.AMPLITUDE_PARAMS
+                + self.BINARY_PARAMS
+                + self.POSITIONAL_PARAMETERS
+            ) and not self._is_vector_param(key.upper()):
+                raise ValueError("Unknown parameter '{}' being used!".format(key))
 
             if key.upper() not in self.AMPLITUDE_PARAMS:
                 if self.priors[key].is_fixed:
@@ -174,12 +241,11 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         self.models = []
         self.basepars = []
         for het in self.data:
-            self.models.append(HeterodynedCWSimulator(het.par, het.detector,
-                                                      het.times))
+            self.models.append(HeterodynedCWSimulator(het.par, het.detector, het.times))
             # copy of heterodyned parameters
-            newpar = PulsarParametersPy()                                                          
+            newpar = PulsarParametersPy()
             for item in het.par.items():
-                newpar[item[0]] = item[1] 
+                newpar[item[0]] = item[1]
             self.basepars.append(newpar)
 
         # if phase evolution is not in the model set the pre-summed products
@@ -199,19 +265,25 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
     @likelihood.setter
     def likelihood(self, likelihood):
         # make sure the likelihood is of the allowed type
-        if likelihood.lower() not in ['studentst', 'students-t', 'studentt',
-                                      'gaussian', 'normal']:
+        if likelihood.lower() not in [
+            "studentst",
+            "students-t",
+            "studentt",
+            "gaussian",
+            "normal",
+        ]:
             raise ValueError("Likelihood must be 'studentst' or 'gaussian'.")
 
-        if likelihood.lower() in ['studentst', 'students-t', 'studentt']:
-            self.__likelihood = 'studentst'
+        if likelihood.lower() in ["studentst", "students-t", "studentt"]:
+            self.__likelihood = "studentst"
         else:
-            self.__likelihood = 'gaussian'
+            self.__likelihood = "gaussian"
 
     def dot_products(self):
         """
         Calculate the (noise-weighted) dot products of the data and the
-        antenna pattern functions (see Appendix C of [1]_). E.g., for the data this is the real value
+        antenna pattern functions (see Appendix C of [1]_). E.g., for the data this is
+        the real value
 
         .. math::
 
@@ -251,11 +323,11 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             # initialise arrays in dictionary (Tp and Tc are the tensor plus
             # and cross, Vx and Vy are the vector "x" and "y", Sl and Sb are
             # the scalar longitudinal and breathing, d is the data)
-            knames = ['d', 'Tp', 'Tc', 'Vx', 'Vy', 'Sb', 'Sl']
+            knames = ["d", "Tp", "Tc", "Vx", "Vy", "Sb", "Sl"]
             for i, a in enumerate(knames):
-                for b in knames[::-1][:len(knames)-i]:
-                    kname = a + 'dot' + b
-                    if 'd' in [a, b] and a != b:
+                for b in knames[::-1][: len(knames) - i]:
+                    kname = a + "dot" + b
+                    if "d" in [a, b] and a != b:
                         dtype = np.complex
                     else:
                         dtype = np.float
@@ -263,71 +335,83 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                         # set "whitened" versions of the antenna pattern product
                         # for SNR calculations, for when using the Students-t
                         # likelihood
-                        if 'd' not in [a, b]:
-                            self.products[-1][kname + 'White'] = np.zeros(data.num_chunks)
+                        if "d" not in [a, b]:
+                            self.products[-1][kname + "White"] = np.zeros(
+                                data.num_chunks
+                            )
 
-                    self.products[-1][kname] = np.zeros(data.num_chunks,
-                                                        dtype=dtype)
+                    self.products[-1][kname] = np.zeros(data.num_chunks, dtype=dtype)
 
             # loop over "chunks" into which each data set has been split
-            for i, cpidx, cplen in zip(range(data.num_chunks),
-                                       data.change_point_indices,
-                                       data.chunk_lengths):
+            for i, cpidx, cplen in zip(
+                range(data.num_chunks), data.change_point_indices, data.chunk_lengths
+            ):
                 # set the noise standard deviation for a Gaussian likelihood
-                stdstrue = data.stds[cpidx:cpidx + cplen]
-                stds = stdstrue if self.likelihood == 'gaussian' else 1.
+                stdstrue = data.stds[cpidx : cpidx + cplen]
+                stds = stdstrue if self.likelihood == "gaussian" else 1.0
 
                 # get the interpolated response functions
                 t0 = float(model.resp.t0)
 
                 # interpolation times
-                ftimes = np.arange(0., lal.DAYSID_SI,
-                                   lal.DAYSID_SI / model.resp.ntimebins)
-                inttimes = data.times[cpidx:cpidx + cplen] - t0
+                ftimes = np.arange(
+                    0.0, lal.DAYSID_SI, lal.DAYSID_SI / model.resp.ntimebins
+                )
+                inttimes = data.times[cpidx : cpidx + cplen] - t0
 
                 # dictionary of chunk data and antenna responses
                 rs = OrderedDict()
-                rs['d'] = data.data[cpidx:cpidx + cplen]
-                rs['Tp'] = np.interp(inttimes, ftimes, model.resp.fplus.data,
-                                     period=lal.DAYSID_SI)
-                rs['Tc'] = np.interp(inttimes, ftimes, model.resp.fcross.data,
-                                     period=lal.DAYSID_SI)
-                rs['Vx'] = np.interp(inttimes, ftimes, model.resp.fx.data,
-                                     period=lal.DAYSID_SI)
-                rs['Vy'] = np.interp(inttimes, ftimes, model.resp.fy.data,
-                                     period=lal.DAYSID_SI)
-                rs['Sb'] = np.interp(inttimes, ftimes, model.resp.fb.data,
-                                     period=lal.DAYSID_SI)
-                rs['Sl'] = np.interp(inttimes, ftimes, model.resp.fl.data,
-                                     period=lal.DAYSID_SI)
+                rs["d"] = data.data[cpidx : cpidx + cplen]
+                rs["Tp"] = np.interp(
+                    inttimes, ftimes, model.resp.fplus.data, period=lal.DAYSID_SI
+                )
+                rs["Tc"] = np.interp(
+                    inttimes, ftimes, model.resp.fcross.data, period=lal.DAYSID_SI
+                )
+                rs["Vx"] = np.interp(
+                    inttimes, ftimes, model.resp.fx.data, period=lal.DAYSID_SI
+                )
+                rs["Vy"] = np.interp(
+                    inttimes, ftimes, model.resp.fy.data, period=lal.DAYSID_SI
+                )
+                rs["Sb"] = np.interp(
+                    inttimes, ftimes, model.resp.fb.data, period=lal.DAYSID_SI
+                )
+                rs["Sl"] = np.interp(
+                    inttimes, ftimes, model.resp.fl.data, period=lal.DAYSID_SI
+                )
 
                 # get all required combinations of responses and data
                 for j, a in enumerate(knames):
-                    for b in knames[::-1][:len(knames)-j]:
-                        kname = a + 'dot' + b
-                        if kname == 'ddotd':
+                    for b in knames[::-1][: len(knames) - j]:
+                        kname = a + "dot" + b
+                        if kname == "ddotd":
                             # complex conjugate dot product for data
-                            self.products[-1][kname][i] = np.vdot(rs[a]/stds,
-                                                                  rs[b]/stds).real
+                            self.products[-1][kname][i] = np.vdot(
+                                rs[a] / stds, rs[b] / stds
+                            ).real
                         else:
-                            self.products[-1][kname][i] = np.dot(rs[a]/stds,
-                                                                 rs[b]/stds)
+                            self.products[-1][kname][i] = np.dot(
+                                rs[a] / stds, rs[b] / stds
+                            )
 
-                        if 'd' not in [a, b]:
+                        if "d" not in [a, b]:
                             # get "whitened" versions for Students-t likelihood
-                            self.products[-1][kname + 'White'] = np.dot(rs[a]/stdstrue,
-                                                                        rs[b]/stdstrue)
+                            self.products[-1][kname + "White"] = np.dot(
+                                rs[a] / stdstrue, rs[b] / stdstrue
+                            )
 
     def log_likelihood(self):
         """
         The log-likelihood function.
         """
 
-        loglikelihood = 0.  # the log likelihood value
+        loglikelihood = 0.0  # the log likelihood value
 
         # loop over the data and models
-        for data, model, prods, par in zip(self.data, self.models,
-                                           self.products, self.basepars):
+        for data, model, prods, par in zip(
+            self.data, self.models, self.products, self.basepars
+        ):
 
             # update parameters in the base par
             for pname, pval in self.parameters.items():
@@ -344,32 +428,35 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                         # better to pass a copy of the PulsarParameters
                         # structure to the model function, so that this is not
                         # problem
-                        par['C21'] = 0.
-                        par['C22'] = 0.
-                        par['PHI22'] = 0.
-                        par['PHI21'] = 0.
+                        par["C21"] = 0.0
+                        par["C22"] = 0.0
+                        par["PHI22"] = 0.0
+                        par["PHI21"] = 0.0
 
             # calculate the model
-            m = model.model(par, usephase=self.include_phase,
-                            updateSSB=self.update_ssb,
-                            updateBSB=self.include_binary)
+            m = model.model(
+                par,
+                usephase=self.include_phase,
+                updateSSB=self.update_ssb,
+                updateBSB=self.include_binary,
+            )
 
             # calculate the likelihood
-            for i, cpidx, cplen in zip(range(data.num_chunks),
-                                       data.change_point_indices,
-                                       data.chunk_lengths):
+            for i, cpidx, cplen in zip(
+                range(data.num_chunks), data.change_point_indices, data.chunk_lengths
+            ):
                 # loop over stationary data chunks
 
                 # likelihood without pre-summed products
-                if self.likelihood == 'gaussian':
-                    stds = data.stds[cpidx:cpidx + cplen]
+                if self.likelihood == "gaussian":
+                    stds = data.stds[cpidx : cpidx + cplen]
                 else:
-                    stds = 1.
+                    stds = 1.0
 
                 if self.include_phase:
                     # data and model for chunk
-                    dd = data.data[cpidx:cpidx + cplen]/stds
-                    mm = m[cpidx:cpidx + cplen]/stds
+                    dd = data.data[cpidx : cpidx + cplen] / stds
+                    mm = m[cpidx : cpidx + cplen] / stds
 
                     summodel = np.vdot(mm, mm).real
                     sumdatamodel = np.vdot(dd, mm).real
@@ -378,17 +465,20 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     mp = m[0]  # tensor plus model component
                     mc = m[1]  # tensor cross model component
 
-                    summodel = (prods['TpdotTp'][i] * (mp.real**2 +
-                                                       mp.imag**2) +
-                                prods['TcdotTc'][i] * (mc.real**2 +
-                                                       mc.imag**2) +
-                                2.*prods['TpdotTc'][i] * (mp.real * mc.real +
-                                                          mp.imag * mc.imag))
+                    summodel = (
+                        prods["TpdotTp"][i] * (mp.real ** 2 + mp.imag ** 2)
+                        + prods["TcdotTc"][i] * (mc.real ** 2 + mc.imag ** 2)
+                        + 2.0
+                        * prods["TpdotTc"][i]
+                        * (mp.real * mc.real + mp.imag * mc.imag)
+                    )
 
-                    sumdatamodel = (prods['ddotTp'][i].real * mp.real +
-                                    prods['ddotTp'][i].imag * mp.imag +
-                                    prods['ddotTc'][i].real * mc.real +
-                                    prods['ddotTc'][i].imag * mc.imag)
+                    sumdatamodel = (
+                        prods["ddotTp"][i].real * mp.real
+                        + prods["ddotTp"][i].imag * mp.imag
+                        + prods["ddotTc"][i].real * mc.real
+                        + prods["ddotTc"][i].imag * mc.imag
+                    )
 
                     if self.nonGR:
                         # non-GR amplitudes
@@ -397,63 +487,69 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                         mb = m[4]
                         ml = m[5]
 
-                        summodel += (prods['VxdotVx'][i] * (mx.real**2 +
-                                                            mx.imag**2) +
-                                     prods['VydotVy'][i] * (my.real**2 +
-                                                            my.imag**2) +
-                                     prods['SbdotSb'][i] * (mb.real**2 +
-                                                            mb.imag**2) +
-                                     prods['SldotSl'][i] * (ml.real**2 +
-                                                            ml.imag**2) +
-                                     2.*(prods['TpdotVx'][i] * (mp.real * mx.real +
-                                                                mp.imag * mx.imag) +
-                                         prods['TpdotVy'][i] * (mp.real * my.real +
-                                                                mp.imag * my.imag) +
-                                         prods['TpdotSb'][i] * (mp.real * mb.real +
-                                                                mp.imag * mb.imag) +
-                                         prods['TpdotSl'][i] * (mp.real * ml.real +
-                                                                mp.imag * ml.imag) +
-                                         prods['TcdotVx'][i] * (mc.real * mx.real +
-                                                                mc.imag * mx.imag) +
-                                         prods['TcdotVy'][i] * (mc.real * my.real +
-                                                                mc.imag * my.imag) +
-                                         prods['TcdotSb'][i] * (mc.real * mb.real +
-                                                                mc.imag * mb.imag) +
-                                         prods['TcdotSl'][i] * (mc.real * ml.real +
-                                                                mc.imag * ml.imag) +
-                                         prods['VxdotVy'][i] * (mx.real * my.real) +
-                                                               (mx.imag * my.imag) +
-                                         prods['VxdotSb'][i] * (mx.real * mb.real +
-                                                                mx.imag * mb.imag) +
-                                         prods['VxdotSl'][i] * (mx.real * ml.real +
-                                                                mx.imag * ml.imag) +
-                                         prods['VydotSb'][i] * (my.real * mb.real +
-                                                                my.imag * mb.imag) +
-                                         prods['VydotSl'][i] * (my.real * ml.real +
-                                                                my.imag * ml.imag) +
-                                         prods['SbdotSl'][i] * (mb.real * ml.real +
-                                                                mb.imag * ml.imag)))
+                        summodel += (
+                            prods["VxdotVx"][i] * (mx.real ** 2 + mx.imag ** 2)
+                            + prods["VydotVy"][i] * (my.real ** 2 + my.imag ** 2)
+                            + prods["SbdotSb"][i] * (mb.real ** 2 + mb.imag ** 2)
+                            + prods["SldotSl"][i] * (ml.real ** 2 + ml.imag ** 2)
+                            + 2.0
+                            * (
+                                prods["TpdotVx"][i]
+                                * (mp.real * mx.real + mp.imag * mx.imag)
+                                + prods["TpdotVy"][i]
+                                * (mp.real * my.real + mp.imag * my.imag)
+                                + prods["TpdotSb"][i]
+                                * (mp.real * mb.real + mp.imag * mb.imag)
+                                + prods["TpdotSl"][i]
+                                * (mp.real * ml.real + mp.imag * ml.imag)
+                                + prods["TcdotVx"][i]
+                                * (mc.real * mx.real + mc.imag * mx.imag)
+                                + prods["TcdotVy"][i]
+                                * (mc.real * my.real + mc.imag * my.imag)
+                                + prods["TcdotSb"][i]
+                                * (mc.real * mb.real + mc.imag * mb.imag)
+                                + prods["TcdotSl"][i]
+                                * (mc.real * ml.real + mc.imag * ml.imag)
+                                + prods["VxdotVy"][i] * (mx.real * my.real)
+                                + (mx.imag * my.imag)
+                                + prods["VxdotSb"][i]
+                                * (mx.real * mb.real + mx.imag * mb.imag)
+                                + prods["VxdotSl"][i]
+                                * (mx.real * ml.real + mx.imag * ml.imag)
+                                + prods["VydotSb"][i]
+                                * (my.real * mb.real + my.imag * mb.imag)
+                                + prods["VydotSl"][i]
+                                * (my.real * ml.real + my.imag * ml.imag)
+                                + prods["SbdotSl"][i]
+                                * (mb.real * ml.real + mb.imag * ml.imag)
+                            )
+                        )
 
-                        sumdatamodel += (prods['ddotVx'][i].real * mx.real +
-                                         prods['ddotVx'][i].imag * mx.imag +
-                                         prods['ddotVy'][i].real * my.real +
-                                         prods['ddotVy'][i].imag * my.imag +
-                                         prods['ddotSb'][i].real * mb.real +
-                                         prods['ddotSb'][i].imag * mb.imag +
-                                         prods['ddotSl'][i].real * ml.real +
-                                         prods['ddotSl'][i].imag * ml.imag)
+                        sumdatamodel += (
+                            prods["ddotVx"][i].real * mx.real
+                            + prods["ddotVx"][i].imag * mx.imag
+                            + prods["ddotVy"][i].real * my.real
+                            + prods["ddotVy"][i].imag * my.imag
+                            + prods["ddotSb"][i].real * mb.real
+                            + prods["ddotSb"][i].imag * mb.imag
+                            + prods["ddotSl"][i].real * ml.real
+                            + prods["ddotSl"][i].imag * ml.imag
+                        )
 
                 # compute "Chi-squared"
-                chisquare = prods['ddotd'][i] - 2.*sumdatamodel + summodel
+                chisquare = prods["ddotd"][i] - 2.0 * sumdatamodel + summodel
 
-                if self.likelihood == 'gaussian':
+                if self.likelihood == "gaussian":
                     loglikelihood += 0.5 * chisquare
                     # normalisation
-                    loglikelihood -= np.log(lal.TWOPI * stds[0]**2)
+                    loglikelihood -= np.log(lal.TWOPI * stds[0] ** 2)
                 else:
-                    loglikelihood += (logfactorial(cplen - 1) - lal.LN2 -
-                                      cplen * lal.LNPI -
-                                      cplen * np.log(chisquare))
+                    loglikelihood += (
+                        logfactorial(cplen - 1)
+                        - lal.LN2
+                        - cplen * lal.LNPI
+                        - cplen * np.log(chisquare)
+                    )
 
         return loglikelihood
 
@@ -474,23 +570,26 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
            <https:arxiv.org/abs/1705.08978v1>`_, 2017.
         """
 
-        loglikelihood = 0.  # the log likelihood value
+        loglikelihood = 0.0  # the log likelihood value
 
         # loop over the data and models
         for data, prods in zip(self.data, self.products):
             # calculate the likelihood
-            for i, cpidx, cplen in zip(range(data.num_chunks),
-                                       data.change_point_indices,
-                                       data.chunk_lengths):
+            for i, cpidx, cplen in zip(
+                range(data.num_chunks), data.change_point_indices, data.chunk_lengths
+            ):
                 # loop over stationary data chunks
-                if self.likelihood == 'gaussian':
-                    loglikelihood += 0.5 * prods['ddotd'][i]
+                if self.likelihood == "gaussian":
+                    loglikelihood += 0.5 * prods["ddotd"][i]
                     # normalisation
                     loglikelihood -= np.log(lal.TWOPI * data.vars[cpidx])
                 else:
-                    loglikelihood += (logfactorial(cplen - 1) - lal.LN2 -
-                                      cplen * lal.LNPI -
-                                      cplen * np.log(prods['ddotd'][i]))
+                    loglikelihood += (
+                        logfactorial(cplen - 1)
+                        - lal.LN2
+                        - cplen * lal.LNPI
+                        - cplen * np.log(prods["ddotd"][i])
+                    )
 
         return loglikelihood
 
@@ -498,14 +597,14 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         """
         Check if a parameter is a vector parameter.
         """
-    
+
         # check for integers in name
-        intvals = re.findall(r'\d+', name)
+        intvals = re.findall(r"\d+", name)
         if len(intvals) == 0:
             return False
 
         # strip out any underscores from name and remove trailing index
-        noscores = re.sub('_', '', name)[:-len(intvals[-1])]
+        noscores = re.sub("_", "", name)[: -len(intvals[-1])]
 
         if noscores in self.VECTOR_PARAMS:
             return True
@@ -517,13 +616,13 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         Get the vector parameter name (stripped of the position)
         """
 
-        intvals = re.findall(r'\d+', name)
+        intvals = re.findall(r"\d+", name)
 
         # strip out any underscores from name and remove trailing index
-        noscores = re.sub('_', '', name)[:-len(intvals[-1])]
+        noscores = re.sub("_", "", name)[: -len(intvals[-1])]
 
         # glitch values start from 1 so subtract 1 from pos
-        if name[:2] == 'GL':
+        if name[:2] == "GL":
             intvals[-1] -= 1
 
         return (noscores, intvals[-1])
