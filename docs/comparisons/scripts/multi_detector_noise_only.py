@@ -10,16 +10,15 @@ import subprocess as sp
 import numpy as np
 import corner
 from collections import OrderedDict
+import h5py
+from cwinpy.knope import knope
 from cwinpy import HeterodynedData, MultiHeterodynedData
-from cwinpy import TargetedPulsarLikelihood
-import bilby
-from bilby.core.prior import Uniform, PriorDict
-from bilby.core.grid import Grid
-from matplotlib import pyplot as pl
-from lalapps.pulsarpputils import pulsar_nest_to_posterior
+from bilby.core.prior import Uniform
 from astropy.utils.data import download_file
 from matplotlib.lines import Line2D
 import matplotlib.font_manager as font_manager
+from lalinference.io import read_samples
+from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 
 # comparison function
 from comparitors import comparisons
@@ -182,25 +181,35 @@ with sp.Popen(
         print(line, end="")
 
 # get posterior samples
-post, evsig, evnoise = pulsar_nest_to_posterior(outpost)
-lp = len(post["h0"].samples)
+post = read_samples(
+    outpost,
+    tablename=LALInferenceHDF5PosteriorSamplesDatasetName
+)
+lp = len(post["H0"])
 postsamples = np.zeros((lp, len(priors)))
 for i, p in enumerate(priors.keys()):
-    postsamples[:, i] = post[p].samples[:, 0]
+    postsamples[:, i] = post[p.upper()]
 
-# set the likelihood for bilby
-likelihood = TargetedPulsarLikelihood(mhet, PriorDict(priors))
+# get evidence
+hdf = h5py.File(outpost, 'r')
+a = hdf['lalinference']['lalinference_nest']
+evsig = a.attrs['log_evidence']
+evnoise = a.attrs['log_noise_evidence']
+hdf.close()
 
-# run bilby
-result = bilby.run_sampler(
-    likelihood=likelihood,
-    priors=priors,
-    sampler="cpnest",
-    nlive=Nlive,
+# run bilby via the knope interface
+runner = knope(
+    data_file=hetfiles,
+    par_file=parfile,
+    prior=priors,
+    detector=detectors,
+    sampler="dynesty",
+    sampler_kwargs={"Nlive": Nlive},
     outdir=outdir,
     label=label,
-    use_ratio=False,
 )
+
+result = runner.result
 
 # evaluate the likelihood on a grid
 gridpoints = 35
@@ -210,7 +219,18 @@ for p in priors.keys():
         np.min(result.posterior[p]), np.max(result.posterior[p]), gridpoints
     )
 
-grid = Grid(likelihood, PriorDict(priors), grid_size=grid_size)
+grunner = knope(
+    data_file=hetfiles,
+    par_file=parfile,
+    prior=priors,
+    detector=detectors,
+    outdir=outdir,
+    label=label,
+    grid=True,
+    grid_kwargs={"grid_size": grid_size},
+)
+
+grid = grunner.grid
 
 # output comparisons
 comparisons(label, outdir, grid, priors, cred=0.9)
@@ -233,7 +253,7 @@ axidx = 0
 for p in priors.keys():
     axes[axidx].plot(
         grid.sample_points[p],
-        np.exp(grid.marginalize_ln_posterior(not_parameter=p) - grid.log_evidence),
+        np.exp(grid.marginalize_ln_posterior(not_parameters=p) - grid.log_evidence),
         "k--",
     )
     axidx += 5
@@ -241,8 +261,8 @@ for p in priors.keys():
 # custom legend
 legend_elements = [
     Line2D([], [], color="r", label="lalapps_pulsar_parameter_estimation_nested"),
-    Line2D([], [], color="b", label="cwinpy"),
-    Line2D([], [], color="k", ls="--", label="cwinpy (grid)"),
+    Line2D([], [], color="b", label="cwinpy_knope"),
+    Line2D([], [], color="k", ls="--", label="cwinpy_knope (grid)"),
 ]
 font = font_manager.FontProperties(family="monospace")
 leg = axes[3].legend(
