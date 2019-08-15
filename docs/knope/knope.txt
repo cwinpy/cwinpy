@@ -107,7 +107,7 @@ each parameter, and pair of parameters.
    :align: center
 
 .. note::
-   The slight offset seen in the recovered phase is related to the uncompensated 150 &mu;s time
+   The slight offset seen in the recovered phase is related to the uncompensated 150 :math:`\mu`s time
    delay in the actuation function used to generate the simulated signal as discuss in [4]_.
 
 The code should also output the natural logarithm of the signal model `evidence
@@ -177,11 +177,11 @@ each parameter, and pair of parameters.
    :align: center
 
 .. note::
-   The slight offset seen in the recovered phase is related to the uncompensated 150 &mu;s time
+   The slight offset seen in the recovered phase is related to the uncompensated 150 :math:`\mu`s time
    delay in the actuation function used to generate the simulated signal as discuss in [4]_.
 
-The natural logarithms of the signal model `evidence <`evidence
-<https://en.wikipedia.org/wiki/Marginal_likelihood>`_>`_ (``log_evidence``), noise-only model evidence
+The natural logarithms of the signal model `evidence
+<https://en.wikipedia.org/wiki/Marginal_likelihood>`_ (``log_evidence``), noise-only model evidence
 (``log_noise_evidence``) and `Bayes factor
 <https://en.wikipedia.org/wiki/Bayes_factor>`_ (``log_bayes_factor``) output for this example are 
 

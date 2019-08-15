@@ -191,7 +191,7 @@ runner = knope(
     prior=priors,
     detector=detector,
     sampler="dynesty",
-    sampler_kwargs={"Nlive": Nlive},
+    sampler_kwargs={"Nlive": Nlive, "walks": 40},
     outdir=outdir,
     label=label,
 )
