@@ -106,7 +106,10 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'requirements.txt',
                     'knope/data/*.txt.gz',
                     'knope/data/example1/*.json',
                     'knope/data/example1/*.pickle',
-                    'knope/data/example1/*_trace.png']
+                    'knope/data/example1/*_trace.png',
+                    'knope/data/example2/*.json',
+                    'knope/data/example2/*.pickle',
+                    'knope/data/example2/*_trace.png']
 
 add_function_parentheses = True
 add_module_names = False

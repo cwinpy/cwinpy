@@ -13,8 +13,7 @@ import corner
 from collections import OrderedDict
 import h5py
 from cwinpy.knope import knope
-from cwinpy import HeterodynedData, MultiHeterodynedData
-import bilby
+from cwinpy import HeterodynedData
 from bilby.core.prior import Uniform
 from astropy.utils.data import download_file
 from matplotlib.lines import Line2D
@@ -85,8 +84,6 @@ for detector in detectors:
         ).T,
     )
     hetfiles.append(hetfile)
-
-mhet = MultiHeterodynedData(het)
 
 # create priors
 phi0range = [0.0, np.pi]
@@ -217,7 +214,7 @@ runner = knope(
     prior=priors,
     detector=detectors,
     sampler="dynesty",
-    sampler_kwargs={"Nlive": Nlive},
+    sampler_kwargs={"Nlive": Nlive, "walks": 40},
     outdir=outdir,
     label=label,
 )

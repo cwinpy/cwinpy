@@ -2,7 +2,7 @@
 
 """
 Compare cwinpy with lalapps_pulsar_parameter_estimation_nested for noise-only
-data for a multiple detectors (H1, L1 and V1).
+data for a single detector with two harmonics.
 """
 
 import os
@@ -11,8 +11,8 @@ import numpy as np
 import corner
 from collections import OrderedDict
 import h5py
-from cwinpy.knope import knope
 from cwinpy import HeterodynedData
+from cwinpy.knope import knope
 from bilby.core.prior import Uniform
 from astropy.utils.data import download_file
 from matplotlib.lines import Line2D
@@ -21,7 +21,7 @@ from lalinference.io import read_samples
 from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 
 # comparison function
-from comparitors import comparisons
+from comparitors import comparisons_two_harmonics
 
 
 # URL for ephemeris files
@@ -35,13 +35,15 @@ DECJ     34:56:54.321
 F0       567.89
 F1       -1.2e-12
 PEPOCH   56789
-H0       5.12e-25
-COSIOTA  0.3
-PSI      1.1
-PHI0     2.4
+C21      0
+C22      0
+COSIOTA  0
+PSI      0
+PHI21    0
+PHI22    0
 """
 
-label = "multi_detector_noise_only"
+label = "single_detector_noise_only_two_harmonics"
 outdir = "outputs"
 
 if not os.path.isdir(outdir):
@@ -53,47 +55,60 @@ with open(parfile, "w") as fp:
     fp.write(parcontent)
 
 # create some fake heterodyned data
-detectors = ["H1", "L1", "V1"]  # the detector to use
-asd = 1e-24  # noise amplitude spectral density
+detector = "H1"  # the detector to use
+asds = [1e-24, 2e-24]  # noise amplitude spectral densities
 times = np.linspace(1000000000.0, 1000086340.0, 1440)  # times
-het = {}
+harmonics = [1, 2]
+
 hetfiles = []
-for detector in detectors:
-    het[detector] = HeterodynedData(
-        times=times, par=parfile, fakeasd=asd, detector=detector
+for harmonic, asd in zip(harmonics, asds):
+    het = HeterodynedData(
+        times=times, par=parfile, fakeasd=asd, detector=detector, freqfactor=harmonic
     )
 
     # output the data
-    hetfile = os.path.join(outdir, "{}_{}_data.txt".format(label, detector))
+    hetfile = os.path.join(outdir, "{}_{}_{}_data.txt".format(label, detector, harmonic))
     np.savetxt(
         hetfile,
         np.vstack(
-            (het[detector].times, het[detector].data.real, het[detector].data.imag)
+            (het.times, het.data.real, het.data.imag)
         ).T,
     )
     hetfiles.append(hetfile)
 
 # create priors
-phi0range = [0.0, np.pi]
+phi21range = [0.0, 2.0 * np.pi]
+phi22range = [0.0, 2.0 * np.pi]
 psirange = [0.0, np.pi / 2.0]
 cosiotarange = [-1.0, 1.0]
-h0range = [0.0, 1e-23]
+c21range = [0.0, 1e-23]
+c22range = [0.0, 1e-23]
 
 # set prior for lalapps_pulsar_parameter_estimation_nested
 priorfile = os.path.join(outdir, "{}_prior.txt".format(label))
-priorcontent = """H0 uniform {} {}
-PHI0 uniform {} {}
+priorcontent = """C21 uniform {} {}
+C22 uniform {} {}
+PHI21 uniform {} {}
+PHI22 uniform {} {}
 PSI uniform {} {}
 COSIOTA uniform {} {}
 """
 with open(priorfile, "w") as fp:
-    fp.write(priorcontent.format(*(h0range + phi0range + psirange + cosiotarange)))
+    fp.write(
+        priorcontent.format(
+            *(c21range + c22range + phi21range + phi22range + psirange + cosiotarange)
+        )
+    )
 
 # set prior for bilby
 priors = OrderedDict()
-priors["h0"] = Uniform(h0range[0], h0range[1], "h0", latex_label=r"$h_0$")
-priors["phi0"] = Uniform(
-    phi0range[0], phi0range[1], "phi0", latex_label=r"$\phi_0$", unit="rad"
+priors["c21"] = Uniform(c21range[0], c21range[1], "c21", latex_label=r"$C_{21}$")
+priors["c22"] = Uniform(c22range[0], c22range[1], "c22", latex_label=r"$C_{22}$")
+priors["phi21"] = Uniform(
+    phi21range[0], phi21range[1], "phi21", latex_label=r"$\Phi_{21}$", unit="rad"
+)
+priors["phi22"] = Uniform(
+    phi22range[0], phi22range[1], "phi22", latex_label=r"$\Phi_{22}$", unit="rad"
 )
 priors["psi"] = Uniform(
     psirange[0], psirange[1], "psi", latex_label=r"$\psi$", unit="rad"
@@ -133,13 +148,15 @@ runcmd = " ".join(
         "--input-files",
         ",".join(hetfiles),
         "--detectors",
-        ",".join(detectors),
+        detector,
         "--par-file",
         parfile,
         "--prior-file",
         priorfile,
         "--Nlive",
         "{}".format(Nlive),
+        "--harmonics",
+        ",".join([str(harmonic) for harmonic in harmonics]),
         "--Nmcmcinitial",
         "{}".format(Nmcmcinitial),
         "--outfile",
@@ -153,16 +170,13 @@ runcmd = " ".join(
     ]
 )
 
-with sp.Popen(
+p = sp.Popen(
     runcmd,
     stdout=sp.PIPE,
     stderr=sp.PIPE,
     shell=True,
-    bufsize=1,
-    universal_newlines=True,
-) as p:
-    for line in p.stderr:
-        print(line, end="")
+)
+out, err = p.communicate()
 
 # convert nested samples to posterior samples
 outpost = os.path.join(outdir, "{}_post.hdf".format(label))
@@ -197,41 +211,21 @@ hdf.close()
 
 # run bilby via the knope interface
 runner = knope(
-    data_file=hetfiles,
+    data_file_1f=hetfiles[0],
+    data_file_2f=hetfiles[1],
     par_file=parfile,
     prior=priors,
-    detector=detectors,
+    detector=detector,
     sampler="dynesty",
-    sampler_kwargs={"Nlive": Nlive, "walks": 40},
+    sampler_kwargs={"Nlive": Nlive, "walks": 60},
     outdir=outdir,
     label=label,
 )
 
 result = runner.result
 
-# evaluate the likelihood on a grid
-gridpoints = 35
-grid_size = dict()
-for p in priors.keys():
-    grid_size[p] = np.linspace(
-        np.min(result.posterior[p]), np.max(result.posterior[p]), gridpoints
-    )
-
-grunner = knope(
-    data_file=hetfiles,
-    par_file=parfile,
-    prior=priors,
-    detector=detectors,
-    outdir=outdir,
-    label=label,
-    grid=True,
-    grid_kwargs={"grid_size": grid_size},
-)
-
-grid = grunner.grid
-
 # output comparisons
-comparisons(label, outdir, grid, priors, cred=0.9)
+comparisons_two_harmonics(label, outdir, priors, cred=0.9)
 
 # plot results
 fig = result.plot_corner(save=False, parameters=list(priors.keys()), color="b")
@@ -247,20 +241,11 @@ fig = corner.corner(
     hist_kwargs={"density": True},
 )
 axes = fig.get_axes()
-axidx = 0
-for p in priors.keys():
-    axes[axidx].plot(
-        grid.sample_points[p],
-        np.exp(grid.marginalize_ln_posterior(not_parameters=p) - grid.log_evidence),
-        "k--",
-    )
-    axidx += 5
 
 # custom legend
 legend_elements = [
     Line2D([], [], color="r", label="lalapps_pulsar_parameter_estimation_nested"),
     Line2D([], [], color="b", label="cwinpy_knope"),
-    Line2D([], [], color="k", ls="--", label="cwinpy_knope (grid)"),
 ]
 font = font_manager.FontProperties(family="monospace")
 leg = axes[3].legend(
