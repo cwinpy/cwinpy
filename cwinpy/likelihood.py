@@ -439,6 +439,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 usephase=self.include_phase,
                 updateSSB=self.update_ssb,
                 updateBSB=self.include_binary,
+                freqfactor=data.freq_factor,
             )
 
             # calculate the likelihood
