@@ -5,6 +5,7 @@ Run known pulsar parameter estimation using bilby.
 import os
 import sys
 import ast
+import glob
 import signal
 import numpy as np
 
@@ -17,21 +18,20 @@ from bilby_pipe.bilbyargparser import BilbyArgParser
 from bilby_pipe.utils import parse_args, BilbyPipeError
 
 
-description = """\
-A script to use Bayesian inference to estimate the parameters of a \
-continuous gravitational-wave signal from a known pulsar."""
-
-
 def sighandler(signum, frame):
     # perform periodic eviction with exit code 130
     # see https://git.ligo.org/lscsoft/bilby_pipe/blob/0b5ca550e3a92494ef3e04801e79a2f9cd902b44/bilby_pipe/parser.py#L270
     sys.exit(130)
 
 
-def create_parser():
+def create_knope_parser():
     """
     Create the argument parser.
     """
+
+    description = """\
+A script to use Bayesian inference to estimate the parameters of a \
+continuous gravitational-wave signal from a known pulsar."""
 
     parser = BilbyArgParser(
         prog=sys.argv[0],
@@ -749,7 +749,9 @@ class KnopeRunner(object):
                                 thisdet = detectors[detidx]
                                 detidx += 1
                             except Exception as e:
-                                raise ValueError("Detectors is not a list")
+                                raise ValueError(
+                                    "Detectors is not a list: {}".format(e)
+                                )
 
                             # check if actual data already exists
                             if thisdet in self.hetdata.detectors:
@@ -1043,7 +1045,7 @@ def knope(**kwargs):
 
     if "cwinpy_knope" == os.path.split(sys.argv[0])[-1] or "config" in kwargs:
         # get command line arguments
-        parser = create_parser()
+        parser = create_knope_parser()
 
         # parse config file or command line arguments
         if "config" in kwargs:
@@ -1079,8 +1081,251 @@ def knope(**kwargs):
 
 def knope_cli(**kwargs):
     """
-    Entry point to cwinpy_knope script. This just calls `knope`, but does not
-    return any objects.
+    Entry point to ``cwinpy_knope script``. This just calls :func:`cwinpy.knope.knope`,
+    but does not return any objects.
     """
 
     _ = knope(**kwargs)
+
+
+class KnopeDAGRunner(object):
+    """
+    Set up and run the known pulsar parameter estimation DAG.
+
+    Parameters
+    ----------
+    config: :class:`configparser.ConfigParser`
+          A :class:`configparser.ConfigParser` object with the analysis setup
+          parameters.
+    """
+
+    def __init__(self, config):
+        # create and build the dag
+        self.create_dag(config)
+
+        if self.submitdag:
+            self.dag.submit_dag(self.submit_options)
+
+    def create_dag(self, config):
+        """
+        Create the HTCondor DAG from the configuration parameters.
+
+        Parameters
+        ----------
+        config: :class:`configparser.ConfigParser`
+            A :class:`configparser.ConfigParser` object with the analysis setup
+            parameters.
+        """
+
+        import configparser
+
+        if not isinstance(config, configparser.ConfigParser):
+            raise TypeError("'config' must be a ConfigParser object")
+
+        try:
+            from pycondor import Job, Dagman
+        except ImportError:
+            raise ImportError("To run 'cwinpy_knope_dag' you must install pycondor")
+
+        # get DAG arguments
+        if config.has_section("dag"):
+            # submit directory location
+            submit = config.get(
+                "dag",
+                "submit",
+                fallback=os.path.join(os.getcwd(), "submit"),
+            )
+
+            # DAG name prefix
+            name = config.get("dag", "name", fallback="cwinpy_knope")
+
+            # get whether to automatically submit the dag
+            self.submitdag = config.getboolean("dag", "submitdag", fallback=False)
+
+            # get any additional submission options
+            self.submit_options = config.get("dag", "submit_options", fallback=None)
+        else:
+            raise IOError("Configuration file must have a [condor] section.")
+
+        # create the Dagman
+        self.dag = Dagman(name=name, submit=submit)
+
+        # get the cwinpy_knope job arguments
+        if config.has_section("job"):
+            # executable
+            from shutil import which
+            jobexec = which(config.get("job", "executable", fallback="cwinpy_knope"))
+
+            if jobexec is None:
+                raise ValueError("cwinpy_knope executable is not specified")
+            elif os.path.basename(jobexec) != "cwinpy_knope":
+                raise ValueError(
+                    "Executable '{}' is not 'cwinpy_knope'!".format(jobexec)
+                )
+
+            # job name prefix
+            jobname = config.get("job", "name", fallback="cwinpy_knope")
+
+            # condor universe
+            universe = config.get("job", "universe", fallback="vanilla")
+
+            # stdout directory location
+            output = config.get(
+                "job",
+                "out",
+                fallback=os.path.join(os.getcwd(), "out"),
+            )
+
+            # stderr directory location#
+            error = config.get(
+                "job",
+                "error",
+                fallback=os.path.join(os.getcwd(), "error"),
+            )
+
+            # log directory
+            log = config.get(
+                "job",
+                "log",
+                fallback=os.path.join(os.getcwd(), "log"),
+            )
+
+            # submit directory location
+            jobsubmit = config.get(
+                "job",
+                "submit",
+                fallback=os.path.join(os.getcwd(), "submit"),
+            )
+
+            # get local environment variables
+            getenv = config.getboolean("job", "getenv", fallback=False)
+
+            # request memory
+            reqmem = config.get("job", "request_memory", fallback="4 GB")
+
+            # request CPUs
+            reqcpus = config.getint("job", "request_cpus", fallback=1)
+
+            # requirements
+            requirements = config.get("job", "requirements", fallback=None)
+
+            # retries of job on failure
+            retry = config.getint("job", "retry", fallback=0)
+        else:
+            raise IOError("Configuration file must have a [job] section.")
+
+        # create cwinpy_knope Job
+        self.job = Job(
+            jobname,
+            jobexec,
+            error=error,
+            log=log,
+            output=output,
+            submit=jobsubmit,
+            universe=universe,
+            request_memory=reqmem,
+            request_cpus=reqcpus,
+            getenv=getenv,
+            queue=1,
+            requirements=requirements,
+            retry=retry,
+            dag=self.dag,
+        )
+
+        self.dag.build()
+
+        # create configurations for each cwinpy_knope job
+        if config.has_section("knope"):
+            # get the paths to the pulsar parameter files
+            parfiles = config.get("knope", "pulsars", fallback=None)
+
+            if parfiles is None:
+                raise ValueError(
+                    "Configuration must contain a set of pulsar parameter files"
+                )
+
+            # the value in [knope] pulsars can either be:
+            #  - the path to a single file
+            #  - a list of parameter files
+            #  - a directory (or glob-able directory pattern) containing parameter files
+            #  - a combination of a list of directories and/or files
+            # All files must have the extension '.par'
+            parfiles = ast.literal_eval(parfiles)
+            if not isinstance(parfiles, list):
+                parfiles = list(parfiles)
+
+            pulsars = []
+            for parfile in parfiles:
+                pulsars.extend(
+                    [par for par in glob.glob(parfile) if os.path.splitext(par)[1] == ".par"]
+                )
+
+        else:
+            raise IOError("Configuration file must have a [knope] section.")
+
+
+def knope_dag(**kwargs):
+    """
+    Run knope_dag within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
+    DAG for running multiple ``cwinpy_knope`` instances on a computer cluster.
+
+    Parameters
+    ----------
+    config: str
+        A configuration file for the analysis.
+
+    Returns
+    -------
+    dag:
+        The pycondor :class:`pycondor.Dagman` object.
+    """
+
+    try:
+        import configparser
+    except ImportError:
+        raise ImportError("To run 'cwinpy_knope_dag' you must install configparser")
+
+    if "config" in kwargs:
+        configfile = kwargs['config']
+    else:
+        try:
+            from argparse import ArgumentParser
+        except ImportError:
+            raise ImportError("To run 'cwinpy_knope_dag")
+
+        parser = ArgumentParser(
+            description=(
+                "A script to create a HTCondor DAG to run Bayesian inference to "
+                "estimate the parameters of continuous gravitational-wave signals "
+                "from a selection of known pulsars."
+            )
+        )
+        parser.add_argument(
+            "config",
+            help=(
+                "The configuation file for the analysis"
+            ),
+        )
+
+        args = parser.parse_args()
+        configfile = args.config
+
+    config = configparser.ConfigParser()
+
+    try:
+        config.read_file(open(configfile, "r"))
+    except Exception as e:
+        raise IOError(
+            "Problem reading configuation file '{}'\n: {}".format(configfile, e)
+        )
+
+    return KnopeDAGRunner(config).dag
+
+
+def knope_dag_cli(**kwargs):
+    """
+    Entry point to the cwinpy_knope_dag script. This just calls :func:`cwinpy.knope.knope_dag`,
+    but does not return any objects. 
+    """
+
+    _ = knope_dag(**kwargs)
