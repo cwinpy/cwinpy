@@ -5,7 +5,7 @@ Installation
 Install CWInPy from source
 --------------------------
 
-CWInPy can be installed using `python pip <https://packaging.python.org/tutorials/installing-packages/#use-pip-for-installing>`_,
+CWInPy can be installed using the supplied Python setup script,
 from its source `git <https://git-scm.com/>`_ `repository <https://github.com/cwinpy/cwinpy>`_.
 
 First, clone the repository
@@ -31,3 +31,45 @@ then install the requirements and the software using:
    $ cd cwinpy/
    $ pip install -r requirements.txt
    $ python setup.py install
+
+To run the parameter estimation via the `bilby <https://lscsoft.docs.ligo.org/bilby/index.html>`_
+package with any sampler other than the default of `dynesty
+<https://dynesty.readthedocs.io/en/latest/>`_, requires those additional samplers to be `installed
+separately <https://lscsoft.docs.ligo.org/bilby/samplers.html#installing-samplers>`_.
+
+To run the hierarchical and module within the package you will also need to install some additional
+dependencies using:
+
+.. code-block:: console
+
+   $ pip install -r hierarchical-requirements.txt
+
+Documentation
+=============
+
+The documentation for the project can be built locally from the source code by installing further
+dependencies:
+
+.. code-block:: console
+
+   $ pip install -r docs-requirements.txt
+
+and then running
+
+.. code-block:: console
+
+   $ cd docs
+   $ make html
+
+Testing
+=======
+
+The package comes with a range of unit tests that can be run from the cloned repository.
+To run these install the `pytest <https://docs.pytest.org/en/latest/>`_ package using pip and just run:
+
+.. code-block:: console
+
+   $ pytest
+
+from the base directory after the code has been installed. This will require that the requirements
+for the hierarchical module are installed as above.

@@ -77,7 +77,7 @@ by setting up a configuration file, although as mentioned equivalent command lin
 passed to ``cwinpy_knope`` (or a combination of a configuration file and command line arguments may
 be useful if defining some fixed setting for many analyses in the file, but making minor changes for
 individual cases on the command line.) A configuration file for this example is shown below, with
-comments describing the parameters inline:
+comments describing the parameters given inline:
 
 .. literalinclude:: data/example1_config.ini
 
@@ -87,7 +87,7 @@ The analysis can then be run using:
 
    cwinpy_knope --config example1_config.ini
 
-which should only take a few minutes.
+which should only take a few minutes, with information on the run output to the terminal.
 
 .. note::
    You can hopefully ignore errors related to ``XLALReadEphemerisFile`` and ``XLALInitBarycenter``
@@ -110,12 +110,26 @@ each parameter, and pair of parameters.
    The slight offset seen in the recovered phase is related to the uncompensated 150 &mu;s time
    delay in the actuation function used to generate the simulated signal as discuss in [4]_.
 
+The code should also output the natural logarithm of the signal model `evidence
+<https://en.wikipedia.org/wiki/Marginal_likelihood>`_ (``log_evidence``), noise-only model evidence
+(``log_noise_evidence``), and `Bayes factor <https://en.wikipedia.org/wiki/Bayes_factor>`_ between
+those two models, and estimates of the uncertainties on the signal model evidence.
+
+   log_noise_evidence: 869768.909
+   log_evidence: 870014.347 +/-  0.181
+   log_bayes_factor: 245.439 +/-  0.181
+
+If running the example you should find an identical noise evidence value, although the signal model
+evidence, and therefore Bayes factor, and its uncertainty may vary slightly due to the stochastic
+nature of the sampling process. These values can also be extracted from the results file called
+``example1_result.json``.
+
 Rather than using the configuration file, all the arguments could be given on the command line
 (although using the configuration file is *highly* recommended), with the following command:
 
 .. code-block:: bash
 
-   cwinpy_knope --detector H1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --outdir example1 --label example1 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example1_prior.txt
+   cwinpy_knope --detector H1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --outdir example1 --label example1 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example1_prior.txt --show-truths
 
 where it should be noted that the ``--sampler-kwargs`` dictionary argument must be given within
 quotation marks.
@@ -126,7 +140,8 @@ Example: multi-detector data
 In this example we will replicate the analysis from the first `example
 <#example-single-detector-data>`_, but will use O1 data from more than one detector. It will again
 look at the hardware injection signal named `PULSAR8
-<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`_.
+<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`_ and use the same
+parameter file as given above.
 
 The data we will use in this example is a short segment (between GPS times of 1132444817 and
 1136419217) from both the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to
@@ -135,7 +150,56 @@ Both sets of data have been heterodyned using the known phase evolution of the s
 the description :ref:`here<Heterodyned Data>`), and low-pass filtered and down-sampled to a rate of
 one sample per minute. The data files (in a gzipped format) can be downloaded here:
 :download:`fine-H1-PULSAR08.txt.gz <data/fine-H1-PULSAR08.txt.gz>` and
-:download:`fine-L1-PULSAR08.txt.gz <data/fine-L1-PULSAR08.txt.gz>`.
+:download:`fine-L1-PULSAR08.txt.gz <data/fine-L1-PULSAR08.txt.gz>`. We will use an identical prior file
+to that in the first example, but rename it :download:`example2_prior.txt <data/example2_prior.txt>`.
+
+The configuration file for this example is shown below, with comments describing the parameter given
+inline:
+
+.. literalinclude:: data/example2_config.ini
+
+The analysis can then be run using:
+
+.. code-block:: bash
+
+   cwinpy_knope --config example2_config.ini
+
+This will create a directory called ``example2`` containing: the results as a bilby ``Results``
+object saved in a `JSON <https://www.json.org/>`_ format file called ``example2_result.json`` (see
+`here <https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on
+reading this information within Python); and (due to the setting of ``'plot': True`` in the
+``sampler_kwargs`` dictionary), a "`corner <https://corner.readthedocs.io/en/latest/>`_ plot" in the
+file ``example2_corner.png`` showing 1D and 2D marginalised posterior probability distributions for
+each parameter, and pair of parameters.
+
+.. thumbnail:: data/example2/example2_corner.png
+   :width: 300px
+   :align: center
+
+.. note::
+   The slight offset seen in the recovered phase is related to the uncompensated 150 &mu;s time
+   delay in the actuation function used to generate the simulated signal as discuss in [4]_.
+
+The natural logarithms of the signal model `evidence <`evidence
+<https://en.wikipedia.org/wiki/Marginal_likelihood>`_>`_ (``log_evidence``), noise-only model evidence
+(``log_noise_evidence``) and `Bayes factor
+<https://en.wikipedia.org/wiki/Bayes_factor>`_ (``log_bayes_factor``) output for this example are 
+
+   log_noise_evidence: 1492439.107
+   log_evidence: 1492888.284 +/-  0.187
+   log_bayes_factor: 449.177 +/-  0.187
+
+If running the example you should find an identical noise evidence value, although the signal model
+evidence, and therefore Bayes factor, and its uncertainty may vary slightly due to the stochastic
+nature of the sampling process. These values can also be extracted from the results file called
+``example2_result.json``.
+
+The equivalent full command line arguments that could be used are:
+
+.. code-block:: bash
+
+   cwinpy_knope --detector H1 --detector L1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --data-file fine-L1-PULSAR08.txt.gz --outdir example2 --label example2 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example2_prior.txt --show-truths
+
 
 Command line arguments
 ----------------------

@@ -254,7 +254,6 @@ class MultiHeterodynedData(object):
         """
 
         from matplotlib import pyplot as pl
-        import matplotlib as mpl
 
         if len(self) == 0:
             # nothing in the class!
@@ -539,7 +538,6 @@ class MultiHeterodynedData(object):
         """
 
         from matplotlib import pyplot as pl
-        import matplotlib as mpl
 
         if plottype.lower() not in ["spectrogram", "periodogram", "power"]:
             raise ValueError("Spectrum plot type is not known")
