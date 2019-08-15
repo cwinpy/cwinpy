@@ -18,6 +18,7 @@
 import os
 import sys
 import cwinpy
+import subprocess
 sys.path.insert(0, os.path.abspath('../cwinpy/'))
 
 # -- General configuration ------------------------------------------------
@@ -38,7 +39,8 @@ extensions = [
     'sphinx.ext.autosectionlabel',
     'sphinx_tabs.tabs',
     'recommonmark',
-    'sphinx.ext.todo'
+    'sphinx.ext.todo',
+    'sphinxcontrib.images'
 ]
 
 autosummary_generate = True
@@ -97,7 +99,17 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'requirements.txt',
                     'comparisons/scripts/outputs/*.hdf',
                     'comparisons/scripts/outputs/*.json',
                     'comparisons/scripts/outputs/*.json.old',
-                    'comparisons/scripts/outputs/cpnest*/*']
+                    'knope/knope_help.txt',
+                    'knope/data/*.txt',
+                    'knope/data/*.par',
+                    'knope/data/*.ini',
+                    'knope/data/*.txt.gz',
+                    'knope/data/example1/*.json',
+                    'knope/data/example1/*.pickle',
+                    'knope/data/example1/*_trace.png',
+                    'knope/data/example2/*.json',
+                    'knope/data/example2/*.pickle',
+                    'knope/data/example2/*_trace.png']
 
 add_function_parentheses = True
 add_module_names = False
@@ -209,3 +221,9 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3/', None),
                        'matplotlib': ('https://matplotlib.org/', None),
                        'astropy': ('http://docs.astropy.org/en/stable/', None),
                        'bilby': ('https://lscsoft.docs.ligo.org/bilby/', None)}
+
+
+# generate cwinpy_knope help string for docs
+knope_help = subprocess.getoutput('cwinpy_knope --help')
+with open('knope/knope_help.txt', 'w') as fp:
+    fp.write(knope_help)

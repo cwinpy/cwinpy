@@ -3,7 +3,7 @@ Classes for hierarchical parameter inference.
 """
 
 import numpy as np
-from scipy.stats import (gaussian_kde, truncnorm, expon)
+from scipy.stats import gaussian_kde, truncnorm, expon
 from scipy.interpolate import interp1d
 from collections import OrderedDict
 from itertools import compress
@@ -12,8 +12,10 @@ from lintegrate import logtrapz
 
 
 # allowed distributions and their required hyperparameters
-DISTRIBUTION_REQUIREMENTS = {'exponential': ['mu'],
-                             'gaussian': ['mu', 'sigma', 'weight']}
+DISTRIBUTION_REQUIREMENTS = {
+    "exponential": ["mu"],
+    "gaussian": ["mu", "sigma", "weight"],
+}
 
 
 class BaseDistribution(object):
@@ -37,8 +39,7 @@ class BaseDistribution(object):
         The upper bound of the distribution
     """
 
-    def __init__(self, name, disttype, hyperparameters={}, low=-np.inf,
-                 high=np.inf):
+    def __init__(self, name, disttype, hyperparameters={}, low=-np.inf, high=np.inf):
         self.name = name  # the parameter name
         self.disttype = disttype
         self.hyperparameters = hyperparameters
@@ -55,8 +56,7 @@ class BaseDistribution(object):
     @disttype.setter
     def disttype(self, disttype):
         if disttype.lower() not in DISTRIBUTION_REQUIREMENTS.keys():
-            raise ValueError('Distribution name "{}" is not '
-                             'known'.format(disttype))
+            raise ValueError('Distribution name "{}" is not ' "known".format(disttype))
         else:
             self._disttype = disttype.lower()
 
@@ -70,10 +70,13 @@ class BaseDistribution(object):
             # check is contains the required parameter names
             for key in hyperparameters.keys():
                 if key.lower() not in DISTRIBUTION_REQUIREMENTS[self.disttype]:
-                    raise KeyError('Unknown parameter "{}" for distribution '
-                                   '"{}"'.format(key, self.disttype))
-            self._hyperparameters = {key.lower(): value
-                                     for key, value in hyperparameters.items()}
+                    raise KeyError(
+                        'Unknown parameter "{}" for distribution '
+                        '"{}"'.format(key, self.disttype)
+                    )
+            self._hyperparameters = {
+                key.lower(): value for key, value in hyperparameters.items()
+            }
         else:
             raise TypeError("hyperparameters must be a dictionary")
 
@@ -94,7 +97,7 @@ class BaseDistribution(object):
         for key, value in self.hyperparameters.items():
             if isinstance(value, (list, np.ndarray)):
                 for i in range(len(value)):
-                    params.append('{0}{1:d}'.format(key, i))
+                    params.append("{0}{1:d}".format(key, i))
             else:
                 params.append(key)
         return params
@@ -114,21 +117,20 @@ class BaseDistribution(object):
         if item.lower() in self.parameters:
             return self.hyperparameters[item.lower()]
         elif item.lower() in self.unpacked_parameters:
-            return self.unpacked_values[
-                self.unpacked_parameters.index(item.lower())]
+            return self.unpacked_values[self.unpacked_parameters.index(item.lower())]
         elif item.lower() in DISTRIBUTION_REQUIREMENTS[self.disttype]:
             return None
         else:
-            raise KeyError('"{}" is not a parameter in this '
-                           'distribution'.format(item))
+            raise KeyError('"{}" is not a parameter in this distribution'.format(item))
 
     def __setitem__(self, item, value):
         if item.lower() not in self.hyperparameters.keys():
             if item.lower() in DISTRIBUTION_REQUIREMENTS[self.disttype]:
                 self._hyperparameters[item.lower()] = value
             else:
-                raise KeyError('"{}" is not a parameter in this '
-                               'distribution'.format(item))
+                raise KeyError(
+                    '"{}" is not a parameter in this distribution'.format(item)
+                )
         else:
             self._hyperparameters[item.lower()] = value
 
@@ -188,8 +190,11 @@ class BaseDistribution(object):
         A list of the parameters that are to be inferred.
         """
 
-        return list(compress(self.unpacked_parameters,
-                             ~np.array(list(self.unpacked_fixed.values()))))
+        return list(
+            compress(
+                self.unpacked_parameters, ~np.array(list(self.unpacked_fixed.values()))
+            )
+        )
 
     @property
     def unknown_priors(self):
@@ -198,8 +203,11 @@ class BaseDistribution(object):
         that are to be inferred.
         """
 
-        return list(compress(self.unpacked_values,
-                             ~np.array(list(self.unpacked_fixed.values()))))
+        return list(
+            compress(
+                self.unpacked_values, ~np.array(list(self.unpacked_fixed.values()))
+            )
+        )
 
     def log_pdf(self, hyperparameters, value):
         """
@@ -221,7 +229,7 @@ class BaseDistribution(object):
         """
 
         return np.nan
-    
+
     def pdf(self, hyperparameters, value):
         """
         The distribution's probability density function at the given value.
@@ -290,9 +298,8 @@ class BoundedGaussianDistribution(BaseDistribution):
         The upper bound of the distribution (default to infinity)
     """
 
-    def __init__(self, name, mus=[], sigmas=[], weights=None, low=0.,
-                 high=np.inf):
-        gaussianparameters = {'mu': [], 'sigma': [], 'weight': []}
+    def __init__(self, name, mus=[], sigmas=[], weights=None, low=0.0, high=np.inf):
+        gaussianparameters = {"mu": [], "sigma": [], "weight": []}
 
         if isinstance(mus, (int, float, bilby.core.prior.Prior)):
             mus = [mus]
@@ -316,20 +323,20 @@ class BoundedGaussianDistribution(BaseDistribution):
         self.nmodes = len(mus)
 
         if len(mus) != len(sigmas) or len(weights) != len(mus):
-            raise ValueError("'mus', 'sigmas' and 'weights' must be the same "
-                             "length")
+            raise ValueError("'mus', 'sigmas' and 'weights' must be the same " "length")
 
         if self.nmodes < 1:
-            raise ValueError('Gaussian must have at least one mode')
+            raise ValueError("Gaussian must have at least one mode")
 
         for i in range(self.nmodes):
-            gaussianparameters['mu'].append(mus[i])
-            gaussianparameters['sigma'].append(sigmas[i])
-            gaussianparameters['weight'].append(weights[i])
+            gaussianparameters["mu"].append(mus[i])
+            gaussianparameters["sigma"].append(sigmas[i])
+            gaussianparameters["weight"].append(weights[i])
 
         # initialise
-        super().__init__(name, 'gaussian', hyperparameters=gaussianparameters,
-                         low=low, high=high)
+        super().__init__(
+            name, "gaussian", hyperparameters=gaussianparameters, low=low, high=high
+        )
 
     def log_pdf(self, hyperparameters, value):
         """
@@ -354,40 +361,46 @@ class BoundedGaussianDistribution(BaseDistribution):
         if np.any((value < self.low) | (value > self.high)):
             return -np.inf
 
-        mus = self['mu']
-        sigmas = self['sigma']
-        weights = self['weight']
+        mus = self["mu"]
+        sigmas = self["sigma"]
+        weights = self["weight"]
 
         # get current mus and sigmas from values
         for i in range(self.nmodes):
-            if not self.fixed['mu'][i]:
-                param = 'mu{}'.format(i)
+            if not self.fixed["mu"][i]:
+                param = "mu{}".format(i)
                 try:
                     mus[i] = hyperparameters[param]
                 except KeyError:
-                    raise KeyError("Cannot calculate log probability when "
-                                   "value '{}' is not given".format(param))
+                    raise KeyError(
+                        "Cannot calculate log probability when "
+                        "value '{}' is not given".format(param)
+                    )
 
-            if not self.fixed['sigma'][i]:
-                param = 'sigma{}'.format(i)
+            if not self.fixed["sigma"][i]:
+                param = "sigma{}".format(i)
                 try:
                     sigmas[i] = hyperparameters[param]
                 except KeyError:
-                    raise KeyError("Cannot calculate log probability when "
-                                   "value '{}' is not given".format(param))
+                    raise KeyError(
+                        "Cannot calculate log probability when "
+                        "value '{}' is not given".format(param)
+                    )
 
-            if not self.fixed['weight'][i]:
-                param = 'weight{}'.format(i)
+            if not self.fixed["weight"][i]:
+                param = "weight{}".format(i)
                 try:
                     weights[i] = hyperparameters[param]
                 except KeyError:
-                    raise KeyError("Cannot calculate log probability when "
-                                   "value '{}' is not given".format(param))
+                    raise KeyError(
+                        "Cannot calculate log probability when "
+                        "value '{}' is not given".format(param)
+                    )
 
-        if np.any(np.asarray(sigmas) <= 0.):
+        if np.any(np.asarray(sigmas) <= 0.0):
             return -np.inf
 
-        if np.any(np.asarray(weights) <= 0.):
+        if np.any(np.asarray(weights) <= 0.0):
             return -np.inf
 
         # normalise weights
@@ -402,9 +415,13 @@ class BoundedGaussianDistribution(BaseDistribution):
             raise TypeError("value must be a float or array-like")
 
         for mu, sigma, lweight in zip(mus, sigmas, lweights):
-            lpdf = lweight + truncnorm.logpdf(value, (self.low - mu) / sigma,
-                                              (self.high - mu) / sigma,
-                                              loc=mu, scale=sigma)
+            lpdf = lweight + truncnorm.logpdf(
+                value,
+                (self.low - mu) / sigma,
+                (self.high - mu) / sigma,
+                loc=mu,
+                scale=sigma,
+            )
             logpdf = np.logaddexp(logpdf, lpdf)
 
         return logpdf
@@ -428,53 +445,66 @@ class BoundedGaussianDistribution(BaseDistribution):
             A sample, or set of samples, from the distribution.
         """
 
-        mus = self['mu']
-        sigmas = self['sigma']
-        weights = self['weight']
+        mus = self["mu"]
+        sigmas = self["sigma"]
+        weights = self["weight"]
 
         # get current mus and sigmas from values
         for i in range(self.nmodes):
-            if not self.fixed['mu'][i]:
-                param = 'mu{}'.format(i)
+            if not self.fixed["mu"][i]:
+                param = "mu{}".format(i)
                 try:
                     mus[i] = hyperparameters[param]
                 except KeyError:
-                    raise KeyError("Cannot calculate log probability when "
-                                   "value '{}' is not given".format(param))
+                    raise KeyError(
+                        "Cannot calculate log probability when "
+                        "value '{}' is not given".format(param)
+                    )
 
-            if not self.fixed['sigma'][i]:
-                param = 'sigma{}'.format(i)
+            if not self.fixed["sigma"][i]:
+                param = "sigma{}".format(i)
                 try:
                     sigmas[i] = hyperparameters[param]
                 except KeyError:
-                    raise KeyError("Cannot calculate log probability when "
-                                   "value '{}' is not given".format(param))
+                    raise KeyError(
+                        "Cannot calculate log probability when "
+                        "value '{}' is not given".format(param)
+                    )
 
-            if not self.fixed['weight'][i]:
-                param = 'weight{}'.format(i)
+            if not self.fixed["weight"][i]:
+                param = "weight{}".format(i)
                 try:
                     weights[i] = hyperparameters[param]
                 except KeyError:
-                    raise KeyError("Cannot calculate log probability when "
-                                   "value '{}' is not given".format(param))
-            
+                    raise KeyError(
+                        "Cannot calculate log probability when "
+                        "value '{}' is not given".format(param)
+                    )
+
         # cumulative normalised weights
         cweights = np.cumsum(np.asarray(weights) / np.sum(weights))
 
         # pick mode and draw sample
         if self.nmodes == 1:
-            sample = truncnorm.rvs((self.low - mus[0]) / sigmas[0],
-                                   (self.high - mus[0]) / sigmas[0],
-                                   loc=mus[0], scale=sigmas[0], size=size)
+            sample = truncnorm.rvs(
+                (self.low - mus[0]) / sigmas[0],
+                (self.high - mus[0]) / sigmas[0],
+                loc=mus[0],
+                scale=sigmas[0],
+                size=size,
+            )
         else:
             sample = np.zeros(size)
             for i in range(size):
                 mode = np.argwhere(cweights - np.random.rand() > 0)[0][0]
 
-                sample[i] = truncnorm.rvs((self.low - mus[mode]) / sigmas[mode],
-                                          (self.high - mus[mode]) / sigmas[mode],
-                                          loc=mus[mode], scale=sigmas[mode],
-                                          size=1)
+                sample[i] = truncnorm.rvs(
+                    (self.low - mus[mode]) / sigmas[mode],
+                    (self.high - mus[mode]) / sigmas[mode],
+                    loc=mus[mode],
+                    scale=sigmas[mode],
+                    size=1,
+                )
 
             if size == 1:
                 sample = sample[0]
@@ -484,8 +514,7 @@ class BoundedGaussianDistribution(BaseDistribution):
 
 class ExponentialDistribution(BaseDistribution):
     """
-    A distribution to define estimating the parameters of an
-    exponential distribution.
+    A distribution to define estimating the parameters of an exponential distribution.
 
     Parameters
     ----------
@@ -497,11 +526,12 @@ class ExponentialDistribution(BaseDistribution):
 
     def __init__(self, name, mu):
         if not isinstance(mu, bilby.core.prior.Prior):
-            raise TypeError('Mean must be a Prior distribution')
+            raise TypeError("Mean must be a Prior distribution")
 
         # initialise
-        super().__init__(name, 'exponential', hyperparameters=dict(mu=mu),
-                         low=0., high=np.inf)
+        super().__init__(
+            name, "exponential", hyperparameters=dict(mu=mu), low=0.0, high=np.inf
+        )
 
     def log_pdf(self, hyperparameters, value):
         """
@@ -525,12 +555,11 @@ class ExponentialDistribution(BaseDistribution):
             return -np.inf
 
         try:
-            mu = hyperparameters['mu']
+            mu = hyperparameters["mu"]
         except KeyError:
-            raise KeyError("Cannot evaluate the probability when mu is not "
-                           "given")
+            raise KeyError("Cannot evaluate the probability when mu is not given")
 
-        if mu <= 0.:
+        if mu <= 0.0:
             return -np.inf
 
         # get log pdf
@@ -558,17 +587,16 @@ class ExponentialDistribution(BaseDistribution):
         """
 
         try:
-            mu = hyperparameters['mu']
+            mu = hyperparameters["mu"]
         except KeyError:
-            raise KeyError("Cannot evaluate the probability when mu is not "
-                           "given")
+            raise KeyError("Cannot evaluate the probability when mu is not given")
 
         samples = expon.rvs(scale=mu, size=size)
 
         while 1:
             idx = (samples > self.low) & (samples < self.high)
             nvalid = np.sum(idx)
-            
+
             if nvalid != size:
                 sample = expon.rvs(scale=mu, size=(size - nvalid))
                 samples[~idx] = sample
@@ -609,12 +637,11 @@ def create_distribution(name, distribution, distkwargs={}):
         return distribution
     elif isinstance(distribution, str):
         if distribution.lower() not in DISTRIBUTION_REQUIREMENTS.keys():
-            raise ValueError('Unknown distribution type '
-                             '"{}"'.format(distribution))
+            raise ValueError('Unknown distribution type "{}"'.format(distribution))
 
-        if distribution.lower() == 'gaussian':
+        if distribution.lower() == "gaussian":
             return BoundedGaussianDistribution(name, **distkwargs)
-        elif distribution.lower() == 'exponential':
+        elif distribution.lower() == "exponential":
             return ExponentialDistribution(name, **distkwargs)
     else:
         raise TypeError("Unknown distribution")
@@ -699,10 +726,19 @@ class MassQuadrupoleDistribution(object):
        (`arXiv:1807.06726 <https://arxiv.org/abs/1807.06726>`_)
     """
 
-    def __init__(self, data=None, q22range=None, q22bins=100,
-                 distribution=None, distkwargs=None, bw='scott',
-                 sampler='dynesty', sampler_kwargs={}, grid=None,
-                 integration_method='numerical'):
+    def __init__(
+        self,
+        data=None,
+        q22range=None,
+        q22bins=100,
+        distribution=None,
+        distkwargs=None,
+        bw="scott",
+        sampler="dynesty",
+        sampler_kwargs={},
+        grid=None,
+        integration_method="numerical",
+    ):
         self._posterior_samples = []
         self._posterior_kdes = []
         self._likelihood_kdes_interp = []
@@ -753,18 +789,17 @@ class MassQuadrupoleDistribution(object):
 
         if len(q22range) == 2:
             if q22range[1] < q22range[0]:
-                raise ValueError('Q22 range is badly defined')
-            self._q22_interp_values = np.logspace(np.log10(q22range[0]),
-                                                  np.log10(q22range[1]),
-                                                  q22bins)
+                raise ValueError("Q22 range is badly defined")
+            self._q22_interp_values = np.logspace(
+                np.log10(q22range[0]), np.log10(q22range[1]), q22bins
+            )
 
             if prependzero:
-                self._q22_interp_values = np.insert(self._q22_interp_values,
-                                                    0, 0)
+                self._q22_interp_values = np.insert(self._q22_interp_values, 0, 0)
         elif len(q22range) > 2:
             self._q22_interp_values = q22range
         else:
-            raise ValueError('Q22 range is badly defined')
+            raise ValueError("Q22 range is badly defined")
 
     @property
     def interpolated_log_kdes(self):
@@ -776,7 +811,7 @@ class MassQuadrupoleDistribution(object):
 
         return self._likelihood_kdes_interp
 
-    def add_data(self, data, bw='scott'):
+    def add_data(self, data, bw="scott"):
         """
         Set the data, i.e., the individual source posterior distributions, on
         which the hierarchical analysis will be performed.
@@ -812,18 +847,20 @@ class MassQuadrupoleDistribution(object):
             elif data is None:
                 return
             else:
-                raise TypeError('Data is not a known type')
+                raise TypeError("Data is not a known type")
 
         for result in data:
             # check all posteriors contain Q22
-            if ('Q22' not in result.search_parameter_keys or
-                    'Q22' not in result.posterior.columns):
+            if (
+                "Q22" not in result.search_parameter_keys
+                or "Q22" not in result.posterior.columns
+            ):
                 raise RuntimeError("Results do not contain Q22")
 
         if self._q22_interp_values is None:
             # set q22 range from data
-            maxq22 = np.max([res.posterior['Q22'].max() for res in data])
-            minq22 = np.min([res.posterior['Q22'].min() for res in data])
+            maxq22 = np.max([res.posterior["Q22"].max() for res in data])
+            minq22 = np.min([res.posterior["Q22"].min() for res in data])
             self.set_q22range([minq22, maxq22])
 
         # create KDEs
@@ -831,7 +868,7 @@ class MassQuadrupoleDistribution(object):
             self._bw = bw
 
             try:
-                samples = result.posterior['Q22']
+                samples = result.posterior["Q22"]
 
                 # get reflected samples
                 samps = np.concatenate((samples, -samples))
@@ -841,8 +878,9 @@ class MassQuadrupoleDistribution(object):
                 self._posterior_kdes.append(kde)
 
                 # use log pdf for the kde
-                interpvals = (kde.logpdf(self._q22_interp_values)
-                              + np.log(2.))  # multiply by 2 so pdf normalises to 1
+                interpvals = kde.logpdf(self._q22_interp_values) + np.log(
+                    2.0
+                )  # multiply by 2 so pdf normalises to 1
             except Exception as e:
                 raise RuntimeError("Problem creating KDE: {}".format(e))
 
@@ -852,14 +890,15 @@ class MassQuadrupoleDistribution(object):
                 interpvals += result.log_evidence
 
             # divide by Q22 prior
-            if 'Q22' not in result.priors:
-                raise KeyError('Prior contains no Q22 value')
-            prior = result.priors['Q22']
+            if "Q22" not in result.priors:
+                raise KeyError("Prior contains no Q22 value")
+            prior = result.priors["Q22"]
             interpvals -= prior.ln_prob(self._q22_interp_values)
 
             # create and add interpolator
             self._likelihood_kdes_interp.append(
-                interp1d(self._q22_interp_values, interpvals))
+                interp1d(self._q22_interp_values, interpvals)
+            )
 
             # append samples
             self._posterior_samples.append(samples)
@@ -887,14 +926,14 @@ class MassQuadrupoleDistribution(object):
             return
 
         if isinstance(distribution, BaseDistribution):
-            if distribution.name.upper() != 'Q22':
+            if distribution.name.upper() != "Q22":
                 raise ValueError("Distribution name must be 'Q22'")
             else:
                 self._distribution = distribution
         elif isinstance(distribution, str):
-            self._distribution = create_distribution('Q22',
-                                                     distribution.lower(),
-                                                     **distkwargs)
+            self._distribution = create_distribution(
+                "Q22", distribution.lower(), **distkwargs
+            )
 
         # set the priors from the distribution
         self._set_priors()
@@ -912,9 +951,12 @@ class MassQuadrupoleDistribution(object):
             raise ValueError("Distribution has no parameters to infer")
 
         # add priors as PriorDict
-        self._prior = {param: prior
-                       for param, prior in zip(self._distribution.unknown_parameters,
-                                               self._distribution.unknown_priors)}
+        self._prior = {
+            param: prior
+            for param, prior in zip(
+                self._distribution.unknown_parameters, self._distribution.unknown_priors
+            )
+        }
 
     def _set_likelihood(self):
         """
@@ -925,19 +967,22 @@ class MassQuadrupoleDistribution(object):
         q22grid = None
         likelihoods = None
 
-        if self._integration_method == 'expectation':
+        if self._integration_method == "expectation":
             samples = self._posterior_samples
-        elif self._integration_method == 'numerical':
+        elif self._integration_method == "numerical":
             q22grid = self._q22_interp_values
             likelihoods = self._likelihood_kdes_interp
         else:
             likelihoods = self._likelihood_kdes_interp
 
         self._likelihood = MassQuadrupoleDistributionLikelihood(
-            self._distribution, likelihoods=likelihoods,
-            samples=samples, q22grid=q22grid)
+            self._distribution,
+            likelihoods=likelihoods,
+            samples=samples,
+            q22grid=q22grid,
+        )
 
-    def set_sampler(self, sampler='dynesty', sampler_kwargs={}):
+    def set_sampler(self, sampler="dynesty", sampler_kwargs={}):
         """
         Set the stochastic sampling method for ``bilby`` to use when sampling
         the parameter and hyperparameter posteriors.
@@ -953,8 +998,9 @@ class MassQuadrupoleDistribution(object):
 
         self._sampler = sampler
         if self._sampler not in bilby.core.sampler.IMPLEMENTED_SAMPLERS:
-            raise ValueError('Sampler "{}" is not implemented in '
-                             'bilby'.format(self._sampler))
+            raise ValueError(
+                'Sampler "{}" is not implemented in ' "bilby".format(self._sampler)
+            )
         self._sampler_kwargs = sampler_kwargs
         self._use_grid = False  # set to not use the Grid sampling
 
@@ -971,12 +1017,12 @@ class MassQuadrupoleDistribution(object):
         """
 
         if not isinstance(grid, dict):
-            raise TypeError('Grid must be a dictionary')
+            raise TypeError("Grid must be a dictionary")
 
         self._grid = grid
         self._use_grid = True
 
-    def set_integration_method(self, integration_method='numerical'):
+    def set_integration_method(self, integration_method="numerical"):
         """
         Set the method to use for integration over the :math:`Q_{22}` parameter
         for each source.
@@ -995,10 +1041,11 @@ class MassQuadrupoleDistribution(object):
         if not isinstance(integration_method, str):
             raise TypeError("integration method must be a string")
 
-        if (integration_method.lower() not in ['numerical', 'sample',
-                                               'expectation']):
-            raise ValueError("Unrecognised integration method type "
-                             "'{}'".format(integration_method))
+        if integration_method.lower() not in ["numerical", "sample", "expectation"]:
+            raise ValueError(
+                "Unrecognised integration method type "
+                "'{}'".format(integration_method)
+            )
 
         self._integration_method = integration_method.lower()
 
@@ -1024,18 +1071,20 @@ class MassQuadrupoleDistribution(object):
 
         # set use_ratio to False by default, i.e., don't use the likelihood
         # ratio
-        run_kwargs.setdefault('use_ratio', False)
+        run_kwargs.setdefault("use_ratio", False)
 
         if self._use_grid:
-            self._grid_result = bilby.core.grid.Grid(self._likelihood,
-                                                     self._prior,
-                                                     grid_size=self._grid)
+            self._grid_result = bilby.core.grid.Grid(
+                self._likelihood, self._prior, grid_size=self._grid
+            )
         else:
-            self._result = bilby.run_sampler(likelihood=self._likelihood,
-                                             priors=self._prior,
-                                             sampler=self._sampler,
-                                             **self._sampler_kwargs,
-                                             **run_kwargs)
+            self._result = bilby.run_sampler(
+                likelihood=self._likelihood,
+                priors=self._prior,
+                sampler=self._sampler,
+                **self._sampler_kwargs,
+                **run_kwargs
+            )
 
         return self.result
 
@@ -1065,8 +1114,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         independent :math:`Q_{22}` variables for each source.
     """
 
-    def __init__(self, distribution, likelihoods=None, q22grid=None,
-                 samples=None):
+    def __init__(self, distribution, likelihoods=None, q22grid=None, samples=None):
         if not isinstance(distribution, BaseDistribution):
             raise TypeError("Distribution is not the correct type")
 
@@ -1074,8 +1122,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         if len(distribution.unknown_parameters) < 1:
             raise ValueError("Distribution has no parameters to infer")
 
-        inferred_parameters = {param: None
-                               for param in distribution.unknown_parameters}
+        inferred_parameters = {param: None for param in distribution.unknown_parameters}
         self.distribution = distribution
         self.likelihoods = likelihoods
         self.q22grid = q22grid
@@ -1120,15 +1167,15 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         if samples is not None:
             if not isinstance(samples, (list, np.ndarray)):
                 raise TypeError("samples value must be a list")
-            
+
             if isinstance(samples, np.ndarray):
                 if len(samples.shape) != 2:
                     raise ValueError("Samples must be a 2D array")
-            
+
             for samplelist in samples:
                 if not isinstance(samplelist, (list, np.ndarray)):
                     raise TypeError("Samples must be a list")
-                
+
                 if len(np.asarray(samplelist).shape) != 1:
                     raise ValueError("Source samples must be a 1d list")
 
@@ -1141,13 +1188,14 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         Evaluate the log likelihood.
         """
 
-        log_like = 0.  # initialise the log likelihood
+        log_like = 0.0  # initialise the log likelihood
 
         if self.samples is not None:
             # log-likelihood using expectation value from samples
             for samps in self.samples:
-                log_like += np.log(np.mean(self.distribution.pdf(
-                    self.parameters, samps)))
+                log_like += np.log(
+                    np.mean(self.distribution.pdf(self.parameters, samps))
+                )
         elif self.q22grid is not None:
             # log-likelihood numerically integrating over Q22
             for intfunc in self.likelihoods:
@@ -1161,22 +1209,20 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         else:
             # draw Q22 sample for each source (not sure if this will work!)
             try:
-                values = self.distribution.sample(self.parameters,
-                                                  size=len(self))
+                values = self.distribution.sample(self.parameters, size=len(self))
             except Exception as e:
-                raise RuntimeError('Could not draw sample from '
-                                   'distribution: "{}"'.format(e))
+                raise RuntimeError(
+                    'Could not draw sample from distribution: "{}"'.format(e)
+                )
 
             for i, intfunc in enumerate(self.likelihoods):
-                if (values[i] < np.min(intfunc.x) or
-                        values[i] > np.max(intfunc.x)):
+                if values[i] < np.min(intfunc.x) or values[i] > np.max(intfunc.x):
                     return -np.inf
 
                 log_like += intfunc(values[i])
 
                 # evaluate the hyperparameter distribution
-                log_like += self.distribution.log_pdf(self.parameters,
-                                                      values[i])
+                log_like += self.distribution.log_pdf(self.parameters, values[i])
 
         return log_like
 
@@ -1189,11 +1235,11 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         ----
 
         For distributions with hyperparameter priors that exclude zero this
-        will always given :math:`-\infty`.
+        will always given :math:`-\\infty`.
         """
 
         for p in self.parameters:
-            self.parameters[p] = 0.
+            self.parameters[p] = 0.0
 
         return self.log_likelihood()
 

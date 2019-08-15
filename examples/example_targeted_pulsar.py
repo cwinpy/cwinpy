@@ -26,31 +26,37 @@ PHI0     2.4
 """
 
 # add content to the par file
-parfile = 'J0123+3456.par'
-with open(parfile, 'w') as fp:
+parfile = "J0123+3456.par"
+with open(parfile, "w") as fp:
     fp.write(parcontent)
 
 # create some fake heterodyned data
-detector = 'H1'  # the detector to use
-times = np.linspace(1000000000., 1000086340., 1440)  # times
-het = HeterodynedData(times=times, inject=True, par=parfile, injpar=parfile,
-                      fakeasd=1e-24, detector=detector)
+detector = "H1"  # the detector to use
+times = np.linspace(1000000000.0, 1000086340.0, 1440)  # times
+het = HeterodynedData(
+    times=times,
+    inject=True,
+    par=parfile,
+    injpar=parfile,
+    fakeasd=1e-24,
+    detector=detector,
+)
 
 # set prior on h0
 priors = dict()
-priors['h0'] = Uniform(0., 1e-24, 'h0')
+priors["h0"] = Uniform(0.0, 1e-24, "h0")
 
 like = TargetedPulsarLikelihood(het, PriorDict(priors))
 
 N = 500
-h0s = np.linspace(0., 1e-24, N)
+h0s = np.linspace(0.0, 1e-24, N)
 post = np.zeros(N)
 
 for i, h0 in enumerate(h0s):
-    params = {'h0': h0}
+    params = {"h0": h0}
     like.parameters = params
-    post[i] = like.log_likelihood() + priors['h0'].ln_prob(h0)
+    post[i] = like.log_likelihood() + priors["h0"].ln_prob(h0)
 
-pl.plot(h0s, np.exp(post - np.max(post)), 'b')
-pl.axvline(het.injpar['H0'])
+pl.plot(h0s, np.exp(post - np.max(post)), "b")
+pl.axvline(het.injpar["H0"])
 pl.show()

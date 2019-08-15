@@ -1,7 +1,8 @@
 recommonmark
-sphinx>=1.8.0b1
+sphinx<=1.8.0b1  # required for sphinxcontrib-images at the moment
 numpydoc
 nbsphinx
 autodoc
 sphinx_rtd_theme
 sphinx_tabs
+sphinxcontrib-images

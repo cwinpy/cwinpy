@@ -33,7 +33,7 @@ def logfactorial(n):
                 raise ValueError("Can't find the factorial of a non-integer value")
 
         if n >= 0:
-            return gammaln(n+1)
+            return gammaln(n + 1)
         else:
             raise ValueError("Can't find the factorial of a negative number")
     else:
@@ -42,7 +42,7 @@ def logfactorial(n):
 
 def gcd_array(denominators):
     """
-    Function to calculate the greatest common divisor of a list of values..
+    Function to calculate the greatest common divisor of a list of values.
     """
 
     if not isinstance(denominators, (tuple, list, np.ndarray)):

@@ -39,8 +39,8 @@ class TestHeterodynedData(object):
 1000000120.0  -1.7e-25  -2.8e-25
 1000000180.0  -7.6e-26  -8.9e-26
 """
-        brokenfile = 'brokendata.txt'
-        with open(brokenfile, 'w') as fp:
+        brokenfile = "brokendata.txt"
+        with open(brokenfile, "w") as fp:
             fp.write(brokendata)
 
         with pytest.raises(IOError):
@@ -51,7 +51,7 @@ class TestHeterodynedData(object):
             mhet = MultiHeterodynedData(brokenfile)
 
         with pytest.raises(IOError):
-            mhet = MultiHeterodynedData({'H1': brokenfile})
+            mhet = MultiHeterodynedData({"H1": brokenfile})
 
         os.remove(brokenfile)  # clean up file
 
@@ -61,21 +61,21 @@ class TestHeterodynedData(object):
         """
 
         # create four datasets
-        times1 = np.linspace(1000000000., 1000086340., 1440)
-        data1 = np.random.normal(0., 1e-25, size=(1440, 2))
-        detector1 = 'H1'
+        times1 = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data1 = np.random.normal(0.0, 1e-25, size=(1440, 2))
+        detector1 = "H1"
 
-        times2 = np.linspace(1000000000., 1000086340., 1440)
-        data2 = np.random.normal(0., 1e-25, size=(1440, 2))
-        detector2 = 'L1'
+        times2 = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data2 = np.random.normal(0.0, 1e-25, size=(1440, 2))
+        detector2 = "L1"
 
-        times3 = np.linspace(1000000000., 1000086340., 1440)
-        data3 = np.random.normal(0., 1e-25, size=(1440, 2))
-        detector3 = 'G1'
+        times3 = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data3 = np.random.normal(0.0, 1e-25, size=(1440, 2))
+        detector3 = "G1"
 
-        times4 = np.linspace(1000000000., 1000086340., 1440)
-        data4 = np.random.normal(0., 1e-25, size=(1440, 2))
-        detector4 = 'K1'
+        times4 = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data4 = np.random.normal(0.0, 1e-25, size=(1440, 2))
+        detector4 = "K1"
 
         # add first dataset as precreated HeterodynedData object
         het1 = HeterodynedData(data1, times=times1, detector=detector1)
@@ -84,12 +84,12 @@ class TestHeterodynedData(object):
 
         # add second dataset as a dictionary
         ddic = {detector2: data2}
-        tdic = {'XX': times2}  # set to fail
+        tdic = {"XX": times2}  # set to fail
 
         # add second dataset
         with pytest.raises(KeyError):
             mhet.add_data(ddic, tdic, detector2)
-        
+
         # fix tdic
         tdic = {detector2: times2}
         mhet.add_data(ddic, tdic, detector2)
@@ -130,15 +130,14 @@ class TestHeterodynedData(object):
     1000000120.0  -1.7e-25  -2.8e-25   1e-26  3
     1000000180.0  -7.6e-26  -8.9e-26   1e-26  4
     """
-        brokenfile = 'brokendata.txt'
-        with open(brokenfile, 'w') as fp:
+        brokenfile = "brokendata.txt"
+        with open(brokenfile, "w") as fp:
             fp.write(brokendata)
 
         with pytest.raises(ValueError):
             het = HeterodynedData(brokenfile)
 
         os.remove(brokenfile)  # clean up file
-
 
     def test_too_few_columns(self):
         """
@@ -153,8 +152,8 @@ class TestHeterodynedData(object):
     1000000120.0  -1.7e-25
     1000000180.0  -7.6e-26
     """
-        brokenfile = 'brokendata.txt'
-        with open(brokenfile, 'w') as fp:
+        brokenfile = "brokendata.txt"
+        with open(brokenfile, "w") as fp:
             fp.write(brokendata)
 
         with pytest.raises(ValueError):
@@ -175,8 +174,8 @@ class TestHeterodynedData(object):
     1000000120.0  -1.7e-25  -2.8e-25
     1000000180.0  -7.6e-26  -8.9e-26
     """
-        datafile = 'testdata.txt'
-        with open('testdata.txt', 'w') as fp:
+        datafile = "testdata.txt"
+        with open("testdata.txt", "w") as fp:
             fp.write(hetdata)
 
         het = HeterodynedData(datafile)
@@ -185,11 +184,10 @@ class TestHeterodynedData(object):
         assert (het.data.real[0] == -2.3e-25) and (het.data.real[-1] == -7.6e-26)
         assert (het.data.imag[0] == 4.3e-26) and (het.data.imag[-1] == -8.9e-26)
         assert (het.times[0] == 1000000000.0) and (het.times[-1] == 1000000180.0)
-        assert het.dt == 60.
-        assert het.fs == 1./60.
+        assert het.dt == 60.0
+        assert het.fs == 1.0 / 60.0
 
         os.remove(datafile)  # clean up file
-
 
     def test_read_data_std(self):
         """
@@ -204,8 +202,8 @@ class TestHeterodynedData(object):
     1000000120.0  -1.7e-25  -2.8e-25   1.5e-26
     1000000180.0  -7.6e-26  -8.9e-26   1.3e-26
     """
-        datafile = 'testdata.txt'
-        with open('testdata.txt', 'w') as fp:
+        datafile = "testdata.txt"
+        with open("testdata.txt", "w") as fp:
             fp.write(hetdata)
 
         het = HeterodynedData(datafile)
@@ -214,10 +212,10 @@ class TestHeterodynedData(object):
         assert (het.data.real[0] == -2.3e-25) and (het.data.real[-1] == -7.6e-26)
         assert (het.data.imag[0] == 4.3e-26) and (het.data.imag[-1] == -8.9e-26)
         assert (het.stds[0] == 1.1e-26) and (het.stds[-1] == 1.3e-26)
-        assert (het.vars[0] == (1.1e-26)**2) and (het.vars[-1] == (1.3e-26)**2)
+        assert (het.vars[0] == (1.1e-26) ** 2) and (het.vars[-1] == (1.3e-26) ** 2)
         assert (het.times[0] == 1000000000.0) and (het.times[-1] == 1000000180.0)
-        assert het.dt == 60.
-        assert het.fs == 1./60.
+        assert het.dt == 60.0
+        assert het.fs == 1.0 / 60.0
 
         os.remove(datafile)  # clean up file
 
@@ -228,7 +226,7 @@ class TestHeterodynedData(object):
         """
 
         # create "zero" data by only passing a set of times
-        times = np.linspace(1000000000., 1000086340., 1440)
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
 
         het = HeterodynedData(times=times)
 
@@ -240,8 +238,8 @@ class TestHeterodynedData(object):
         Test passing the data as arrays containing times and data.
         """
 
-        times = np.linspace(1000000000., 1000086340., 1440)
-        data = np.random.normal(0., 1e-25, size=(1440, 2))
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=(1440, 2))
 
         het = HeterodynedData(data, times=times)
 
@@ -251,10 +249,10 @@ class TestHeterodynedData(object):
         assert het.dt == (times[1] - times[0])
 
         # overwrite data directly using data setter (testing for errors)
-        newdata = (data, )  # too short tuple
+        newdata = (data,)  # too short tuple
         with pytest.raises(ValueError):
             het.data = newdata
-        
+
         with pytest.raises(ValueError):
             # error due to no times being supplied
             het.data = data
@@ -264,8 +262,8 @@ class TestHeterodynedData(object):
         Test that an error is raise for non-integer time stamps.
         """
 
-        times = np.linspace(1000000000., 1000086342., 1440)
-        data = np.random.normal(0., 1e-25, size=(1440, 2))
+        times = np.linspace(1000000000.0, 1000086342.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=(1440, 2))
 
         with pytest.raises(ValueError):
             het = HeterodynedData(data, times=times)
@@ -275,9 +273,10 @@ class TestHeterodynedData(object):
         Test passing the data as arrays containing times and complex data.
         """
 
-        times = np.linspace(1000000000., 1000086340., 1440)
-        data = (np.random.normal(0., 1e-25, size=1440) +
-                1j*np.random.normal(0., 1e-25, size=1440))
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=1440) + 1j * np.random.normal(
+            0.0, 1e-25, size=1440
+        )
 
         het = HeterodynedData(data, times=times)
 
@@ -292,9 +291,10 @@ class TestHeterodynedData(object):
         number of data points.
         """
 
-        times = np.linspace(1000000000., 1000086340., 1439)
-        data = (np.random.normal(0., 1e-25, size=1440) +
-                1j*np.random.normal(0., 1e-25, size=1440))
+        times = np.linspace(1000000000.0, 1000086340.0, 1439)
+        data = np.random.normal(0.0, 1e-25, size=1440) + 1j * np.random.normal(
+            0.0, 1e-25, size=1440
+        )
 
         with pytest.raises(ValueError):
             het = HeterodynedData(data, times=times)
@@ -304,8 +304,9 @@ class TestHeterodynedData(object):
         Test that failure occurs if no time steps are passed.
         """
 
-        data = (np.random.normal(0., 1e-25, size=1440) +
-                1j*np.random.normal(0., 1e-25, size=1440))
+        data = np.random.normal(0.0, 1e-25, size=1440) + 1j * np.random.normal(
+            0.0, 1e-25, size=1440
+        )
 
         with pytest.raises(ValueError):
             het = HeterodynedData(data)
@@ -318,17 +319,18 @@ class TestHeterodynedData(object):
         from lal import Detector
         from lalpulsar import GetSiteInfo
 
-        det = 'BK'  # "bad" detector
+        det = "BK"  # "bad" detector
 
-        times = np.linspace(1000000000., 1000086340., 1440)
-        data = (np.random.normal(0., 1e-25, size=1440) +
-                1j*np.random.normal(0., 1e-25, size=1440))
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=1440) + 1j * np.random.normal(
+            0.0, 1e-25, size=1440
+        )
 
         with pytest.raises(ValueError):
             het = HeterodynedData(data, times=times, detector=det)
 
-        det = 'H1'  # good detector
-        laldet = GetSiteInfo('H1')
+        det = "H1"  # good detector
+        laldet = GetSiteInfo("H1")
 
         het = HeterodynedData(data, times=times, detector=det)
 
@@ -351,12 +353,13 @@ class TestHeterodynedData(object):
         """
 
         # set data
-        times = np.linspace(1000000000., 1000086340., 1440)
-        data = (np.random.normal(0., 1e-25, size=1440) +
-                1j*np.random.normal(0., 1e-25, size=1440))
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=1440) + 1j * np.random.normal(
+            0.0, 1e-25, size=1440
+        )
 
         # set detector
-        det = 'H1'
+        det = "H1"
 
         parcontent = """\
 PSRJ     J0123+3456
@@ -376,28 +379,31 @@ PHI0     2.4
         with pytest.raises(TypeError):
             het = HeterodynedData(data, times=times, detector=det, par=parfile)
 
-        parfile = 'J0123+3456.par'
+        parfile = "J0123+3456.par"
 
         # try reading parfile that doesn't exists
         with pytest.raises(IOError):
             het = HeterodynedData(data, times=times, detector=det, par=parfile)
 
         # add content to the par file
-        with open(parfile, 'w') as fp:
+        with open(parfile, "w") as fp:
             fp.write(parcontent)
 
         het = HeterodynedData(data, times=times, detector=det, par=parfile)
 
         assert isinstance(het.par, PulsarParametersPy)
-        assert len(het.par['F']) == 2
-        assert (het.par['F'][0] == 567.89) and (het.par['F'][1] == -1.2e-12)
-        assert ((het.par['H0'] == 9.87e-26) and (het.par['COSIOTA'] == 0.3) and
-                (het.par['PSI'] == 1.1) and (het.par['PHI0'] == 2.4))
-        assert het.par['RAJ'] == lal.TranslateHMStoRAD('01:23:45.6789')
-        assert het.par['DECJ'] == lal.TranslateDMStoRAD('34:56:54.321')
-        pepoch = lal.TranslateStringMJDTTtoGPS('56789')
-        assert (het.par['PEPOCH'] == (pepoch.gpsSeconds +
-                                    1e-9*pepoch.gpsNanoSeconds))
+        assert len(het.par["F"]) == 2
+        assert (het.par["F"][0] == 567.89) and (het.par["F"][1] == -1.2e-12)
+        assert (
+            (het.par["H0"] == 9.87e-26)
+            and (het.par["COSIOTA"] == 0.3)
+            and (het.par["PSI"] == 1.1)
+            and (het.par["PHI0"] == 2.4)
+        )
+        assert het.par["RAJ"] == lal.TranslateHMStoRAD("01:23:45.6789")
+        assert het.par["DECJ"] == lal.TranslateDMStoRAD("34:56:54.321")
+        pepoch = lal.TranslateStringMJDTTtoGPS("56789")
+        assert het.par["PEPOCH"] == (pepoch.gpsSeconds + 1e-9 * pepoch.gpsNanoSeconds)
 
         # pass parameters as PulsarParametersPy object
         del het
@@ -406,16 +412,17 @@ PHI0     2.4
         het = HeterodynedData(data, times=times, detector=det, par=par)
 
         assert isinstance(het.par, PulsarParametersPy)
-        assert len(het.par['F']) == len(par['F'])
-        assert ((het.par['F'][0] == par['F'][0]) and
-                (het.par['F'][1] == par['F'][1]))
-        assert ((het.par['H0'] == par['H0']) and
-                (het.par['COSIOTA'] == par['COSIOTA']) and
-                (het.par['PSI'] == par['PSI']) and
-                (het.par['PHI0'] == par['PHI0']))
-        assert het.par['RAJ'] == par['RAJ']
-        assert het.par['DECJ'] == par['DECJ']
-        assert het.par['PEPOCH'] == par['PEPOCH']
+        assert len(het.par["F"]) == len(par["F"])
+        assert (het.par["F"][0] == par["F"][0]) and (het.par["F"][1] == par["F"][1])
+        assert (
+            (het.par["H0"] == par["H0"])
+            and (het.par["COSIOTA"] == par["COSIOTA"])
+            and (het.par["PSI"] == par["PSI"])
+            and (het.par["PHI0"] == par["PHI0"])
+        )
+        assert het.par["RAJ"] == par["RAJ"]
+        assert het.par["DECJ"] == par["DECJ"]
+        assert het.par["PEPOCH"] == par["PEPOCH"]
 
         os.remove(parfile)
 
@@ -425,9 +432,10 @@ PHI0     2.4
         """
 
         # set data
-        times = np.linspace(1000000000., 1000001740, 30)
-        data = (np.random.normal(0., 1e-25, size=30) +
-                1j*np.random.normal(0., 1e-25, size=30))
+        times = np.linspace(1000000000.0, 1000001740, 30)
+        data = np.random.normal(0.0, 1e-25, size=30) + 1j * np.random.normal(
+            0.0, 1e-25, size=30
+        )
 
         window = 1  # window is too short
         with pytest.raises(ValueError):
@@ -442,16 +450,20 @@ PHI0     2.4
         het = HeterodynedData(data, times=times, window=window)
 
         assert len(het.running_median) == len(het)
-        assert het.running_median.real[0] == np.median(data.real[:(window//2)+1])
-        assert het.running_median.imag[0] == np.median(data.imag[:(window//2)+1])
-        assert het.running_median.real[len(data)//2-1] == np.median(data.real)
-        assert het.running_median.imag[len(data)//2-1] == np.median(data.imag)
-        assert het.running_median.real[-1] == np.median(data.real[-(window//2):])
-        assert het.running_median.imag[-1] == np.median(data.imag[-(window//2):])
+        assert het.running_median.real[0] == np.median(data.real[: (window // 2) + 1])
+        assert het.running_median.imag[0] == np.median(data.imag[: (window // 2) + 1])
+        assert het.running_median.real[len(data) // 2 - 1] == np.median(data.real)
+        assert het.running_median.imag[len(data) // 2 - 1] == np.median(data.imag)
+        assert het.running_median.real[-1] == np.median(data.real[-(window // 2) :])
+        assert het.running_median.imag[-1] == np.median(data.imag[-(window // 2) :])
         assert len(het.subtract_running_median()) == len(het)
-        assert (het.subtract_running_median()[0] ==
-                (data[0] - (np.median(data.real[:(window//2)+1]) +
-                            1j*np.median(data.imag[:(window//2)+1]))))
+        assert het.subtract_running_median()[0] == (
+            data[0]
+            - (
+                np.median(data.real[: (window // 2) + 1])
+                + 1j * np.median(data.imag[: (window // 2) + 1])
+            )
+        )
 
     def test_outlier_removal(self):
         """
@@ -459,30 +471,30 @@ PHI0     2.4
         """
 
         # set data
-        times = np.linspace(1000000000., 1000001740, 30)
-        data = (np.random.normal(0., 1., size=30) +
-                1j*np.random.normal(0., 1., size=30))
+        times = np.linspace(1000000000.0, 1000001740, 30)
+        data = np.random.normal(0.0, 1.0, size=30) + 1j * np.random.normal(
+            0.0, 1.0, size=30
+        )
 
         # add outliers (one in the real part and one in the imaginary)
-        data[10] = 20. + data.imag[10]*1j
-        data[20] = data.real[20] - 20.*1j
+        data[10] = 20.0 + data.imag[10] * 1j
+        data[20] = data.real[20] - 20.0 * 1j
 
         het = HeterodynedData(data, times=times)
 
         # try finding the outlier (and testing exceptions)
-        thresh = 'a'
+        thresh = "a"
         with pytest.raises(TypeError):
             _ = het.find_outliers(thresh=thresh)
 
-        thresh = -1.
+        thresh = -1.0
         with pytest.raises(ValueError):
             _ = het.find_outliers(thresh=thresh)
 
         idxs = het.find_outliers()
 
         assert len(np.where(idxs == True)[0]) >= 2
-        assert ((10 in np.where(idxs == True)[0]) and
-                (20 in np.where(idxs == True)[0]))
+        assert (10 in np.where(idxs == True)[0]) and (20 in np.where(idxs == True)[0])
 
         # test removing the outlier automatically
         newhet = HeterodynedData(data, times=times, remove_outliers=True)
@@ -493,24 +505,26 @@ PHI0     2.4
         Test Bayesian Blocks splitting.
         """
 
-        times = np.linspace(1000000000., 1000086340., 1440)
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
 
         # create data from two obviously different Gaussian distributions
-        sigma1 = 1.
-        data1 = (np.random.normal(0., sigma1, size=720) +
-                1j*np.random.normal(0., sigma1, size=720))
-        sigma2 = 50.
-        data2 = (np.random.normal(0., sigma2, size=720) +
-                1j*np.random.normal(0., sigma2, size=720))
+        sigma1 = 1.0
+        data1 = np.random.normal(0.0, sigma1, size=720) + 1j * np.random.normal(
+            0.0, sigma1, size=720
+        )
+        sigma2 = 50.0
+        data2 = np.random.normal(0.0, sigma2, size=720) + 1j * np.random.normal(
+            0.0, sigma2, size=720
+        )
 
         data = np.concatenate((data1, data2))
 
         with pytest.raises(ValueError):
             # check error raise if "random" threshold is used
-            het = HeterodynedData(data, times, bbthreshold='sdkgasnm')
+            het = HeterodynedData(data, times, bbthreshold="sdkgasnm")
 
         # check different thresholds
-        for thresh in ['default', 'trials', 1000.]:
+        for thresh in ["default", "trials", 1000.0]:
             het = HeterodynedData(data, times=times, bbthreshold=thresh)
 
             # check that a change point was found
@@ -538,7 +552,7 @@ PHI0     2.4
         maxlength = 4  # maxlength must be greater than minlength
         with pytest.raises(ValueError):
             het.bayesian_blocks(minlength=minlength, maxlength=maxlength)
-        
+
         # test re-splitting
         maxlength = 360
         het.bayesian_blocks(maxlength=maxlength)
@@ -550,36 +564,40 @@ PHI0     2.4
         Test the spectrogram, periodogram and power spectrum plots.
         """
 
-        times1 = np.linspace(1000000000., 1000172740., 2*1440)
-        data1 = (np.random.normal(0., 1.0, size=2*1440) +
-                1j*np.random.normal(0., 1.0, size=2*1440))
-        detector1 = 'H1'
+        times1 = np.linspace(1000000000.0, 1000172740.0, 2 * 1440)
+        data1 = np.random.normal(0.0, 1.0, size=2 * 1440) + 1j * np.random.normal(
+            0.0, 1.0, size=2 * 1440
+        )
+        detector1 = "H1"
 
-        times2 = np.linspace(1000000000., 1000172740., 2*1440)
-        data2 = (np.random.normal(0., 1.0, size=2*1440) +
-                1j*np.random.normal(0., 1.0, size=2*1440))
-        detector2 = 'L1'
+        times2 = np.linspace(1000000000.0, 1000172740.0, 2 * 1440)
+        data2 = np.random.normal(0.0, 1.0, size=2 * 1440) + 1j * np.random.normal(
+            0.0, 1.0, size=2 * 1440
+        )
+        detector2 = "L1"
 
-        data = {detector1: HeterodynedData(data1, times=times1),
-                detector2: HeterodynedData(data2, times=times2)}
+        data = {
+            detector1: HeterodynedData(data1, times=times1),
+            detector2: HeterodynedData(data2, times=times2),
+        }
 
         mhd = MultiHeterodynedData(data)
 
         # test errors
         with pytest.raises(ValueError):
-            _ = mhd.spectrogram(dt='a')
+            _ = mhd.spectrogram(dt="a")
 
         with pytest.raises(ValueError):
             _ = mhd.spectrogram(dt=200000)
 
-        #with pytest.raises(TypeError):
+        # with pytest.raises(TypeError):
         #    _ = mhd.spectrogram(overlap='a')
 
         with pytest.raises(ValueError):
             _ = mhd.spectrogram(overlap=-1)
 
         with pytest.raises(ValueError):
-            _ = mhd.power_spectrum(average='a')
+            _ = mhd.power_spectrum(average="a")
 
         # create a spectrogram
         freqs, power, stimes, fig = data[detector1].spectrogram(dt=3600)
@@ -607,7 +625,7 @@ PHI0     2.4
         newdata = np.delete(data1, [10, 51, 780])
         newtimes = np.delete(times1, [10, 51, 780])
 
-        newhet = HeterodynedData(newdata, times=newtimes, detector='H1')
+        newhet = HeterodynedData(newdata, times=newtimes, detector="H1")
 
         # create a power spectrum
         freqs, power, fig = newhet.power_spectrum(dt=86400)
@@ -617,61 +635,141 @@ PHI0     2.4
         assert freqs.shape[0] == power.shape[0]
 
         # add a DCC signal and check it's at 0 Hz
-        datadc = (np.random.normal(5., 1.0, size=2*1440) +
-                1j*np.random.normal(5., 1.0, size=2*1440))
+        datadc = np.random.normal(5.0, 1.0, size=2 * 1440) + 1j * np.random.normal(
+            5.0, 1.0, size=2 * 1440
+        )
 
-        newhet2 = HeterodynedData(datadc, times=times1, detector='H1')
+        newhet2 = HeterodynedData(datadc, times=times1, detector="H1")
 
         # create a power spectrum
         freqs, power, fig = newhet2.power_spectrum(dt=86400)
 
-        assert freqs[np.argmax(power)] == 0.
+        assert freqs[np.argmax(power)] == 0.0
+
+    def test_simulated_data(self):
+        """
+        Test that simulated data is produced as expected.
+        """
+
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+
+        # use invalid random seed
+        with pytest.raises(ValueError):
+            het1 = HeterodynedData(
+                times=times, fakeasd=1e-24, detector="H1", fakeseed=-1
+            )
+
+        # create data using the same random seed and check it is identical
+        het1 = HeterodynedData(
+            times=times, fakeasd=1e-24, detector="H1", fakeseed=16273
+        )
+        het2 = HeterodynedData(
+            times=times, fakeasd=1e-24, detector="H1", fakeseed=16273
+        )
+
+        assert np.array_equal(het1.data, het2.data)
+
+        # create data using a different seed and check it is not the same
+        het3 = HeterodynedData(
+            times=times, fakeasd=1e-24, detector="H1", fakeseed=788532
+        )
+
+        assert not np.array_equal(het1.data, het3.data)
+
+        del het1
+        del het2
+        del het3
+
+        # do the same tests using a numpy RandomSeed
+        seed1 = np.random.RandomState(875329)
+        het1 = HeterodynedData(
+            times=times, fakeasd=1e-24, detector="H1", fakeseed=seed1
+        )
+        seed2 = np.random.RandomState(875329)
+        het2 = HeterodynedData(
+            times=times, fakeasd=1e-24, detector="H1", fakeseed=seed2
+        )
+
+        assert np.array_equal(het1.data, het2.data)
+
+        # check that passing the same RandomState again produces different data
+        het3 = HeterodynedData(
+            times=times, fakeasd=1e-24, detector="H1", fakeseed=seed1
+        )
+
+        assert not np.array_equal(het1.data, het3.data)
+
+        del het1
+        del het2
+        del het3
+
+        # check that using issigma returns data with the expected standard
+        # deviation and mean
+        sigma = 1e-25
+        svar = sigma ** 2
+
+        het1 = HeterodynedData(times=times, fakeasd=sigma, detector="H1", issigma=True)
+
+        # standard error on the variance
+        sevar = np.sqrt(2.0 * sigma ** 4 / (len(het1.data) - 1.0))
+
+        # check variance is within +/- 3.5 sigma
+        assert (svar - 3.5 * sevar < np.var(het1.data.real) < svar + 3.5 * sevar) and (
+            svar - 3.5 * sevar < np.var(het1.data.imag) < svar + 3.5 * sevar
+        )
+
+        # standard error of the mean
+        semean = sigma / np.sqrt(len(het1.data))
+
+        assert (-3.5 * semean < np.mean(het1.data.real) < 3.5 * semean) and (
+            -3.5 * semean < np.mean(het1.data.imag) < 3.5 * semean
+        )
 
     def test_plot(self):
         """
         Test plotting function (and at the same time test fake noise generaion)
-        (no testinf of injections yet as the code to find ephemeris files won't
+        (no testing of injections yet as the code to find ephemeris files won't
         work)
         """
 
         # create an injection parameter file
-        #parcontent = """\
-#PSRJ    J0000+0000
-#RAJ     00:00:00.0
-#DECJ    00:00:00.0
-#F0      123.45
-#F1      1.2e-11
-#PEPOCH  56789.0
-#H0      1.5e-22
-#"""
+        # parcontent = """\
+        # PSRJ    J0000+0000
+        # RAJ     00:00:00.0
+        # DECJ    00:00:00.0
+        # F0      123.45
+        # F1      1.2e-11
+        # PEPOCH  56789.0
+        # H0      1.5e-22
+        # """
 
-        #parfile = 'test.par'
-        #with open(parfile, 'w') as fp:
+        # parfile = 'test.par'
+        # with open(parfile, 'w') as fp:
         #    fp.write(parcontent)
 
         # one point per 10 mins
-        times = np.linspace(1000000000., 1000085800., 144)
+        times = np.linspace(1000000000.0, 1000085800.0, 144)
 
-        #het = HeterodynedData(times=times, fakeasd='H1', detector='H1',
+        # het = HeterodynedData(times=times, fakeasd='H1', detector='H1',
         #                      par=parfile, inject=True)
         with pytest.raises(AttributeError):
             # if no parameter file is given, then generating fake data for a
             # particular detector should fail
-            het = HeterodynedData(times=times, fakeasd='H1')
+            het = HeterodynedData(times=times, fakeasd="H1")
 
         # set the asd explicitly
-        het = HeterodynedData(times=times, fakeasd=1e-24, detector='H1')
+        het = HeterodynedData(times=times, fakeasd=1e-24, detector="H1")
         mhd = MultiHeterodynedData(het)
 
         # not allowed argument
         with pytest.raises(ValueError):
-            fig = mhd.plot(which='blah')
+            fig = mhd.plot(which="blah")
 
         # test different plot types
-        for which in ['abs', 'REAL', 'im', 'Both']:
+        for which in ["abs", "REAL", "im", "Both"]:
             fig = mhd.plot(which=which)
             assert isinstance(fig[0], Figure)
             del fig
 
         # remove the par file
-        #os.remove(parfile)
+        # os.remove(parfile)

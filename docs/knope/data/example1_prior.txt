@@ -1,0 +1,6 @@
+# define priors on: the gravitational-wave amplitude, inclination angle,
+# initial phase and polarisation angle
+h0 = Uniform(name='h0', minimum=0, maximum=1e-22, latex_label='$h_0$', boundary='reflective')
+iota = Sine(name='iota', minimum=0., maximum=np.pi, latex_label='$\iota$', unit='rad', boundary='reflective')
+phi0 = Uniform(name='phi0', minimum=0, maximum=np.pi, latex_label='$\phi_0$', unit='rad', boundary='reflective')
+psi = Uniform(name='psi', minimum=0, maximum=np.pi / 2, latex_label='$\psi$', unit='rad', boundary='reflective')
