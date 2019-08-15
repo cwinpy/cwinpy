@@ -7,6 +7,7 @@ import sys
 import ast
 import glob
 import signal
+import warnings
 import numpy as np
 
 import cwinpy
@@ -1131,9 +1132,7 @@ class KnopeDAGRunner(object):
         if config.has_section("dag"):
             # submit directory location
             submit = config.get(
-                "dag",
-                "submit",
-                fallback=os.path.join(os.getcwd(), "submit"),
+                "dag", "submit", fallback=os.path.join(os.getcwd(), "submit")
             )
 
             # DAG name prefix
@@ -1154,6 +1153,7 @@ class KnopeDAGRunner(object):
         if config.has_section("job"):
             # executable
             from shutil import which
+
             jobexec = which(config.get("job", "executable", fallback="cwinpy_knope"))
 
             if jobexec is None:
@@ -1170,31 +1170,19 @@ class KnopeDAGRunner(object):
             universe = config.get("job", "universe", fallback="vanilla")
 
             # stdout directory location
-            output = config.get(
-                "job",
-                "out",
-                fallback=os.path.join(os.getcwd(), "out"),
-            )
+            output = config.get("job", "out", fallback=os.path.join(os.getcwd(), "out"))
 
             # stderr directory location#
             error = config.get(
-                "job",
-                "error",
-                fallback=os.path.join(os.getcwd(), "error"),
+                "job", "error", fallback=os.path.join(os.getcwd(), "error")
             )
 
             # log directory
-            log = config.get(
-                "job",
-                "log",
-                fallback=os.path.join(os.getcwd(), "log"),
-            )
+            log = config.get("job", "log", fallback=os.path.join(os.getcwd(), "log"))
 
             # submit directory location
             jobsubmit = config.get(
-                "job",
-                "submit",
-                fallback=os.path.join(os.getcwd(), "submit"),
+                "job", "submit", fallback=os.path.join(os.getcwd(), "submit")
             )
 
             # get local environment variables
@@ -1244,7 +1232,7 @@ class KnopeDAGRunner(object):
                     "Configuration must contain a set of pulsar parameter files"
                 )
 
-            # the value in [knope] pulsars can either be:
+            # the "pulsars" option in the [knope] section can either be:
             #  - the path to a single file
             #  - a list of parameter files
             #  - a directory (or glob-able directory pattern) containing parameter files
@@ -1252,13 +1240,149 @@ class KnopeDAGRunner(object):
             # All files must have the extension '.par'
             parfiles = ast.literal_eval(parfiles)
             if not isinstance(parfiles, list):
-                parfiles = list(parfiles)
+                parfiles = [parfiles]
 
             pulsars = []
             for parfile in parfiles:
+                # add "*.par" wildcard to any directories
+                if os.path.isdir(parfile):
+                    parfile = os.path.join(parfile, "*.par")
+
+                # get all parameter files
                 pulsars.extend(
-                    [par for par in glob.glob(parfile) if os.path.splitext(par)[1] == ".par"]
+                    [
+                        par
+                        for par in glob.glob(parfile)
+                        if os.path.splitext(par)[1] == ".par"
+                    ]
                 )
+
+            # get names of all the pulsars
+            from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+
+            pulsarnames = []
+            for pulsar in list(pulsars):
+                if os.path.isfile(pulsar):
+                    psr = PulsarParametersPy(pulsar)
+                    if psr["PSRJ"] is not None:
+                        pulsarnames.append(psr["PSRJ"])
+                    else:
+                        warnings.warn(
+                            "Parameter file '{}' has no name, so it will be "
+                            "ignored".format(pulsar)
+                        )
+                        pulsars.remove(pulsar)
+                else:
+                    # remove the pulsar
+                    pulsars.remove(pulsar)
+
+            # the "data-file-1f" and "data-file-2f" options in the [knope]
+            # section specify the locations of heterodyned data files at the
+            # rotation frequency and twice the rotation frequency of each
+            # source. It is expected that the heterodyned file names
+            # contain the name of the pulsar (based on the "PSRJ" name in the
+            # associated parameter file). The option should be a dictionary
+            # with keys being the detector name for the data sets.
+            datafiles1f = config.get("knope", "data-file-1f", fallback=None)
+            datafiles2f = config.get("knope", "data-file-2f", fallback=None)
+
+            detectors1f = None
+            if datafiles1f is not None:
+                datafiles1f = ast.literal_eval(datafiles1f)
+
+                if not isinstance(datafiles1f, dict):
+                    raise TypeError("Data files must be specified in a dictionary")
+
+                detectors1f = sorted(list(datafiles1f.keys()))
+
+            detectors2f = None
+            if datafiles2f is not None:
+                datafiles2f = ast.literal_eval(datafiles2f)
+
+                if not isinstance(datafiles2f, dict):
+                    raise TypeError("Data files must be specified in a dictionary")
+
+                detectors2f = sorted(list(datafiles2f.keys()))
+
+            if datafiles1f is None and datafiles2f is None:
+                raise IOError("No data files have been given")
+
+            if detectors1f != detectors2f and datafiles1f and datafiles2f:
+                raise IOError("Inconsistent detectors given for data sets")
+
+            detectors = detectors2f if detectors2f else detectors1f
+
+            # get lists of data files. For each detector the passed files could
+            # be a single file, a list of files, or a glob-able directory path
+            # containing the files.
+            datadict = {pname: {det: {} for det in detectors} for pname in pulsarsnames}
+
+            for datafilesf, freqfactor in zip([datafiles1f, datafiles2f], ["1f", "2f"]):
+                if datafilesf is None:
+                    continue
+
+                dff = {det: [] for det in detectors}
+
+                for det in detectors:
+                    datafiles = datafilesf[det]
+                    if not isinstance(datafiles, list):
+                        datafiles = [datafiles]
+
+                    for datafile in datafiles:
+                        # add "*" wildcard to any directories
+                        if os.path.isdir(datafile):
+                            datafile = os.path.join(datafile, "*")
+
+                        # get all data files
+                        dff[det].extend(
+                            [dat for dat in glob.glob(datafile) if os.path.isfile(dat)]
+                        )
+
+                    # check file name contains the name of a supplied pulsar
+                    for datafile in list(dff[det]):
+                        for pname in pulsarnames:
+                            if pname in datafile:
+                                if pname not in datadict:
+                                    datadict[pname][det][freqfactor] = datafile
+                                else:
+                                    warnings.warn(
+                                        "Duplicate pulsar '{}' data. Ignoring "
+                                        "duplicate.".format(pname)
+                                    )
+            
+            # get priors
+
+            # check location to output 'cwinpy_knope' input files. If None then
+            # 'cwinpy_knope' is run using command line arguments rather than a
+            # configuration file.
+            configlocation = config.get("knope", "config", None)
+
+            if configlocation is not None:
+                # make directory
+                try:
+                    os.makedirs(configlocation, exist_ok=True)
+                except Exception as e:
+                    raise IOError(
+                        "Could not create configuration directory "
+                        "location: '{}'".format(e)
+                    )
+
+            # get output directory base
+            basedir = config.get("knope", "basedir", None)
+            if basedir is None:
+                raise IOError("No output directory set.")
+            else:
+                try:
+                    os.makedirs(basedir, exist_ok=True)
+                except Exception as e:
+                    raise IOError(
+                        "Could not create output directory "
+                        "location: '{}'".format(e)
+                    )
+
+            # create jobs (output and label set using pulsar name)
+            for pname, parfile in zip(pulsarnames, parfiles):
+                # write stuff here...
 
         else:
             raise IOError("Configuration file must have a [knope] section.")
@@ -1286,12 +1410,12 @@ def knope_dag(**kwargs):
         raise ImportError("To run 'cwinpy_knope_dag' you must install configparser")
 
     if "config" in kwargs:
-        configfile = kwargs['config']
+        configfile = kwargs["config"]
     else:
         try:
             from argparse import ArgumentParser
         except ImportError:
-            raise ImportError("To run 'cwinpy_knope_dag")
+            raise ImportError("To run 'cwinpy_knope_dag'")
 
         parser = ArgumentParser(
             description=(
@@ -1300,12 +1424,7 @@ def knope_dag(**kwargs):
                 "from a selection of known pulsars."
             )
         )
-        parser.add_argument(
-            "config",
-            help=(
-                "The configuation file for the analysis"
-            ),
-        )
+        parser.add_argument("config", help=("The configuation file for the analysis"))
 
         args = parser.parse_args()
         configfile = args.config
