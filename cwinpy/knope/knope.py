@@ -1205,6 +1205,15 @@ class KnopeDAGRunner(object):
         # retries of job on failure
         retry = config.getint("job", "retry", fallback=0)
 
+        # accounting group and user
+        accgroup = config.get("job", "accounting_group", fallback=None)
+        accuser = config.get("job", "accounting_group_user", fallback=None)
+        extra_lines = []
+        if accgroup is not None:
+            extra_lines.append("accounting_group = {}".format(accgroup))
+        if accuser is not None:
+            extra_lines.append("accounting_group_user = {}".format(accuser))
+
         if name == jobname:
             raise ValueError("Dagman name and Job name must be different")
 
@@ -1223,6 +1232,7 @@ class KnopeDAGRunner(object):
             queue=1,
             requirements=requirements,
             retry=retry,
+            extra_lines=extra_lines,
             dag=self.dag,
         )
 
@@ -1456,13 +1466,14 @@ class KnopeDAGRunner(object):
             priornames = list(priorfiles.keys())
             datanames = list(datadict.keys())
 
-            for pname in priornames + datanames:
+            for pname in pulsarnames:
                 if pname in priornames and pname in datanames:
                     continue
                 else:
-                    warnings.warn(
+                    print(
                         "Removing pulsar '{}' as either no data, or no prior "
-                        "is given".format(pname)
+                        "is given".format(pname),
+                        file=sys.stdout
                     )
                     if pname in datanames:
                         datadict.pop(pname)
