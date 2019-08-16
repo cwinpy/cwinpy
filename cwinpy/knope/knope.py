@@ -1147,7 +1147,7 @@ class KnopeDAGRunner(object):
         )
 
         # DAG name prefix
-        name = config.get("dag", "name", fallback="cwinpy_knope")
+        name = config.get("dag", "name", fallback="cwinpy_knope_dag")
 
         # get whether to automatically submit the dag
         self.submitdag = config.getboolean("dag", "submitdag", fallback=False)
@@ -1205,6 +1205,8 @@ class KnopeDAGRunner(object):
         # retries of job on failure
         retry = config.getint("job", "retry", fallback=0)
 
+        if name == jobname:
+            raise ValueError("Dagman name and Job name must be different")
 
         # create cwinpy_knope Job
         self.job = Job(
