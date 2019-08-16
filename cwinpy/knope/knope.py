@@ -1317,8 +1317,8 @@ class KnopeDAGRunner(object):
             detectors = detectors2f if detectors2f else detectors1f
 
             # get lists of data files. For each detector the passed files could
-            # be a single file, a list of files, or a glob-able directory path
-            # containing the files.
+            # be a single file, a list of files, a glob-able directory path
+            # containing the files, or a dictionary keyed to the pulsar names.
             datadict = {pname: {} for pname in pulsarnames}
 
             for datafilesf, freqfactor in zip([datafiles1f, datafiles2f], ["1f", "2f"]):
@@ -1328,10 +1328,17 @@ class KnopeDAGRunner(object):
                     for pname in pulsarnames:
                         datadict[pname][freqfactor] = {}
 
-                dff = {det: [] for det in detectors}
-
                 for det in detectors:
+                    dff = []
                     datafiles = datafilesf[det]
+                    
+                    if isinstance(datafiles, dict):
+                        # dictionary of files, with one for each pulsar
+                        for pname in pulsarnames:
+                            if pname in datafiles:
+                                datadict[pname][freqfactor][det] = datafiles[pname]
+                        continue
+
                     if not isinstance(datafiles, list):
                         datafiles = [datafiles]
 
@@ -1340,21 +1347,27 @@ class KnopeDAGRunner(object):
                         if os.path.isdir(datafile):
                             datafile = os.path.join(datafile, "*")
 
+                        print(glob.glob(datafile))
+
                         # get all data files
-                        dff[det].extend(
+                        dff.extend(
                             [dat for dat in glob.glob(datafile) if os.path.isfile(dat)]
                         )
 
+                    if len(dff) == 0:
+                        raise ValueError("No data files found!")
+
                     # check file name contains the name of a supplied pulsar
-                    for datafile in list(dff[det]):
-                        for pname in pulsarnames:
+                    for pname in pulsarnames:
+                        for datafile in dff:
                             if pname in datafile:
-                                if pname not in datadict:
+                                if det not in datadict[pname][freqfactor]:
                                     datadict[pname][freqfactor][det] = datafile
                                 else:
-                                    warnings.warn(
+                                    print(
                                         "Duplicate pulsar '{}' data. Ignoring "
-                                        "duplicate.".format(pname)
+                                        "duplicate.".format(pname),
+                                        file=sys.stdout
                                     )
 
             # set some default bilby-style priors
