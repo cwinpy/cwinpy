@@ -1357,8 +1357,6 @@ class KnopeDAGRunner(object):
                         if os.path.isdir(datafile):
                             datafile = os.path.join(datafile, "*")
 
-                        print(glob.glob(datafile))
-
                         # get all data files
                         dff.extend(
                             [dat for dat in glob.glob(datafile) if os.path.isfile(dat)]
