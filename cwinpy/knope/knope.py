@@ -1341,7 +1341,7 @@ class KnopeDAGRunner(object):
                 for det in detectors:
                     dff = []
                     datafiles = datafilesf[det]
-                    
+
                     if isinstance(datafiles, dict):
                         # dictionary of files, with one for each pulsar
                         for pname in pulsarnames:
@@ -1614,7 +1614,7 @@ def knope_dag(**kwargs):
                 "from a selection of known pulsars."
             )
         )
-        parser.add_argument("config", help=("The configuation file for the analysis"))
+        parser.add_argument("config", help=("The configuration file for the analysis"))
 
         args = parser.parse_args()
         configfile = args.config

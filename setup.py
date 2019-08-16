@@ -40,6 +40,7 @@ setup(
         "console_scripts": [
             "cwinpy_knope=cwinpy.knope.knope:knope_cli",
             "cwinpy_knope_dag=cwinpy.knope.knope:knope_dag_cli",
+            "cwinpy_knope_generate_pp_plots=cwinpy.knope.testing:generate_pp_plots",
             ]
         },
     classifiers=["Programming Language :: Python :: 3.7"],
