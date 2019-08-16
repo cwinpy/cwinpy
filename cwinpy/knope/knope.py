@@ -1240,7 +1240,7 @@ class KnopeDAGRunner(object):
             #  - a directory (or glob-able directory pattern) containing parameter files
             #  - a combination of a list of directories and/or files
             # All files must have the extension '.par'
-            parfiles = ast.literal_eval(parfiles)
+            parfiles = self.eval(parfiles)
             if not isinstance(parfiles, list):
                 parfiles = [parfiles]
 
@@ -1290,7 +1290,7 @@ class KnopeDAGRunner(object):
 
             detectors1f = None
             if datafiles1f is not None:
-                datafiles1f = ast.literal_eval(datafiles1f)
+                datafiles1f = self.eval(datafiles1f)
 
                 if not isinstance(datafiles1f, dict):
                     raise TypeError("Data files must be specified in a dictionary")
@@ -1299,7 +1299,7 @@ class KnopeDAGRunner(object):
 
             detectors2f = None
             if datafiles2f is not None:
-                datafiles2f = ast.literal_eval(datafiles2f)
+                datafiles2f = self.eval(datafiles2f)
 
                 if not isinstance(datafiles2f, dict):
                     raise TypeError("Data files must be specified in a dictionary")
@@ -1388,7 +1388,7 @@ class KnopeDAGRunner(object):
             # dictionary of keyed files, it is expected that the prior file name
             # contains the PSRJ name of the associated pulsar.
             if priors is not None:
-                priors = ast.literal_eval(priors)
+                priors = self.eval(priors)
 
                 if isinstance(priors, dict):
                     priorfiles = priors
@@ -1527,6 +1527,31 @@ class KnopeDAGRunner(object):
             self.job.add_arg(configfile)
 
         self.dag.build()
+
+    def eval(self, arg):
+        """
+        Try and evaluate a string using :func:`ast.literal_eval`.
+
+        Parameters
+        ----------
+        arg: str
+            A string to be evaluated.
+
+        Returns
+        -------
+        object:
+            The evaluated object, or original string, if not able to be evaluated.
+        """
+
+        # copy of string
+        newobj = str(arg)
+
+        try:
+            newobj = ast.literal_eval(newobj)
+        except (ValueError, SyntaxError):
+            pass
+
+        return newobj
 
 
 def knope_dag(**kwargs):
