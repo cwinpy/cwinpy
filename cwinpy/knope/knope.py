@@ -1128,27 +1128,6 @@ class KnopeDAGRunner(object):
         except ImportError:
             raise ImportError("To run 'cwinpy_knope_dag' you must install pycondor")
 
-        # get DAG arguments
-        if config.has_section("dag"):
-            # submit directory location
-            submit = config.get(
-                "dag", "submit", fallback=os.path.join(os.getcwd(), "submit")
-            )
-
-            # DAG name prefix
-            name = config.get("dag", "name", fallback="cwinpy_knope")
-
-            # get whether to automatically submit the dag
-            self.submitdag = config.getboolean("dag", "submitdag", fallback=False)
-
-            # get any additional submission options
-            self.submit_options = config.get("dag", "submit_options", fallback=None)
-        else:
-            raise IOError("Configuration file must have a [condor] section.")
-
-        # create the Dagman
-        self.dag = Dagman(name=name, submit=submit)
-
         # get output directory base from the [run] section
         basedir = config.get("run", "basedir", fallback=None)
         if basedir is None:
@@ -1161,56 +1140,71 @@ class KnopeDAGRunner(object):
                     "Could not create output directory " "location: '{}'".format(e)
                 )
 
+        # get DAG arguments
+        # submit directory location
+        submit = config.get(
+            "dag", "submit", fallback=os.path.join(basedir, "submit")
+        )
+
+        # DAG name prefix
+        name = config.get("dag", "name", fallback="cwinpy_knope")
+
+        # get whether to automatically submit the dag
+        self.submitdag = config.getboolean("dag", "submitdag", fallback=False)
+
+        # get any additional submission options
+        self.submit_options = config.get("dag", "submit_options", fallback=None)
+
+        # create the Dagman
+        self.dag = Dagman(name=name, submit=submit)
+
         # get the cwinpy_knope job arguments
-        if config.has_section("job"):
-            # executable
-            from shutil import which
+        # executable
+        from shutil import which
+        jobexec = which(config.get("job", "executable", fallback="cwinpy_knope"))
 
-            jobexec = which(config.get("job", "executable", fallback="cwinpy_knope"))
-
-            if jobexec is None:
-                raise ValueError("cwinpy_knope executable is not specified")
-            elif os.path.basename(jobexec) != "cwinpy_knope":
-                raise ValueError(
-                    "Executable '{}' is not 'cwinpy_knope'!".format(jobexec)
-                )
-
-            # job name prefix
-            jobname = config.get("job", "name", fallback="cwinpy_knope")
-
-            # condor universe
-            universe = config.get("job", "universe", fallback="vanilla")
-
-            # stdout directory location
-            output = config.get("job", "out", fallback=os.path.join(basedir, "out"))
-
-            # stderr directory location#
-            error = config.get("job", "error", fallback=os.path.join(basedir, "error"))
-
-            # log directory
-            log = config.get("job", "log", fallback=os.path.join(basedir, "log"))
-
-            # submit directory location
-            jobsubmit = config.get(
-                "job", "submit", fallback=os.path.join(basedir, "submit")
+        if jobexec is None:
+            raise ValueError("cwinpy_knope executable is not specified")
+        elif os.path.basename(jobexec) != "cwinpy_knope":
+            raise ValueError(
+                "Executable '{}' is not 'cwinpy_knope'!".format(jobexec)
             )
 
-            # get local environment variables
-            getenv = config.getboolean("job", "getenv", fallback=False)
+        # job name prefix
+        jobname = config.get("job", "name", fallback="cwinpy_knope")
 
-            # request memory
-            reqmem = config.get("job", "request_memory", fallback="4 GB")
+        # condor universe
+        universe = config.get("job", "universe", fallback="vanilla")
 
-            # request CPUs
-            reqcpus = config.getint("job", "request_cpus", fallback=1)
+        # stdout directory location
+        output = config.get("job", "out", fallback=os.path.join(basedir, "out"))
 
-            # requirements
-            requirements = config.get("job", "requirements", fallback=None)
+        # stderr directory location#
+        error = config.get("job", "error", fallback=os.path.join(basedir, "error"))
 
-            # retries of job on failure
-            retry = config.getint("job", "retry", fallback=0)
-        else:
-            raise IOError("Configuration file must have a [job] section.")
+        # log directory
+        log = config.get("job", "log", fallback=os.path.join(basedir, "log"))
+
+        # submit directory location
+        jobsubmit = config.get(
+            "job", "submit", fallback=os.path.join(basedir, "submit")
+        )
+
+        # get local environment variables
+        getenv = config.getboolean("job", "getenv", fallback=False)
+
+        # request memory
+        reqmem = config.get("job", "request_memory", fallback="4 GB")
+
+        # request CPUs
+        reqcpus = config.getint("job", "request_cpus", fallback=1)
+
+        # requirements
+        requirements = config.get("job", "requirements", fallback=None)
+
+        # retries of job on failure
+        retry = config.getint("job", "retry", fallback=0)
+
 
         # create cwinpy_knope Job
         self.job = Job(
