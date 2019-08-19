@@ -873,7 +873,7 @@ class KnopeRunner(object):
     def run_sampler(self):
         """
         Run bilby to sample the posterior.
-        
+
         Returns
         -------
         res
@@ -954,7 +954,7 @@ def knope(**kwargs):
         should give a path to a file containing a frequency series of the
         ASD. If a list, then this should be a different float or string for
         each supplied detector. If a dictionary, then this should be a set
-        of floats or string keyed to detector names. The simulated noise
+        of floats or strings keyed to detector names. The simulated noise
         produced with this argument is assumed to be at twice the source
         rotation frequency. To explicitly specify fake data generation at once
         or twice the source rotation frequency use the equivalent
@@ -1274,21 +1274,54 @@ class KnopeDAGRunner(object):
             # get names of all the pulsars
             from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
-            pulsarnames = []
+            pulsardict = {}
             for pulsar in list(pulsars):
                 if os.path.isfile(pulsar):
                     psr = PulsarParametersPy(pulsar)
                     if psr["PSRJ"] is not None:
-                        pulsarnames.append(psr["PSRJ"])
+                        pulsardict[psr["PSRJ"]] = pulsar
                     else:
                         warnings.warn(
                             "Parameter file '{}' has no name, so it will be "
                             "ignored".format(pulsar)
                         )
-                        pulsars.remove(pulsar)
-                else:
-                    # remove the pulsar
-                    pulsars.remove(pulsar)
+
+            # the "injections" option in the [knope] section can be specified
+            # in the same way as the "pulsars" option
+            # get paths to pulsar injection files
+            injfiles = config.get("knope", "injections", fallback=None)
+            if injfiles is not None:
+                injfiles = self.eval(injfiles)
+                if not isinstance(injfiles, list):
+                    injfiles = [injfiles]
+
+                injections = []
+                for injfile in injfiles:
+                    # add "*.par" wildcard to any directories
+                    if os.path.isdir(injfile):
+                        injfile = os.path.join(injfile, "*.par")
+
+                    # get all parameter files
+                    injections.extend(
+                        [
+                            inj
+                            for inj in glob.glob(injfile)
+                            if os.path.splitext(inj)[1] == ".par"
+                        ]
+                    )
+
+                injdict = {}
+                for inj in list(injections):
+                    if os.path.isfile(inj):
+                        psr = PulsarParametersPy(inj)
+                        if psr["PSRJ"] is not None:
+                            if psr["PSRJ"] in pulsardict:
+                                injdict[psr["PSRJ"]] = inj
+                        else:
+                            warnings.warn(
+                                "Parameter file '{}' has no name, so it will be "
+                                "ignored".format(inj)
+                            )
 
             # the "data-file-1f" and "data-file-2f" options in the [knope]
             # section specify the locations of heterodyned data files at the
@@ -1296,87 +1329,114 @@ class KnopeDAGRunner(object):
             # source. It is expected that the heterodyned file names
             # contain the name of the pulsar (based on the "PSRJ" name in the
             # associated parameter file). The option should be a dictionary
-            # with keys being the detector name for the data sets.
+            # with keys being the detector name for the data sets. If a
+            # "data-file" option is given it is assumed to be for data at twice
+            # the rotation frequency.
             datafiles1f = config.get("knope", "data-file-1f", fallback=None)
-            datafiles2f = config.get("knope", "data-file-2f", fallback=None)
+            datafiles2fdefault = config.get("knope", "data-file", fallback=None)
+            datafiles2f = config.get(
+                "knope",
+                "data-file-2f",
+                fallback=datafiles2fdefault
+            )
 
-            detectors1f = None
-            if datafiles1f is not None:
-                datafiles1f = self.eval(datafiles1f)
+            # the "fake-asd-1f" and "fake-asd-2f" options in the [knope]
+            # section specify amplitude spectral densities with which to
+            # generate simulated Gaussian data for a given detector. If this is
+            # a list of detectors then the design ASDs for the given detectors
+            # will be used, otherwise it should be a dictionary keyed to
+            # detector names, each giving an ASD value, or file from which the
+            # ASD can be read. If a "fake-asd" option is given it is assumed to
+            # be for data at twice the rotation frequency.
+            fakeasd1f = config.get("knope", "fake-asd-1f", fallback=None)
+            fakeasd2fdefault = config.get("knope", "fake-asd", fallback=None)
+            fakeasd2f = config.get("knope", "fake-asd-2f", fallback=fakeasd2fdefault)
+            simdata = {}
 
-                if not isinstance(datafiles1f, dict):
-                    raise TypeError("Data files must be specified in a dictionary")
+            if datafiles1f is not None or datafiles2f is not None:
+                detectors1f = None
+                if datafiles1f is not None:
+                    datafiles1f = self.eval(datafiles1f)
 
-                detectors1f = sorted(list(datafiles1f.keys()))
+                    if not isinstance(datafiles1f, dict):
+                        raise TypeError("Data files must be specified in a dictionary")
 
-            detectors2f = None
-            if datafiles2f is not None:
-                datafiles2f = self.eval(datafiles2f)
+                    detectors1f = sorted(list(datafiles1f.keys()))
 
-                if not isinstance(datafiles2f, dict):
-                    raise TypeError("Data files must be specified in a dictionary")
+                detectors2f = None
+                if datafiles2f is not None:
+                    datafiles2f = self.eval(datafiles2f)
 
-                detectors2f = sorted(list(datafiles2f.keys()))
+                    if not isinstance(datafiles2f, dict):
+                        raise TypeError("Data files must be specified in a dictionary")
 
-            if datafiles1f is None and datafiles2f is None:
-                raise IOError("No data files have been given")
+                    detectors2f = sorted(list(datafiles2f.keys()))
 
-            if detectors1f != detectors2f and datafiles1f and datafiles2f:
-                raise IOError("Inconsistent detectors given for data sets")
+                if detectors1f != detectors2f and datafiles1f and datafiles2f:
+                    raise IOError("Inconsistent detectors given for data sets")
 
-            detectors = detectors2f if detectors2f else detectors1f
+                detectors = detectors2f if detectors2f else detectors1f
 
-            # get lists of data files. For each detector the passed files could
-            # be a single file, a list of files, a glob-able directory path
-            # containing the files, or a dictionary keyed to the pulsar names.
-            datadict = {pname: {} for pname in pulsarnames}
+                # get lists of data files. For each detector the passed files could
+                # be a single file, a list of files, a glob-able directory path
+                # containing the files, or a dictionary keyed to the pulsar names.
+                datadict = {pname: {} for pname in pulsardict.keys()}
 
-            for datafilesf, freqfactor in zip([datafiles1f, datafiles2f], ["1f", "2f"]):
-                if datafilesf is None:
-                    continue
-                else:
-                    for pname in pulsarnames:
-                        datadict[pname][freqfactor] = {}
-
-                for det in detectors:
-                    dff = []
-                    datafiles = datafilesf[det]
-
-                    if isinstance(datafiles, dict):
-                        # dictionary of files, with one for each pulsar
-                        for pname in pulsarnames:
-                            if pname in datafiles:
-                                datadict[pname][freqfactor][det] = datafiles[pname]
+                for datafilesf, freqfactor in zip([datafiles1f, datafiles2f], ["1f", "2f"]):
+                    if datafilesf is None:
                         continue
+                    else:
+                        for pname in pulsardict.keys():
+                            datadict[pname][freqfactor] = {}
 
-                    if not isinstance(datafiles, list):
-                        datafiles = [datafiles]
+                    for det in detectors:
+                        dff = []
+                        datafiles = datafilesf[det]
 
-                    for datafile in datafiles:
-                        # add "*" wildcard to any directories
-                        if os.path.isdir(datafile):
-                            datafile = os.path.join(datafile, "*")
+                        if isinstance(datafiles, dict):
+                            # dictionary of files, with one for each pulsar
+                            for pname in pulsardict.keys():
+                                if pname in datafiles:
+                                    datadict[pname][freqfactor][det] = datafiles[pname]
+                            continue
 
-                        # get all data files
-                        dff.extend(
-                            [dat for dat in glob.glob(datafile) if os.path.isfile(dat)]
-                        )
+                        if not isinstance(datafiles, list):
+                            datafiles = [datafiles]
 
-                    if len(dff) == 0:
-                        raise ValueError("No data files found!")
+                        for datafile in datafiles:
+                            # add "*" wildcard to any directories
+                            if os.path.isdir(datafile):
+                                datafile = os.path.join(datafile, "*")
 
-                    # check file name contains the name of a supplied pulsar
-                    for pname in pulsarnames:
-                        for datafile in dff:
-                            if pname in datafile:
-                                if det not in datadict[pname][freqfactor]:
-                                    datadict[pname][freqfactor][det] = datafile
-                                else:
-                                    print(
-                                        "Duplicate pulsar '{}' data. Ignoring "
-                                        "duplicate.".format(pname),
-                                        file=sys.stdout
-                                    )
+                            # get all data files
+                            dff.extend(
+                                [dat for dat in glob.glob(datafile) if os.path.isfile(dat)]
+                            )
+
+                        if len(dff) == 0:
+                            raise ValueError("No data files found!")
+
+                        # check file name contains the name of a supplied pulsar
+                        for pname in pulsardict:
+                            for datafile in dff:
+                                if pname in datafile:
+                                    if det not in datadict[pname][freqfactor]:
+                                        datadict[pname][freqfactor][det] = datafile
+                                    else:
+                                        print(
+                                            "Duplicate pulsar '{}' data. Ignoring "
+                                            "duplicate.".format(pname),
+                                            file=sys.stdout
+                                        )
+            elif fakeasd1f is not None or fakeasd2f is not None:
+                # set to use simulated data
+                if fakeasd1f is not None:
+                    simdata["1f"] = self.eval(fakeasd1f)
+
+                if fakeasd2f is not None:
+                    simdata["2f"] = self.eval(fakeasd2f)
+            else:
+                raise IOError("No data set for use")
 
             # set some default bilby-style priors
             DEFAULTPRIORS2F = (
@@ -1427,7 +1487,7 @@ class KnopeDAGRunner(object):
                             allpriors.extend([pf for pf in glob.glob(priorfile)])
 
                         priorfiles = {}
-                        for pname in pulsarnames:
+                        for pname in pulsardict.keys():
                             for priorfile in allpriors:
                                 if pname in priorfile:
                                     if pname not in priorfiles:
@@ -1439,7 +1499,7 @@ class KnopeDAGRunner(object):
                                         )
                     elif isinstance(priors, str):
                         if os.path.isfile(priors):
-                            priorfiles = {psr: priorfile for psr in pulsarnames}
+                            priorfiles = {psr: priorfile for psr in pulsardict.keys()}
                         else:
                             raise ValueError(
                                 "Prior file '{}' does not exist".format(priors)
@@ -1458,13 +1518,13 @@ class KnopeDAGRunner(object):
                     else:
                         fp.write(DEFAULTPRIORS1F)
 
-                priorfiles = {psr: priorfile for psr in pulsarnames}
+                priorfiles = {psr: priorfile for psr in pulsardict.keys()}
 
             # check prior and data exist for the same pulsar, if not remove
             priornames = list(priorfiles.keys())
-            datanames = list(datadict.keys())
+            datanames = list(datadict.keys()) if not simdata else priornames
 
-            for pname in pulsarnames:
+            for pname in list(pulsardict.keys()):
                 if pname in priornames and pname in datanames:
                     continue
                 else:
@@ -1478,10 +1538,8 @@ class KnopeDAGRunner(object):
                     if pname in priornames:
                         priorfiles.pop(pname)
 
-                    if pname in pulsarnames:
-                        idx = pulsarnames.index(pname)
-                        pulsars.pop(idx)
-                        pulsarnames.pop(idx)
+                    if pname in pulsardict:
+                        pulsardict.pop(pname)
 
             # check location to output 'cwinpy_knope' input configuration files.
             configlocation = config.get(
@@ -1507,7 +1565,7 @@ class KnopeDAGRunner(object):
             raise IOError("Configuration file must have a [knope] section.")
 
         # create jobs (output and label set using pulsar name)
-        for pname, parfile in zip(pulsarnames, pulsars):
+        for pname in pulsardict:
             # create output directory
             psrbase = os.path.join(basedir, pname)
 
@@ -1521,16 +1579,26 @@ class KnopeDAGRunner(object):
             # create dictionary of configuration outputs
             configdict = {}
 
-            configdict["par-file"] = parfile
+            configdict["par-file"] = pulsardict[pname]
 
             # data file(s)
             for freqfactor in ["1f", "2f"]:
-                try:
-                    configdict["data-file-{}".format(freqfactor)] = str(
-                        datadict[pname][freqfactor]
+                if not simdata:
+                    try:
+                        configdict["data-file-{}".format(freqfactor)] = str(
+                            datadict[pname][freqfactor]
+                        )
+                    except KeyError:
+                        pass
+                else:
+                    configdict["fake-asd-{}".format(freqfactor)] = str(
+                        simdata[freqfactor]
                     )
-                except KeyError:
-                    pass
+
+            # add injection if given
+            if injfiles is not None:
+                if pname in injdict:
+                    configdict["inj-par"] = injdict[pname]
 
             configdict["outdir"] = psrbase
             configdict["label"] = pname
@@ -1586,7 +1654,8 @@ def knope_dag(**kwargs):
     Parameters
     ----------
     config: str
-        A configuration file for the analysis.
+        A configuration file, or :class:`configparser:ConfigParser` object,
+        for the analysis.
 
     Returns
     -------
@@ -1619,22 +1688,25 @@ def knope_dag(**kwargs):
         args = parser.parse_args()
         configfile = args.config
 
-    config = configparser.ConfigParser()
+    if isinstance(configfile, configparser.ConfigParser):
+        config = configfile
+    else:
+        config = configparser.ConfigParser()
 
-    try:
-        config.read_file(open(configfile, "r"))
-    except Exception as e:
-        raise IOError(
-            "Problem reading configuation file '{}'\n: {}".format(configfile, e)
-        )
+        try:
+            config.read_file(open(configfile, "r"))
+        except Exception as e:
+            raise IOError(
+                "Problem reading configuation file '{}'\n: {}".format(configfile, e)
+            )
 
     return KnopeDAGRunner(config).dag
 
 
 def knope_dag_cli(**kwargs):
     """
-    Entry point to the cwinpy_knope_dag script. This just calls :func:`cwinpy.knope.knope_dag`,
-    but does not return any objects. 
+    Entry point to the cwinpy_knope_dag script. This just calls
+    :func:`cwinpy.knope.knope_dag`, but does not return any objects.
     """
 
     _ = knope_dag(**kwargs)

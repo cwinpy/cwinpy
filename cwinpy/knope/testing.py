@@ -3,9 +3,14 @@ Run P-P plot testing for cwinpy_knope.
 """
 
 import os
+import sys
 import glob
 import bilby
+import numpy as np
 from .knope import knope_dag
+from bilby_pipe.pp_test import read_in_result_list
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 
 
 def generate_pp_plots(**kwargs):
@@ -39,8 +44,8 @@ def generate_pp_plots(**kwargs):
         # default output file is a PNG image in the current directory
         outfile = kwargs.get("output", os.path.join(os.getcwd(), "ppplot.png"))
 
-        # default parameters are "h0", "phi0", "psi" and "iota"
-        parameters = kwargs.get("parameters", ["h0", "phi0", "psi", "iota"])
+        # default parameters are obtained from the results file prior
+        parameters = kwargs.get("parameters", None)
     elif "cwinpy_knope_generate_pp_plots" == os.path.split(sys.argv[0])[-1]:
         try:
             from argparse import ArgumentParser
@@ -72,10 +77,8 @@ def generate_pp_plots(**kwargs):
         parser.add_argument(
             "--parameter",
             action="append",
-            default=["h0", "phi0", "psi", "iota"],
             help=(
-                "The parameters with which to create the PP plots. "
-                "[default: %(default)s]."
+                "The parameters with which to create the PP plots."
             ),
         )
 
@@ -101,24 +104,28 @@ def generate_pp_plots(**kwargs):
             "Problem finding results files. Probably an invalid path!"
         )
 
-    credints = {param: [] for param in parameters}
+    # read in results
+    results = read_in_result_list(resfiles)
 
-    # read in results files and get injection credible interval
-    for rfile in resfiles:
-        try:
-            results = bilby.core.result.read_in_result(rfile)
-        except Exception as e:
-            raise IOError(
-                "Could not read in results from file '{}'\n{}".format(rfile, e)
-            )
+    if parameters is None:
+        # get parameters to use from results file prior
+        parameters = [
+            name
+            for name, p in results[0].priors.items()
+            if isinstance(p, str) or p.is_fixed is False
+        ]
 
-        # check parameters are in results file
-
-        # get truths from results
-
-        # get credible interval containing truth
-
-    # make plots!
+    # make plots
+    try:
+        _ = bilby.core.result.make_pp_plot(
+            results,
+            filename=outfile,
+            keys=parameters,
+        )
+    except Exception as e:
+        raise RuntimeError(
+            "Problem creating PP plots: {}".format(e)
+        )
 
 
 class KnopePPPlotsDAG(object):
@@ -127,6 +134,229 @@ class KnopePPPlotsDAG(object):
     simulated gravitational-wave signals from pulsars in Gaussian noise. These
     will be analysed using the ``cwinpy_knope`` script to sample the posterior
     probability distributions of the required parameter space. For each
-    simulation and parameter combination the credible interval (symmetric in
-    probability about the median) in which the known true signal value lies
+    simulation and parameter combination the credible interval (bounded at the
+    low end by the lowest sample in the posterior) in which the known true
+    signal value lies will be found. The cumulative probability of finding the
+    true value within a given credible interval is then plotted.
+
+    Parameters
+    ----------
+    prior: dict
+        A bilby-style prior dictionary giving the prior distributions from
+        which to draw the injected signal values, and to use for signal
+        recovery.
+    ninj: int
+        The number of simulated signals to create. Defaults to 100.
+    maxamp: float
+        A maxmimum on the amplitude parameter(s) to use when drawing the
+        injection parameters. If none is given then this will be taken
+        from the prior if using an amplitude parameter.
+    basedir: str
+        The base directory into which the simulations and outputs will be
+        placed. If None then the current working directory will be used.
+    detector: str, list
+        A string, or list of strings, of detector prefixes for the simulated
+        data. This defaults to a single detector - the LIGO Hanford
+        Observatory - from which the simulated noise will be drawn from the
+        advanced detector design sensitivity curve (e.g., [1]_).
+    submit: bool
+        Set whether to submit the Condor DAG or not.
+    accountuser: str
+        Value to give to the 'account_user' parameter in the Condor submit
+        file. Default is to set no value.
+    accountgroup: str
+        Value to give to the 'account_user_group' parameter in the Condor
+        submit file. Default is to set no value.
+    getenv: bool
+        Set the value for the 'getenv' parameter in the Condor submit file.
+        Default is False.
+    sampler: str
+        The sampler to use. Defaults to dynesty.
+    sampler_kwargs: dict
+        A dictionary of keyword arguments for the sampler. Defaults to None.
+
+    References
+    ----------
+
+        .. [1] L. Barsotti, S. Gras, M. Evans, P. Fritschel,
+               `LIGO T1800044-v5 <https://dcc.ligo.org/LIGO-T1800044/public>`_ (2018)
+
     """
+
+    def __init__(self, prior, ninj=100, maxamp=None, basedir=None,
+                 detector="AH1", submit=False, accountuser=None,
+                 accountgroup=None, getenv=False, sampler="dynesty",
+                 sampler_kwargs=None):
+
+        if isinstance(prior, dict):
+            self.prior = bilby.core.prior.PriorDict(dictionary=prior)
+        else:
+            raise TypeError("Prior must be a dictionary-type object")
+
+        if ninj < 1:
+            raise ValueError("A positive number of injection must be given")
+        self.ninj = ninj
+
+        # set maximum amplitude if given
+        self.maxamp = None
+        if isinstance(maxamp, float):
+            if maxamp > 0.:
+                self.maxamp = int(maxamp)
+            else:
+                raise ValueError("Maximum amplitude must be positive")
+
+        if basedir is not None:
+            self.basedir = basedir
+            self.makedirs(basedir)
+        else:
+            self.basedir = os.getcwd()
+
+        # build output directory structure
+        self.detector = detector
+        if isinstance(self.detector, str):
+            self.detector = [self.detector]
+        if not isinstance(self.detector, list):
+            raise TypeError("Detector must be a string or list of strings")
+
+        # posterior sample results directory
+        self.resultsdir = os.path.join(self.basedir, "results")
+        self.makedirs(self.resultsdir)
+
+        # create pulsar parameter files
+        self.create_pulsars()
+
+        # create dag configuration file
+        self.accountuser = accountuser
+        self.accountgroup = accountgroup
+        self.getenv = getenv
+        self.submit = submit
+        self.sampler = sampler
+        self.sampler_kwargs = sampler_kwargs
+        self.create_config()
+
+        # create the DAG
+        self.dag = knope_dag({"config": self.config})
+
+    def makedirs(self, dir):
+        """
+        Make a directory tree recursively.
+        """
+
+        try:
+            os.makedirs(dir)
+        except Exception as e:
+            raise IOError("Could not create directory: {}\n{}".format(dir, e))
+
+    def create_pulsars(self):
+        """
+        Create the pulsar parameter files based on the samples from the priors.
+        """
+
+        # pulsar parameter file directory
+        self.pulsardir = os.path.join(self.basedir, "pulsars")
+        self.makedirs(self.pulsardir)
+
+        # "amplitude" parameters
+        amppars = ["h0", "c21", "c22", "q22"]
+
+        self.pulsars = {}
+        for i in range(self.ninj):
+            pulsar = {}
+
+            for param in self.prior:
+                pulsar[param.upper()] = self.prior[param].sample()
+
+            # draw sky position uniformly from the sky if no prior is given
+            if "ra" not in self.prior:
+                pulsar["RA"] = np.random.uniform(0.0, 2.0 * np.pi)
+
+            if "dec" not in self.prior:
+                pulsar["DEC"] = -(np.pi/2.) + np.arccos(np.random.uniform(-1.0, 1.0))
+
+            # set maximum amplitude if given
+            if self.maxamp is not None:
+                for amp in amppars:
+                    if amp in self.prior:
+                        pulsar[amp.upper()] = bilby.core.prior.Uniform(
+                            name=amp,
+                            minimum=0.,
+                            maximum=self.maxamp).sample()
+
+            # set (rotation) frequency between 10 and 750 Hz if not given
+            if "f0" not in self.prior:
+                pulsar["F0"] = np.ranbdom.uniform(10.0, 750.0)
+
+            # set pulsar name from sky position
+            skypos = SkyCoord(pulsar["RA"] * u.rad, pulsar["DEC"] * u.rad)
+            rastr = skypos.ra.to_string(u.hour, fields=2, sep="", pad=True)
+            decstr = skypos.dec.to_string(
+                u.deg, fields=2, sep="", pad=True, alwayssign=True
+            )
+            pname = 'J{}{}'.format(rastr, decstr)
+            pnameorig = pname.copy()  # copy of original name  
+            counter = 0
+            alphas = ["A", "B", "C", "D", "E", "F", "G"]
+            while pname in self.pulsars:
+                if counter == len(alphas):
+                    raise RuntimeError(
+                        "Too many pulsars in the same sky position!"
+                    )
+                pname = pnameorig + alphas[counter]
+                counter += 1
+
+            pulsar["PSRJ"] = pname
+
+            # output file name
+            pfile = os.path.join(self.pulsardir, "{}.par".format(pname))
+
+            with open(pfile, "w") as fp:
+                for param in pulsar:
+                    fp.write("{} {}\n".format(param, pulsar[param]))
+
+            self.pulsars[pname] = pfile
+
+    def create_config(self):
+        """
+        Create the configuration parser for the DAG.
+        """
+
+        try:
+            from configparser import ConfigParser
+        except ImportError:
+            raise ImportError("Could not import configparser")
+
+        self.config = ConfigParser()
+
+        self.config["run"] = {"basedir": self.basedir}
+
+        self.config["dag"] = {"submitdag": str(self.submit)}
+
+        self.config["job"] = {}
+        self.config["job"]["getenv"] = str(self.getenv)
+
+        if self.accountgroup is not None:
+            self.config["accounting_group"] = self.accountgroup
+        if self.accountuser is not None:
+            self.config["accounting_group_user"] = self.accountuser
+
+        self.config["knope"] = {}
+        self.config["knope"]["pulsars"] = self.pulsardir
+        self.config["knope"]["injections"] = self.pulsardir
+
+        # set fake data
+        if 'h0' in self.prior or 'c22' in self.prior or 'q22' in self.prior:
+            self.config["knope"]["fake-asd-2f"] = str(self.detector)
+        if 'c21' in self.prior and 'c22' in self.prior:
+            self.config["knope"]["fake-asd-1f"] = str(self.detector)
+        if 'c21' in self.prior and 'c22 not in self.prior':
+            self.config["knope"]["fake-asd-1f"] = str(self.detector)
+
+        # set the prior file
+        label = "pp"
+        priorfile = os.path.join(self.basedir, "{}.prior".format(label))
+        self.prior.to_file(outdir=self.basedir, label=label)
+
+        self.config["knope"]["priors"] = priorfile
+        self.config["knope"]["sampler"] = self.sampler
+        if isinstance(self.sampler_kwargs, dict):
+            self.config["knope"]["sampler_kwargs"] = str(self.sampler_kwargs)
