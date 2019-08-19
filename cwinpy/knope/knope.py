@@ -1499,7 +1499,7 @@ class KnopeDAGRunner(object):
                                         )
                     elif isinstance(priors, str):
                         if os.path.isfile(priors):
-                            priorfiles = {psr: priorfile for psr in pulsardict.keys()}
+                            priorfiles = {psr: priors for psr in pulsardict.keys()}
                         else:
                             raise ValueError(
                                 "Prior file '{}' does not exist".format(priors)
@@ -1591,9 +1591,12 @@ class KnopeDAGRunner(object):
                     except KeyError:
                         pass
                 else:
-                    configdict["fake-asd-{}".format(freqfactor)] = str(
-                        simdata[freqfactor]
-                    )
+                    try:
+                        configdict["fake-asd-{}".format(freqfactor)] = str(
+                            simdata[freqfactor]
+                        )
+                    except KeyError:
+                        pass
 
             # add injection if given
             if injfiles is not None:

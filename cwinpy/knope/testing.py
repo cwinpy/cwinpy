@@ -174,6 +174,9 @@ class KnopePPPlotsDAG(object):
         The sampler to use. Defaults to dynesty.
     sampler_kwargs: dict
         A dictionary of keyword arguments for the sampler. Defaults to None.
+    freqrange: list, tuple
+        A pair of values giving the lower and upper rotation frequency ranges
+        (in Hz) for the simulated signals. Defaults to (10, 750) Hz.
 
     References
     ----------
@@ -186,7 +189,7 @@ class KnopePPPlotsDAG(object):
     def __init__(self, prior, ninj=100, maxamp=None, basedir=None,
                  detector="AH1", submit=False, accountuser=None,
                  accountgroup=None, getenv=False, sampler="dynesty",
-                 sampler_kwargs=None):
+                 sampler_kwargs=None, freqrange=(10.0, 750.0)):
 
         if isinstance(prior, dict):
             self.prior = bilby.core.prior.PriorDict(dictionary=prior)
@@ -223,7 +226,7 @@ class KnopePPPlotsDAG(object):
         self.makedirs(self.resultsdir)
 
         # create pulsar parameter files
-        self.create_pulsars()
+        self.create_pulsars(freqrange=freqrange)
 
         # create dag configuration file
         self.accountuser = accountuser
@@ -235,7 +238,7 @@ class KnopePPPlotsDAG(object):
         self.create_config()
 
         # create the DAG
-        self.dag = knope_dag({"config": self.config})
+        self.dag = knope_dag(config=self.config)
 
     def makedirs(self, dir):
         """
@@ -243,13 +246,19 @@ class KnopePPPlotsDAG(object):
         """
 
         try:
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         except Exception as e:
             raise IOError("Could not create directory: {}\n{}".format(dir, e))
 
-    def create_pulsars(self):
+    def create_pulsars(self, freqrange):
         """
         Create the pulsar parameter files based on the samples from the priors.
+
+        Parameters
+        ----------
+        freqrange: list, tuple
+            A pair of values giving the lower and upper rotation frequency ranges
+            (in Hz) for the simulated signals.
         """
 
         # pulsar parameter file directory
@@ -258,6 +267,12 @@ class KnopePPPlotsDAG(object):
 
         # "amplitude" parameters
         amppars = ["h0", "c21", "c22", "q22"]
+
+        if not isinstance(freqrange, (list, tuple, np.ndarray)):
+            raise TypeError("Frequency range must be a list or tuple")
+        else:
+            if len(freqrange) != 2:
+                raise ValueError("Frequency range must contain an upper and lower value")
 
         self.pulsars = {}
         for i in range(self.ninj):
@@ -268,10 +283,18 @@ class KnopePPPlotsDAG(object):
 
             # draw sky position uniformly from the sky if no prior is given
             if "ra" not in self.prior:
-                pulsar["RA"] = np.random.uniform(0.0, 2.0 * np.pi)
+                raval = np.random.uniform(0.0, 2.0 * np.pi)
+            else:
+                raval = pulsar.pop("ra")
 
             if "dec" not in self.prior:
-                pulsar["DEC"] = -(np.pi/2.) + np.arccos(np.random.uniform(-1.0, 1.0))
+                decval = -(np.pi/2.) + np.arccos(np.random.uniform(-1.0, 1.0))
+            else:
+                decval = pulsar.pop("dec")
+
+            skypos = SkyCoord(raval * u.rad, decval * u.rad)
+            pulsar["RAJ"] = skypos.ra.to_string(u.hour, fields=3, sep=":", pad=True)
+            pulsar["DECJ"] = skypos.dec.to_string(u.deg, fields=3, sep=":", pad=True)
 
             # set maximum amplitude if given
             if self.maxamp is not None:
@@ -282,18 +305,17 @@ class KnopePPPlotsDAG(object):
                             minimum=0.,
                             maximum=self.maxamp).sample()
 
-            # set (rotation) frequency between 10 and 750 Hz if not given
+            # set (rotation) frequency upper and lower bounds
             if "f0" not in self.prior:
-                pulsar["F0"] = np.ranbdom.uniform(10.0, 750.0)
+                pulsar["F0"] = np.random.uniform(freqrange[0], freqrange[1])
 
             # set pulsar name from sky position
-            skypos = SkyCoord(pulsar["RA"] * u.rad, pulsar["DEC"] * u.rad)
             rastr = skypos.ra.to_string(u.hour, fields=2, sep="", pad=True)
             decstr = skypos.dec.to_string(
                 u.deg, fields=2, sep="", pad=True, alwayssign=True
             )
             pname = 'J{}{}'.format(rastr, decstr)
-            pnameorig = pname.copy()  # copy of original name  
+            pnameorig = str(pname)  # copy of original name  
             counter = 0
             alphas = ["A", "B", "C", "D", "E", "F", "G"]
             while pname in self.pulsars:
@@ -311,7 +333,7 @@ class KnopePPPlotsDAG(object):
 
             with open(pfile, "w") as fp:
                 for param in pulsar:
-                    fp.write("{} {}\n".format(param, pulsar[param]))
+                    fp.write("{}\t{}\n".format(param, pulsar[param]))
 
             self.pulsars[pname] = pfile
 
