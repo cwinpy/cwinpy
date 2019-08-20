@@ -1107,7 +1107,10 @@ class KnopeDAGRunner(object):
         self.create_dag(config)
 
         if self.submitdag:
-            self.dag.submit_dag(self.submit_options)
+            if self.build:
+                self.dag.build_submit(submit_options=self.submit_options)
+            else:    
+                self.dag.submit_dag(self.submit_options)
 
     def create_dag(self, config):
         """
@@ -1146,6 +1149,9 @@ class KnopeDAGRunner(object):
 
         # DAG name prefix
         name = config.get("dag", "name", fallback="cwinpy_knope_dag")
+
+        # get whether to build the dag
+        self.build = config.getboolean("dag", "build", fallback=True)
 
         # get whether to automatically submit the dag
         self.submitdag = config.getboolean("dag", "submitdag", fallback=False)
@@ -1629,7 +1635,8 @@ class KnopeDAGRunner(object):
             # add arguments to a job
             self.job.add_arg(configfile)
 
-        self.dag.build()
+        if self.build:
+            self.dag.build()
 
     def eval(self, arg):
         """
@@ -1701,7 +1708,7 @@ def knope_dag(**kwargs):
                 "Problem reading configuation file '{}'\n: {}".format(configfile, e)
             )
 
-    return KnopeDAGRunner(config).dag
+    return KnopeDAGRunner(config)
 
 
 def knope_dag_cli(**kwargs):  # pragma: no cover

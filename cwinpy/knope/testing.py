@@ -236,10 +236,13 @@ class KnopePPPlotsDAG(object):
         self.create_config()
 
         # create the DAG for cwinpy_knope jobs
-        self.dag = knope_dag(config=self.config)
+        self.runner = knope_dag(config=self.config, build=False)
         
         # add PP plot creation DAG
         self.ppplots()
+
+        if self.submit:
+            self.runner.dag.submit_dag()
 
     def makedirs(self, dir):
         """
@@ -349,15 +352,15 @@ class KnopePPPlotsDAG(object):
 
         self.config["run"] = {"basedir": self.basedir}
 
-        self.config["dag"] = {"submitdag": str(self.submit)}
+        self.config["dag"] = {"build": False}
 
         self.config["job"] = {}
         self.config["job"]["getenv"] = str(self.getenv)
 
         if self.accountgroup is not None:
-            self.config["accounting_group"] = self.accountgroup
+            self.config["job"]["accounting_group"] = self.accountgroup
         if self.accountuser is not None:
-            self.config["accounting_group_user"] = self.accountuser
+            self.config["job"]["accounting_group_user"] = self.accountuser
 
         self.config["knope"] = {}
         self.config["knope"]["pulsars"] = self.pulsardir
@@ -372,7 +375,7 @@ class KnopePPPlotsDAG(object):
             self.config["knope"]["fake-asd-1f"] = str(self.detector)
 
         # set the prior file
-        label = "pp"
+        label = "ppplot"
         self.priorfile = os.path.join(self.basedir, "{}.prior".format(label))
         self.prior.to_file(outdir=self.basedir, label=label)
 
@@ -385,6 +388,8 @@ class KnopePPPlotsDAG(object):
         """
         Set up job to create PP plots.
         """
+
+        from pycondor import Job
 
         # get executable
         jobexec = shutil.which("cwinpy_knope_generate_pp_plots")
@@ -399,19 +404,20 @@ class KnopePPPlotsDAG(object):
         job = Job(
             "cwinpy_knope_pp_plots",
             jobexec,
-            error=self.dag.error,
-            log=self.dag.log,
-            output=self.dag.output,
-            submit=self.dag.jobsubmit,
-            universe=self.dag.universe,
-            request_memory=self.dag.reqmem,
-            getenv=self.dag.getenv,
+            error=self.runner.error,
+            log=self.runner.log,
+            output=self.runner.output,
+            submit=self.runner.jobsubmit,
+            universe=self.runner.universe,
+            request_memory=self.runner.reqmem,
+            getenv=self.getenv,
             queue=1,
-            requirements=self.dag.requirements,
-            retry=self.dag.retry,
+            requirements=self.runner.requirements,
+            retry=self.runner.retry,
             extra_lines=extra_lines,
-            dag=self.dag,
+            dag=self.runner.dag,
         )
 
-        job.add_parents(self.dag.job)
-        self.dag.build()
+        job.add_parents(self.runner.dag.nodes)
+        self.runner.dag.build()
+
