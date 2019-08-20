@@ -8,6 +8,8 @@ import ast
 import glob
 import signal
 import warnings
+import configparser
+from argparse import ArgumentParser
 import numpy as np
 
 import cwinpy
@@ -1080,7 +1082,7 @@ def knope(**kwargs):
     return runner
 
 
-def knope_cli(**kwargs):
+def knope_cli(**kwargs):  # pragma: no cover
     """
     Entry point to ``cwinpy_knope script``. This just calls :func:`cwinpy.knope.knope`,
     but does not return any objects.
@@ -1666,19 +1668,9 @@ def knope_dag(**kwargs):
         The pycondor :class:`pycondor.Dagman` object.
     """
 
-    try:
-        import configparser
-    except ImportError:
-        raise ImportError("To run 'cwinpy_knope_dag' you must install configparser")
-
     if "config" in kwargs:
         configfile = kwargs["config"]
     else:
-        try:
-            from argparse import ArgumentParser
-        except ImportError:
-            raise ImportError("To run 'cwinpy_knope_dag'")
-
         parser = ArgumentParser(
             description=(
                 "A script to create a HTCondor DAG to run Bayesian inference to "
@@ -1706,7 +1698,7 @@ def knope_dag(**kwargs):
     return KnopeDAGRunner(config).dag
 
 
-def knope_dag_cli(**kwargs):
+def knope_dag_cli(**kwargs):  # pragma: no cover
     """
     Entry point to the cwinpy_knope_dag script. This just calls
     :func:`cwinpy.knope.knope_dag`, but does not return any objects.

@@ -5,6 +5,8 @@ Run P-P plot testing for cwinpy_knope.
 import os
 import sys
 import glob
+from configparser import ConfigParser
+from argparse import ArgumentParser
 import bilby
 import numpy as np
 from .knope import knope_dag
@@ -13,7 +15,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 
 
-def generate_pp_plots(**kwargs):
+def generate_pp_plots(**kwargs):  # pragma: no cover
     """
     Script entry point, or function, to generate P-P plots (see, e.g., [1]_): a
     frequentist-style evaluation to test that the true value of a parameter
@@ -47,11 +49,6 @@ def generate_pp_plots(**kwargs):
         # default parameters are obtained from the results file prior
         parameters = kwargs.get("parameters", None)
     elif "cwinpy_knope_generate_pp_plots" == os.path.split(sys.argv[0])[-1]:
-        try:
-            from argparse import ArgumentParser
-        except ImportError:
-            raise ImportError("To run 'cwinpy_knope_generate_pp_plots'")
-
         parser = ArgumentParser(
             description=(
                 "A script to create a PP plot of CW signal parameters"
@@ -315,7 +312,7 @@ class KnopePPPlotsDAG(object):
                 u.deg, fields=2, sep="", pad=True, alwayssign=True
             )
             pname = 'J{}{}'.format(rastr, decstr)
-            pnameorig = str(pname)  # copy of original name  
+            pnameorig = str(pname)  # copy of original name
             counter = 0
             alphas = ["A", "B", "C", "D", "E", "F", "G"]
             while pname in self.pulsars:
@@ -335,17 +332,14 @@ class KnopePPPlotsDAG(object):
                 for param in pulsar:
                     fp.write("{}\t{}\n".format(param, pulsar[param]))
 
-            self.pulsars[pname] = pfile
+            self.pulsars[pname] = {}
+            self.pulsars[pname]['file'] = pfile
+            self.pulsars[pname]['parameters'] = pulsar
 
     def create_config(self):
         """
         Create the configuration parser for the DAG.
         """
-
-        try:
-            from configparser import ConfigParser
-        except ImportError:
-            raise ImportError("Could not import configparser")
 
         self.config = ConfigParser()
 
@@ -375,10 +369,10 @@ class KnopePPPlotsDAG(object):
 
         # set the prior file
         label = "pp"
-        priorfile = os.path.join(self.basedir, "{}.prior".format(label))
+        self.priorfile = os.path.join(self.basedir, "{}.prior".format(label))
         self.prior.to_file(outdir=self.basedir, label=label)
 
-        self.config["knope"]["priors"] = priorfile
+        self.config["knope"]["priors"] = self.priorfile
         self.config["knope"]["sampler"] = self.sampler
         if isinstance(self.sampler_kwargs, dict):
             self.config["knope"]["sampler_kwargs"] = str(self.sampler_kwargs)
