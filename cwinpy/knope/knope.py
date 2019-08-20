@@ -1593,20 +1593,20 @@ class KnopeDAGRunner(object):
             # create dictionary of configuration outputs
             configdict = {}
 
-            configdict["par-file"] = pulsardict[pname]
+            configdict["par_file"] = pulsardict[pname]
 
             # data file(s)
             for freqfactor in ["1f", "2f"]:
                 if not simdata:
                     try:
-                        configdict["data-file-{}".format(freqfactor)] = str(
+                        configdict["data_file_{}".format(freqfactor)] = str(
                             datadict[pname][freqfactor]
                         )
                     except KeyError:
                         pass
                 else:
                     try:
-                        configdict["fake-asd-{}".format(freqfactor)] = str(
+                        configdict["fake_asd_{}".format(freqfactor)] = str(
                             simdata[freqfactor]
                         )
                     except KeyError:
@@ -1615,14 +1615,14 @@ class KnopeDAGRunner(object):
             # add injection if given
             if injfiles is not None:
                 if pname in injdict:
-                    configdict["inj-par"] = injdict[pname]
+                    configdict["inj_par"] = injdict[pname]
 
             configdict["outdir"] = psrbase
             configdict["label"] = pname
             configdict["prior"] = priorfiles[pname]
             configdict["sampler"] = sampler
             if samplerkwargs is not None:
-                configdict["sampler-kwargs"] = samplerkwargs
+                configdict["sampler_kwargs"] = samplerkwargs
 
             # output the configuration file
             configfile = os.path.join(configlocation, "{}.ini".format(pname))
