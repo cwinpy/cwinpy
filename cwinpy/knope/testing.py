@@ -390,10 +390,10 @@ class KnopePPPlotsDAG(object):
         jobexec = shutil.which("cwinpy_knope_generate_pp_plots")
         
         extra_lines = []
-        if self.dag.accgroup is not None:
-            extra_lines.append("accounting_group = {}".format(self.dag.accgroup))
-        if self.dag.accuser is not None:
-            extra_lines.append("accounting_group_user = {}".format(self.dag.accuser))
+        if self.accountgroup is not None:
+            extra_lines.append("accounting_group = {}".format(self.accountgroup))
+        if self.accountuser is not None:
+            extra_lines.append("accounting_group_user = {}".format(self.accountuser))
         
         # create cwinpy_knope Job
         job = Job(
