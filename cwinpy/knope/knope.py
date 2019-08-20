@@ -1120,8 +1120,6 @@ class KnopeDAGRunner(object):
             parameters.
         """
 
-        import configparser
-
         if not isinstance(config, configparser.ConfigParser):
             raise TypeError("'config' must be a ConfigParser object")
 
@@ -1144,9 +1142,7 @@ class KnopeDAGRunner(object):
 
         # get DAG arguments
         # submit directory location
-        submit = config.get(
-            "dag", "submit", fallback=os.path.join(basedir, "submit")
-        )
+        submit = config.get("dag", "submit", fallback=os.path.join(basedir, "submit"))
 
         # DAG name prefix
         name = config.get("dag", "name", fallback="cwinpy_knope_dag")
@@ -1163,14 +1159,13 @@ class KnopeDAGRunner(object):
         # get the cwinpy_knope job arguments
         # executable
         from shutil import which
+
         jobexec = which(config.get("job", "executable", fallback="cwinpy_knope"))
 
         if jobexec is None:
             raise ValueError("cwinpy_knope executable is not specified")
         elif os.path.basename(jobexec) != "cwinpy_knope":
-            raise ValueError(
-                "Executable '{}' is not 'cwinpy_knope'!".format(jobexec)
-            )
+            raise ValueError("Executable '{}' is not 'cwinpy_knope'!".format(jobexec))
 
         # job name prefix
         jobname = config.get("job", "name", fallback="cwinpy_knope")
@@ -1337,9 +1332,7 @@ class KnopeDAGRunner(object):
             datafiles1f = config.get("knope", "data-file-1f", fallback=None)
             datafiles2fdefault = config.get("knope", "data-file", fallback=None)
             datafiles2f = config.get(
-                "knope",
-                "data-file-2f",
-                fallback=datafiles2fdefault
+                "knope", "data-file-2f", fallback=datafiles2fdefault
             )
 
             # the "fake-asd-1f" and "fake-asd-2f" options in the [knope]
@@ -1384,7 +1377,9 @@ class KnopeDAGRunner(object):
                 # containing the files, or a dictionary keyed to the pulsar names.
                 datadict = {pname: {} for pname in pulsardict.keys()}
 
-                for datafilesf, freqfactor in zip([datafiles1f, datafiles2f], ["1f", "2f"]):
+                for datafilesf, freqfactor in zip(
+                    [datafiles1f, datafiles2f], ["1f", "2f"]
+                ):
                     if datafilesf is None:
                         continue
                     else:
@@ -1412,7 +1407,11 @@ class KnopeDAGRunner(object):
 
                             # get all data files
                             dff.extend(
-                                [dat for dat in glob.glob(datafile) if os.path.isfile(dat)]
+                                [
+                                    dat
+                                    for dat in glob.glob(datafile)
+                                    if os.path.isfile(dat)
+                                ]
                             )
 
                         if len(dff) == 0:
@@ -1428,7 +1427,7 @@ class KnopeDAGRunner(object):
                                         print(
                                             "Duplicate pulsar '{}' data. Ignoring "
                                             "duplicate.".format(pname),
-                                            file=sys.stdout
+                                            file=sys.stdout,
                                         )
             elif fakeasd1f is not None or fakeasd2f is not None:
                 # set to use simulated data
@@ -1533,7 +1532,7 @@ class KnopeDAGRunner(object):
                     print(
                         "Removing pulsar '{}' as either no data, or no prior "
                         "is given".format(pname),
-                        file=sys.stdout
+                        file=sys.stdout,
                     )
                     if pname in datanames:
                         datadict.pop(pname)
@@ -1670,7 +1669,7 @@ def knope_dag(**kwargs):
 
     if "config" in kwargs:
         configfile = kwargs["config"]
-    else:
+    else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
                 "A script to create a HTCondor DAG to run Bayesian inference to "
