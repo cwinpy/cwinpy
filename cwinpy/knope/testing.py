@@ -5,6 +5,7 @@ Run P-P plot testing for cwinpy_knope.
 import os
 import sys
 import glob
+import shutil
 from configparser import ConfigParser
 from argparse import ArgumentParser
 import bilby
@@ -234,8 +235,11 @@ class KnopePPPlotsDAG(object):
         self.sampler_kwargs = sampler_kwargs
         self.create_config()
 
-        # create the DAG
+        # create the DAG for cwinpy_knope jobs
         self.dag = knope_dag(config=self.config)
+        
+        # add PP plot creation DAG
+        self.ppplots()
 
     def makedirs(self, dir):
         """
@@ -376,3 +380,38 @@ class KnopePPPlotsDAG(object):
         self.config["knope"]["sampler"] = self.sampler
         if isinstance(self.sampler_kwargs, dict):
             self.config["knope"]["sampler_kwargs"] = str(self.sampler_kwargs)
+            
+    def ppplots(self):
+        """
+        Set up job to create PP plots.
+        """
+
+        # get executable
+        jobexec = shutil.which("cwinpy_knope_generate_pp_plots")
+        
+        extra_lines = []
+        if self.dag.accgroup is not None:
+            extra_lines.append("accounting_group = {}".format(self.dag.accgroup))
+        if self.dag.accuser is not None:
+            extra_lines.append("accounting_group_user = {}".format(self.dag.accuser))
+        
+        # create cwinpy_knope Job
+        job = Job(
+            "cwinpy_knope_pp_plots",
+            jobexec,
+            error=self.dag.error,
+            log=self.dag.log,
+            output=self.dag.output,
+            submit=self.dag.jobsubmit,
+            universe=self.dag.universe,
+            request_memory=self.dag.reqmem,
+            getenv=self.dag.getenv,
+            queue=1,
+            requirements=self.dag.requirements,
+            retry=self.dag.retry,
+            extra_lines=extra_lines,
+            dag=self.dag,
+        )
+
+        job.add_parents(self.dag.job)
+        self.dag.build()
