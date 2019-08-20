@@ -1171,45 +1171,45 @@ class KnopeDAGRunner(object):
         jobname = config.get("job", "name", fallback="cwinpy_knope")
 
         # condor universe
-        universe = config.get("job", "universe", fallback="vanilla")
+        self.universe = config.get("job", "universe", fallback="vanilla")
 
         # stdout directory location
-        output = config.get("job", "out", fallback=os.path.join(basedir, "out"))
+        self.output = config.get("job", "out", fallback=os.path.join(basedir, "out"))
 
         # stderr directory location
-        error = config.get("job", "error", fallback=os.path.join(basedir, "error"))
+        self.error = config.get("job", "error", fallback=os.path.join(basedir, "error"))
 
         # log directory
-        log = config.get("job", "log", fallback=os.path.join(basedir, "log"))
+        self.log = config.get("job", "log", fallback=os.path.join(basedir, "log"))
 
         # submit directory location
-        jobsubmit = config.get(
+        self.jobsubmit = config.get(
             "job", "submit", fallback=os.path.join(basedir, "submit")
         )
 
         # get local environment variables
-        getenv = config.getboolean("job", "getenv", fallback=False)
+        self.getenv = config.getboolean("job", "getenv", fallback=False)
 
         # request memory
-        reqmem = config.get("job", "request_memory", fallback="4 GB")
+        self.reqmem = config.get("job", "request_memory", fallback="4 GB")
 
         # request CPUs
-        reqcpus = config.getint("job", "request_cpus", fallback=1)
+        self.reqcpus = config.getint("job", "request_cpus", fallback=1)
 
         # requirements
-        requirements = config.get("job", "requirements", fallback=None)
+        self.requirements = config.get("job", "requirements", fallback=None)
 
         # retries of job on failure
-        retry = config.getint("job", "retry", fallback=0)
+        self.retry = config.getint("job", "retry", fallback=0)
 
         # accounting group and user
-        accgroup = config.get("job", "accounting_group", fallback=None)
-        accuser = config.get("job", "accounting_group_user", fallback=None)
+        self.accgroup = config.get("job", "accounting_group", fallback=None)
+        self.accuser = config.get("job", "accounting_group_user", fallback=None)
         extra_lines = []
-        if accgroup is not None:
-            extra_lines.append("accounting_group = {}".format(accgroup))
-        if accuser is not None:
-            extra_lines.append("accounting_group_user = {}".format(accuser))
+        if self.accgroup is not None:
+            extra_lines.append("accounting_group = {}".format(self.accgroup))
+        if self.accuser is not None:
+            extra_lines.append("accounting_group_user = {}".format(self.accuser))
 
         if name == jobname:
             raise ValueError("Dagman name and Job name must be different")
@@ -1218,17 +1218,17 @@ class KnopeDAGRunner(object):
         self.job = Job(
             jobname,
             jobexec,
-            error=error,
-            log=log,
-            output=output,
-            submit=jobsubmit,
-            universe=universe,
-            request_memory=reqmem,
-            request_cpus=reqcpus,
-            getenv=getenv,
+            error=self.error,
+            log=self.log,
+            output=self.output,
+            submit=self.jobsubmit,
+            universe=self.universe,
+            request_memory=self.reqmem,
+            request_cpus=self.reqcpus,
+            getenv=self.getenv,
             queue=1,
-            requirements=requirements,
-            retry=retry,
+            requirements=self.requirements,
+            retry=self.retry,
             extra_lines=extra_lines,
             dag=self.dag,
         )
