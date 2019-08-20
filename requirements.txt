@@ -5,3 +5,4 @@ astropy
 matplotlib
 lalsuite==6.60.1.dev20190808
 gwpy
+pycondor

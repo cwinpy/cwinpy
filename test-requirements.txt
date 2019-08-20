@@ -1,2 +1,5 @@
 pytest
-pycondor
+coverage
+pytest-coverage
+coverage-badge
+codecov
