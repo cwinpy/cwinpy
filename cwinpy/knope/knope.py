@@ -1176,7 +1176,7 @@ class KnopeDAGRunner(object):
         # stdout directory location
         output = config.get("job", "out", fallback=os.path.join(basedir, "out"))
 
-        # stderr directory location#
+        # stderr directory location
         error = config.get("job", "error", fallback=os.path.join(basedir, "error"))
 
         # log directory
@@ -1235,6 +1235,13 @@ class KnopeDAGRunner(object):
 
         # create configurations for each cwinpy_knope job
         if config.has_section("knope"):
+            # get the path to output the results to
+            resultsdir = config.get(
+                "knope",
+                "results",
+                fallback=os.path.join(basedir, "results")
+            )
+
             # get the paths to the pulsar parameter files
             parfiles = config.get("knope", "pulsars", fallback=None)
 
@@ -1568,7 +1575,7 @@ class KnopeDAGRunner(object):
         # create jobs (output and label set using pulsar name)
         for pname in pulsardict:
             # create output directory
-            psrbase = os.path.join(basedir, pname)
+            psrbase = os.path.join(resultsdir, pname)
 
             try:
                 os.makedirs(psrbase, exist_ok=True)

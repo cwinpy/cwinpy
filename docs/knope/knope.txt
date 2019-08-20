@@ -90,6 +90,7 @@ The analysis can then be run using:
 which should only take a few minutes, with information on the run output to the terminal.
 
 .. note::
+
    You can hopefully ignore errors related to ``XLALReadEphemerisFile`` and ``XLALInitBarycenter``
    as the code should attempt to download the appropriate solar system ephemeris files if they
    cannot be found.
@@ -107,7 +108,8 @@ each parameter, and pair of parameters.
    :align: center
 
 .. note::
-   The slight offset seen in the recovered phase is related to the uncompensated 150 :math:`\mu`s time
+
+   The slight offset seen in the recovered phase is related to the uncompensated 150 microsec time
    delay in the actuation function used to generate the simulated signal as discuss in [4]_.
 
 The code should also output the natural logarithm of the signal model `evidence
@@ -177,7 +179,8 @@ each parameter, and pair of parameters.
    :align: center
 
 .. note::
-   The slight offset seen in the recovered phase is related to the uncompensated 150 :math:`\mu`s time
+
+   The slight offset seen in the recovered phase is related to the uncompensated 150 microsec time
    delay in the actuation function used to generate the simulated signal as discuss in [4]_.
 
 The natural logarithms of the signal model `evidence
@@ -201,6 +204,107 @@ The equivalent full command line arguments that could be used are:
    cwinpy_knope --detector H1 --detector L1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --data-file fine-L1-PULSAR08.txt.gz --outdir example2 --label example2 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example2_prior.txt --show-truths
 
 
+Running on multiple sources
+---------------------------
+
+You may have multiple real sources for which you want to perform parameter estimation, or you may
+want to simulate data from many sources. If you have a multicore machine, or access to a computer
+cluster, with `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ installed you can use CWInPy to
+create a set of analysis jobs, in the form of a Condor `DAG
+<https://htcondor.readthedocs.io/en/v8_8_4/users-manual/dagman-applications.html>`_, for each
+source. To do this you need to first make sure you have PyCondor `installed
+<https://jrbourbeau.github.io/pycondor/installation.html>`_.
+
+To set up a DAG to analyse real data for multiple pulsars you need to have certain data and files
+organised in a particular way. You must have a set of TEMPO(2)-style pulsar parameter files, with
+only one for each pulsar you wish to analyse, which each contain a ``PSRJ`` value giving the
+pulsar's name, e.g.,
+
+.. code-block:: bash
+
+   PSRJ  J0534+2200
+
+You also need to have a directory structure where the heterodyned data (see :ref:`here<Heterodyned
+Data>`) from individual detectors, are in distinct directories (if you want specify each file for
+each pulsar individually in a dictionary this can be done instead, but requires more manual
+editing). Also, if there is data from both the signal rotation frequency and twice the rotation
+frequency, then these should also be in distinct directories. The heterodyned data file for a
+particular pulsar must contain the ``PSRJ`` name of the pulsar, as given in the associated
+parameter file, either in the file name or the file directory path.
+
+An example of such a directory tree structure might be:
+
+.. code-block:: bash
+
+   root
+    ├── pulsars              # directory containing pulsar parameter files
+    ├── priors               # directory containing pulsar prior distribution files
+    ├── detector1            # directory containing data for first detector
+    |    ├── 1f              # directory containing data from first detector at the source rotation frequency
+    |    |    ├── pulsar1    # directory containing data from first detector, at the rotation frequency for first pulsar (could be named using the pulsar's PSRJ name)
+    |    |    ├── pulsar2    # directory containing data from first detector, at the rotation frequency for second pulsar (could be named using the pulsar's PSRJ name)
+    |    |    └── ...
+    |    └── 2f
+    |         ├── pulsar1    # directory containing data from first detector, at twice the rotation frequency for first pulsar (could be named using the pulsar's PSRJ name)
+    |         ├── pulsar2    # directory containing data from first detector, at twice the rotation frequency for second pulsar (could be named using the pulsar's PSRJ name)
+    |         └── ...
+    ├── detector2            # directory contain data for second detector
+    |    └── ...
+    └── ...
+
+The DAG for the analysis can be created using the ``cwinpy_knope_dag`` script, which requires a
+configuration file as it's only input. An example configuration file, based on the above directory
+tree structure is given below. Comments about each input parameter, and different potential input
+options are given inline; some input parameters are also commented out using a ``;`` if the default
+values are appropriate. For more information on the various HTCondor options see the `user manual
+<https://htcondor.readthedocs.io/en/v8_8_4/users-manual/index.html>`_.
+
+.. literalinclude:: cwinpy_knope_dag.ini
+
+Once the configuration file is created (called, say, ``cwinpy_knope_dag.ini``), the Condor DAG dag
+can be generated with:
+
+.. code-block:: bash
+
+    cwinpy_knope_dag cwinpy_knope_dag.ini
+
+This will, using the defaults and values in the above file, generate the following directory tree
+structure:
+
+.. code-block:: bash
+
+   root
+    ├── results            # directory to contain the results for all pulsars
+    |    ├── pulsar1       # directory to contain the results for pulsar1 (named using the PSRJ name)
+    |    ├── pulsar1       # directory to contain the results for pulsar2 (named using the PSRJ name)
+    |    └── ...
+    ├── configs            # directory containing the cwinpy_knope configuration files for each pulsar
+    |    ├── pulsar1.ini   # cwinpy_knope configuration file for pulsar1 (named using the PSRJ name)
+    |    ├── pulsar2.ini   # cwinpy_knope configuration file for pulsar2 (named using the PSRJ name)
+    |    └── ...
+    ├── submit             # directory containing the DAG and job submit files
+    |    ├── cwinpy_knope_dag_DATETAG.submit   # Condor DAG submit file
+    |    └── cwinpy_knope_DATETAG.submit       # cwinpy_knope job submit file
+    ├── log                # directory for the job log files
+    ├── out                # directory for the job stdout files
+    └── error              # directory for the job stderr files
+
+If the original ``cwinpy_knope_dag`` configuration file contained the line:
+
+.. code-block:: bash
+
+    submitdag = True
+
+in the ``[dag]`` section, then the DAG will automatically have been submitted, otherwise it could be
+submitted with:
+
+.. code-block:: bash
+
+   condor_submit_dag /root/submit/cwinpy_knope_dag_DATETAG.submit
+
+where ``DATETAG`` is the filename tag generated by `PyCondor
+<https://jrbourbeau.github.io/pycondor/>`_ from the current date.
+
 Command line arguments
 ----------------------
 
@@ -213,7 +317,7 @@ API
 ---
 
 .. automodule:: cwinpy.knope.knope
-   :members: knope
+   :members: knope, knope_dag
 
 ``cwinpy_knope`` References
 ---------------------------
