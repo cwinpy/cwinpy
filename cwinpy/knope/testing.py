@@ -483,7 +483,7 @@ class KnopePPPlotsDAG(object):
             dag=self.runner.dag,
         )
 
-        jobargs = '--path "{}" '.format(os.path.join(self.basedir, "results", "*", "*"))
+        jobargs = "--path '{}' ".format(os.path.join(self.basedir, "results", "*", "*"))
         jobargs += "--output {} ".format(os.path.join(self.basedir, "ppplot.png"))
         if self.outputsnr:
             jobargs += "--snrs "
