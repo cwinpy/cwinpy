@@ -1406,9 +1406,9 @@ class HeterodynedData(object):
 
                 # read PSD from ASD file
                 try:
-                    ret = lalsim.SimNoisePSDFromFile(psdfs, psdfs.f0, asd)
+                    _ = lalsim.SimNoisePSDFromFile(psdfs, psdfs.f0, asd)
                 except Exception as e:
-                    raise RuntimeError("Problem getting ASD from file")
+                    raise RuntimeError("Problem getting ASD from file: {}".format(e))
 
                 # convert to ASD
                 asdval = np.sqrt(psdfs.data.data[0])
@@ -2388,7 +2388,6 @@ class HeterodynedData(object):
         try:
             from matplotlib import pyplot as pl
             from matplotlib.axes import Axes
-            import matplotlib as mpl
 
             fraction_labels = speckwargs.get("fraction_labels", True)
             fraction_label_num = speckwargs.get("fraction_label_num", 4)

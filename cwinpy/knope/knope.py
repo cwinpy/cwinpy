@@ -688,10 +688,12 @@ class KnopeRunner(object):
                     ):
                         try:
                             # make sure value is a string so it can be "split"
-                            detfdata = str(fdata).split(":")
+                            detfdata = str(
+                                fdata.replace("'", "").replace('"', "")
+                            ).split(":")
                         except Exception as e:
                             raise TypeError(
-                                "Fake time value is the wrong type: {}".format(e)
+                                "Fake data value is the wrong type: {}".format(e)
                             )
 
                         if ftime is None:
@@ -1109,7 +1111,7 @@ class KnopeDAGRunner(object):
         if self.submitdag:
             if self.build:
                 self.dag.build_submit(submit_options=self.submit_options)
-            else:    
+            else:
                 self.dag.submit_dag(self.submit_options)
 
     def create_dag(self, config):
@@ -1243,9 +1245,7 @@ class KnopeDAGRunner(object):
         if config.has_section("knope"):
             # get the path to output the results to
             resultsdir = config.get(
-                "knope",
-                "results",
-                fallback=os.path.join(basedir, "results")
+                "knope", "results", fallback=os.path.join(basedir, "results")
             )
 
             # get the paths to the pulsar parameter files
@@ -1607,7 +1607,7 @@ class KnopeDAGRunner(object):
                 else:
                     try:
                         configdict["fake_asd_{}".format(freqfactor)] = str(
-                            simdata[freqfactor]
+                            ["{}:{}".format(det, det) for det in simdata[freqfactor]]
                         )
                     except KeyError:
                         pass
@@ -1633,7 +1633,7 @@ class KnopeDAGRunner(object):
                 fp.write(parseobj.serialize(configdict))
 
             # add arguments to a job
-            self.job.add_arg(configfile)
+            self.job.add_arg("--config {}".format(configfile))
 
         if self.build:
             self.dag.build()

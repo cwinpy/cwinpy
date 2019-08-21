@@ -196,13 +196,13 @@ class KnopePPPlotsDAG(object):
 
         if ninj < 1:
             raise ValueError("A positive number of injection must be given")
-        self.ninj = ninj
+        self.ninj = int(ninj)
 
         # set maximum amplitude if given
         self.maxamp = None
         if isinstance(maxamp, float):
             if maxamp > 0.:
-                self.maxamp = int(maxamp)
+                self.maxamp = maxamp
             else:
                 raise ValueError("Maximum amplitude must be positive")
 
@@ -306,7 +306,7 @@ class KnopePPPlotsDAG(object):
                     if amp in self.prior:
                         pulsar[amp.upper()] = bilby.core.prior.Uniform(
                             name=amp,
-                            minimum=0.,
+                            minimum=0.0,
                             maximum=self.maxamp).sample()
 
             # set (rotation) frequency upper and lower bounds
