@@ -203,6 +203,33 @@ class MultiHeterodynedData(object):
 
         return [het.freq_factor for het in self]
 
+    @property
+    def injection_optimal_snr(self):
+        """
+        Get the coherent optimal signal-to-noise ratio of an injected signal in
+        all heterodyned data sets. See
+        :meth:`cwinpy.data.HeterodynedData.injection_optimal_snr`.
+        """
+
+        snr2 = 0.0
+        for het in self:
+            if het.injpar is not None:
+                snr2 += het.injection_optimal_snr**2
+
+        return np.sqrt(snr2)
+
+    def signal_snr(self, signalpar):
+        """
+        Get the coherent signal-to-noise ratio of a given signal. See
+        :meth:`cwinpy.data.HeterodynedData.signal_snr`.
+        """
+
+        snr2 = 0.0
+        for het in self:
+            snr2 += het.signal_snr(signalpar)**2
+
+        return np.sqrt(snr2)
+
     def __iter__(self):
         self.__currentidx = 0  # reset iterator index
         return self
@@ -1206,7 +1233,7 @@ class HeterodynedData(object):
 
         return self.vars
 
-    def inject_signal(self, injpar=None, injtimes=None, freqfactor=2.0):
+    def inject_signal(self, injpar=None, injtimes=None):
         """
         Inject a simulated signal into the data.
 
@@ -1217,51 +1244,25 @@ class HeterodynedData(object):
             simulated signal.
         injtimes: list
             A list of pairs of time values between which to inject the signal.
-        freqfactor: float, 2.0
-            A the frequency scaling for the signal model, i.e., "2.0" for
-            emission from the l=m=2 mass quadrupole mode.
         """
 
-        if self.par is None:
-            raise ValueError(
-                "To perform an injection a parameter file must be supplied"
-            )
-
-        if self.detector is None:
-            raise ValueError("To perform an injection a detector must be supplied")
-
-        from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
+        # create the signal to inject
+        if injpar is None:
+            self.injpar = self.par
+            signal = self.make_signal()
+        else:
+            self.injpar = injpar
+            signal = self.make_signal(signalpar=self.injpar)
 
         # set the times between which the injection will be added
         self.injtimes = injtimes
 
-        # initialise the injection
-        het = HeterodynedCWSimulator(self.par, self.detector, times=self.times)
-
-        if freqfactor != self.freq_factor:
-            self.freq_factor = freqfactor
-
         # initialise the injection to zero
         inj_data = np.ones_like(self.data)
 
-        # get the injection
-        if injpar is None:
-            # use self.par for the injection parameters
-            self.injpar = self.par
-            inj = het.model(usephase=True, freqfactor=self.freq_factor)
-        else:
-            self.injpar = injpar
-            inj = het.model(
-                self.injpar,
-                updateSSB=True,
-                updateBSB=True,
-                usephase=True,
-                freqfactor=self.freq_factor,
-            )
-
         for timerange in self.injtimes:
             timeidxs = (self.__times >= timerange[0]) & (self.__times <= timerange[1])
-            inj_data[timeidxs] = inj[timeidxs]
+            inj_data[timeidxs] = signal[timeidxs]
 
         # add injection to data
         self.__data = self.data + inj_data
@@ -1330,6 +1331,76 @@ class HeterodynedData(object):
         return np.sqrt(
             ((self.injection_data.real / noinj.real) ** 2).sum()
             + ((self.injection_data.imag / noinj.imag) ** 2).sum()
+        )
+
+    def make_signal(self, signalpar=None):
+        """
+        Make a signal at the data time stamps given a parameter file.
+
+        Parameters
+        ----------
+        signalpar: (str, lalpulsar.PulsarParametersPy)
+            A parameter file or object containing the parameters for the
+            simulated signal.
+
+        Returns
+        -------
+        array_like
+            A complex :class:`numpy.ndarray` containing the signal.
+        """
+
+        if self.par is None:
+            raise ValueError(
+                "To perform an injection a parameter file must be supplied"
+            )
+
+        if self.detector is None:
+            raise ValueError("To perform an injection a detector must be supplied")
+
+        from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
+
+        # initialise the injection
+        het = HeterodynedCWSimulator(self.par, self.detector, times=self.times)
+
+        # get the injection
+        if signalpar is None:
+            # use self.par for the injection parameters
+            signal = het.model(usephase=True, freqfactor=self.freq_factor)
+        else:
+            signal = het.model(
+                signalpar,
+                updateSSB=True,
+                updateBSB=True,
+                usephase=True,
+                freqfactor=self.freq_factor,
+            )
+
+        return signal
+
+    def signal_snr(self, signalpar):
+        """
+        Get the signal-to-noise ratio of a signal based on the supplied
+        parameter file.
+
+        Parameters
+        ----------
+        signalpar: (str, lalpulsar.PulsarParametersPy)
+            A parameter file or object containing the parameters for the
+            simulated signal.
+
+        Returns
+        -------
+        float:
+            The signal-to-noise ratio.
+        """
+
+        # generate the signal
+        signal = self.make_signal(signalpar=signalpar)
+
+        # get signal-to-noise ratio based on estimated data standard deviation
+        return np.sqrt(
+            ((signal.real / self.stds) ** 2).sum()
+            + ((signal.imag / self.stds) ** 2).sum()
         )
 
     @property
