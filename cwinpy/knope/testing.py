@@ -6,6 +6,7 @@ import os
 import sys
 import glob
 import shutil
+import json
 from configparser import ConfigParser
 from argparse import ArgumentParser
 import bilby
@@ -33,6 +34,9 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
         Output filename for the PP plot.
     parameters: list
         A list of the parameters to include in the PP plot.
+    snrs: bool
+        Create a plot of the injected signal-to-noise ratio distribution.
+        Defaults to False.
 
     References
     ----------
@@ -49,6 +53,9 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
 
         # default parameters are obtained from the results file prior
         parameters = kwargs.get("parameters", None)
+
+        # create SNR plot
+        snrs = kwargs.get("snrs", False)
     elif "cwinpy_knope_generate_pp_plots" == os.path.split(sys.argv[0])[-1]:
         parser = ArgumentParser(
             description=(
@@ -79,11 +86,20 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
                 "The parameters with which to create the PP plots."
             ),
         )
+        parser.add_argument(
+            "--snrs",
+            action="store_true",
+            default=False,
+            help=(
+                "Set to plot distribution of injected signal-to-noise ratios."
+            )
+        )
 
         args = parser.parse_args()
         path = args.path
         outfile = args.outfile
         parameters = args.parameters
+        snrs = args.snrs
     else:
         raise KeyError("A 'path' keyword must be supplied.")
 
@@ -124,6 +140,45 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
         raise RuntimeError(
             "Problem creating PP plots: {}".format(e)
         )
+
+    # make SNR plot
+    if snrs:
+        try:
+            snrfiles = [
+                snrfile
+                for snrfile in glob.glob(path)
+                if os.path.splitext(snrfile)[1] == ".snr"
+            ]
+        except Exception as e:
+            raise IOError("Problem finding SNR files: {}".format(e))
+
+        if len(snrfiles) == 0:
+            raise IOError(
+                "Problem finding SNR files. Probably an invalid path!"
+            )
+
+        snrvals = []
+        for snrfile in snrfiles:
+            with open(snrfile, "r") as fp:
+                try:
+                    snrvals.append(json.load(fp)["Injected SNR"])
+                except Exception as e:
+                    raise IOError(
+                        "Problem loading SNR value from {}:\n{}".format(snrfile, e)
+                    )
+
+        from matplotlib import pyplot as pl
+
+        fig, ax = pl.subplots(figsize=(10, 8))
+        ax.hist(snrvals, bins=20, histtype="stepfilled")
+        ax.set_xlabel("Injected signal-to-noise ratio", fontname="Gentium", fontsize=14)
+        ax.set_ylabel("Number of sources", fontname="Gentium", fontsize=14)
+        fig.tight_layout()
+
+        try:
+            fig.savefig(os.path.join(os.path.split(outfile)[0], "snrs.png"), dpi=250)
+        except Exception as e:
+            raise IOError("Problem saving figure: {}".format(e))
 
 
 class KnopePPPlotsDAG(object):
@@ -175,6 +230,9 @@ class KnopePPPlotsDAG(object):
     freqrange: list, tuple
         A pair of values giving the lower and upper rotation frequency ranges
         (in Hz) for the simulated signals. Defaults to (10, 750) Hz.
+    outputsnr: bool
+        Set whether to output the injected and recovered signal-to-noise
+        ratios. Defaults to True.
 
     References
     ----------
@@ -187,7 +245,8 @@ class KnopePPPlotsDAG(object):
     def __init__(self, prior, ninj=100, maxamp=None, basedir=None,
                  detector="AH1", submit=False, accountuser=None,
                  accountgroup=None, getenv=False, sampler="dynesty",
-                 sampler_kwargs=None, freqrange=(10.0, 750.0)):
+                 sampler_kwargs=None, freqrange=(10.0, 750.0),
+                 outputsnr=True):
 
         if isinstance(prior, dict):
             self.prior = bilby.core.prior.PriorDict(dictionary=prior)
@@ -233,11 +292,12 @@ class KnopePPPlotsDAG(object):
         self.submit = submit
         self.sampler = sampler
         self.sampler_kwargs = sampler_kwargs
+        self.outputsnr = outputsnr
         self.create_config()
 
         # create the DAG for cwinpy_knope jobs
         self.runner = knope_dag(config=self.config, build=False)
-        
+
         # add PP plot creation DAG
         self.ppplots()
 
@@ -383,7 +443,8 @@ class KnopePPPlotsDAG(object):
         self.config["knope"]["sampler"] = self.sampler
         if isinstance(self.sampler_kwargs, dict):
             self.config["knope"]["sampler_kwargs"] = str(self.sampler_kwargs)
-            
+        self.config["knope"]["output_snr"] = str(self.outputsnr)
+
     def ppplots(self):
         """
         Set up job to create PP plots.
@@ -393,13 +454,13 @@ class KnopePPPlotsDAG(object):
 
         # get executable
         jobexec = shutil.which("cwinpy_knope_generate_pp_plots")
-        
+
         extra_lines = []
         if self.accountgroup is not None:
             extra_lines.append("accounting_group = {}".format(self.accountgroup))
         if self.accountuser is not None:
             extra_lines.append("accounting_group_user = {}".format(self.accountuser))
-        
+
         # create cwinpy_knope Job
         job = Job(
             "cwinpy_knope_pp_plots",
@@ -418,6 +479,11 @@ class KnopePPPlotsDAG(object):
             dag=self.runner.dag,
         )
 
+        jobargs = "--path {}".format(os.path.join(self.basedir, "results", "*", "*"))
+        jobargs += "--output {}".format(os.path.join(self.basedir, "ppplot.png"))
+        if self.outputsnr:
+            jobargs += "--snrs"
+        job.add_arg(jobargs)
+
         job.add_parents(self.runner.dag.nodes)
         self.runner.dag.build()
-

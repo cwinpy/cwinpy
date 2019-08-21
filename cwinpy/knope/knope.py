@@ -9,6 +9,7 @@ import glob
 import signal
 import warnings
 import configparser
+import json
 from argparse import ArgumentParser
 import numpy as np
 
@@ -19,6 +20,7 @@ from ..likelihood import TargetedPulsarLikelihood
 import bilby
 from bilby_pipe.bilbyargparser import BilbyArgParser
 from bilby_pipe.utils import parse_args, BilbyPipeError
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
 def sighandler(signum, frame):
@@ -277,6 +279,19 @@ continuous gravitational-wave signal from a known pulsar."""
     outputparser = parser.add_argument_group("Output")
     outputparser.add("-o", "--outdir", help="The output directory for the results")
     outputparser.add("-l", "--label", help="The output filename label for the results")
+    outputparser.add(
+        "--output-snr",
+        action="store_true",
+        default=False,
+        help=(
+            "Set this flag to output the maximum likelihood and maximum "
+            "a-posteriori recovered signal-to-noise ratio. If adding "
+            "an injection this will also output the injected signal SNR. "
+            "These values will be output to a JSON file in the supplied "
+            "output directory, and using the supplied label, with a file "
+            "extension of '.snr'."
+        )
+    )
 
     samplerparser = parser.add_argument_group("Sampler inputs")
     samplerparser.add(
@@ -826,6 +841,8 @@ class KnopeRunner(object):
         if "label" in kwargs:
             self.sampler_kwargs.setdefault("label", kwargs.get("label"))
 
+        self.outputsnr = kwargs.get("output_snr", False)
+
         show_truths = kwargs.get("show_truths", False)
         if show_truths:
             # don't overwrite 'injection_parameters' is they are already defined
@@ -895,6 +912,38 @@ class KnopeRunner(object):
             likelihood=self.likelihood,
             **self.sampler_kwargs
         )
+
+        # output SNRs
+        if self.outputsnr:
+            snrs = {}
+
+            if self.datakwargs["inject"]:
+                snrs["Injected SNR"] = self.hetdata.injection_optimal_snr
+
+            # set recovered parameters
+            sourcepars = PulsarParametersPy(self.datakwargs["par"])
+            maxlikeidx = self.result.posterior.log_likelihood.idxmax()
+            maxpostidx = (
+                self.result.posterior.log_likelihood +
+                self.result.posterior.log_prior
+            ).idxmax()
+            for snrstr, idx in zip(
+                ["Maximum likelihood SNR", "Maximum a-posteriori SNR"],
+                [maxlikeidx, maxpostidx]
+            ):
+                for item in self.prior:
+                    # NOTE: at the moment this will not work correctly if you
+                    # have searched over parameters that are converted to their
+                    # SI uints
+                    sourcepars[item.upper()] = self.result.posterior[item][idx]
+
+                snrs[snrstr] = self.hetdata.signal_snr(sourcepars)
+
+            with open(os.path.join(
+                self.sampler_kwargs["outdir"],
+                "{}.snr".format(self.sampler_kwargs["label"])
+            )) as fp:
+                json.dump(snrs, fp, indent=2)
 
         return self.result
 
@@ -1023,6 +1072,12 @@ def knope(**kwargs):
     label: str
         The name of the output file (excluding the '.json' extension) for the
         results.
+    output_snr: bool,
+        Set this flag to output the maximum likelihood and maximum a-posteriori
+        recovered signal-to-noise ratio. If adding an injection this will also
+        output the injected signal SNR. These values will be output to a JSON
+        file in the supplied output directory, and using the supplied label,
+        with a file extension of '.snr'. This defaults to False.
     likelihood: str
         The likelihood function to use. At the moment this can be either
         'studentst' or 'gaussian', with 'studentst' being the default.
@@ -1282,8 +1337,6 @@ class KnopeDAGRunner(object):
                 )
 
             # get names of all the pulsars
-            from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-
             pulsardict = {}
             for pulsar in list(pulsars):
                 if os.path.isfile(pulsar):
@@ -1570,6 +1623,9 @@ class KnopeDAGRunner(object):
                         "location: '{}'".format(e)
                     )
 
+            # output the SNRs (injected and recovered)
+            outputsnr = config.getboolean("knope", "output_snr", fallback=False)
+
             # get the sampler (default is dynesty)
             sampler = config.get("knope", "sampler", fallback="dynesty")
 
@@ -1623,6 +1679,9 @@ class KnopeDAGRunner(object):
             configdict["sampler"] = sampler
             if samplerkwargs is not None:
                 configdict["sampler_kwargs"] = samplerkwargs
+
+            if outputsnr:
+                configdict["output_snr"] = "True"
 
             # output the configuration file
             configfile = os.path.join(configlocation, "{}.ini".format(pname))
