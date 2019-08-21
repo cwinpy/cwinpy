@@ -98,7 +98,7 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
         args = parser.parse_args()
         path = args.path
         outfile = args.outfile
-        parameters = args.parameters
+        parameters = args.parameter
         snrs = args.snrs
     else:
         raise KeyError("A 'path' keyword must be supplied.")
@@ -118,8 +118,12 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
             "Problem finding results files. Probably an invalid path!"
         )
 
-    # read in results
-    results = read_in_result_list(resfiles)
+    # read in results (need to create dummy class for args)
+    class DummyClass(object):
+        directory = path
+        print = False
+
+    results = read_in_result_list(DummyClass(), resfiles)
 
     if parameters is None:
         # get parameters to use from results file prior
@@ -479,7 +483,7 @@ class KnopePPPlotsDAG(object):
             dag=self.runner.dag,
         )
 
-        jobargs = "--path {}".format(os.path.join(self.basedir, "results", "*", "*"))
+        jobargs = '--path "{}"'.format(os.path.join(self.basedir, "results", "*", "*"))
         jobargs += "--output {}".format(os.path.join(self.basedir, "ppplot.png"))
         if self.outputsnr:
             jobargs += "--snrs"

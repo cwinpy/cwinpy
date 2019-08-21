@@ -844,7 +844,7 @@ class KnopeRunner(object):
         self.outputsnr = kwargs.get("output_snr", False)
 
         show_truths = kwargs.get("show_truths", False)
-        if show_truths:
+        if show_truths or self.outputsnr:
             # don't overwrite 'injection_parameters' is they are already defined
             if "injection_parameters" not in self.sampler_kwargs:
                 if self.datakwargs["injpar"] is not None:
