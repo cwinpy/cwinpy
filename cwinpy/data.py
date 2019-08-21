@@ -855,11 +855,9 @@ class HeterodynedData(object):
         if self.injection:
             # inject the signal
             if injpar is None:
-                self.inject_signal(injtimes=injtimes, freqfactor=self.freq_factor)
+                self.inject_signal(injtimes=injtimes)
             else:
-                self.inject_signal(
-                    injpar=injpar, injtimes=injtimes, freqfactor=self.freq_factor
-                )
+                self.inject_signal(injpar=injpar, injtimes=injtimes)
 
     @property
     def window(self):
