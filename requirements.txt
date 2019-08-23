@@ -1,5 +1,5 @@
 numpy>=1.15
-bilby>=0.5.4
+bilby>=0.5.5
 bilby_pipe>=0.2.0
 astropy
 matplotlib

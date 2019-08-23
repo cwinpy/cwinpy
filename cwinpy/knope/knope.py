@@ -918,7 +918,7 @@ class KnopeRunner(object):
             snrs = {}
 
             if self.datakwargs["inject"]:
-                snrs["Injected SNR"] = self.hetdata.injection_optimal_snr
+                snrs["Injected SNR"] = self.hetdata.injection_snr
 
             # set recovered parameters
             sourcepars = PulsarParametersPy(self.datakwargs["par"])
@@ -939,10 +939,12 @@ class KnopeRunner(object):
 
                 snrs[snrstr] = self.hetdata.signal_snr(sourcepars)
 
-            with open(os.path.join(
-                self.sampler_kwargs["outdir"],
-                "{}.snr".format(self.sampler_kwargs["label"])
-            )) as fp:
+            with open(
+                os.path.join(
+                    self.sampler_kwargs["outdir"],
+                    "{}.snr".format(self.sampler_kwargs["label"])
+                ), "w"
+            ) as fp:
                 json.dump(snrs, fp, indent=2)
 
         return self.result

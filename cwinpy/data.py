@@ -204,17 +204,17 @@ class MultiHeterodynedData(object):
         return [het.freq_factor for het in self]
 
     @property
-    def injection_optimal_snr(self):
+    def injection_snr(self):
         """
         Get the coherent optimal signal-to-noise ratio of an injected signal in
         all heterodyned data sets. See
-        :meth:`cwinpy.data.HeterodynedData.injection_optimal_snr`.
+        :meth:`cwinpy.data.HeterodynedData.injection_snr`.
         """
 
         snr2 = 0.0
         for het in self:
             if het.injpar is not None:
-                snr2 += het.injection_optimal_snr**2
+                snr2 += het.injection_snr**2
 
         return np.sqrt(snr2)
 
@@ -1307,28 +1307,26 @@ class HeterodynedData(object):
         return self.__inj_data
 
     @property
-    def injection_optimal_snr(self):
+    def injection_snr(self):
         """
         Return the optimal signal-to-noise ratio using the pure injected signal
         and true noise calculated using:
 
         .. math::
 
-           \\rho = \\sqrt{\\sum_i \\left(\\left[\\frac{\\Re{(s_i)}}{\\Re{(d_i)}}\\right]^2 + \\left[\\frac{\\Im{(s_i)}}{\\Im{(d_i)}}\\right]^2\\right)}
+           \\rho = \\sqrt{\\sum_i \\left(\\left[\\frac{\\Re{(s_i)}}{\\sigma_i}\\right]^2 + \\left[\\frac{\\Im{(s_i)}}{\\sigma_i}\\right]^2\\right)}
 
-        where :math:`d` is the signal-free data, and :math:`s` is the pure
-        signal.
+        where and :math:`s` is the pure signal and :math:`\sigma` is the
+        estimated noise standard deviation.
 
         """
 
         if not self.injection:
             return None
 
-        noinj = self.data - self.injection_data  # data with injection removed
-
         return np.sqrt(
-            ((self.injection_data.real / noinj.real) ** 2).sum()
-            + ((self.injection_data.imag / noinj.imag) ** 2).sum()
+            ((self.injection_data.real / self.stds) ** 2).sum()
+            + ((self.injection_data.imag / self.stds) ** 2).sum()
         )
 
     def make_signal(self, signalpar=None):
