@@ -7,6 +7,7 @@ import sys
 import glob
 import shutil
 import json
+import ast
 from configparser import ConfigParser
 from argparse import ArgumentParser
 import bilby
@@ -100,6 +101,11 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
         outfile = args.outfile
         parameters = args.parameter
         snrs = args.snrs
+
+        try:
+            path = ast.literal_eval(path)
+        except ValueError:
+            pass
     else:
         raise KeyError("A 'path' keyword must be supplied.")
 
