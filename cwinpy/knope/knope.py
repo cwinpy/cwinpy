@@ -437,7 +437,7 @@ class KnopeRunner(object):
             for kw in ["data_file", "data_file_2f"]:
                 if kw in kwargs:
                     try:
-                        data2f = convert_string_to_dict(kwargs[kw])
+                        data2f = convert_string_to_dict(kwargs[kw], kw)
                     except (ValueError, SyntaxError, BilbyPipeError):
                         data2f = kwargs[kw]
                     break
@@ -445,7 +445,9 @@ class KnopeRunner(object):
             data1f = []
             if "data_file_1f" in kwargs:
                 try:
-                    data1f = convert_string_to_dict(kwargs["data_file_1f"])
+                    data1f = convert_string_to_dict(
+                        kwargs["data_file_1f"], "data_file_1f"
+                    )
                 except (ValueError, SyntaxError, BilbyPipeError):
                     data1f = kwargs["data_file_1f"]
 
@@ -533,7 +535,7 @@ class KnopeRunner(object):
             for kw in ["fake_asd", "fake_asd_2f", "fake_sigma", "fake_sigma_2f"]:
                 if kw in kwargs:
                     try:
-                        fakeasd2f = convert_string_to_dict(kwargs[kw])
+                        fakeasd2f = convert_string_to_dict(kwargs[kw], kw)
                     except (ValueError, SyntaxError, BilbyPipeError):
                         fakeasd2f = kwargs[kw]
                     if "sigma" in kw:
@@ -545,7 +547,7 @@ class KnopeRunner(object):
             for kw in ["fake_asd_1f", "fake_sigma_1f"]:
                 if kw in kwargs:
                     try:
-                        fakeasd1f = convert_string_to_dict(kwargs[kw])
+                        fakeasd1f = convert_string_to_dict(kwargs[kw], kw)
                     except (ValueError, SyntaxError, BilbyPipeError):
                         fakeasd1f = kwargs[kw]
                     if "sigma" in kw:
@@ -554,19 +556,19 @@ class KnopeRunner(object):
 
             if isinstance(starts, str):
                 try:
-                    starts = convert_string_to_dict(starts)
+                    starts = convert_string_to_dict(starts, "fake_start")
                 except (ValueError, SyntaxError, BilbyPipeError):
                     pass
 
             if isinstance(ends, str):
                 try:
-                    ends = convert_string_to_dict(ends)
+                    ends = convert_string_to_dict(ends, "fake_end")
                 except (ValueError, SyntaxError, BilbyPipeError):
                     pass
 
             if isinstance(dts, str):
                 try:
-                    dts = convert_string_to_dict(dts)
+                    dts = convert_string_to_dict(dts, "fake_dt")
                 except (ValueError, SyntaxError, BilbyPipeError):
                     pass
 
