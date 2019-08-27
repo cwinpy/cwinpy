@@ -5,6 +5,7 @@ branches:
   only:
     master
 python:
+  - "3.6"
   - "3.7"
 before_install:
   # add a latex install for the matplotlib testing
