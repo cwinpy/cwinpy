@@ -19,7 +19,7 @@ from ..likelihood import TargetedPulsarLikelihood
 
 import bilby
 from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.utils import parse_args, BilbyPipeError
+from bilby_pipe.utils import parse_args, convert_string_to_dict, BilbyPipeError
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
@@ -412,8 +412,7 @@ class KnopeRunner(object):
                 detectors = []
                 for det in kwargs["detector"]:
                     try:
-                        # remove additional quotation marks from string
-                        thisdet = ast.literal_eval(det)
+                        thisdet = (det)
                     except (ValueError, SyntaxError):
                         thisdet = det
 
@@ -438,16 +437,16 @@ class KnopeRunner(object):
             for kw in ["data_file", "data_file_2f"]:
                 if kw in kwargs:
                     try:
-                        data2f = ast.literal_eval(kwargs[kw])
-                    except (ValueError, SyntaxError):
+                        data2f = convert_string_to_dict(kwargs[kw])
+                    except (ValueError, SyntaxError, BilbyPipeError):
                         data2f = kwargs[kw]
                     break
 
             data1f = []
             if "data_file_1f" in kwargs:
                 try:
-                    data1f = ast.literal_eval(kwargs["data_file_1f"])
-                except (ValueError, SyntaxError):
+                    data1f = convert_string_to_dict(kwargs["data_file_1f"])
+                except (ValueError, SyntaxError, BilbyPipeError):
                     data1f = kwargs["data_file_1f"]
 
             if isinstance(data2f, str):
@@ -534,8 +533,8 @@ class KnopeRunner(object):
             for kw in ["fake_asd", "fake_asd_2f", "fake_sigma", "fake_sigma_2f"]:
                 if kw in kwargs:
                     try:
-                        fakeasd2f = ast.literal_eval(kwargs[kw])
-                    except (ValueError, SyntaxError):
+                        fakeasd2f = convert_string_to_dict(kwargs[kw])
+                    except (ValueError, SyntaxError, BilbyPipeError):
                         fakeasd2f = kwargs[kw]
                     if "sigma" in kw:
                         issigma2f = True
@@ -546,8 +545,8 @@ class KnopeRunner(object):
             for kw in ["fake_asd_1f", "fake_sigma_1f"]:
                 if kw in kwargs:
                     try:
-                        fakeasd1f = ast.literal_eval(kwargs[kw])
-                    except (ValueError, SyntaxError):
+                        fakeasd1f = convert_string_to_dict(kwargs[kw])
+                    except (ValueError, SyntaxError, BilbyPipeError):
                         fakeasd1f = kwargs[kw]
                     if "sigma" in kw:
                         issigma1f = True
@@ -555,20 +554,20 @@ class KnopeRunner(object):
 
             if isinstance(starts, str):
                 try:
-                    starts = ast.literal_eval(starts)
-                except (ValueError, SyntaxError):
+                    starts = convert_string_to_dict(starts)
+                except (ValueError, SyntaxError, BilbyPipeError):
                     pass
 
             if isinstance(ends, str):
                 try:
-                    ends = ast.literal_eval(ends)
-                except (ValueError, SyntaxError):
+                    ends = convert_string_to_dict(ends)
+                except (ValueError, SyntaxError, BilbyPipeError):
                     pass
 
             if isinstance(dts, str):
                 try:
-                    dts = ast.literal_eval(dts)
-                except (ValueError, SyntaxError):
+                    dts = convert_string_to_dict(dts)
+                except (ValueError, SyntaxError, BilbyPipeError):
                     pass
 
             if isinstance(starts, int):
