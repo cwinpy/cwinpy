@@ -3,11 +3,27 @@ General utility functions.
 """
 
 import numpy as np
-from scipy.special import gammaln
+#from scipy.special import gammaln
 from math import gcd
 from functools import reduce
 
+# numba functions
+from numba.extending import get_cython_function_address
+from numba import jit, njit
+import ctypes
 
+
+# create a numba-ified version of scipy's gammaln function (see, e.g.
+# https://github.com/numba/numba/issues/3086#issuecomment-403469308)
+addr = get_cython_function_address("scipy.special.cython_special", "gammaln")
+functype = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double, ctypes.c_int)
+gammaln_fn = functype(addr)
+@njit
+def gammaln(x):
+    return gammaln_fn(x, 0)  # 0 is for the required int!
+
+
+@jit(nopython=True)
 def logfactorial(n):
     """
     The natural logarithm of the factorial of an integer using the fact that
@@ -27,17 +43,7 @@ def logfactorial(n):
     float
     """
 
-    if isinstance(n, (int, float, np.int64, np.int32)):
-        if isinstance(n, float):
-            if not n.is_integer():
-                raise ValueError("Can't find the factorial of a non-integer value")
-
-        if n >= 0:
-            return gammaln(n + 1)
-        else:
-            raise ValueError("Can't find the factorial of a negative number")
-    else:
-        raise TypeError("Can't find the factorial of a non-integer value")
+    return gammaln(n + 1)
 
 
 def gcd_array(denominators):

@@ -6,5 +6,6 @@ matplotlib
 scipy
 lintegrate>=0.1.0
 lalsuite==6.60.1.dev20190808
+numba
 gwpy
 pycondor
