@@ -9,6 +9,8 @@ from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from collections import OrderedDict
 import re
+from numba import jit, types
+from numba.typed import Dict as numbadict
 
 from .data import HeterodynedData, MultiHeterodynedData
 from .utils import logfactorial
@@ -44,6 +46,9 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         A string setting which likelihood function to use. This can either be
         'studentst' (the default), or 'gaussian' ('roq' should be added in the
         future).
+    numba: bool
+        Boolean to set whether to use the `numba` JIT compiled version of the
+        likelihood function.
 
     References
     ----------
@@ -157,7 +162,9 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
     # the parameters that are held as vectors
     VECTOR_PARAMS = ["F", "GLEP", "GLPH", "GLF0", "GLF1", "GLF2", "GLF0D", "GLTD", "FB"]
 
-    def __init__(self, data, priors, par=None, det=None, likelihood="studentst"):
+    def __init__(
+        self, data, priors, par=None, det=None, likelihood="studentst", numba=False
+    ):
 
         super().__init__(dict())  # initialise likelihood class
 
@@ -191,6 +198,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
         # set the likelihood function
         self.likelihood = likelihood
+        self.numba = numba
 
         # check if prior includes (non-DeltaFunction) non-amplitude parameters,
         # i.e., will the phase evolution have to be included in the search,
@@ -318,7 +326,16 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
         # loop over HeterodynedData and model functions
         for data, model in zip(self.data, self.models):
-            self.products.append(dict())
+            if not self.numba:
+                self.products.append(dict())
+            else:
+                dreal = numbadict.empty(
+                    key_type=types.unicode_type, value_type=types.float64[:]
+                )
+                dcomplex = numbadict.empty(
+                    key_type=types.unicode_type, value_type=types.complex128[:]
+                )
+                self.products.append([dreal, dcomplex])
 
             # initialise arrays in dictionary (Tp and Tc are the tensor plus
             # and cross, Vx and Vy are the vector "x" and "y", Sl and Sb are
@@ -328,19 +345,36 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 for b in knames[::-1][: len(knames) - i]:
                     kname = a + "dot" + b
                     if "d" in [a, b] and a != b:
-                        dtype = np.complex
+                        dtype = "complex128"
                     else:
-                        dtype = np.float
+                        dtype = "f8"
 
                         # set "whitened" versions of the antenna pattern product
                         # for SNR calculations, for when using the Students-t
                         # likelihood
                         if "d" not in [a, b]:
-                            self.products[-1][kname + "White"] = np.zeros(
-                                data.num_chunks
-                            )
+                            if not self.numba:
+                                self.products[-1][kname + "White"] = np.zeros(
+                                    data.num_chunks, dtype=dtype
+                                )
+                            else:
+                                self.products[-1][0][kname + "White"] = np.zeros(
+                                    data.num_chunks, dtype=dtype
+                                )
 
-                    self.products[-1][kname] = np.zeros(data.num_chunks, dtype=dtype)
+                    if not self.numba:
+                        self.products[-1][kname] = np.zeros(
+                            data.num_chunks, dtype=dtype
+                        )
+                    else:
+                        if dtype == "f8":
+                            self.products[-1][0][kname] = np.zeros(
+                                data.num_chunks, dtype=dtype
+                            )
+                        else:
+                            self.products[-1][1][kname] = np.zeros(
+                                data.num_chunks, dtype=dtype
+                            )
 
             # loop over "chunks" into which each data set has been split
             for i, cpidx, cplen in zip(
@@ -385,21 +419,43 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 for j, a in enumerate(knames):
                     for b in knames[::-1][: len(knames) - j]:
                         kname = a + "dot" + b
-                        if kname == "ddotd":
-                            # complex conjugate dot product for data
-                            self.products[-1][kname][i] = np.vdot(
-                                rs[a] / stds, rs[b] / stds
-                            ).real
-                        else:
-                            self.products[-1][kname][i] = np.dot(
-                                rs[a] / stds, rs[b] / stds
-                            )
+                        if not self.numba:
+                            if kname == "ddotd":
+                                # complex conjugate dot product for data
+                                self.products[-1][kname][i] = np.vdot(
+                                    rs[a] / stds, rs[b] / stds
+                                ).real
+                            else:
+                                self.products[-1][kname][i] = np.dot(
+                                    rs[a] / stds, rs[b] / stds
+                                )
 
-                        if "d" not in [a, b]:
-                            # get "whitened" versions for Students-t likelihood
-                            self.products[-1][kname + "White"] = np.dot(
-                                rs[a] / stdstrue, rs[b] / stdstrue
-                            )
+                            if "d" not in [a, b]:
+                                # get "whitened" versions for Students-t likelihood
+                                self.products[-1][kname + "White"][i] = np.dot(
+                                    rs[a] / stdstrue, rs[b] / stdstrue
+                                )
+                        else:
+                            if kname == "ddotd":
+                                # complex conjugate dot product for data
+                                self.products[-1][0][kname][i] = np.vdot(
+                                    rs[a] / stds, rs[b] / stds
+                                ).real
+                            else:
+                                if "d" in [a, b]:
+                                    self.products[-1][1][kname][i] = np.dot(
+                                        rs[a] / stds, rs[b] / stds
+                                    )
+                                else:
+                                    self.products[-1][0][kname][i] = np.dot(
+                                        rs[a] / stds, rs[b] / stds
+                                    )
+
+                            if "d" not in [a, b]:
+                                # get "whitened" versions for Students-t likelihood
+                                self.products[-1][0][kname + "White"][i] = np.dot(
+                                    rs[a] / stdstrue, rs[b] / stdstrue
+                                )
 
     def log_likelihood(self):
         """
@@ -443,114 +499,299 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             )
 
             # calculate the likelihood
-            for i, cpidx, cplen in zip(
-                range(data.num_chunks), data.change_point_indices, data.chunk_lengths
-            ):
+            if self.numba:
+                loglikelihood += self._log_likelihood_numba(
+                    data.data,
+                    data.num_chunks,
+                    np.asarray(data.change_point_indices),
+                    np.asarray(data.chunk_lengths),
+                    m,
+                    self.likelihood,
+                    prods[0],
+                    prods[1],
+                    data.stds,
+                    self.nonGR,
+                    self.include_phase,
+                )
+            else:
                 # loop over stationary data chunks
+                for i, cpidx, cplen in zip(
+                    range(data.num_chunks),
+                    data.change_point_indices,
+                    data.chunk_lengths,
+                ):
+                    # likelihood without pre-summed products
+                    if self.likelihood == "gaussian":
+                        stds = data.stds[cpidx : cpidx + cplen]
+                    else:
+                        stds = 1.0
 
-                # likelihood without pre-summed products
-                if self.likelihood == "gaussian":
-                    stds = data.stds[cpidx : cpidx + cplen]
-                else:
-                    stds = 1.0
+                    if self.include_phase:
+                        # data and model for chunk
+                        dd = data.data[cpidx : cpidx + cplen] / stds
+                        mm = m[cpidx : cpidx + cplen] / stds
 
-                if self.include_phase:
-                    # data and model for chunk
-                    dd = data.data[cpidx : cpidx + cplen] / stds
-                    mm = m[cpidx : cpidx + cplen] / stds
+                        summodel = np.vdot(mm, mm).real
+                        sumdatamodel = np.vdot(dd, mm).real
+                    else:
+                        # likelihood with pre-summed products
+                        mp = m[0]  # tensor plus model component
+                        mc = m[1]  # tensor cross model component
 
-                    summodel = np.vdot(mm, mm).real
-                    sumdatamodel = np.vdot(dd, mm).real
-                else:
-                    # likelihood with pre-summed products
-                    mp = m[0]  # tensor plus model component
-                    mc = m[1]  # tensor cross model component
-
-                    summodel = (
-                        prods["TpdotTp"][i] * (mp.real ** 2 + mp.imag ** 2)
-                        + prods["TcdotTc"][i] * (mc.real ** 2 + mc.imag ** 2)
-                        + 2.0
-                        * prods["TpdotTc"][i]
-                        * (mp.real * mc.real + mp.imag * mc.imag)
-                    )
-
-                    sumdatamodel = (
-                        prods["ddotTp"][i].real * mp.real
-                        + prods["ddotTp"][i].imag * mp.imag
-                        + prods["ddotTc"][i].real * mc.real
-                        + prods["ddotTc"][i].imag * mc.imag
-                    )
-
-                    if self.nonGR:
-                        # non-GR amplitudes
-                        mx = m[2]
-                        my = m[3]
-                        mb = m[4]
-                        ml = m[5]
-
-                        summodel += (
-                            prods["VxdotVx"][i] * (mx.real ** 2 + mx.imag ** 2)
-                            + prods["VydotVy"][i] * (my.real ** 2 + my.imag ** 2)
-                            + prods["SbdotSb"][i] * (mb.real ** 2 + mb.imag ** 2)
-                            + prods["SldotSl"][i] * (ml.real ** 2 + ml.imag ** 2)
+                        summodel = (
+                            prods["TpdotTp"][i] * (mp.real ** 2 + mp.imag ** 2)
+                            + prods["TcdotTc"][i] * (mc.real ** 2 + mc.imag ** 2)
                             + 2.0
-                            * (
-                                prods["TpdotVx"][i]
-                                * (mp.real * mx.real + mp.imag * mx.imag)
-                                + prods["TpdotVy"][i]
-                                * (mp.real * my.real + mp.imag * my.imag)
-                                + prods["TpdotSb"][i]
-                                * (mp.real * mb.real + mp.imag * mb.imag)
-                                + prods["TpdotSl"][i]
-                                * (mp.real * ml.real + mp.imag * ml.imag)
-                                + prods["TcdotVx"][i]
-                                * (mc.real * mx.real + mc.imag * mx.imag)
-                                + prods["TcdotVy"][i]
-                                * (mc.real * my.real + mc.imag * my.imag)
-                                + prods["TcdotSb"][i]
-                                * (mc.real * mb.real + mc.imag * mb.imag)
-                                + prods["TcdotSl"][i]
-                                * (mc.real * ml.real + mc.imag * ml.imag)
-                                + prods["VxdotVy"][i] * (mx.real * my.real)
-                                + (mx.imag * my.imag)
-                                + prods["VxdotSb"][i]
-                                * (mx.real * mb.real + mx.imag * mb.imag)
-                                + prods["VxdotSl"][i]
-                                * (mx.real * ml.real + mx.imag * ml.imag)
-                                + prods["VydotSb"][i]
-                                * (my.real * mb.real + my.imag * mb.imag)
-                                + prods["VydotSl"][i]
-                                * (my.real * ml.real + my.imag * ml.imag)
-                                + prods["SbdotSl"][i]
-                                * (mb.real * ml.real + mb.imag * ml.imag)
+                            * prods["TpdotTc"][i]
+                            * (mp.real * mc.real + mp.imag * mc.imag)
+                        )
+
+                        sumdatamodel = (
+                            prods["ddotTp"][i].real * mp.real
+                            + prods["ddotTp"][i].imag * mp.imag
+                            + prods["ddotTc"][i].real * mc.real
+                            + prods["ddotTc"][i].imag * mc.imag
+                        )
+
+                        if self.nonGR:
+                            # non-GR amplitudes
+                            mx = m[2]
+                            my = m[3]
+                            mb = m[4]
+                            ml = m[5]
+
+                            summodel += (
+                                prods["VxdotVx"][i] * (mx.real ** 2 + mx.imag ** 2)
+                                + prods["VydotVy"][i] * (my.real ** 2 + my.imag ** 2)
+                                + prods["SbdotSb"][i] * (mb.real ** 2 + mb.imag ** 2)
+                                + prods["SldotSl"][i] * (ml.real ** 2 + ml.imag ** 2)
+                                + 2.0
+                                * (
+                                    prods["TpdotVx"][i]
+                                    * (mp.real * mx.real + mp.imag * mx.imag)
+                                    + prods["TpdotVy"][i]
+                                    * (mp.real * my.real + mp.imag * my.imag)
+                                    + prods["TpdotSb"][i]
+                                    * (mp.real * mb.real + mp.imag * mb.imag)
+                                    + prods["TpdotSl"][i]
+                                    * (mp.real * ml.real + mp.imag * ml.imag)
+                                    + prods["TcdotVx"][i]
+                                    * (mc.real * mx.real + mc.imag * mx.imag)
+                                    + prods["TcdotVy"][i]
+                                    * (mc.real * my.real + mc.imag * my.imag)
+                                    + prods["TcdotSb"][i]
+                                    * (mc.real * mb.real + mc.imag * mb.imag)
+                                    + prods["TcdotSl"][i]
+                                    * (mc.real * ml.real + mc.imag * ml.imag)
+                                    + prods["VxdotVy"][i] * (mx.real * my.real)
+                                    + (mx.imag * my.imag)
+                                    + prods["VxdotSb"][i]
+                                    * (mx.real * mb.real + mx.imag * mb.imag)
+                                    + prods["VxdotSl"][i]
+                                    * (mx.real * ml.real + mx.imag * ml.imag)
+                                    + prods["VydotSb"][i]
+                                    * (my.real * mb.real + my.imag * mb.imag)
+                                    + prods["VydotSl"][i]
+                                    * (my.real * ml.real + my.imag * ml.imag)
+                                    + prods["SbdotSl"][i]
+                                    * (mb.real * ml.real + mb.imag * ml.imag)
+                                )
                             )
+
+                            sumdatamodel += (
+                                prods["ddotVx"][i].real * mx.real
+                                + prods["ddotVx"][i].imag * mx.imag
+                                + prods["ddotVy"][i].real * my.real
+                                + prods["ddotVy"][i].imag * my.imag
+                                + prods["ddotSb"][i].real * mb.real
+                                + prods["ddotSb"][i].imag * mb.imag
+                                + prods["ddotSl"][i].real * ml.real
+                                + prods["ddotSl"][i].imag * ml.imag
+                            )
+
+                    # compute "Chi-squared"
+                    chisquare = prods["ddotd"][i] - 2.0 * sumdatamodel + summodel
+
+                    if self.likelihood == "gaussian":
+                        loglikelihood += 0.5 * chisquare
+                        # normalisation
+                        loglikelihood -= np.log(lal.TWOPI * stds[0] ** 2)
+                    else:
+                        loglikelihood += (
+                            logfactorial(cplen - 1)
+                            - lal.LN2
+                            - cplen * lal.LNPI
+                            - cplen * np.log(chisquare)
                         )
 
-                        sumdatamodel += (
-                            prods["ddotVx"][i].real * mx.real
-                            + prods["ddotVx"][i].imag * mx.imag
-                            + prods["ddotVy"][i].real * my.real
-                            + prods["ddotVy"][i].imag * my.imag
-                            + prods["ddotSb"][i].real * mb.real
-                            + prods["ddotSb"][i].imag * mb.imag
-                            + prods["ddotSl"][i].real * ml.real
-                            + prods["ddotSl"][i].imag * ml.imag
+        return loglikelihood
+
+    @staticmethod
+    @jit(nopython=True)
+    def _log_likelihood_numba(
+        data,
+        datanchunks,
+        datacps,
+        datacls,
+        model,
+        likelihood="studentst",
+        productsreal=None,
+        productscomp=None,
+        datastds=None,
+        nonGR=False,
+        includephase=False,
+    ):
+        """
+        This is a version of the standard inner loop of
+        :meth:`cwinpy.TargetedPulsarLikelihood.log_likelihood` that used the
+        `numba <https://numba.pydata.org/>`_ JIT package to provide some
+        speed-up.
+
+        Parameters
+        ----------
+        data: array_like
+            A complex :class:`numpy.ndarray` containing data from a single
+            detector.
+        datanchunks: int
+            The number of chunks into which the data has been split.
+        datacps: array_like
+            A :class:`numpy.ndarray` containing the change point indices for
+            each chunk.
+        datacls: array_like
+            A :class:`numpy.ndarray` containing lengths of each of the chunks.
+        model: array_like
+            A complex :class:`numpy.ndarray` containing the signal model.
+        likelihood: str
+            A string stating whether to use the Student's-t or Gaussian
+            likelihood.
+        productsreal: dict
+            A numba :class:`~numba.typed.Dict` containing
+            :class:`numpy.ndarray`'s for model component dot products.
+        productscomp: dict
+            A numba :class:`~numba.typed.Dict` containing
+            :class:`numpy.ndarray`'s for data and model component dot products.
+        datastds: array_like
+            A :class:`numpy.ndarray` containing data standard deviations.
+        nonGR: bool
+            A flag to set whether using a non-GR signal.
+        includephase: bool
+            A flag specifying whether the model has a varying phase evolution.
+
+        Returns
+        -------
+        loglikelihood: float
+            The log-likelihood function calculated for that data set.
+        """
+
+        loglikelihood = 0.0
+
+        # calculate the likelihood
+        for i, cpidx, cplen in zip(range(datanchunks), datacps, datacls):
+            # loop over stationary data chunks
+
+            # likelihood without pre-summed products
+            if likelihood == "gaussian":
+                stds = datastds[cpidx : cpidx + cplen]
+            else:
+                stds = np.ones(cplen)
+
+            if includephase:
+                # data and model for chunk
+                dd = data[cpidx : cpidx + cplen] / stds
+                mm = model[cpidx : cpidx + cplen] / stds
+
+                summodel = np.vdot(mm, mm).real
+                sumdatamodel = np.vdot(dd, mm).real
+            else:
+                # likelihood with pre-summed products
+                mp = model[0]  # tensor plus model component
+                mc = model[1]  # tensor cross model component
+
+                summodel = (
+                    productsreal["TpdotTp"][i] * (mp.real ** 2 + mp.imag ** 2)
+                    + productsreal["TcdotTc"][i] * (mc.real ** 2 + mc.imag ** 2)
+                    + 2.0
+                    * productsreal["TpdotTc"][i]
+                    * (mp.real * mc.real + mp.imag * mc.imag)
+                )
+
+                sumdatamodel = (
+                    productscomp["ddotTp"][i].real * mp.real
+                    + productscomp["ddotTp"][i].imag * mp.imag
+                    + productscomp["ddotTc"][i].real * mc.real
+                    + productscomp["ddotTc"][i].imag * mc.imag
+                )
+
+                if nonGR:
+                    # non-GR amplitudes
+                    mx = model[2]
+                    my = model[3]
+                    mb = model[4]
+                    ml = model[5]
+
+                    summodel += (
+                        productsreal["VxdotVx"][i] * (mx.real ** 2 + mx.imag ** 2)
+                        + productsreal["VydotVy"][i] * (my.real ** 2 + my.imag ** 2)
+                        + productsreal["SbdotSb"][i] * (mb.real ** 2 + mb.imag ** 2)
+                        + productsreal["SldotSl"][i] * (ml.real ** 2 + ml.imag ** 2)
+                        + 2.0
+                        * (
+                            productsreal["TpdotVx"][i]
+                            * (mp.real * mx.real + mp.imag * mx.imag)
+                            + productsreal["TpdotVy"][i]
+                            * (mp.real * my.real + mp.imag * my.imag)
+                            + productsreal["TpdotSb"][i]
+                            * (mp.real * mb.real + mp.imag * mb.imag)
+                            + productsreal["TpdotSl"][i]
+                            * (mp.real * ml.real + mp.imag * ml.imag)
+                            + productsreal["TcdotVx"][i]
+                            * (mc.real * mx.real + mc.imag * mx.imag)
+                            + productsreal["TcdotVy"][i]
+                            * (mc.real * my.real + mc.imag * my.imag)
+                            + productsreal["TcdotSb"][i]
+                            * (mc.real * mb.real + mc.imag * mb.imag)
+                            + productsreal["TcdotSl"][i]
+                            * (mc.real * ml.real + mc.imag * ml.imag)
+                            + productsreal["VxdotVy"][i] * (mx.real * my.real)
+                            + (mx.imag * my.imag)
+                            + productsreal["VxdotSb"][i]
+                            * (mx.real * mb.real + mx.imag * mb.imag)
+                            + productsreal["VxdotSl"][i]
+                            * (mx.real * ml.real + mx.imag * ml.imag)
+                            + productsreal["VydotSb"][i]
+                            * (my.real * mb.real + my.imag * mb.imag)
+                            + productsreal["VydotSl"][i]
+                            * (my.real * ml.real + my.imag * ml.imag)
+                            + productsreal["SbdotSl"][i]
+                            * (mb.real * ml.real + mb.imag * ml.imag)
                         )
-
-                # compute "Chi-squared"
-                chisquare = prods["ddotd"][i] - 2.0 * sumdatamodel + summodel
-
-                if self.likelihood == "gaussian":
-                    loglikelihood += 0.5 * chisquare
-                    # normalisation
-                    loglikelihood -= np.log(lal.TWOPI * stds[0] ** 2)
-                else:
-                    loglikelihood += (
-                        logfactorial(cplen - 1)
-                        - lal.LN2
-                        - cplen * lal.LNPI
-                        - cplen * np.log(chisquare)
                     )
+
+                    sumdatamodel += (
+                        productscomp["ddotVx"][i].real * mx.real
+                        + productscomp["ddotVx"][i].imag * mx.imag
+                        + productscomp["ddotVy"][i].real * my.real
+                        + productscomp["ddotVy"][i].imag * my.imag
+                        + productscomp["ddotSb"][i].real * mb.real
+                        + productscomp["ddotSb"][i].imag * mb.imag
+                        + productscomp["ddotSl"][i].real * ml.real
+                        + productscomp["ddotSl"][i].imag * ml.imag
+                    )
+
+            # compute "Chi-squared"
+            chisquare = productsreal["ddotd"][i] - 2.0 * sumdatamodel + summodel
+
+            if likelihood == "gaussian":
+                loglikelihood += 0.5 * chisquare
+                # normalisation
+                loglikelihood -= np.log(lal.TWOPI * stds[0] ** 2)
+            else:
+                loglikelihood += (
+                    logfactorial(cplen - 1)
+                    - lal.LN2
+                    - cplen * lal.LNPI
+                    - cplen * np.log(chisquare)
+                )
 
         return loglikelihood
 

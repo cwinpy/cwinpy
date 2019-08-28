@@ -215,7 +215,7 @@ class MultiHeterodynedData(object):
         snr2 = 0.0
         for het in self:
             if het.injpar is not None:
-                snr2 += het.injection_snr**2
+                snr2 += het.injection_snr ** 2
 
         return np.sqrt(snr2)
 
@@ -227,7 +227,7 @@ class MultiHeterodynedData(object):
 
         snr2 = 0.0
         for het in self:
-            snr2 += het.signal_snr(signalpar)**2
+            snr2 += het.signal_snr(signalpar) ** 2
 
         return np.sqrt(snr2)
 
@@ -1215,10 +1215,6 @@ class HeterodynedData(object):
             if self.stds is None:
                 self.stds = np.zeros(len(self))
 
-            with open('changepoints.txt', 'w') as fp:
-                for cp in cps:
-                    fp.write('{}\n'.format(cp))
-
             for i in range(len(cps) - 1):
                 if cps[i + 1] < 1 or cps[i + 1] > len(datasub):
                     raise ValueError("Change point index is out of bounds")
@@ -1773,8 +1769,8 @@ class HeterodynedData(object):
 
         logdouble = np.zeros(lsum)
 
-        sumforwards = (np.abs(subdata[: minlength]) ** 2).sum()
-        sumbackwards = (np.abs(subdata[minlength :]) ** 2).sum()
+        sumforwards = (np.abs(subdata[:minlength]) ** 2).sum()
+        sumbackwards = (np.abs(subdata[minlength:]) ** 2).sum()
 
         # go through each possible splitting of the data in two
         for i in range(lsum):
