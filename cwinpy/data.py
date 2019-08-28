@@ -1199,7 +1199,6 @@ class HeterodynedData(object):
             self.__vars = np.full(
                 len(self), np.hstack((datasub.real, datasub.imag)).var(ddof=1)
             )
-
         else:
             if change_points is not None:
                 cps = np.concatenate(
@@ -1215,6 +1214,10 @@ class HeterodynedData(object):
 
             if self.stds is None:
                 self.stds = np.zeros(len(self))
+
+            with open('changepoints.txt', 'w') as fp:
+                for cp in cps:
+                    fp.write('{}\n'.format(cp))
 
             for i in range(len(cps) - 1):
                 if cps[i + 1] < 1 or cps[i + 1] > len(datasub):
@@ -1696,7 +1699,7 @@ class HeterodynedData(object):
         else:
             return len(self.change_point_indices)
 
-    def _chop_data(self, data, threshold="default", minlength=5):
+    def _chop_data(self, data, threshold="default", minlength=5, startidx=0):
         # find change point (don't split if data is zero)
         if np.all(self.subtract_running_median() == (0.0 + 0 * 1j)):
             lratio, cpidx, ntrials = (-np.inf, 0, 1)
@@ -1717,14 +1720,14 @@ class HeterodynedData(object):
 
         if lratio > thresh:
             # split the data at the change point
-            self.__change_point_indices_and_ratios.append((cpidx, lratio))
+            self.__change_point_indices_and_ratios.append((cpidx + startidx, lratio))
 
             # split the data and check for another change point
             chunk1 = data[0:cpidx]
             chunk2 = data[cpidx:]
 
-            self._chop_data(chunk1, threshold, minlength)
-            self._chop_data(chunk2, threshold, minlength)
+            self._chop_data(chunk1, threshold, minlength, startidx=startidx)
+            self._chop_data(chunk2, threshold, minlength, startidx=(cpidx + startidx))
 
     @staticmethod
     @jit(nopython=True)
