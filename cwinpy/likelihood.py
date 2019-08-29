@@ -807,7 +807,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
         References
         ----------
-        
+
         .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
            <https:arxiv.org/abs/1705.08978v1>`_, 2017.
         """
@@ -821,8 +821,12 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 range(data.num_chunks), data.change_point_indices, data.chunk_lengths
             ):
                 # loop over stationary data chunks
+                if self.numba:
+                    ddotd = prods["ddotd"][0][i]
+                else:
+                    ddotd = prods["ddotd"][i]
                 if self.likelihood == "gaussian":
-                    loglikelihood += 0.5 * prods["ddotd"][i]
+                    loglikelihood += 0.5 * ddotd
                     # normalisation
                     loglikelihood -= np.log(lal.TWOPI * data.vars[cpidx])
                 else:
@@ -830,7 +834,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                         logfactorial(cplen - 1)
                         - lal.LN2
                         - cplen * lal.LNPI
-                        - cplen * np.log(prods["ddotd"][i])
+                        - cplen * np.log(ddotd)
                     )
 
         return loglikelihood
