@@ -290,7 +290,7 @@ continuous gravitational-wave signal from a known pulsar."""
             "These values will be output to a JSON file in the supplied "
             "output directory, and using the supplied label, with a file "
             "extension of '.snr'."
-        )
+        ),
     )
 
     samplerparser = parser.add_argument_group("Sampler inputs")
@@ -315,6 +315,12 @@ continuous gravitational-wave signal from a known pulsar."""
             "The name of the likelihood function to use. This can be either "
             '"studentst" or "gaussian".'
         ),
+    )
+    samplerparser.add(
+        "--numba",
+        action="store_true",
+        default=False,
+        help=("Set this flag to use enable to likelihood calculation using " "numba."),
     )
     samplerparser.add(
         "--prior",
@@ -412,7 +418,7 @@ class KnopeRunner(object):
                 detectors = []
                 for det in kwargs["detector"]:
                     try:
-                        thisdet = (det)
+                        thisdet = det
                     except (ValueError, SyntaxError):
                         thisdet = det
 
@@ -443,7 +449,7 @@ class KnopeRunner(object):
                         SyntaxError,
                         BilbyPipeError,
                         TypeError,
-                        IndexError
+                        IndexError,
                     ):
                         data2f = kwargs[kw]
                     break
@@ -454,13 +460,7 @@ class KnopeRunner(object):
                     data1f = convert_string_to_dict(
                         kwargs["data_file_1f"][0], "data_file_1f"
                     )
-                except (
-                        ValueError,
-                        SyntaxError,
-                        BilbyPipeError,
-                        TypeError,
-                        IndexError
-                ):
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
                     data1f = kwargs["data_file_1f"]
 
             if isinstance(data2f, str):
@@ -553,7 +553,7 @@ class KnopeRunner(object):
                         SyntaxError,
                         BilbyPipeError,
                         TypeError,
-                        IndexError
+                        IndexError,
                     ):
                         fakeasd2f = kwargs[kw]
                     if "sigma" in kw:
@@ -571,7 +571,7 @@ class KnopeRunner(object):
                         SyntaxError,
                         BilbyPipeError,
                         TypeError,
-                        IndexError
+                        IndexError,
                     ):
                         fakeasd1f = kwargs[kw]
                     if "sigma" in kw:
@@ -581,37 +581,19 @@ class KnopeRunner(object):
             if isinstance(starts, str):
                 try:
                     starts = convert_string_to_dict(starts[0], "fake_start")
-                except (
-                        ValueError,
-                        SyntaxError,
-                        BilbyPipeError,
-                        TypeError,
-                        IndexError
-                ):
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
                     pass
 
             if isinstance(ends, str):
                 try:
                     ends = convert_string_to_dict(ends[0], "fake_end")
-                except (
-                        ValueError,
-                        SyntaxError,
-                        BilbyPipeError,
-                        TypeError,
-                        IndexError
-                ):
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
                     pass
 
             if isinstance(dts, str):
                 try:
                     dts = convert_string_to_dict(dts[0], "fake_dt")
-                except (
-                        ValueError,
-                        SyntaxError,
-                        BilbyPipeError,
-                        TypeError,
-                        IndexError
-                ):
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
                     pass
 
             if isinstance(starts, int):
@@ -872,6 +854,7 @@ class KnopeRunner(object):
             except (ValueError, SyntaxError):
                 raise ValueError("Unable to parse grid keyword arguments")
         self.likelihoodtype = kwargs.get("likelihood", "studentst")
+        self.numba = kwargs.get("numba", False)
         self.prior = kwargs.get("prior", None)
         if not isinstance(self.prior, (str, dict, bilby.core.prior.PriorDict)):
             raise ValueError("The prior is not defined")
@@ -931,7 +914,10 @@ class KnopeRunner(object):
         """
 
         self.likelihood = TargetedPulsarLikelihood(
-            data=self.hetdata, priors=self.prior, likelihood=self.likelihoodtype
+            data=self.hetdata,
+            priors=self.prior,
+            likelihood=self.likelihoodtype,
+            numba=self.numba,
         )
 
     def run_sampler(self):
@@ -967,12 +953,11 @@ class KnopeRunner(object):
             sourcepars = PulsarParametersPy(self.datakwargs["par"])
             maxlikeidx = self.result.posterior.log_likelihood.idxmax()
             maxpostidx = (
-                self.result.posterior.log_likelihood +
-                self.result.posterior.log_prior
+                self.result.posterior.log_likelihood + self.result.posterior.log_prior
             ).idxmax()
             for snrstr, idx in zip(
                 ["Maximum likelihood SNR", "Maximum a-posteriori SNR"],
-                [maxlikeidx, maxpostidx]
+                [maxlikeidx, maxpostidx],
             ):
                 for item in self.prior:
                     # NOTE: at the moment this will not work correctly if you
@@ -985,8 +970,9 @@ class KnopeRunner(object):
             with open(
                 os.path.join(
                     self.sampler_kwargs["outdir"],
-                    "{}.snr".format(self.sampler_kwargs["label"])
-                ), "w"
+                    "{}.snr".format(self.sampler_kwargs["label"]),
+                ),
+                "w",
             ) as fp:
                 json.dump(snrs, fp, indent=2)
 
@@ -1126,6 +1112,9 @@ def knope(**kwargs):
     likelihood: str
         The likelihood function to use. At the moment this can be either
         'studentst' or 'gaussian', with 'studentst' being the default.
+    numba: bool
+        Set whether to use the likelihood with numba enabled. Defaults to
+        False.
     show_truths: bool
         If plotting the results, setting this argument will overplot the
         "true" signal values. If adding a simulated signal then these parameter
@@ -1145,7 +1134,7 @@ def knope(**kwargs):
         HTCondor. For running via the command line interface, this defaults to
         10800 seconds (3 hours), at which point the job will be stopped (and
         then restarted if running under HTCondor). If running directly within
-        Python this defaults to 10000000. 
+        Python this defaults to 10000000.
     """
 
     if "cwinpy_knope" == os.path.split(sys.argv[0])[-1] or "config" in kwargs:
@@ -1676,6 +1665,9 @@ class KnopeDAGRunner(object):
 
             # get the sampler keyword arguments
             samplerkwargs = config.get("knope", "sampler_kwargs", fallback=None)
+
+            # get whether to use numba
+            numba = config.getboolean("knope", "numba", fallback=False)
         else:
             raise IOError("Configuration file must have a [knope] section.")
 
@@ -1722,6 +1714,7 @@ class KnopeDAGRunner(object):
             configdict["label"] = pname
             configdict["prior"] = priorfiles[pname]
             configdict["sampler"] = sampler
+            configdict["numba"] = numba
             if samplerkwargs is not None:
                 configdict["sampler_kwargs"] = samplerkwargs
 

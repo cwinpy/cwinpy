@@ -243,6 +243,8 @@ class KnopePPPlotsDAG(object):
     outputsnr: bool
         Set whether to output the injected and recovered signal-to-noise
         ratios. Defaults to True.
+    numba: bool
+        Set whether or not to use the likelihood with numba enabled.
 
     References
     ----------
@@ -256,7 +258,7 @@ class KnopePPPlotsDAG(object):
                  detector="AH1", submit=False, accountuser=None,
                  accountgroup=None, getenv=False, sampler="dynesty",
                  sampler_kwargs=None, freqrange=(10.0, 750.0),
-                 outputsnr=True):
+                 outputsnr=True, numba=False):
 
         if isinstance(prior, dict):
             self.prior = bilby.core.prior.PriorDict(dictionary=prior)
@@ -303,6 +305,7 @@ class KnopePPPlotsDAG(object):
         self.sampler = sampler
         self.sampler_kwargs = sampler_kwargs
         self.outputsnr = outputsnr
+        self.numba = numba
         self.create_config()
 
         # create the DAG for cwinpy_knope jobs
@@ -436,6 +439,7 @@ class KnopePPPlotsDAG(object):
         self.config["knope"]["pulsars"] = self.pulsardir
         self.config["knope"]["injections"] = self.pulsardir
         self.config["knope"]["results"] = self.resultsdir
+        self.config["knope"]["numba"] = self.numba
 
         # set fake data
         if 'h0' in self.prior or 'c22' in self.prior or 'q22' in self.prior:
