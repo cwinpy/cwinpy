@@ -784,19 +784,22 @@ class KnopeRunner(object):
                                 ftime = np.arange(
                                     int(detstart[-1]), int(detend[-1]), int(detdt[-1])
                                 )
-                        elif len(detfdata) == 1 and detectors is not None:
-                            try:
-                                asdval = float(detfdata[-1])
-                            except ValueError:
-                                asdval = detfdata[-1]
+                        elif len(detfdata) == 1:
+                            if detectors is not None:
+                                try:
+                                    asdval = float(detfdata[0])
+                                except ValueError:
+                                    asdval = detfdata[0]
 
-                            try:
-                                thisdet = detectors[detidx]
-                                detidx += 1
-                            except Exception as e:
-                                raise ValueError(
-                                    "Detectors is not a list: {}".format(e)
-                                )
+                                try:
+                                    thisdet = detectors[detidx]
+                                    detidx += 1
+                                except Exception as e:
+                                    raise ValueError(
+                                        "Detectors is not a list: {}".format(e)
+                                    )
+                            else:
+                                thisdet = detfdata[0]
 
                             # check if actual data already exists
                             if thisdet in self.hetdata.detectors:
@@ -1700,7 +1703,7 @@ class KnopeDAGRunner(object):
                 else:
                     try:
                         configdict["fake_asd_{}".format(freqfactor)] = str(
-                            ["{}:{}".format(det, det) for det in simdata[freqfactor]]
+                            ["{}".format(det) for det in simdata[freqfactor]]
                         )
                     except KeyError:
                         pass
