@@ -435,6 +435,7 @@ class KnopePPPlotsDAG(object):
         self.config["knope"] = {}
         self.config["knope"]["pulsars"] = self.pulsardir
         self.config["knope"]["injections"] = self.pulsardir
+        self.config["knope"]["results"] = self.resultsdir
 
         # set fake data
         if 'h0' in self.prior or 'c22' in self.prior or 'q22' in self.prior:
