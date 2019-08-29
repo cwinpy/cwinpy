@@ -500,5 +500,5 @@ class KnopePPPlotsDAG(object):
             jobargs += "--snrs "
         job.add_arg(jobargs)
 
-        job.add_parents(self.runner.dag.nodes[-2])  # exclude cwinpy_knope_pp_plots job itself
+        job.add_parents(self.runner.dag.nodes[:-1])  # exclude cwinpy_knope_pp_plots job itself
         self.runner.dag.build()
