@@ -822,7 +822,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             ):
                 # loop over stationary data chunks
                 if self.numba:
-                    ddotd = prods["ddotd"][0][i]
+                    ddotd = prods[0]["ddotd"][i]
                 else:
                     ddotd = prods["ddotd"][i]
                 if self.likelihood == "gaussian":
