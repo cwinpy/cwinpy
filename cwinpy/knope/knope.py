@@ -450,6 +450,7 @@ class KnopeRunner(object):
                         BilbyPipeError,
                         TypeError,
                         IndexError,
+                        KeyError,
                     ):
                         data2f = kwargs[kw]
                     break
@@ -460,7 +461,7 @@ class KnopeRunner(object):
                     data1f = convert_string_to_dict(
                         kwargs["data_file_1f"][0], "data_file_1f"
                     )
-                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError, KeyError):
                     data1f = kwargs["data_file_1f"]
 
             if isinstance(data2f, str):
@@ -554,6 +555,7 @@ class KnopeRunner(object):
                         BilbyPipeError,
                         TypeError,
                         IndexError,
+                        KeyError,
                     ):
                         fakeasd2f = kwargs[kw]
                     if "sigma" in kw:
@@ -572,6 +574,7 @@ class KnopeRunner(object):
                         BilbyPipeError,
                         TypeError,
                         IndexError,
+                        KeyError,
                     ):
                         fakeasd1f = kwargs[kw]
                     if "sigma" in kw:
@@ -581,19 +584,19 @@ class KnopeRunner(object):
             if isinstance(starts, str):
                 try:
                     starts = convert_string_to_dict(starts[0], "fake_start")
-                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError, KeyError):
                     pass
 
             if isinstance(ends, str):
                 try:
                     ends = convert_string_to_dict(ends[0], "fake_end")
-                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError, KeyError):
                     pass
 
             if isinstance(dts, str):
                 try:
                     dts = convert_string_to_dict(dts[0], "fake_dt")
-                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError, KeyError):
                     pass
 
             if isinstance(starts, int):

@@ -92,17 +92,17 @@ class TestKnopePP(object):
         assert len(os.listdir(run.pulsardir)) == self.ninj
 
         # check output is a DAG
-        assert isinstance(run.dag, pycondor.Dagman)
+        assert isinstance(run.runner.dag, pycondor.Dagman)
 
         # checkout correct number of DAG jobs
-        assert len(run.dag.nodes[0]) == self.ninj
+        assert len(run.runner.dag.nodes[0]) == self.ninj
 
         # check config files are present
         configexists = 0
         for psr in run.pulsars:
-            for job in run.dag.nodes[0]:
+            for job in run.runner.dag.nodes[0]:
                 if psr in job.arg:
-                    if os.path.isfile(job.arg):
+                    if os.path.isfile(job.arg.split()[-1]):
                         configexists += 1
                         break
 
