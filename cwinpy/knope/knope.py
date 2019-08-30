@@ -938,7 +938,14 @@ class KnopeRunner(object):
         # set use_ratio to False by default
         if "use_ratio" not in self.sampler_kwargs:
             self.sampler_kwargs["use_ratio"] = False
-
+        
+        # turn off check_point_plot for dynesty by defaul
+        if (
+            self.sampler == "dynesty" and
+            "check_point_plot" not in self.sampler_kwargs
+        ):
+            self.sampler_kwargs["check_point_plot"] = False
+    
         # default restart time to 1000000 seconds if not running through CLI
         self.periodic_restart_time = kwargs.get("periodic_restart_time", 10000000)
 
