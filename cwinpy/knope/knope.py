@@ -731,8 +731,8 @@ class KnopeRunner(object):
                     ):
                         try:
                             # make sure value is a string so it can be "split"
-                            detfdata = str(
-                                fdata.replace("'", "").replace('"', "")
+                            detfdata = str(fdata).replace("'", "").replace(
+                                '"', ""
                             ).split(":")
                         except Exception as e:
                             raise TypeError(
