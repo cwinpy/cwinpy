@@ -15,7 +15,6 @@ services:  # see https://docs.travis-ci.com/user/gui-and-headless-browsers/#usin
 install:
   - pip install --upgrade pip
   - pip install -r requirements.txt
-  - pip install -r hierarchical-requirements.txt
   # install packages for testing
   - pip install -r test-requirements.txt
   # build cwinpy

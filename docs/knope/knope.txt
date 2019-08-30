@@ -117,9 +117,11 @@ The code should also output the natural logarithm of the signal model `evidence
 (``log_noise_evidence``), and `Bayes factor <https://en.wikipedia.org/wiki/Bayes_factor>`_ between
 those two models, and estimates of the uncertainties on the signal model evidence.
 
+.. code-block:: none
+
    log_noise_evidence: 869768.909
-   log_evidence: 870014.347 +/-  0.181
-   log_bayes_factor: 245.439 +/-  0.181
+   log_evidence: 870014.347 ± 0.181
+   log_bayes_factor: 245.439 ± 0.181
 
 If running the example you should find an identical noise evidence value, although the signal model
 evidence, and therefore Bayes factor, and its uncertainty may vary slightly due to the stochastic
@@ -188,9 +190,11 @@ The natural logarithms of the signal model `evidence
 (``log_noise_evidence``) and `Bayes factor
 <https://en.wikipedia.org/wiki/Bayes_factor>`_ (``log_bayes_factor``) output for this example are 
 
+.. code-block:: none
+
    log_noise_evidence: 1492439.107
-   log_evidence: 1492888.284 +/-  0.187
-   log_bayes_factor: 449.177 +/-  0.187
+   log_evidence: 1492888.284 ± 0.187
+   log_bayes_factor: 449.177 ± 0.187
 
 If running the example you should find an identical noise evidence value, although the signal model
 evidence, and therefore Bayes factor, and its uncertainty may vary slightly due to the stochastic
@@ -312,6 +316,7 @@ The command line arguments for ``cwinpy_knope`` (as extracted using ``cwinpy_kno
 given below:
 
 .. literalinclude:: knope_help.txt
+   :language: none
 
 API
 ---
