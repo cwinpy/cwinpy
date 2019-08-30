@@ -6,6 +6,7 @@ import os
 import numpy as np
 import warnings
 from collections import OrderedDict
+from numba import jit
 
 # import lal and lalpulsar
 import lal
@@ -204,17 +205,17 @@ class MultiHeterodynedData(object):
         return [het.freq_factor for het in self]
 
     @property
-    def injection_optimal_snr(self):
+    def injection_snr(self):
         """
         Get the coherent optimal signal-to-noise ratio of an injected signal in
         all heterodyned data sets. See
-        :meth:`cwinpy.data.HeterodynedData.injection_optimal_snr`.
+        :meth:`cwinpy.data.HeterodynedData.injection_snr`.
         """
 
         snr2 = 0.0
         for het in self:
             if het.injpar is not None:
-                snr2 += het.injection_optimal_snr**2
+                snr2 += het.injection_snr ** 2
 
         return np.sqrt(snr2)
 
@@ -226,7 +227,7 @@ class MultiHeterodynedData(object):
 
         snr2 = 0.0
         for het in self:
-            snr2 += het.signal_snr(signalpar)**2
+            snr2 += het.signal_snr(signalpar) ** 2
 
         return np.sqrt(snr2)
 
@@ -1198,7 +1199,6 @@ class HeterodynedData(object):
             self.__vars = np.full(
                 len(self), np.hstack((datasub.real, datasub.imag)).var(ddof=1)
             )
-
         else:
             if change_points is not None:
                 cps = np.concatenate(
@@ -1307,28 +1307,26 @@ class HeterodynedData(object):
         return self.__inj_data
 
     @property
-    def injection_optimal_snr(self):
+    def injection_snr(self):
         """
         Return the optimal signal-to-noise ratio using the pure injected signal
         and true noise calculated using:
 
         .. math::
 
-           \\rho = \\sqrt{\\sum_i \\left(\\left[\\frac{\\Re{(s_i)}}{\\Re{(d_i)}}\\right]^2 + \\left[\\frac{\\Im{(s_i)}}{\\Im{(d_i)}}\\right]^2\\right)}
+           \\rho = \\sqrt{\\sum_i \\left(\\left[\\frac{\\Re{(s_i)}}{\\sigma_i}\\right]^2 + \\left[\\frac{\\Im{(s_i)}}{\\sigma_i}\\right]^2\\right)}
 
-        where :math:`d` is the signal-free data, and :math:`s` is the pure
-        signal.
+        where and :math:`s` is the pure signal and :math:`\sigma` is the
+        estimated noise standard deviation.
 
         """
 
         if not self.injection:
             return None
 
-        noinj = self.data - self.injection_data  # data with injection removed
-
         return np.sqrt(
-            ((self.injection_data.real / noinj.real) ** 2).sum()
-            + ((self.injection_data.imag / noinj.imag) ** 2).sum()
+            ((self.injection_data.real / self.stds) ** 2).sum()
+            + ((self.injection_data.imag / self.stds) ** 2).sum()
         )
 
     def make_signal(self, signalpar=None):
@@ -1475,9 +1473,9 @@ class HeterodynedData(object):
 
                 # read PSD from ASD file
                 try:
-                    ret = lalsim.SimNoisePSDFromFile(psdfs, psdfs.f0, asd)
+                    _ = lalsim.SimNoisePSDFromFile(psdfs, psdfs.f0, asd)
                 except Exception as e:
-                    raise RuntimeError("Problem getting ASD from file")
+                    raise RuntimeError("Problem getting ASD from file: {}".format(e))
 
                 # convert to ASD
                 asdval = np.sqrt(psdfs.data.data[0])
@@ -1697,9 +1695,12 @@ class HeterodynedData(object):
         else:
             return len(self.change_point_indices)
 
-    def _chop_data(self, data, threshold="default", minlength=5):
-        # find change point
-        lratio, cpidx, ntrials = self._find_change_point(data, minlength)
+    def _chop_data(self, data, threshold="default", minlength=5, startidx=0):
+        # find change point (don't split if data is zero)
+        if np.all(self.subtract_running_median() == (0.0 + 0 * 1j)):
+            lratio, cpidx, ntrials = (-np.inf, 0, 1)
+        else:
+            lratio, cpidx, ntrials = self._find_change_point(data, minlength)
 
         # set the threshold
         if threshold == "default":
@@ -1715,16 +1716,18 @@ class HeterodynedData(object):
 
         if lratio > thresh:
             # split the data at the change point
-            self.__change_point_indices_and_ratios.append((cpidx, lratio))
+            self.__change_point_indices_and_ratios.append((cpidx + startidx, lratio))
 
             # split the data and check for another change point
             chunk1 = data[0:cpidx]
             chunk2 = data[cpidx:]
 
-            self._chop_data(chunk1, threshold, minlength)
-            self._chop_data(chunk2, threshold, minlength)
+            self._chop_data(chunk1, threshold, minlength, startidx=startidx)
+            self._chop_data(chunk2, threshold, minlength, startidx=(cpidx + startidx))
 
-    def _find_change_point(self, subdata, minlength):
+    @staticmethod
+    @jit(nopython=True)
+    def _find_change_point(subdata, minlength):
         """
         Find the change point in the data, i.e., the "most likely" point at
         which the data could be split to be described by two independent
@@ -1752,10 +1755,6 @@ class HeterodynedData(object):
         if len(subdata) < 2 * minlength:
             return (-np.inf, 0, 1)
 
-        # don't try and split if all data is zero
-        if np.all(self.subtract_running_median() == (0.0 + 0 * 1j)):
-            return (-np.inf, 0, 1)
-
         dlen = len(subdata)
         datasum = (np.abs(subdata) ** 2).sum()
 
@@ -1770,6 +1769,9 @@ class HeterodynedData(object):
 
         logdouble = np.zeros(lsum)
 
+        sumforwards = (np.abs(subdata[:minlength]) ** 2).sum()
+        sumbackwards = (np.abs(subdata[minlength:]) ** 2).sum()
+
         # go through each possible splitting of the data in two
         for i in range(lsum):
             if np.all(subdata[: minlength + i] == (0.0 + 0 * 1j)) or np.all(
@@ -1778,9 +1780,6 @@ class HeterodynedData(object):
                 # do this to avoid warnings about np.log(0.0)
                 logdouble[i] = -np.inf
             else:
-                sumforwards = (np.abs(subdata[: minlength + i]) ** 2).sum()
-                sumbackwards = (np.abs(subdata[minlength + i :]) ** 2).sum()
-
                 dlenf = minlength + i
                 dlenb = dlen - (minlength + i)
 
@@ -1800,11 +1799,15 @@ class HeterodynedData(object):
                 # evidence for that split
                 logdouble[i] = logf + logb
 
+            adval = np.abs(subdata[minlength + i]) ** 2
+            sumforwards += adval
+            sumbackwards -= adval
+
             # evidence for *any* split
             logtot = np.logaddexp(logtot, logdouble[i])
 
         # change point (maximum of the split evidences)
-        cp = np.argmax(logdouble) + minlength
+        cp = logdouble.argmax() + minlength
 
         # ratio of any change point compared to no splits
         logratio = logtot - logsingle
@@ -2457,7 +2460,6 @@ class HeterodynedData(object):
         try:
             from matplotlib import pyplot as pl
             from matplotlib.axes import Axes
-            import matplotlib as mpl
 
             fraction_labels = speckwargs.get("fraction_labels", True)
             fraction_label_num = speckwargs.get("fraction_label_num", 4)

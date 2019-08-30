@@ -1,7 +1,11 @@
 numpy>=1.15
-bilby>=0.5.4
+bilby>=0.5.5
 bilby_pipe>=0.2.0
 astropy
 matplotlib
+scipy
+lintegrate>=0.1.0
 lalsuite==6.60.1.dev20190808
+numba
 gwpy
+pycondor

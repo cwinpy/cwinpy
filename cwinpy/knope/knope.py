@@ -5,7 +5,12 @@ Run known pulsar parameter estimation using bilby.
 import os
 import sys
 import ast
+import glob
 import signal
+import warnings
+import configparser
+import json
+from argparse import ArgumentParser
 import numpy as np
 
 import cwinpy
@@ -14,12 +19,8 @@ from ..likelihood import TargetedPulsarLikelihood
 
 import bilby
 from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.utils import parse_args, BilbyPipeError
-
-
-description = """\
-A script to use Bayesian inference to estimate the parameters of a \
-continuous gravitational-wave signal from a known pulsar."""
+from bilby_pipe.utils import parse_args, convert_string_to_dict, BilbyPipeError
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
 def sighandler(signum, frame):
@@ -28,10 +29,14 @@ def sighandler(signum, frame):
     sys.exit(130)
 
 
-def create_parser():
+def create_knope_parser():
     """
     Create the argument parser.
     """
+
+    description = """\
+A script to use Bayesian inference to estimate the parameters of a \
+continuous gravitational-wave signal from a known pulsar."""
 
     parser = BilbyArgParser(
         prog=sys.argv[0],
@@ -274,6 +279,19 @@ def create_parser():
     outputparser = parser.add_argument_group("Output")
     outputparser.add("-o", "--outdir", help="The output directory for the results")
     outputparser.add("-l", "--label", help="The output filename label for the results")
+    outputparser.add(
+        "--output-snr",
+        action="store_true",
+        default=False,
+        help=(
+            "Set this flag to output the maximum likelihood and maximum "
+            "a-posteriori recovered signal-to-noise ratio. If adding "
+            "an injection this will also output the injected signal SNR. "
+            "These values will be output to a JSON file in the supplied "
+            "output directory, and using the supplied label, with a file "
+            "extension of '.snr'."
+        ),
+    )
 
     samplerparser = parser.add_argument_group("Sampler inputs")
     samplerparser.add(
@@ -297,6 +315,12 @@ def create_parser():
             "The name of the likelihood function to use. This can be either "
             '"studentst" or "gaussian".'
         ),
+    )
+    samplerparser.add(
+        "--numba",
+        action="store_true",
+        default=False,
+        help=("Set this flag to use enable to likelihood calculation using " "numba."),
     )
     samplerparser.add(
         "--prior",
@@ -394,8 +418,7 @@ class KnopeRunner(object):
                 detectors = []
                 for det in kwargs["detector"]:
                     try:
-                        # remove additional quotation marks from string
-                        thisdet = ast.literal_eval(det)
+                        thisdet = det
                     except (ValueError, SyntaxError):
                         thisdet = det
 
@@ -420,16 +443,24 @@ class KnopeRunner(object):
             for kw in ["data_file", "data_file_2f"]:
                 if kw in kwargs:
                     try:
-                        data2f = ast.literal_eval(kwargs[kw])
-                    except (ValueError, SyntaxError):
+                        data2f = convert_string_to_dict(kwargs[kw][0], kw)
+                    except (
+                        ValueError,
+                        SyntaxError,
+                        BilbyPipeError,
+                        TypeError,
+                        IndexError,
+                    ):
                         data2f = kwargs[kw]
                     break
 
             data1f = []
             if "data_file_1f" in kwargs:
                 try:
-                    data1f = ast.literal_eval(kwargs["data_file_1f"])
-                except (ValueError, SyntaxError):
+                    data1f = convert_string_to_dict(
+                        kwargs["data_file_1f"][0], "data_file_1f"
+                    )
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
                     data1f = kwargs["data_file_1f"]
 
             if isinstance(data2f, str):
@@ -516,8 +547,14 @@ class KnopeRunner(object):
             for kw in ["fake_asd", "fake_asd_2f", "fake_sigma", "fake_sigma_2f"]:
                 if kw in kwargs:
                     try:
-                        fakeasd2f = ast.literal_eval(kwargs[kw])
-                    except (ValueError, SyntaxError):
+                        fakeasd2f = convert_string_to_dict(kwargs[kw][0], kw)
+                    except (
+                        ValueError,
+                        SyntaxError,
+                        BilbyPipeError,
+                        TypeError,
+                        IndexError,
+                    ):
                         fakeasd2f = kwargs[kw]
                     if "sigma" in kw:
                         issigma2f = True
@@ -528,8 +565,14 @@ class KnopeRunner(object):
             for kw in ["fake_asd_1f", "fake_sigma_1f"]:
                 if kw in kwargs:
                     try:
-                        fakeasd1f = ast.literal_eval(kwargs[kw])
-                    except (ValueError, SyntaxError):
+                        fakeasd1f = convert_string_to_dict(kwargs[kw][0], kw)
+                    except (
+                        ValueError,
+                        SyntaxError,
+                        BilbyPipeError,
+                        TypeError,
+                        IndexError,
+                    ):
                         fakeasd1f = kwargs[kw]
                     if "sigma" in kw:
                         issigma1f = True
@@ -537,20 +580,20 @@ class KnopeRunner(object):
 
             if isinstance(starts, str):
                 try:
-                    starts = ast.literal_eval(starts)
-                except (ValueError, SyntaxError):
+                    starts = convert_string_to_dict(starts[0], "fake_start")
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
                     pass
 
             if isinstance(ends, str):
                 try:
-                    ends = ast.literal_eval(ends)
-                except (ValueError, SyntaxError):
+                    ends = convert_string_to_dict(ends[0], "fake_end")
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
                     pass
 
             if isinstance(dts, str):
                 try:
-                    dts = ast.literal_eval(dts)
-                except (ValueError, SyntaxError):
+                    dts = convert_string_to_dict(dts[0], "fake_dt")
+                except (ValueError, SyntaxError, BilbyPipeError, TypeError, IndexError):
                     pass
 
             if isinstance(starts, int):
@@ -685,10 +728,12 @@ class KnopeRunner(object):
                     ):
                         try:
                             # make sure value is a string so it can be "split"
-                            detfdata = str(fdata).split(":")
+                            detfdata = str(
+                                fdata.replace("'", "").replace('"', "")
+                            ).split(":")
                         except Exception as e:
                             raise TypeError(
-                                "Fake time value is the wrong type: {}".format(e)
+                                "Fake data value is the wrong type: {}".format(e)
                             )
 
                         if ftime is None:
@@ -739,17 +784,22 @@ class KnopeRunner(object):
                                 ftime = np.arange(
                                     int(detstart[-1]), int(detend[-1]), int(detdt[-1])
                                 )
-                        elif len(detfdata) == 1 and detectors is not None:
-                            try:
-                                asdval = float(detfdata[-1])
-                            except ValueError:
-                                asdval = detfdata[-1]
+                        elif len(detfdata) == 1:
+                            if detectors is not None:
+                                try:
+                                    asdval = float(detfdata[0])
+                                except ValueError:
+                                    asdval = detfdata[0]
 
-                            try:
-                                thisdet = detectors[detidx]
-                                detidx += 1
-                            except Exception as e:
-                                raise ValueError("Detectors is not a list")
+                                try:
+                                    thisdet = detectors[detidx]
+                                    detidx += 1
+                                except Exception as e:
+                                    raise ValueError(
+                                        "Detectors is not a list: {}".format(e)
+                                    )
+                            else:
+                                thisdet = detfdata[0]
 
                             # check if actual data already exists
                             if thisdet in self.hetdata.detectors:
@@ -807,6 +857,7 @@ class KnopeRunner(object):
             except (ValueError, SyntaxError):
                 raise ValueError("Unable to parse grid keyword arguments")
         self.likelihoodtype = kwargs.get("likelihood", "studentst")
+        self.numba = kwargs.get("numba", False)
         self.prior = kwargs.get("prior", None)
         if not isinstance(self.prior, (str, dict, bilby.core.prior.PriorDict)):
             raise ValueError("The prior is not defined")
@@ -819,8 +870,10 @@ class KnopeRunner(object):
         if "label" in kwargs:
             self.sampler_kwargs.setdefault("label", kwargs.get("label"))
 
+        self.outputsnr = kwargs.get("output_snr", False)
+
         show_truths = kwargs.get("show_truths", False)
-        if show_truths:
+        if show_truths or self.outputsnr:
             # don't overwrite 'injection_parameters' is they are already defined
             if "injection_parameters" not in self.sampler_kwargs:
                 if self.datakwargs["injpar"] is not None:
@@ -864,13 +917,16 @@ class KnopeRunner(object):
         """
 
         self.likelihood = TargetedPulsarLikelihood(
-            data=self.hetdata, priors=self.prior, likelihood=self.likelihoodtype
+            data=self.hetdata,
+            priors=self.prior,
+            likelihood=self.likelihoodtype,
+            numba=self.numba,
         )
 
     def run_sampler(self):
         """
         Run bilby to sample the posterior.
-        
+
         Returns
         -------
         res
@@ -888,6 +944,40 @@ class KnopeRunner(object):
             likelihood=self.likelihood,
             **self.sampler_kwargs
         )
+
+        # output SNRs
+        if self.outputsnr:
+            snrs = {}
+
+            if self.datakwargs["inject"]:
+                snrs["Injected SNR"] = self.hetdata.injection_snr
+
+            # set recovered parameters
+            sourcepars = PulsarParametersPy(self.datakwargs["par"])
+            maxlikeidx = self.result.posterior.log_likelihood.idxmax()
+            maxpostidx = (
+                self.result.posterior.log_likelihood + self.result.posterior.log_prior
+            ).idxmax()
+            for snrstr, idx in zip(
+                ["Maximum likelihood SNR", "Maximum a-posteriori SNR"],
+                [maxlikeidx, maxpostidx],
+            ):
+                for item in self.prior:
+                    # NOTE: at the moment this will not work correctly if you
+                    # have searched over parameters that are converted to their
+                    # SI uints
+                    sourcepars[item.upper()] = self.result.posterior[item][idx]
+
+                snrs[snrstr] = self.hetdata.signal_snr(sourcepars)
+
+            with open(
+                os.path.join(
+                    self.sampler_kwargs["outdir"],
+                    "{}.snr".format(self.sampler_kwargs["label"]),
+                ),
+                "w",
+            ) as fp:
+                json.dump(snrs, fp, indent=2)
 
         return self.result
 
@@ -951,7 +1041,7 @@ def knope(**kwargs):
         should give a path to a file containing a frequency series of the
         ASD. If a list, then this should be a different float or string for
         each supplied detector. If a dictionary, then this should be a set
-        of floats or string keyed to detector names. The simulated noise
+        of floats or strings keyed to detector names. The simulated noise
         produced with this argument is assumed to be at twice the source
         rotation frequency. To explicitly specify fake data generation at once
         or twice the source rotation frequency use the equivalent
@@ -1016,9 +1106,18 @@ def knope(**kwargs):
     label: str
         The name of the output file (excluding the '.json' extension) for the
         results.
+    output_snr: bool,
+        Set this flag to output the maximum likelihood and maximum a-posteriori
+        recovered signal-to-noise ratio. If adding an injection this will also
+        output the injected signal SNR. These values will be output to a JSON
+        file in the supplied output directory, and using the supplied label,
+        with a file extension of '.snr'. This defaults to False.
     likelihood: str
         The likelihood function to use. At the moment this can be either
         'studentst' or 'gaussian', with 'studentst' being the default.
+    numba: bool
+        Set whether to use the likelihood with numba enabled. Defaults to
+        False.
     show_truths: bool
         If plotting the results, setting this argument will overplot the
         "true" signal values. If adding a simulated signal then these parameter
@@ -1038,12 +1137,12 @@ def knope(**kwargs):
         HTCondor. For running via the command line interface, this defaults to
         10800 seconds (3 hours), at which point the job will be stopped (and
         then restarted if running under HTCondor). If running directly within
-        Python this defaults to 10000000. 
+        Python this defaults to 10000000.
     """
 
     if "cwinpy_knope" == os.path.split(sys.argv[0])[-1] or "config" in kwargs:
         # get command line arguments
-        parser = create_parser()
+        parser = create_knope_parser()
 
         # parse config file or command line arguments
         if "config" in kwargs:
@@ -1077,10 +1176,645 @@ def knope(**kwargs):
     return runner
 
 
-def knope_cli(**kwargs):
+def knope_cli(**kwargs):  # pragma: no cover
     """
-    Entry point to cwinpy_knope script. This just calls `knope`, but does not
-    return any objects.
+    Entry point to ``cwinpy_knope script``. This just calls :func:`cwinpy.knope.knope`,
+    but does not return any objects.
     """
 
     _ = knope(**kwargs)
+
+
+class KnopeDAGRunner(object):
+    """
+    Set up and run the known pulsar parameter estimation DAG.
+
+    Parameters
+    ----------
+    config: :class:`configparser.ConfigParser`
+          A :class:`configparser.ConfigParser` object with the analysis setup
+          parameters.
+    """
+
+    def __init__(self, config):
+        # create and build the dag
+        self.create_dag(config)
+
+        if self.submitdag:
+            if self.build:
+                self.dag.build_submit(submit_options=self.submit_options)
+            else:
+                self.dag.submit_dag(self.submit_options)
+
+    def create_dag(self, config):
+        """
+        Create the HTCondor DAG from the configuration parameters.
+
+        Parameters
+        ----------
+        config: :class:`configparser.ConfigParser`
+            A :class:`configparser.ConfigParser` object with the analysis setup
+            parameters.
+        """
+
+        if not isinstance(config, configparser.ConfigParser):
+            raise TypeError("'config' must be a ConfigParser object")
+
+        try:
+            from pycondor import Job, Dagman
+        except ImportError:
+            raise ImportError("To run 'cwinpy_knope_dag' you must install pycondor")
+
+        # get output directory base from the [run] section
+        basedir = config.get("run", "basedir", fallback=None)
+        if basedir is None:
+            raise IOError("No output directory set.")
+        else:
+            try:
+                os.makedirs(basedir, exist_ok=True)
+            except Exception as e:
+                raise IOError(
+                    "Could not create output directory " "location: '{}'".format(e)
+                )
+
+        # get DAG arguments
+        # submit directory location
+        submit = config.get("dag", "submit", fallback=os.path.join(basedir, "submit"))
+
+        # DAG name prefix
+        name = config.get("dag", "name", fallback="cwinpy_knope_dag")
+
+        # get whether to build the dag
+        self.build = config.getboolean("dag", "build", fallback=True)
+
+        # get whether to automatically submit the dag
+        self.submitdag = config.getboolean("dag", "submitdag", fallback=False)
+
+        # get any additional submission options
+        self.submit_options = config.get("dag", "submit_options", fallback=None)
+
+        # create the Dagman
+        self.dag = Dagman(name=name, submit=submit)
+
+        # get the cwinpy_knope job arguments
+        # executable
+        from shutil import which
+
+        jobexec = which(config.get("job", "executable", fallback="cwinpy_knope"))
+
+        if jobexec is None:
+            raise ValueError("cwinpy_knope executable is not specified")
+        elif os.path.basename(jobexec) != "cwinpy_knope":
+            raise ValueError("Executable '{}' is not 'cwinpy_knope'!".format(jobexec))
+
+        # job name prefix
+        jobname = config.get("job", "name", fallback="cwinpy_knope")
+
+        # condor universe
+        self.universe = config.get("job", "universe", fallback="vanilla")
+
+        # stdout directory location
+        self.output = config.get("job", "out", fallback=os.path.join(basedir, "out"))
+
+        # stderr directory location
+        self.error = config.get("job", "error", fallback=os.path.join(basedir, "error"))
+
+        # log directory
+        self.log = config.get("job", "log", fallback=os.path.join(basedir, "log"))
+
+        # submit directory location
+        self.jobsubmit = config.get(
+            "job", "submit", fallback=os.path.join(basedir, "submit")
+        )
+
+        # get local environment variables
+        self.getenv = config.getboolean("job", "getenv", fallback=False)
+
+        # request memory
+        self.reqmem = config.get("job", "request_memory", fallback="4 GB")
+
+        # request CPUs
+        self.reqcpus = config.getint("job", "request_cpus", fallback=1)
+
+        # requirements
+        self.requirements = config.get("job", "requirements", fallback=None)
+
+        # retries of job on failure
+        self.retry = config.getint("job", "retry", fallback=0)
+
+        # accounting group and user
+        self.accgroup = config.get("job", "accounting_group", fallback=None)
+        self.accuser = config.get("job", "accounting_group_user", fallback=None)
+        extra_lines = []
+        if self.accgroup is not None:
+            extra_lines.append("accounting_group = {}".format(self.accgroup))
+        if self.accuser is not None:
+            extra_lines.append("accounting_group_user = {}".format(self.accuser))
+
+        if name == jobname:
+            raise ValueError("Dagman name and Job name must be different")
+
+        # create cwinpy_knope Job
+        self.job = Job(
+            jobname,
+            jobexec,
+            error=self.error,
+            log=self.log,
+            output=self.output,
+            submit=self.jobsubmit,
+            universe=self.universe,
+            request_memory=self.reqmem,
+            request_cpus=self.reqcpus,
+            getenv=self.getenv,
+            queue=1,
+            requirements=self.requirements,
+            retry=self.retry,
+            extra_lines=extra_lines,
+            dag=self.dag,
+        )
+
+        # create configurations for each cwinpy_knope job
+        if config.has_section("knope"):
+            # get the path to output the results to
+            resultsdir = config.get(
+                "knope", "results", fallback=os.path.join(basedir, "results")
+            )
+
+            # get the paths to the pulsar parameter files
+            parfiles = config.get("knope", "pulsars", fallback=None)
+
+            if parfiles is None:
+                raise ValueError(
+                    "Configuration must contain a set of pulsar parameter files"
+                )
+
+            # the "pulsars" option in the [knope] section can either be:
+            #  - the path to a single file
+            #  - a list of parameter files
+            #  - a directory (or glob-able directory pattern) containing parameter files
+            #  - a combination of a list of directories and/or files
+            # All files must have the extension '.par'
+            parfiles = self.eval(parfiles)
+            if not isinstance(parfiles, list):
+                parfiles = [parfiles]
+
+            pulsars = []
+            for parfile in parfiles:
+                # add "*.par" wildcard to any directories
+                if os.path.isdir(parfile):
+                    parfile = os.path.join(parfile, "*.par")
+
+                # get all parameter files
+                pulsars.extend(
+                    [
+                        par
+                        for par in glob.glob(parfile)
+                        if os.path.splitext(par)[1] == ".par"
+                    ]
+                )
+
+            # get names of all the pulsars
+            pulsardict = {}
+            for pulsar in list(pulsars):
+                if os.path.isfile(pulsar):
+                    psr = PulsarParametersPy(pulsar)
+                    if psr["PSRJ"] is not None:
+                        pulsardict[psr["PSRJ"]] = pulsar
+                    else:
+                        warnings.warn(
+                            "Parameter file '{}' has no name, so it will be "
+                            "ignored".format(pulsar)
+                        )
+
+            # the "injections" option in the [knope] section can be specified
+            # in the same way as the "pulsars" option
+            # get paths to pulsar injection files
+            injfiles = config.get("knope", "injections", fallback=None)
+            if injfiles is not None:
+                injfiles = self.eval(injfiles)
+                if not isinstance(injfiles, list):
+                    injfiles = [injfiles]
+
+                injections = []
+                for injfile in injfiles:
+                    # add "*.par" wildcard to any directories
+                    if os.path.isdir(injfile):
+                        injfile = os.path.join(injfile, "*.par")
+
+                    # get all parameter files
+                    injections.extend(
+                        [
+                            inj
+                            for inj in glob.glob(injfile)
+                            if os.path.splitext(inj)[1] == ".par"
+                        ]
+                    )
+
+                injdict = {}
+                for inj in list(injections):
+                    if os.path.isfile(inj):
+                        psr = PulsarParametersPy(inj)
+                        if psr["PSRJ"] is not None:
+                            if psr["PSRJ"] in pulsardict:
+                                injdict[psr["PSRJ"]] = inj
+                        else:
+                            warnings.warn(
+                                "Parameter file '{}' has no name, so it will be "
+                                "ignored".format(inj)
+                            )
+
+            # the "data-file-1f" and "data-file-2f" options in the [knope]
+            # section specify the locations of heterodyned data files at the
+            # rotation frequency and twice the rotation frequency of each
+            # source. It is expected that the heterodyned file names
+            # contain the name of the pulsar (based on the "PSRJ" name in the
+            # associated parameter file). The option should be a dictionary
+            # with keys being the detector name for the data sets. If a
+            # "data-file" option is given it is assumed to be for data at twice
+            # the rotation frequency.
+            datafiles1f = config.get("knope", "data-file-1f", fallback=None)
+            datafiles2fdefault = config.get("knope", "data-file", fallback=None)
+            datafiles2f = config.get(
+                "knope", "data-file-2f", fallback=datafiles2fdefault
+            )
+
+            # the "fake-asd-1f" and "fake-asd-2f" options in the [knope]
+            # section specify amplitude spectral densities with which to
+            # generate simulated Gaussian data for a given detector. If this is
+            # a list of detectors then the design ASDs for the given detectors
+            # will be used, otherwise it should be a dictionary keyed to
+            # detector names, each giving an ASD value, or file from which the
+            # ASD can be read. If a "fake-asd" option is given it is assumed to
+            # be for data at twice the rotation frequency.
+            fakeasd1f = config.get("knope", "fake-asd-1f", fallback=None)
+            fakeasd2fdefault = config.get("knope", "fake-asd", fallback=None)
+            fakeasd2f = config.get("knope", "fake-asd-2f", fallback=fakeasd2fdefault)
+            simdata = {}
+
+            if datafiles1f is not None or datafiles2f is not None:
+                detectors1f = None
+                if datafiles1f is not None:
+                    datafiles1f = self.eval(datafiles1f)
+
+                    if not isinstance(datafiles1f, dict):
+                        raise TypeError("Data files must be specified in a dictionary")
+
+                    detectors1f = sorted(list(datafiles1f.keys()))
+
+                detectors2f = None
+                if datafiles2f is not None:
+                    datafiles2f = self.eval(datafiles2f)
+
+                    if not isinstance(datafiles2f, dict):
+                        raise TypeError("Data files must be specified in a dictionary")
+
+                    detectors2f = sorted(list(datafiles2f.keys()))
+
+                if detectors1f != detectors2f and datafiles1f and datafiles2f:
+                    raise IOError("Inconsistent detectors given for data sets")
+
+                detectors = detectors2f if detectors2f else detectors1f
+
+                # get lists of data files. For each detector the passed files could
+                # be a single file, a list of files, a glob-able directory path
+                # containing the files, or a dictionary keyed to the pulsar names.
+                datadict = {pname: {} for pname in pulsardict.keys()}
+
+                for datafilesf, freqfactor in zip(
+                    [datafiles1f, datafiles2f], ["1f", "2f"]
+                ):
+                    if datafilesf is None:
+                        continue
+                    else:
+                        for pname in pulsardict.keys():
+                            datadict[pname][freqfactor] = {}
+
+                    for det in detectors:
+                        dff = []
+                        datafiles = datafilesf[det]
+
+                        if isinstance(datafiles, dict):
+                            # dictionary of files, with one for each pulsar
+                            for pname in pulsardict.keys():
+                                if pname in datafiles:
+                                    datadict[pname][freqfactor][det] = datafiles[pname]
+                            continue
+
+                        if not isinstance(datafiles, list):
+                            datafiles = [datafiles]
+
+                        for datafile in datafiles:
+                            # add "*" wildcard to any directories
+                            if os.path.isdir(datafile):
+                                datafile = os.path.join(datafile, "*")
+
+                            # get all data files
+                            dff.extend(
+                                [
+                                    dat
+                                    for dat in glob.glob(datafile)
+                                    if os.path.isfile(dat)
+                                ]
+                            )
+
+                        if len(dff) == 0:
+                            raise ValueError("No data files found!")
+
+                        # check file name contains the name of a supplied pulsar
+                        for pname in pulsardict:
+                            for datafile in dff:
+                                if pname in datafile:
+                                    if det not in datadict[pname][freqfactor]:
+                                        datadict[pname][freqfactor][det] = datafile
+                                    else:
+                                        print(
+                                            "Duplicate pulsar '{}' data. Ignoring "
+                                            "duplicate.".format(pname),
+                                            file=sys.stdout,
+                                        )
+            elif fakeasd1f is not None or fakeasd2f is not None:
+                # set to use simulated data
+                if fakeasd1f is not None:
+                    simdata["1f"] = self.eval(fakeasd1f)
+
+                if fakeasd2f is not None:
+                    simdata["2f"] = self.eval(fakeasd2f)
+            else:
+                raise IOError("No data set for use")
+
+            # set some default bilby-style priors
+            DEFAULTPRIORS2F = (
+                "h0 = Uniform(minimum=0.0, maximum=1.0e-22, name='h0', latex_label='$h_0$')\n"
+                "phi0 = Uniform(minimum=0.0, maximum={pi}, name='phi0', latex_label='$\\phi_0$', unit='rad')\n"
+                "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
+                "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
+            ).format(**{"pi": np.pi, "pi_2": (np.pi / 2.0)})
+
+            DEFAULTPRIORS1F = (
+                "c21 = Uniform(minimum=0.0, maximum=1.0e-22, name='c21', latex_label='$C_{{21}}$')\n"
+                "phi21 = Uniform(minimum=0.0, maximum={2pi}, name='phi21', latex_label='$\\Phi_{{21}}$', unit='rad')\n"
+                "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
+                "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
+            ).format(**{"2pi": 2.0 * np.pi, "pi": np.pi, "pi_2": (np.pi / 2.0)})
+
+            DEFAULTPRIORS1F2F = (
+                "c21 = Uniform(minimum=0.0, maximum=1.0e-22, name='c21', latex_label='$C_{{21}}$')\n"
+                "c22 = Uniform(minimum=0.0, maximum=1.0e-22, name='c22', latex_label='$C_{{22}}$')\n"
+                "phi21 = Uniform(minimum=0.0, maximum={2pi}, name='phi21', latex_label='$\\Phi_{{21}}$', unit='rad')\n"
+                "phi22 = Uniform(minimum=0.0, maximum={2pi}, name='phi22', latex_label='$\\Phi_{{22}}$', unit='rad')\n"
+                "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
+                "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
+            ).format(**{"2pi": 2.0 * np.pi, "pi": np.pi, "pi_2": (np.pi / 2.0)})
+
+            # get priors (if none are specified use the defaults)
+            priors = config.get("knope", "priors", fallback=None)
+
+            # "priors" can be a file, list of files, directory containing files,
+            # glob-able path pattern to a set of files, or a dictionary of files
+            # keyed to pulsar names. If all case bar a single file, or a
+            # dictionary of keyed files, it is expected that the prior file name
+            # contains the PSRJ name of the associated pulsar.
+            if priors is not None:
+                priors = self.eval(priors)
+
+                if isinstance(priors, dict):
+                    priorfiles = priors
+                else:
+                    if isinstance(priors, list):
+                        allpriors = []
+                        for priorfile in priors:
+                            # add "*" wildcard to directories
+                            if os.path.isdir(priorfile):
+                                priorfile = os.path.join(priorfile, "*")
+
+                            # get all prior files
+                            allpriors.extend([pf for pf in glob.glob(priorfile)])
+
+                        priorfiles = {}
+                        for pname in pulsardict.keys():
+                            for priorfile in allpriors:
+                                if pname in priorfile:
+                                    if pname not in priorfiles:
+                                        priorfiles[pname] = priorfile
+                                    else:
+                                        warnings.warn(
+                                            "Duplicate prior '{}' data. Ignoring "
+                                            "duplicate.".format(pname)
+                                        )
+                    elif isinstance(priors, str):
+                        if os.path.isfile(priors):
+                            priorfiles = {psr: priors for psr in pulsardict.keys()}
+                        else:
+                            raise ValueError(
+                                "Prior file '{}' does not exist".format(priors)
+                            )
+                    else:
+                        raise TypeError("Prior type is no recognised")
+            else:
+                # use default priors
+                priorfile = os.path.join(basedir, "prior.txt")
+
+                with open(priorfile, "w") as fp:
+                    if datafiles1f is not None and datafiles2f is not None:
+                        fp.write(DEFAULTPRIORS1F2F)
+                    elif datafiles2f is not None:
+                        fp.write(DEFAULTPRIORS2F)
+                    else:
+                        fp.write(DEFAULTPRIORS1F)
+
+                priorfiles = {psr: priorfile for psr in pulsardict.keys()}
+
+            # check prior and data exist for the same pulsar, if not remove
+            priornames = list(priorfiles.keys())
+            datanames = list(datadict.keys()) if not simdata else priornames
+
+            for pname in list(pulsardict.keys()):
+                if pname in priornames and pname in datanames:
+                    continue
+                else:
+                    print(
+                        "Removing pulsar '{}' as either no data, or no prior "
+                        "is given".format(pname),
+                        file=sys.stdout,
+                    )
+                    if pname in datanames:
+                        datadict.pop(pname)
+                    if pname in priornames:
+                        priorfiles.pop(pname)
+
+                    if pname in pulsardict:
+                        pulsardict.pop(pname)
+
+            # check location to output 'cwinpy_knope' input configuration files.
+            configlocation = config.get(
+                "knope", "config", fallback=os.path.join(basedir, "configs")
+            )
+
+            if configlocation is not None:
+                # make directory
+                try:
+                    os.makedirs(configlocation, exist_ok=True)
+                except Exception as e:
+                    raise IOError(
+                        "Could not create configuration directory "
+                        "location: '{}'".format(e)
+                    )
+
+            # output the SNRs (injected and recovered)
+            outputsnr = config.getboolean("knope", "output_snr", fallback=False)
+
+            # get the sampler (default is dynesty)
+            sampler = config.get("knope", "sampler", fallback="dynesty")
+
+            # get the sampler keyword arguments
+            samplerkwargs = config.get("knope", "sampler_kwargs", fallback=None)
+
+            # get whether to use numba
+            numba = config.getboolean("knope", "numba", fallback=False)
+        else:
+            raise IOError("Configuration file must have a [knope] section.")
+
+        # create jobs (output and label set using pulsar name)
+        for pname in pulsardict:
+            # create output directory
+            psrbase = os.path.join(resultsdir, pname)
+
+            try:
+                os.makedirs(psrbase, exist_ok=True)
+            except Exception as e:
+                raise IOError(
+                    "Could not created output directory '{}': {}".format(psrbase, e)
+                )
+
+            # create dictionary of configuration outputs
+            configdict = {}
+
+            configdict["par_file"] = pulsardict[pname]
+
+            # data file(s)
+            for freqfactor in ["1f", "2f"]:
+                if not simdata:
+                    try:
+                        configdict["data_file_{}".format(freqfactor)] = str(
+                            datadict[pname][freqfactor]
+                        )
+                    except KeyError:
+                        pass
+                else:
+                    try:
+                        configdict["fake_asd_{}".format(freqfactor)] = str(
+                            ["{}".format(det) for det in simdata[freqfactor]]
+                        )
+                    except KeyError:
+                        pass
+
+            # add injection if given
+            if injfiles is not None:
+                if pname in injdict:
+                    configdict["inj_par"] = injdict[pname]
+
+            configdict["outdir"] = psrbase
+            configdict["label"] = pname
+            configdict["prior"] = priorfiles[pname]
+            configdict["sampler"] = sampler
+            configdict["numba"] = numba
+            if samplerkwargs is not None:
+                configdict["sampler_kwargs"] = samplerkwargs
+
+            if outputsnr:
+                configdict["output_snr"] = "True"
+
+            # output the configuration file
+            configfile = os.path.join(configlocation, "{}.ini".format(pname))
+            from configargparse import DefaultConfigFileParser
+
+            parseobj = DefaultConfigFileParser()
+            with open(configfile, "w") as fp:
+                fp.write(parseobj.serialize(configdict))
+
+            # add arguments to a job
+            self.job.add_arg("--config {}".format(configfile))
+
+        if self.build:
+            self.dag.build()
+
+    def eval(self, arg):
+        """
+        Try and evaluate a string using :func:`ast.literal_eval`.
+
+        Parameters
+        ----------
+        arg: str
+            A string to be evaluated.
+
+        Returns
+        -------
+        object:
+            The evaluated object, or original string, if not able to be evaluated.
+        """
+
+        # copy of string
+        newobj = str(arg)
+
+        try:
+            newobj = ast.literal_eval(newobj)
+        except (ValueError, SyntaxError):
+            pass
+
+        return newobj
+
+
+def knope_dag(**kwargs):
+    """
+    Run knope_dag within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
+    DAG for running multiple ``cwinpy_knope`` instances on a computer cluster.
+
+    Parameters
+    ----------
+    config: str
+        A configuration file, or :class:`configparser:ConfigParser` object,
+        for the analysis.
+
+    Returns
+    -------
+    dag:
+        The pycondor :class:`pycondor.Dagman` object.
+    """
+
+    if "config" in kwargs:
+        configfile = kwargs["config"]
+    else:  # pragma: no cover
+        parser = ArgumentParser(
+            description=(
+                "A script to create a HTCondor DAG to run Bayesian inference to "
+                "estimate the parameters of continuous gravitational-wave signals "
+                "from a selection of known pulsars."
+            )
+        )
+        parser.add_argument("config", help=("The configuration file for the analysis"))
+
+        args = parser.parse_args()
+        configfile = args.config
+
+    if isinstance(configfile, configparser.ConfigParser):
+        config = configfile
+    else:
+        config = configparser.ConfigParser()
+
+        try:
+            config.read_file(open(configfile, "r"))
+        except Exception as e:
+            raise IOError(
+                "Problem reading configuation file '{}'\n: {}".format(configfile, e)
+            )
+
+    return KnopeDAGRunner(config)
+
+
+def knope_dag_cli(**kwargs):  # pragma: no cover
+    """
+    Entry point to the cwinpy_knope_dag script. This just calls
+    :func:`cwinpy.knope.knope_dag`, but does not return any objects.
+    """
+
+    _ = knope_dag(**kwargs)

@@ -1,0 +1,5 @@
+pytest
+coverage
+pytest-coverage
+coverage-badge
+codecov

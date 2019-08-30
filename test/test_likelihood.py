@@ -128,3 +128,28 @@ PHI0     2.4
             like.parameters = {"h0": 0.0}
 
             assert like.log_likelihood() == like.noise_log_likelihood()
+
+    def test_numba_likelihood(self):
+        """
+        Test likelihood using numba against the standard likelihood.
+        """
+
+        het = HeterodynedData(
+            self.data, times=self.times, detector=self.detector, par=self.parfile
+        )
+
+        priors = dict()
+        priors["h0"] = Uniform(0.0, 1.0e-23, "h0")
+
+        for likelihood in ["gaussian", "studentst"]:
+            like1 = TargetedPulsarLikelihood(
+                het, PriorDict(priors), likelihood=likelihood
+            )
+            like1.parameters = {"h0": 1e-24}
+
+            like2 = TargetedPulsarLikelihood(
+                het, PriorDict(priors), likelihood=likelihood, numba=True,
+            )
+            like2.parameters = {"h0": 1e-24}
+
+            assert like1.log_likelihood() == like2.log_likelihood()

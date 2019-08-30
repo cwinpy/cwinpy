@@ -100,6 +100,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'requirements.txt',
                     'comparisons/scripts/outputs/*.json',
                     'comparisons/scripts/outputs/*.json.old',
                     'knope/knope_help.txt',
+                    'knope/cwinpy_knope_dag.ini',
                     'knope/data/*.txt',
                     'knope/data/*.par',
                     'knope/data/*.ini',
@@ -220,7 +221,9 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3/', None),
                        'scipy': ('https://docs.scipy.org/doc/scipy/reference/', None),
                        'matplotlib': ('https://matplotlib.org/', None),
                        'astropy': ('http://docs.astropy.org/en/stable/', None),
-                       'bilby': ('https://lscsoft.docs.ligo.org/bilby/', None)}
+                       'bilby': ('https://lscsoft.docs.ligo.org/bilby/', None),
+                       'pycondor': ('https://jrbourbeau.github.io/pycondor/', None),
+                       'numba': ('http://numba.pydata.org/numba-doc/latest/', None),}
 
 
 # generate cwinpy_knope help string for docs

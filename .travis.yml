@@ -17,8 +17,7 @@ install:
   - pip install -r requirements.txt
   - pip install -r hierarchical-requirements.txt
   # install packages for testing
-  - pip install pytest coverage pytest-coverage coverage-badge
-  - pip install codecov
+  - pip install -r test-requirements.txt
   # build cwinpy
   - pip install -e .
 script:
