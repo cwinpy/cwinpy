@@ -11,6 +11,8 @@ from scipy.spatial.distance import jensenshannon
 from lalinference.io import read_samples
 from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 from bilby.core.result import read_in_result
+import cwinpy
+import bilby
 
 
 # comparison rst table information
@@ -41,6 +43,9 @@ FILETEXT = """\
 
 | Combined K-S test p-value: {60:.4f}
 | Maximum Jensen-Shannon divergence: {61:.4f}
+
+| CWInPy version: {62:s}
+| bilby version: {63:s}
 """
 
 
@@ -71,6 +76,9 @@ FILETEXTTWOHARMONICS = """\
 
 | Combined K-S test p-value: {84:.4f}
 | Maximum Jensen-Shannon divergence: {85:.4f}
+
+| CWInPy version: {86:s}
+| bilby version: {87:s}
 """
 
 
@@ -120,7 +128,7 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
         grid_evidence = grid.log_evidence
 
     # set values to output
-    values = 62 * [None]
+    values = 64 * [None]
     values[0:4] = evsig, evnoise, (evsig - evnoise), everr
     values[4:8] = (
         result.log_evidence,
@@ -213,6 +221,9 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
     idx += 1
     values[idx] = np.max(jsvalues)
 
+    values[idx+1] = cwinpy.__version__
+    values[idx+2] = bilby.__version__
+
     with open(comparefile, "w") as fp:
         fp.write(FILETEXT.format(*values))
 
@@ -254,7 +265,7 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
     comparefile = os.path.join(outdir, "{}_compare.txt".format(label))
 
     # set values to output
-    values = 86 * [None]
+    values = 88 * [None]
     values[0:4] = evsig, evnoise, (evsig - evnoise), everr
     values[4:8] = (
         result.log_evidence,
@@ -341,6 +352,9 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
     values[idx] = combine_pvalues(pvalues)[1]
     idx += 1
     values[idx] = np.max(jsvalues)
+
+    values[idx+1] = cwinpy.__version__
+    values[idx+2] = bilby.__version__
 
     with open(comparefile, "w") as fp:
         fp.write(FILETEXTTWOHARMONICS.format(*values))

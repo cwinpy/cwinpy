@@ -1,0 +1,29 @@
+.. csv-table:: Evidence table
+   :widths: auto
+   :header: "Method", ":math:`\\ln{(Z)}`", ":math:`\\ln{(Z)}` noise", ":math:`\\ln{}` Odds"
+
+   "``lalapps_pulsar_parameter_estimation_nested``", "12126322.701", "12126328.733", "-6.031±0.077"
+   "``cwinpy_knope``", "12126322.818", "12126328.733", "-5.914±0.076"
+   "``cwinpy_knope`` (grid)", "12126322.904", "", "-5.829"
+
+.. csv-table:: Parameter table
+   :widths: auto
+   :header: "Method", ":math:`h_0`", ":math:`\\phi_0` (rad)", ":math:`\\psi` (rad)", ":math:`\\cos{\\iota}`"
+
+   "``lalapps_pulsar_parameter_estimation_nested``", "1.95±1.51×10\ :sup:`-26`", "1.83±1.06", "0.78±0.44", "0.06±0.49"
+   "90% credible intervals", "[0.17, 4.90]×10\ :sup:`-26`", "[0.10, 3.08]", "[0.10, 1.46]", "[-0.79, 0.88]"
+   "``cwinpy_knope``", "1.91±1.50×10\ :sup:`-26`", "1.66±1.09", "0.80±0.44", "0.02±0.49"
+   "90% credible intervals", "[0.14, 4.76]×10\ :sup:`-26`", "[0.08, 3.05]", "[0.08, 1.49]", "[-0.82, 0.83]"
+
+.. csv-table:: Maximum a-posteriori
+   :widths: auto
+   :header: "Method", ":math:`h_0`", ":math:`\\phi_0` (rad)", ":math:`\\psi` (rad)", ":math:`\\cos{\\iota}`", ":math:`\\ln{(L)}` max"
+
+   "``lalapps_pulsar_parameter_estimation_nested``", "2.93×10\ :sup:`-26`", "2.96", "0.91", "0.07", "12126330.03"
+   "``cwinpy_knope``", "3.04×10\ :sup:`-26`", "2.96", "0.85", "0.17", "12126330.03"
+
+| Combined K-S test p-value: 0.0000
+| Maximum Jensen-Shannon divergence: 0.0145
+
+| CWInPy version: 0+unknown
+| bilby version: 0.5.5:

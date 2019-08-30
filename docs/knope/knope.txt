@@ -216,12 +216,13 @@ want to simulate data from many sources. If you have a multicore machine, or acc
 cluster, with `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ installed you can use CWInPy to
 create a set of analysis jobs, in the form of a Condor `DAG
 <https://htcondor.readthedocs.io/en/v8_8_4/users-manual/dagman-applications.html>`_, for each
-source. To do this you need to first make sure you have PyCondor `installed
-<https://jrbourbeau.github.io/pycondor/installation.html>`_.
+source. This makes use of PyCondor `installed
+<https://jrbourbeau.github.io/pycondor/installation.html>`_, which is installed as one of the
+requirements for CWInPy.
 
-To set up a DAG to analyse real data for multiple pulsars you need to have certain data and files
-organised in a particular way. You must have a set of TEMPO(2)-style pulsar parameter files, with
-only one for each pulsar you wish to analyse, which each contain a ``PSRJ`` value giving the
+To set up a DAG to analyse real data for multiple pulsars you need to have certain datasets and
+files organised in a particular way. You must have a set of TEMPO(2)-style pulsar parameter files,
+with only one for each pulsar you wish to analyse, which each contain a ``PSRJ`` value giving the
 pulsar's name, e.g.,
 
 .. code-block:: bash

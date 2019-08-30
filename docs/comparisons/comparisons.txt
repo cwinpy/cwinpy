@@ -19,3 +19,4 @@ to the various comparisons are given below:
    multi-detector-software-injection-linear
    multi-detector-software-injection-circular
    single-detector-noise-only-two-harmonics
+   single-detector-O1-data
