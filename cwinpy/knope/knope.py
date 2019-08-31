@@ -1709,6 +1709,9 @@ class KnopeDAGRunner(object):
         else:
             raise IOError("Configuration file must have a [knope] section.")
 
+        if len(pulsardict) == 0:
+            raise ValueError("No pulsars have been specified!")
+
         # create jobs (output and label set using pulsar name)
         for pname in pulsardict:
             # create output directory
