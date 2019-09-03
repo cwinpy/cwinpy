@@ -198,6 +198,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
         # set the likelihood function
         self.likelihood = likelihood
+        self._noise_log_likelihood = -np.inf  # initialise noise log likelihood
         self.numba = numba
 
         # check if prior includes (non-DeltaFunction) non-amplitude parameters,
@@ -812,7 +813,11 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
            <https:arxiv.org/abs/1705.08978v1>`_, 2017.
         """
 
-        loglikelihood = 0.0  # the log likelihood value
+        if np.isfinite(self._noise_log_likelihood):
+            # return cached version of the noise log likelihood
+            return self._noise_log_likelihood
+
+        self._noise_log_likelihood = 0.0  # the log likelihood value
 
         # loop over the data and models
         for data, prods in zip(self.data, self.products):
@@ -826,18 +831,18 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 else:
                     ddotd = prods["ddotd"][i]
                 if self.likelihood == "gaussian":
-                    loglikelihood += 0.5 * ddotd
+                    self._noise_log_likelihood += 0.5 * ddotd
                     # normalisation
-                    loglikelihood -= np.log(lal.TWOPI * data.vars[cpidx])
+                    self._noise_log_likelihood -= np.log(lal.TWOPI * data.vars[cpidx])
                 else:
-                    loglikelihood += (
+                    self._noise_log_likelihood += (
                         logfactorial(cplen - 1)
                         - lal.LN2
                         - cplen * lal.LNPI
                         - cplen * np.log(ddotd)
                     )
 
-        return loglikelihood
+        return self._noise_log_likelihood
 
     def _is_vector_param(self, name):
         """
