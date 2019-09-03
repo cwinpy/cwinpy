@@ -476,7 +476,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     name = self._vector_param_name_index(pname.upper())[0]
                     par[name] = self._parse_vector_param(par, pname.upper(), pval)
                 else:
-                    par[pname.upper()] = pval
+                    # make sure values are floats
+                    par[pname.upper()] = float(pval)
 
                     if pname.upper() in self.SOURCE_AMPLITUDE_PARAMETERS:
                         # reset waveform parameters (otherwise these can
