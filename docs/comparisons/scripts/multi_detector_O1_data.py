@@ -2,7 +2,7 @@
 
 """
 Compare cwinpy with lalapps_pulsar_parameter_estimation_nested for O1 data
-from a single detector (H1). This uses data for the Crab pulsar.
+from two detectors (H1 and L1). This uses data for the Crab pulsar.
 """
 
 import os
@@ -26,7 +26,7 @@ from comparitors import comparisons
 # URL for ephemeris files
 DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/src/{}"
 
-label = "single_detector_O1_data"
+label = "multi_detector_O1_data"
 outdir = "outputs"
 
 if not os.path.isdir(outdir):
@@ -35,11 +35,12 @@ if not os.path.isdir(outdir):
 # set the par file
 parfile = os.path.join("data", "J0534+2200.par")
 
-# set the data file
-hetfile = os.path.join("data", "O1_Crab_H1.txt.gz")
+# set the data files
+hetfiles = [os.path.join("data", "O1_Crab_H1.txt.gz"),
+            os.path.join("data", "O1_Crab_L1.txt.gz")]
 
-# set the detector name
-detector = "H1"
+# set the detector names
+detectors = ["H1", "L1"]
 
 # create priors
 phi0range = [0.0, np.pi]
@@ -99,9 +100,9 @@ runcmd = " ".join(
         lppen,
         "--verbose",
         "--input-files",
-        hetfile,
+        ",".join(hetfiles),
         "--detectors",
-        detector,
+        ",".join(detectors),
         "--par-file",
         parfile,
         "--prior-file",
@@ -165,12 +166,12 @@ hdf.close()
 
 # run bilby via the knope interface
 runner = knope(
-    data_file=hetfile,
+    data_file=hetfiles,
     par_file=parfile,
     prior=priors,
-    detector=detector,
+    detector=detectors,
     sampler="dynesty",
-    sampler_kwargs={"Nlive": Nlive, "walks": 40},
+    sampler_kwargs={"Nlive": Nlive, "walks": 40, "use_ratio": True},
     outdir=outdir,
     label=label,
     numba=True,
@@ -187,10 +188,10 @@ for p in priors.keys():
     )
 
 grunner = knope(
-    data_file=hetfile,
+    data_file=hetfiles,
     par_file=parfile,
     prior=priors,
-    detector=detector,
+    detector=detectors,
     outdir=outdir,
     label=label,
     grid=True,
