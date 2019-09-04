@@ -20,4 +20,6 @@ to the various comparisons are given below:
    multi-detector-software-injection-circular
    single-detector-noise-only-two-harmonics
    single-detector-O1-data
+   single-detector-O1-data-restricted-prior
    multi-detector-O1-data
+   

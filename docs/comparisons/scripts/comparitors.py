@@ -150,6 +150,11 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
             samples = (
                 post[p.upper()] if method == "lalapps" else result.posterior[p]
             )
+
+            # convert iota to cos(iota)
+            if p == "iota":
+                samples = np.cos(samples)
+
             mean = samples.mean()
             std = samples.std()
             low, high = credible_interval(samples, ci=cred)
@@ -188,11 +193,19 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
             else:
                 values[idx] = maxpval
                 idx += 1
-        values[idx] = (
-            post["logL"][maxidxlppen]
-            if method == "lalapps"
-            else result.posterior["log_likelihood"][maxidx]
-        )
+        if result.use_ratio:
+            # convert likelihood ratio back to likelihood
+            values[idx] = (
+                post["logL"][maxidxlppen]
+                if method == "lalapps"
+                else (result.posterior["log_likelihood"][maxidx] + result.log_noise_evidence)
+            )
+        else:
+            values[idx] = (
+                post["logL"][maxidxlppen]
+                if method == "lalapps"
+                else result.posterior["log_likelihood"][maxidx]
+            )
         idx += 1
 
     # calculate the Kolmogorov-Smirnov test for each 1d marginalised distribution,
@@ -282,6 +295,11 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
             samples = (
                 post[p.upper()] if method == "lalapps" else result.posterior[p]
             )
+
+            # convert iota to cos(iota)
+            if p == "iota":
+                samples = np.cos(samples)
+
             mean = samples.mean()
             std = samples.std()
             low, high = credible_interval(samples, ci=cred)
@@ -320,11 +338,18 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
             else:
                 values[idx] = maxpval
                 idx += 1
-        values[idx] = (
-            post["logL"][maxidxlppen]
-            if method == "lalapps"
-            else result.posterior["log_likelihood"][maxidx]
-        )
+        if result.use_ratio:
+            values[idx] = (
+                post["logL"][maxidxlppen]
+                if method == "lalapps"
+                else (result.posterior["log_likelihood"][maxidx] + result.log_noise_evidence)
+            )
+        else:
+            values[idx] = (
+                post["logL"][maxidxlppen]
+                if method == "lalapps"
+                else result.posterior["log_likelihood"][maxidx]
+            )
         idx += 1
 
     # calculate the Kolmogorov-Smirnov test for each 1d marginalised distribution,
