@@ -1,0 +1,21 @@
+Single detector, software injection, two harmonics
+==================================================
+
+Here we compare ``lalapps_pulsar_parameter_estimation_nested`` with ``cwinpy`` in the case of
+simulated Gaussian noise from a single detector (H1 in this case) containing a software injected
+signal with two harmonics: one at the source rotation frequency and one at twice the rotation
+frequency. The parameters being estimated are :math:`C_{21}`, :math:`C_{22}`, :math:`\Phi_{21}`,
+:math:`\Phi_{22}` :math:`\psi` and :math:`\cos{\iota}`, all with uniform priors.
+
+The script for this comparison, using the `dynesty <https://dynesty.readthedocs.io/en/latest/>`_
+nested sampling algorithm, is shown at the bottom of the page_. It produces the following comparison
+data:
+
+.. image:: scripts/outputs/single_detector_software_injection_two_harmonics_corner.png
+
+.. include:: scripts/outputs/single_detector_software_injection_two_harmonics_compare.txt
+
+.. _page:
+
+.. literalinclude:: scripts/single_detector_software_injection_two_harmonics.py
+   :language: python
