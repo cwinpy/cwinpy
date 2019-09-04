@@ -21,5 +21,6 @@ to the various comparisons are given below:
    single-detector-noise-only-two-harmonics
    single-detector-O1-data
    single-detector-O1-data-restricted-prior
+   single-detector-O1-data-hardware-injection
    multi-detector-O1-data
-   
+   multi-detector-O1-data-hardware-injection

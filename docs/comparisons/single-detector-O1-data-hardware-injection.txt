@@ -1,0 +1,24 @@
+Single detector, O1 data, hardware injection
+============================================
+
+Here we compare ``lalapps_pulsar_parameter_estimation_nested`` with ``cwinpy`` in the case of real
+gravitational-wave data from a single detector (H1 in this case). This data (which can be downloaded
+:download:`here <scripts/data/fine-H1-PULSAR08.txt.gz>`) comes from the `O1 run
+<https://www.gw-openscience.org/O1/>`_ and has been heterodyned using the parameters for the pulsar
+`hardware injection <https://www.gw-openscience.org/o1_inj/>`_ "PULSAR8" with parameters as given in
+this file: :download:`PULSAR08.par <scripts/data/PULSAR08.par>`. The parameters being estimated are
+:math:`h_0`, :math:`\phi_0`, :math:`\psi` and :math:`\cos{\iota}`, all with uniform priors (see
+":ref:`Example: single detector data`" for more information on the data stretch used here).
+
+The script for this comparison, using the `dynesty <https://dynesty.readthedocs.io/en/latest/>`_
+nested sampling algorithm, is shown at the bottom of the page_. It produces the following comparison
+data:
+
+.. image:: scripts/outputs/single_detector_O1_data_hardware_injection_corner.png
+
+.. include:: scripts/outputs/single_detector_O1_data_hardware_injection_compare.txt
+
+.. _page:
+
+.. literalinclude:: scripts/single_detector_O1_data_hardware_injection.py
+   :language: python

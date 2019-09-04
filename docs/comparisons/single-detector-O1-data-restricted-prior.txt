@@ -9,18 +9,18 @@ pulsar given in this file: :download:`J0534+2200.par <scripts/data/J0534+2200.pa
 being estimated are :math:`h_0`, :math:`\phi_0`, :math:`\psi` and :math:`\iota`. In this case the
 :math:`h_0` and :math:`\phi_0` parameter have uniform priors, while the :math:`\psi` and
 :math:`\iota` parameters have "restricted" priors. The :math:`\psi` prior is a unimodal Gaussian
-distribution, while the :math:`\iota`prior is a bimodal Gaussian distribution, with values dictated
+distribution, while the :math:`\iota` prior is a bimodal Gaussian distribution, with values dictated
 by fitting the orientation of the Crab's pulsar wind nebula. 
 
 The script for this comparison, using the `dynesty <https://dynesty.readthedocs.io/en/latest/>`_
 nested sampling algorithm, is shown at the bottom of the page_. It produces the following comparison
 data:
 
-.. image:: scripts/outputs/single_detector_O1_data_corner.png
+.. image:: scripts/outputs/single_detector_O1_data_restricted_prior_corner.png
 
-.. include:: scripts/outputs/single_detector_O1_data_compare.txt
+.. include:: scripts/outputs/single_detector_O1_data_restricted_prior_compare.txt
 
 .. _page:
 
-.. literalinclude:: scripts/single_detector_O1_data.py
+.. literalinclude:: scripts/single_detector_O1_data_restricted_prior.py
    :language: python
