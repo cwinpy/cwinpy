@@ -831,6 +831,7 @@ class KnopeRunner(object):
                                     )
                             else:
                                 thisdet = detfdata[0]
+                                asdval = detfdata[0]  # get ASD for the given detector
 
                             # check if actual data already exists
                             if thisdet in self.hetdata.detectors:
