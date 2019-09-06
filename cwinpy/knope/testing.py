@@ -42,8 +42,8 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
     References
     ----------
 
-        .. [1] `T. Sidery et al. <https://arxiv.org/abs/1312.6013>`_,
-           *PRD*, **89**, 084060 (2014)
+    .. [1] `T. Sidery et al. <https://arxiv.org/abs/1312.6013>`_,
+       *PRD*, **89**, 084060 (2014)
     """
 
     if "path" in kwargs:
@@ -249,8 +249,8 @@ class KnopePPPlotsDAG(object):
     References
     ----------
 
-        .. [1] L. Barsotti, S. Gras, M. Evans, P. Fritschel,
-               `LIGO T1800044-v5 <https://dcc.ligo.org/LIGO-T1800044/public>`_ (2018)
+    .. [1] L. Barsotti, S. Gras, M. Evans, P. Fritschel,
+       `LIGO T1800044-v5 <https://dcc.ligo.org/LIGO-T1800044/public>`_ (2018)
 
     """
 
