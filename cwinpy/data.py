@@ -16,7 +16,9 @@ import lalpulsar
 from .utils import logfactorial, gcd_array
 
 # import colors from gwpy
+from gwpy.timeseries import TimeSeries
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
+from gwpy.detector import Channel
 
 
 class MultiHeterodynedData(object):
@@ -689,7 +691,7 @@ class MultiHeterodynedData(object):
         return length
 
 
-class HeterodynedData(object):
+class HeterodynedData(TimeSeries):
     """
     A class to contain a time series of heterodyned data.
 
@@ -744,9 +746,9 @@ class HeterodynedData(object):
     Parameters
     ----------
     data: (str, array_like)
-        A file (plain ascii text, or gzipped ascii text) containing a time
-        series of heterodyned data, or an array containing the complex
-        heterodyned data.
+        A file (plain ascii text, gzipped ascii text, gravitational-wave frame
+        ".gwf", or HDF5 file) containing a time series of heterodyned data, or
+        an array containing the complex heterodyned data.
     times: array_like
         If the data was passed using the `data` argument, then the associated
         time stamps should be passed using this argument.
@@ -810,6 +812,8 @@ class HeterodynedData(object):
     thresh: float, 3.5
         The modified z-score threshold for outlier removal (see
         :meth:`~cwinpy.data.HeterodynedData.find_outliers`)
+    comments: str
+        A string containing any comments about the data.
     """
 
     # set some default detector color maps for plotting
@@ -823,8 +827,9 @@ class HeterodynedData(object):
         "labelname": "Carlito",  # font names for axes tick labels
     }
 
-    def __init__(
-        self,
+    # change __init__ to __new__
+    def __new__(
+        cls,
         data=None,
         times=None,
         par=None,
@@ -842,38 +847,130 @@ class HeterodynedData(object):
         bbmaxlength=np.inf,
         remove_outliers=False,
         thresh=3.5,
+        comments="",
     ):
-        self.window = window  # set the window size
-        self.__bbthreshold = bbthreshold
-        self.__bbmaxlength = bbmaxlength
-        self.__bbminlength = bbminlength
-        self.__remove_outliers = remove_outliers
-        self.__outlier_thresh = thresh
+        # set the detector from which the data came using a dummy channel
+        if isinstance(detector, str):
+            channel = "{}:".format(detector)
+        elif isinstance(detector, lal.Detector):
+            channel = "{}:".format(detector.frDetector.prefix)
+        else:
+            channel = None
 
-        # set the data
-        self.data = (data, times)
+        stds = None  # initialise standard deviations
+
+        # read/parse data
+        if isinstance(data, str):
+            new = cls.read(data)
+            new.detector = detector
+        elif isinstance(data, (TimeSeries, HeterodynedData)):
+            dataarray = data.value
+            hettimes = data.times
+
+            if channel is None:
+                channel = data.channel
+
+            if type(data) is HeterodynedData:
+                if data.__stds is not None:
+                    stds = data.stds
+        else:
+            # use data
+            if times is None and data is None:
+                raise ValueError("Time stamps and/or data must be supplied")
+            elif data is not None:
+                dataarray = np.atleast_2d(np.asarray(data))
+
+                if dataarray.shape[0] == 1:
+                    dataarray = dataarray.T
+            else:
+                # set data to zeros
+                hettimes = times
+                dataarray = np.zeros((len(hettimes), 1), dtype=np.complex)
+
+            if dataarray.shape[1] == 1 and dataarray.dtype == np.complex and times is not None:
+                dataarray = dataarray.flatten()
+            elif dataarray.shape[1] == 2 and times is not None:
+                # real and imaginary components are separate
+                dataarray = dataarray[:, 0] + 1j * dataarray[:, 1]
+            elif dataarray.shape[1] == 3 or dataarray.shape[1] == 4:
+                if times is not None:
+                    hettimes = times
+                else:
+                    # first column of array should be times
+                    hettimes = dataarray[:, 0]
+
+                dataarray = dataarray[:, 1] + 1j * dataarray[:, 2]
+
+                if dataarray.shape[1] == 4:
+                    stds = dataarray[:, 3]
+            else:
+                raise ValueError("Supplied data array is the wrong shape")
+
+            if hettimes is not None and times is not None:
+                if not np.array_equal(hettimes, times):
+                    raise ValueError(
+                        "Supplied times and times in data file are not the same"
+                    )
+
+            # generate TimeSeries
+            new = super(HeterodynedData, cls).__new__(
+                cls,
+                dataarray,
+                times=hettimes,
+                channel=channel,
+            )
+
+            new.__stds = None
+            if dataarray.shape[1] == 4:
+                # set pre-calculated data standard deviations
+                new.__stds = dataarray[:, 3]
+
+        new.window = window  # set the window size
+        new._bbthreshold = bbthreshold
+        new._bbmaxlength = bbmaxlength
+        new._bbminlength = bbminlength
+        new._remove_outliers = remove_outliers
+        new._outlier_thresh = thresh
+
+        # remove outliers
+        if new._remove_outliers:
+            new.remove_outliers(thresh=new._outlier_thresh)
+
+        # initialise the running median
+        _ = new.compute_running_median(N=new.window)
+
+        # initialise change points to None
+        new.__change_point_indices_and_ratios = None
+
+        # calculate change points (and variances)
+        new.bayesian_blocks(
+            threshold=new._bbthreshold,
+            minlength=new._bbminlength,
+            maxlength=new._bbmaxlength,
+        )
 
         # set the parameter file
-        self.par = par
-
-        # set the detector from which the data came
-        self.detector = detector
+        new.par = par
 
         # set the frequency scale factor
-        self.freq_factor = freqfactor
+        new.freq_factor = freqfactor
 
         # add noise, or create data containing noise
         if fakeasd is not None:
-            self.add_noise(fakeasd, issigma=issigma, seed=fakeseed)
+            new.add_noise(fakeasd, issigma=issigma, seed=fakeseed)
 
         # set and add a simulated signal
-        self.injection = bool(inject)
-        if self.injection:
+        new.injection = bool(inject)
+        if new.injection:
             # inject the signal
             if injpar is None:
-                self.inject_signal(injtimes=injtimes)
+                new.inject_signal(injtimes=injtimes)
             else:
-                self.inject_signal(injpar=injpar, injtimes=injtimes)
+                new.inject_signal(injpar=injpar, injtimes=injtimes)
+
+        new.comments = comments
+
+        return new
 
     @property
     def window(self):
@@ -892,12 +989,27 @@ class HeterodynedData(object):
             raise TypeError("Window must be an integer")
 
     @property
+    def comments(self):
+        """Any comments on the data"""
+
+        return self.__comments
+
+    @comments.setter
+    def comments(self, comment):
+        if comment is None:
+            self.__comment = None
+        elif isinstance(self, str):
+            self.__comments = comment
+        else:
+            raise TypeError("Data comment should be a string")
+
+    @property
     def data(self):
         """
         A :class:`numpy.ndarray` containing the heterodyned data.
         """
 
-        return self.__data
+        return self.value
 
     @data.setter
     def data(self, data):
@@ -914,8 +1026,14 @@ class HeterodynedData(object):
             # read in data from a file
             try:
                 dataarray = np.loadtxt(dataval, comments=["#", "%"])
-            except Exception as e:
-                raise IOError("Problem reading in data: {}".format(e))
+            except Exception as eload1:
+                # read in data via GWPy TimeSeries
+                try:
+                    self.read(dataval)
+                except Exception as eload2:
+                    raise IOError(
+                        "Problem reading in data:\n{}\n{}".format(eload1, eload2)
+                    )
 
             if dataarray.shape[1] != 3 and dataarray.shape[1] != 4:
                 raise ValueError("Data array is the wrong shape")
@@ -954,8 +1072,8 @@ class HeterodynedData(object):
             raise ValueError("Data and time stamps are not the same length")
 
         # remove outliers if requested
-        if self.__remove_outliers:
-            outliers = self.find_outliers(thresh=self.__outlier_thresh)
+        if self._remove_outliers:
+            outliers = self.find_outliers(thresh=self._outlier_thresh)
             self.__data = self.data[~outliers]
             self.times = self.times[~outliers]
 
@@ -984,9 +1102,9 @@ class HeterodynedData(object):
 
         # calculate change points (and variances)
         self.bayesian_blocks(
-            threshold=self.__bbthreshold,
-            minlength=self.__bbminlength,
-            maxlength=self.__bbmaxlength,
+            threshold=self._bbthreshold,
+            minlength=self._bbminlength,
+            maxlength=self._bbmaxlength,
         )
 
     @property
@@ -1080,7 +1198,7 @@ class HeterodynedData(object):
     def detector(self):
         """The name of the detector from which the data came."""
 
-        return self.__detector
+        return self.channel.ifo
 
     @property
     def laldetector(self):
@@ -1093,20 +1211,16 @@ class HeterodynedData(object):
 
     @detector.setter
     def detector(self, detector):
-        if detector is None:
-            self.__detector = None
-            self.__laldetector = None
-        else:
-            if isinstance(detector, lal.Detector):
-                self.__detector = detector.frDetector.prefix
-                self.__laldetector = detector
-            elif isinstance(detector, str):
-                self.__detector = detector
+        if isinstance(detector, lal.Detector):
+            self.channel = Channel("{}:".format(detector.frDetector.prefix))
+            self.__laldetector = detector
+        elif isinstance(detector, str):
+            self.channel = Channel("{}:".format(detector))
 
-                try:
-                    self.__laldetector = lalpulsar.GetSiteInfo(detector)
-                except RuntimeError:
-                    raise ValueError("Could not set LAL detector!")
+            try:
+                self.__laldetector = lalpulsar.GetSiteInfo(detector)
+            except RuntimeError:
+                raise ValueError("Could not set LAL detector!")
 
     @property
     def running_median(self):
@@ -1136,7 +1250,10 @@ class HeterodynedData(object):
         if N < 2:
             raise ValueError("The running median window must be greater than 1")
 
-        self.__running_median = np.zeros(len(self), dtype=np.complex)
+        self.__running_median = TimeSeries(
+            np.zeros(len(self), dtype=np.complex),
+            times=self.times
+        )
         for i in range(len(self)):
             if i < N // 2:
                 startidx = 0
@@ -1148,8 +1265,10 @@ class HeterodynedData(object):
                 startidx = i - (N // 2) + 1
                 endidx = i + (N // 2) + 1
 
-            self.__running_median.real[i] = np.median(self.data.real[startidx:endidx])
-            self.__running_median.imag[i] = np.median(self.data.imag[startidx:endidx])
+            self.__running_median[i] = (
+                np.median(self.data.real[startidx:endidx]) +
+                1j * np.median(self.data.imag[startidx:endidx])
+            )
 
         return self.running_median
 
@@ -1164,7 +1283,7 @@ class HeterodynedData(object):
             running median subtracted.
         """
 
-        return self.data - self.running_median
+        return self - self.running_median
 
     @property
     def vars(self):
@@ -1211,7 +1330,7 @@ class HeterodynedData(object):
             self.__vars = np.zeros(len(self))
 
         # subtract running median from the data
-        datasub = self.subtract_running_median()
+        datasub = self.subtract_running_median().value
 
         if change_points is None and self.__change_point_indices_and_ratios is None:
             # return the (sample) variance (hence 'ddof=1')
@@ -1275,14 +1394,18 @@ class HeterodynedData(object):
         self.injtimes = injtimes
 
         # initialise the injection to zero
-        inj_data = np.ones_like(self.data)
+        inj_data = TimeSeries(
+            np.zeros_like(self.data),
+            times=self.times,
+            channel=self.channel,
+        )
 
         for timerange in self.injtimes:
-            timeidxs = (self.__times >= timerange[0]) & (self.__times <= timerange[1])
+            timeidxs = np.arange(len(self))[(self.times >= timerange[0]) & (self.times <= timerange[1])]
             inj_data[timeidxs] = signal[timeidxs]
 
         # add injection to data
-        self.__data = self.data + inj_data
+        self = self.inject(inj_data)
 
         # save injection data
         self.__inj_data = inj_data
@@ -1323,7 +1446,7 @@ class HeterodynedData(object):
         The pure simulated signal that was added to the data.
         """
 
-        return self.__inj_data
+        return self.__inj_data.value
 
     @property
     def injection_snr(self):
@@ -1346,7 +1469,7 @@ class HeterodynedData(object):
         return np.sqrt(
             ((self.injection_data.real / self.stds) ** 2).sum()
             + ((self.injection_data.imag / self.stds) ** 2).sum()
-        )
+        ).value
 
     def make_signal(self, signalpar=None):
         """
@@ -1390,7 +1513,7 @@ class HeterodynedData(object):
                 freqfactor=self.freq_factor,
             )
 
-        return signal
+        return TimesSeries(signal, times=self.times, channel=self.channel)
 
     def signal_snr(self, signalpar):
         """
@@ -1416,7 +1539,7 @@ class HeterodynedData(object):
         return np.sqrt(
             ((signal.real / self.stds) ** 2).sum()
             + ((signal.imag / self.stds) ** 2).sum()
-        )
+        ).value
 
     @property
     def freq_factor(self):
@@ -1501,12 +1624,12 @@ class HeterodynedData(object):
             else:
                 # check is str is a detector alias
                 aliases = {
-                    "AV": ["Virgo", "V1", "AdV", "AdvancedVirgo", "AV"],
-                    "AL": ["H1", "L1", "LHO", "LLO", "aLIGO", "AdvancedLIGO", "AL"],
-                    "IL": ["iH1", "iL1", "InitialLIGO", "IL"],
-                    "IV": ["iV1", "InitialVirgo", "IV"],
+                    "AV": ["Virgo", "V1", "ADV", "ADVANCEDVIRGO", "AV"],
+                    "AL": ["H1", "L1", "LHO", "LLO", "ALIGO", "ADVANCEDLIGO", "AL", "AH1", "AL1"],
+                    "IL": ["iH1", "IL1", "INITIALLIGO", "IL"],
+                    "IV": ["iV1", "INITIALVIRGO", "IV"],
                     "G1": ["G1", "GEO", "GEOHF"],
-                    "IG": ["IG", "GEO600", "InitialGEO"],
+                    "IG": ["IG", "GEO600", "INITIALGEO"],
                     "T1": ["T1", "TAMA", "TAMA300"],
                     "K1": ["K1", "KAGRA", "LCGT"],
                 }
@@ -1523,11 +1646,35 @@ class HeterodynedData(object):
                     "K1": lalsim.SimNoisePSDKAGRA,  # KAGRA
                 }
 
+                # set detector if not already set
+                if self.channel is None:
+                    namemap = {
+                        "H1": ["H1", "LHO", "iH1", "AH1"],
+                        "L1": ["L1", "LLO", "iL1", "AL1"],
+                        "V1": ["V1", "Virgo", "V1", "AdV", "AdvancedVirgo", "AV", "iV1", "InitialVirgo", "IV"],
+                        "G1": ["G1", "GEO", "GEOHF", "IG", "GEO600", "InitialGEO"],
+                        "T1": ["T1", "TAMA", "TAMA300"],
+                        "K1": ["K1", "KAGRA", "LCGT"],
+                    }
+
+                    nameval = None
+                    for dkey in namemap:
+                        if asd.upper() in namemap[dkey]:
+                            namevale = dkey
+                            self.channel = Channel("{}:".format(dkey))
+                            break
+
+                    if nameval is None:
+                        raise ValueError(
+                            "Detector '{}' is not a known detector alias".format(asd)
+                        )
+
                 # check if string is valid
                 detalias = None
                 for dkey in aliases:
                     if asd.upper() in aliases[dkey]:
                         detalias = dkey
+                        break
 
                 if detalias is None:
                     raise ValueError(
@@ -1571,20 +1718,24 @@ class HeterodynedData(object):
             rstate = np.random.RandomState(seed)
 
         # get noise for real and imaginary components
-        noise = rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 2))
+        noise = TimeSeries(
+            (
+                rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1) +
+                1j * rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1))
+            ),
+            times=self.times
+        )
 
-        # add the noise to the data
-        self.__data.real += noise[:, 0]
-        self.__data.imag += noise[:, 1]
+        self = self.inject(noise)
 
         # (re)compute the running median
         _ = self.compute_running_median(N=self.window)
 
         # (re)compute change points (and variances)
         self.bayesian_blocks(
-            threshold=self.__bbthreshold,
-            minlength=self.__bbminlength,
-            maxlength=self.__bbmaxlength,
+            threshold=self._bbthreshold,
+            minlength=self._bbminlength,
+            maxlength=self._bbmaxlength,
         )
 
     def bayesian_blocks(self, threshold="default", minlength=5, maxlength=np.inf):
@@ -1648,7 +1799,7 @@ class HeterodynedData(object):
 
         if minlength < len(self):
             self._chop_data(
-                self.subtract_running_median(), threshold=threshold, minlength=minlength
+                self.subtract_running_median().value, threshold=threshold, minlength=minlength
             )
 
             # sort the indices
@@ -1723,7 +1874,7 @@ class HeterodynedData(object):
 
     def _chop_data(self, data, threshold="default", minlength=5, startidx=0):
         # find change point (don't split if data is zero)
-        if np.all(self.subtract_running_median() == (0.0 + 0 * 1j)):
+        if np.all(self.subtract_running_median().value == (0.0 + 0 * 1j)):
             lratio, cpidx, ntrials = (-np.inf, 0, 1)
         else:
             lratio, cpidx, ntrials = self._find_change_point(data, minlength)
@@ -1891,6 +2042,27 @@ class HeterodynedData(object):
         # return boolean array of real or imaginary indices above the threshold
         return (modzscore[0] > thresh) | (modzscore[1] > thresh)
 
+    def _not_outliers(self, thresh=3.5):
+        """
+        Get an array of indices of points that are not outliers as identiied
+        by :meth:`cwinpy.data.HeterodynedData.find_outliers`.
+        """
+
+        oidx = ~self.find_outliers(thresh=thresh)
+        return np.arange(len(self))[oidx]
+
+    def remove_outliers(self, thresh=3.5):
+        """
+        Remove any outliers from the object using the method decribed in
+        :meth:`cwinpy.data.HeterodynedData.find_outliers`.
+        """
+
+        bidx = self._not_outliers(thresh=thresh)
+        self = self.take(bidx)
+
+        if self.__stds is not None:
+            self.__stds = self.__stds[bidx]
+
     def plot(
         self,
         which="abs",
@@ -1962,24 +2134,24 @@ class HeterodynedData(object):
 
         """
 
-        if remove_outliers and not self.__remove_outliers:
-            idx = self.find_outliers(thresh=thresh)
+        if remove_outliers and not self._remove_outliers:
+            idx = self._not_outliers(thresh=thresh)
         else:
-            idx = np.zeros(len(self), dtype=np.bool)
+            idx = np.arange(len(self))
 
         # set the data to use
         if which.lower() in ["abs", "absolute"]:
-            pldata = np.abs(self.data[~idx])
+            pldata = np.abs(self.data[idx])
         elif which.lower() in ["real", "re"]:
-            pldata = self.data.real[~idx]
+            pldata = self.data.real[idx]
         elif which.lower() in ["im", "imag", "imaginary"]:
-            pldata = self.data.imag[~idx]
+            pldata = self.data.imag[idx]
         elif which.lower() == "both":
-            pldata = (self.data.real[~idx], self.data.imag[~idx])
+            pldata = (self.data.real[idx], self.data.imag[idx])
         else:
             raise ValueError("'which' must be 'abs', 'real', 'imag' or 'both")
 
-        pltimes = self.times[~idx]
+        pltimes = self.times[idx]
         t0 = pltimes[0]
         if zero_time:
             pltimes -= pltimes[0]
@@ -2399,9 +2571,9 @@ class HeterodynedData(object):
         # get the zero padded data
         padded = self._zero_pad(remove_outliers=remove_outliers, thresh=thresh)
 
-        if not self.__remove_outliers and remove_outliers:
-            idx = self.find_outliers(thresh=thresh)
-            times = self.times[~idx]
+        if not self._remove_outliers and remove_outliers:
+            idx = self._not_outliers(thresh=thresh)
+            times = self.times[idx]
             tottime = times[-1] - times[0]
         else:
             times = self.times
@@ -2641,10 +2813,10 @@ class HeterodynedData(object):
             An array of the data padded with zeros.
         """
 
-        if not self.__remove_outliers and remove_outliers:
-            idx = self.find_outliers(thresh=thresh)
-            times = self.times[~idx]
-            data = self.data[~idx]
+        if not self._remove_outliers and remove_outliers:
+            idx = self._not_outliers(thresh=thresh)
+            times = self.times[idx]
+            data = self.data[idx]
         else:
             times = self.times
             data = self.data
