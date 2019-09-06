@@ -325,6 +325,9 @@ API
 .. automodule:: cwinpy.knope.knope
    :members: knope, knope_dag
 
+.. automodule:: cwinpy.knope.testing
+   :members: KnopePPPlotsDAG, generate_pp_plots
+
 ``cwinpy_knope`` References
 ---------------------------
 
