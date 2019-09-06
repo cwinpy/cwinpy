@@ -559,6 +559,20 @@ PHI0     2.4
         for cl in het.chunk_lengths:
             assert cl <= maxlength
 
+        del het
+
+        # test no-splitting
+        minlength = np.inf
+        het = HeterodynedData(
+            data,
+            times=times,
+            bbthreshold="default",
+            bbminlength=minlength,
+        )
+
+        assert len(het.chunk_lengths) == 1
+        assert het.chunk_lengths[0] == len(het)
+
     def test_spectrum_plots(self):
         """
         Test the spectrogram, periodogram and power spectrum plots.
@@ -727,38 +741,40 @@ PHI0     2.4
 
     def test_plot(self):
         """
-        Test plotting function (and at the same time test fake noise generaion)
-        (no testing of injections yet as the code to find ephemeris files won't
-        work)
+        Test plotting function (and at the same time test fake noise generation)
         """
 
         # create an injection parameter file
-        # parcontent = """\
-        # PSRJ    J0000+0000
-        # RAJ     00:00:00.0
-        # DECJ    00:00:00.0
-        # F0      123.45
-        # F1      1.2e-11
-        # PEPOCH  56789.0
-        # H0      1.5e-22
-        # """
+        parcontent = """\
+PSRJ    J0000+0000
+RAJ     00:00:00.0
+DECJ    00:00:00.0
+F0      123.45
+F1      1.2e-11
+PEPOCH  56789.0
+H0      1.5e-22
+"""
 
-        # parfile = 'test.par'
-        # with open(parfile, 'w') as fp:
-        #    fp.write(parcontent)
+        parfile = 'test.par'
+        with open(parfile, 'w') as fp:
+           fp.write(parcontent)
 
         # one point per 10 mins
         times = np.linspace(1000000000.0, 1000085800.0, 144)
 
-        # het = HeterodynedData(times=times, fakeasd='H1', detector='H1',
-        #                      par=parfile, inject=True)
         with pytest.raises(AttributeError):
             # if no parameter file is given, then generating fake data for a
             # particular detector should fail
             het = HeterodynedData(times=times, fakeasd="H1")
 
         # set the asd explicitly
-        het = HeterodynedData(times=times, fakeasd=1e-24, detector="H1")
+        het = HeterodynedData(
+            times=times,
+            fakeasd=1e-24,
+            detector="H1",
+            par=parfile,
+            inject=True,
+        )
         mhd = MultiHeterodynedData(het)
 
         # not allowed argument
@@ -772,4 +788,4 @@ PHI0     2.4
             del fig
 
         # remove the par file
-        # os.remove(parfile)
+        os.remove(parfile)

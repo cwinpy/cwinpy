@@ -792,6 +792,17 @@ class HeterodynedData(object):
     bbthreshold: (str, float), "default"
         The threshold method, or value for the
         :meth:`~cwinpy.data.HeterodynedData.bayesian_blocks` function.
+    bbminlength: int, 5
+        The minimum length (in numbers of data points) of a chunk that the data
+        can be split into by the
+        :meth:`~cwinpy.data.HeterodynedData.bayesian_blocks` function. To
+        perform no splitting of the data set this value to be larger than the
+        total data length, e.g., ``inf``.
+    bbmaxlength: int, inf
+        The maximum length (in numbers of data points) of a chunk that the data
+        can be split into by the
+        :meth:`~cwinpy.data.HeterodynedData.bayesian_blocks` function. By
+        default this is ``inf``, i.e., chunks can be as long as possible.
     remove_outliers: bool, False
         If ``True`` outliers will be found (using
         :meth:`~cwinpy.data.HeterodynedData.find_outliers`) and removed from the
@@ -827,11 +838,15 @@ class HeterodynedData(object):
         fakeseed=None,
         issigma=False,
         bbthreshold="default",
+        bbminlength=5,
+        bbmaxlength=np.inf,
         remove_outliers=False,
         thresh=3.5,
     ):
         self.window = window  # set the window size
         self.__bbthreshold = bbthreshold
+        self.__bbmaxlength = bbmaxlength
+        self.__bbminlength = bbminlength
         self.__remove_outliers = remove_outliers
         self.__outlier_thresh = thresh
 
@@ -968,7 +983,11 @@ class HeterodynedData(object):
         self.__change_point_indices_and_ratios = None
 
         # calculate change points (and variances)
-        self.bayesian_blocks(threshold=self.__bbthreshold)
+        self.bayesian_blocks(
+            threshold=self.__bbthreshold,
+            minlength=self.__bbminlength,
+            maxlength=self.__bbmaxlength,
+        )
 
     @property
     def times(self):
@@ -1562,7 +1581,11 @@ class HeterodynedData(object):
         _ = self.compute_running_median(N=self.window)
 
         # (re)compute change points (and variances)
-        self.bayesian_blocks(threshold=self.__bbthreshold)
+        self.bayesian_blocks(
+            threshold=self.__bbthreshold,
+            minlength=self.__bbminlength,
+            maxlength=self.__bbmaxlength,
+        )
 
     def bayesian_blocks(self, threshold="default", minlength=5, maxlength=np.inf):
         """
@@ -1608,41 +1631,44 @@ class HeterodynedData(object):
            <https:arxiv.org/abs/1705.08978v1>`_, 2017.
         """
 
-        if not isinstance(minlength, int):
+        if not isinstance(minlength, int) and not np.isinf(minlength):
             raise TypeError("Minimum chunk length must be an integer")
 
-        if minlength < 1:
-            raise ValueError("Minimum chunk length must be a positive integer")
+        if not np.isinf(minlength):
+            if minlength < 1:
+                raise ValueError("Minimum chunk length must be a positive integer")
 
-        if maxlength <= minlength:
+        if maxlength < minlength:
             raise ValueError(
                 "Maximum chunk length must be greater than the minimum chunk length."
             )
 
-        # chop up the data
+        # chop up the data (except if minlength is greater than the data length)
         self.__change_point_indices_and_ratios = []
-        self._chop_data(
-            self.subtract_running_median(), threshold=threshold, minlength=minlength
-        )
 
-        # sort the indices
-        self.__change_point_indices_and_ratios = sorted(
-            self.__change_point_indices_and_ratios
-        )
+        if minlength < len(self):
+            self._chop_data(
+                self.subtract_running_median(), threshold=threshold, minlength=minlength
+            )
 
-        # if any chunks are longer than maxlength, then split them
-        if maxlength < len(self):
-            insertcps = []
-            cppos = 0
-            for clength in self.chunk_lengths:
-                if clength > maxlength:
-                    insertcps.append((cppos + maxlength, 0))
-                cppos += clength
-
-            self.__change_point_indices_and_ratios += insertcps
+            # sort the indices
             self.__change_point_indices_and_ratios = sorted(
                 self.__change_point_indices_and_ratios
             )
+
+            # if any chunks are longer than maxlength, then split them
+            if maxlength < len(self):
+                insertcps = []
+                cppos = 0
+                for clength in self.chunk_lengths:
+                    if clength > maxlength:
+                        insertcps.append((cppos + maxlength, 0))
+                    cppos += clength
+
+                self.__change_point_indices_and_ratios += insertcps
+                self.__change_point_indices_and_ratios = sorted(
+                    self.__change_point_indices_and_ratios
+                )
 
         # (re)calculate the variances for each chunk
         _ = self.compute_variance(N=self.window)
