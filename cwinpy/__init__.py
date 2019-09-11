@@ -1,6 +1,7 @@
 ### import bilby and bilby_pipe removing the logger version info output ###
 import logging
 import io
+from . import iostream
 
 bilby_logger = logging.getLogger("bilby")
 handler = logging.StreamHandler(io.StringIO())

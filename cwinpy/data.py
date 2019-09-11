@@ -16,7 +16,7 @@ import lalpulsar
 from .utils import logfactorial, gcd_array
 
 # import colors from gwpy
-from gwpy.timeseries import TimeSeries
+from gwpy.timeseries import TimeSeriesBase
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
 from gwpy.detector import Channel
 
@@ -691,7 +691,7 @@ class MultiHeterodynedData(object):
         return length
 
 
-class HeterodynedData(TimeSeries):
+class HeterodynedData(TimeSeriesBase):
     """
     A class to contain a time series of heterodyned data.
 
@@ -863,7 +863,7 @@ class HeterodynedData(TimeSeries):
         if isinstance(data, str):
             new = cls.read(data)
             new.detector = detector
-        elif isinstance(data, (TimeSeries, HeterodynedData)):
+        elif isinstance(data, (TimeSeriesBase, HeterodynedData)):
             dataarray = data.value
             hettimes = data.times
 
@@ -875,6 +875,7 @@ class HeterodynedData(TimeSeries):
                     stds = data.stds
         else:
             # use data
+            hettimes = None
             if times is None and data is None:
                 raise ValueError("Time stamps and/or data must be supplied")
             elif data is not None:
@@ -899,10 +900,10 @@ class HeterodynedData(TimeSeries):
                     # first column of array should be times
                     hettimes = dataarray[:, 0]
 
-                dataarray = dataarray[:, 1] + 1j * dataarray[:, 2]
-
                 if dataarray.shape[1] == 4:
                     stds = dataarray[:, 3]
+
+                dataarray = dataarray[:, 1] + 1j * dataarray[:, 2]
             else:
                 raise ValueError("Supplied data array is the wrong shape")
 
@@ -912,7 +913,7 @@ class HeterodynedData(TimeSeries):
                         "Supplied times and times in data file are not the same"
                     )
 
-            # generate TimeSeries
+            # generate TimeSeriesBase
             new = super(HeterodynedData, cls).__new__(
                 cls,
                 dataarray,
@@ -921,9 +922,9 @@ class HeterodynedData(TimeSeries):
             )
 
             new.__stds = None
-            if dataarray.shape[1] == 4:
+            if stds is not None:
                 # set pre-calculated data standard deviations
-                new.__stds = dataarray[:, 3]
+                new.__stds = stds
 
         new.window = window  # set the window size
         new._bbthreshold = bbthreshold
@@ -935,6 +936,20 @@ class HeterodynedData(TimeSeries):
         # remove outliers
         if new._remove_outliers:
             new.remove_outliers(thresh=new._outlier_thresh)
+
+        # set the (minimum) time step and sampling frequency
+        if len(new.times) > 1:
+            new.dt = np.min(np.diff(new.times))
+            new.fs = 1.0 / new.dt
+        else:
+            warnings.warn("Your data is only one data point long!")
+            new.dt = None
+            new.fs = None
+
+        # for the moment there is the assumption that time stamps are integers,
+        # so check this
+        if not new.tottime.value.is_integer() or not new.dt.value.is_integer():
+            raise ValueError("Time stamps must be integers")
 
         # initialise the running median
         _ = new.compute_running_median(N=new.window)
@@ -998,7 +1013,7 @@ class HeterodynedData(TimeSeries):
     def comments(self, comment):
         if comment is None:
             self.__comment = None
-        elif isinstance(self, str):
+        elif isinstance(comment, str):
             self.__comments = comment
         else:
             raise TypeError("Data comment should be a string")
@@ -1011,122 +1026,13 @@ class HeterodynedData(TimeSeries):
 
         return self.value
 
-    @data.setter
-    def data(self, data):
-        if isinstance(data, tuple):
-            try:
-                dataval, times = data
-            except ValueError:
-                raise ValueError("Tuple of data must have two items")
-        else:
-            dataval = data
-            times = None
-
-        if isinstance(dataval, str):
-            # read in data from a file
-            try:
-                dataarray = np.loadtxt(dataval, comments=["#", "%"])
-            except Exception as eload1:
-                # read in data via GWPy TimeSeries
-                try:
-                    self.read(dataval)
-                except Exception as eload2:
-                    raise IOError(
-                        "Problem reading in data:\n{}\n{}".format(eload1, eload2)
-                    )
-
-            if dataarray.shape[1] != 3 and dataarray.shape[1] != 4:
-                raise ValueError("Data array is the wrong shape")
-
-            self.times = dataarray[:, 0]  # set time stamps
-        else:
-            if times is None:
-                raise ValueError("Time stamps must also be supplied")
-            else:
-                # use supplied time stamps
-                self.times = times
-
-            if dataval is None:
-                # set data to zeros
-                dataarray = np.zeros((len(times), 1), dtype=np.complex)
-            else:
-                dataarray = np.atleast_2d(np.asarray(dataval))
-                if dataarray.shape[0] == 1:
-                    dataarray = dataarray.T
-
-        self.__stds = None  # initialise stds to None
-        if dataarray.shape[1] == 1 and dataarray.dtype == np.complex:
-            self.__data = dataarray.flatten()
-        elif dataarray.shape[1] == 2:
-            # real and imaginary components are separate
-            self.__data = dataarray[:, 0] + 1j * dataarray[:, 1]
-        elif dataarray.shape[1] == 3 or dataarray.shape[1] == 4:
-            self.__data = dataarray[:, 1] + 1j * dataarray[:, 2]
-            if dataarray.shape[1] == 4:
-                # set pre-calculated data standard deviations
-                self.__stds = dataarray[:, 3]
-        else:
-            raise ValueError("Data array is the wrong shape")
-
-        if len(self.times) != len(self.data):
-            raise ValueError("Data and time stamps are not the same length")
-
-        # remove outliers if requested
-        if self._remove_outliers:
-            outliers = self.find_outliers(thresh=self._outlier_thresh)
-            self.__data = self.data[~outliers]
-            self.times = self.times[~outliers]
-
-            if self.__stds is not None:
-                self.__stds = self.__stds[~outliers]
-
-        # set the (minimum) time step and sampling frequency
-        if len(self.times) > 1:
-            self.__dt = np.min(np.diff(self.times))
-            self.__fs = 1.0 / self.dt
-        else:
-            warnings.warn("Your data is only one data point long!")
-            self.__dt = None
-            self.__fs = None
-
-        # for the moment there is the assumption that time stamps are integers,
-        # so check this
-        if not self.tottime.is_integer() or not self.dt.is_integer():
-            raise ValueError("Time stamps must be integers")
-
-        # initialise the running median
-        _ = self.compute_running_median(N=self.window)
-
-        # initialise change points to None
-        self.__change_point_indices_and_ratios = None
-
-        # calculate change points (and variances)
-        self.bayesian_blocks(
-            threshold=self._bbthreshold,
-            minlength=self._bbminlength,
-            maxlength=self._bbmaxlength,
-        )
-
-    @property
-    def times(self):
-        return self.__times
-
     @property
     def tottime(self):
         """
         The total time (in seconds) of the data.
         """
 
-        return self.__tottime
-
-    @times.setter
-    def times(self, times):
-        """
-        Set the data time stamps.
-        """
-
-        self.__times = np.asarray(times, dtype="float64")
-        self.__tottime = self.times[-1] - self.times[0]
+        return (self.times[-1] - self.times[0])
 
     @property
     def dt(self):
@@ -1136,6 +1042,10 @@ class HeterodynedData(TimeSeries):
 
         return self.__dt
 
+    @dt.setter
+    def dt(self, dt):
+        self.__dt = dt
+
     @property
     def fs(self):
         """
@@ -1143,6 +1053,10 @@ class HeterodynedData(TimeSeries):
         """
 
         return self.__fs
+
+    @fs.setter
+    def fs(self, fs):
+        self.__fs = fs
 
     @property
     def par(self):
@@ -1250,7 +1164,7 @@ class HeterodynedData(TimeSeries):
         if N < 2:
             raise ValueError("The running median window must be greater than 1")
 
-        self.__running_median = TimeSeries(
+        self.__running_median = TimeSeriesBase(
             np.zeros(len(self), dtype=np.complex),
             times=self.times
         )
@@ -1299,7 +1213,20 @@ class HeterodynedData(TimeSeries):
         The standard deviations of the data points.
         """
 
-        return np.sqrt(self.__vars)
+        if self.__vars is None:
+            return None
+        else:
+            return np.sqrt(self.__vars)
+
+    @stds.setter
+    def stds(self, stds):
+        if stds is not None:
+            if len(stds) != len(self):
+                raise ValueError("Supplied standard deviations are wrong length")
+
+            self.__vars = np.assary(stds) ** 2
+        else:
+            self.__vars = None
 
     def compute_variance(self, change_points=None, N=30):
         """
@@ -1323,11 +1250,10 @@ class HeterodynedData(TimeSeries):
             A :class:`numpy.ndarray` of variances for each data point.
         """
 
-        if self.__stds is not None:
-            self.__vars = self.__stds ** 2
+        if self.vars is not None:
             return self.vars
         else:
-            self.__vars = np.zeros(len(self))
+            self.stds = np.zeros(len(self))
 
         # subtract running median from the data
         datasub = self.subtract_running_median().value
@@ -1394,7 +1320,7 @@ class HeterodynedData(TimeSeries):
         self.injtimes = injtimes
 
         # initialise the injection to zero
-        inj_data = TimeSeries(
+        inj_data = TimeSeriesBase(
             np.zeros_like(self.data),
             times=self.times,
             channel=self.channel,
@@ -1718,10 +1644,10 @@ class HeterodynedData(TimeSeries):
             rstate = np.random.RandomState(seed)
 
         # get noise for real and imaginary components
-        noise = TimeSeries(
+        noise = TimeSeriesBase(
             (
-                rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1) +
-                1j * rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1))
+                rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1)) +
+                1j * rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1)),
             ),
             times=self.times
         )

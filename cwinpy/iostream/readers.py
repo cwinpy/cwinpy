@@ -1,11 +1,13 @@
-from numpy import loadtxt
+from numpy import (loadtxt, savetxt, column_stack)
 from ..data import HeterodynedData
 
 from gwpy.io import registry as io_registry
 from gwpy.io.utils import identify_factory
 
 
-def read_ascii_series(input_, array_type=HeterodynedData, unpack=True, **kwargs):
+# -- read ---------------------------------------------------------------------
+
+def read_ascii_series(input_, array_type=HeterodynedData, **kwargs):
     """
     Read a `Series` from an ASCII file. This is a based on the
     :meth:`gwpy.types.io.ascii.read_ascii_series` function.
@@ -40,11 +42,42 @@ def read_ascii_series(input_, array_type=HeterodynedData, unpack=True, **kwargs)
 
     return array_type(data[:, 1:], times=data[:, 0], comments=comments)
 
+
+# -- write --------------------------------------------------------------------
+
+def write_ascii_series(series, output, **kwargs):
+    """Write a `Series` to a file in ASCII format
+    Parameters
+    ----------
+    series : :class:`~gwpy.data.Series`
+        data series to write
+    output : `str`, `file`
+        file to write to
+    See also
+    --------
+    numpy.savetxt
+        for documentation of keyword arguments
+    """
+
+    xarr = series.xindex.value
+    yarrr = series.value.real
+    yarri = series.value.imag
+
+    try:
+        comments = series.comments
+    except AttributeError:
+        comments = ""
+
+    return savetxt(output, column_stack((xarr, yarrr, yarri)), header=comments, **kwargs)
+
+
 # -- register -----------------------------------------------------------------
+
 
 def register_ascii_series_io(array_type, format='txt', identify=True,
                              **defaults):
-    """Register ASCII read/write/identify methods for the given array
+    """
+    Register ASCII read/write/identify methods for the given array
     """
     def _read(filepath, **kwargs):
         kwgs = defaults.copy()
