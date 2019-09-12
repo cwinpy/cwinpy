@@ -897,6 +897,7 @@ class HeterodynedData(TimeSeriesBase):
             elif dataarray.shape[1] == 2 and times is not None:
                 # real and imaginary components are separate
                 dataarray = dataarray[:, 0] + 1j * dataarray[:, 1]
+                hettimes = times
             elif dataarray.shape[1] == 3 or dataarray.shape[1] == 4:
                 if times is not None:
                     hettimes = times
