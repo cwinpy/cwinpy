@@ -871,7 +871,7 @@ class HeterodynedData(TimeSeriesBase):
                 channel = data.channel
 
             if type(data) is HeterodynedData:
-                if data.__stds is not None:
+                if data.stds is not None:
                     stds = data.stds
         else:
             # use data
@@ -888,7 +888,11 @@ class HeterodynedData(TimeSeriesBase):
                 hettimes = times
                 dataarray = np.zeros((len(hettimes), 1), dtype=np.complex)
 
-            if dataarray.shape[1] == 1 and dataarray.dtype == np.complex and times is not None:
+            if (
+                dataarray.shape[1] == 1
+                and dataarray.dtype == np.complex
+                and times is not None
+            ):
                 dataarray = dataarray.flatten()
             elif dataarray.shape[1] == 2 and times is not None:
                 # real and imaginary components are separate
@@ -915,27 +919,19 @@ class HeterodynedData(TimeSeriesBase):
 
             # generate TimeSeriesBase
             new = super(HeterodynedData, cls).__new__(
-                cls,
-                dataarray,
-                times=hettimes,
-                channel=channel,
+                cls, dataarray, times=hettimes, channel=channel
             )
 
-            new.__stds = None
+            new.stds = None
             if stds is not None:
                 # set pre-calculated data standard deviations
-                new.__stds = stds
+                new.stds = stds
 
         new.window = window  # set the window size
-        new._bbthreshold = bbthreshold
-        new._bbmaxlength = bbmaxlength
-        new._bbminlength = bbminlength
-        new._remove_outliers = remove_outliers
-        new._outlier_thresh = thresh
 
         # remove outliers
-        if new._remove_outliers:
-            new.remove_outliers(thresh=new._outlier_thresh)
+        if remove_outliers:
+            new.remove_outliers(thresh=thresh)
 
         # set the (minimum) time step and sampling frequency
         if len(new.times) > 1:
@@ -954,14 +950,9 @@ class HeterodynedData(TimeSeriesBase):
         # initialise the running median
         _ = new.compute_running_median(N=new.window)
 
-        # initialise change points to None
-        new.__change_point_indices_and_ratios = None
-
         # calculate change points (and variances)
         new.bayesian_blocks(
-            threshold=new._bbthreshold,
-            minlength=new._bbminlength,
-            maxlength=new._bbmaxlength,
+            threshold=bbthreshold, minlength=bbminlength, maxlength=bbmaxlength
         )
 
         # set the parameter file
@@ -1032,7 +1023,7 @@ class HeterodynedData(TimeSeriesBase):
         The total time (in seconds) of the data.
         """
 
-        return (self.times[-1] - self.times[0])
+        return self.times[-1] - self.times[0]
 
     @property
     def dt(self):
@@ -1165,8 +1156,7 @@ class HeterodynedData(TimeSeriesBase):
             raise ValueError("The running median window must be greater than 1")
 
         self.__running_median = TimeSeriesBase(
-            np.zeros(len(self), dtype=np.complex),
-            times=self.times
+            np.zeros(len(self), dtype=np.complex), times=self.times
         )
         for i in range(len(self)):
             if i < N // 2:
@@ -1179,10 +1169,9 @@ class HeterodynedData(TimeSeriesBase):
                 startidx = i - (N // 2) + 1
                 endidx = i + (N // 2) + 1
 
-            self.__running_median[i] = (
-                np.median(self.data.real[startidx:endidx]) +
-                1j * np.median(self.data.imag[startidx:endidx])
-            )
+            self.__running_median[i] = np.median(
+                self.data.real[startidx:endidx]
+            ) + 1j * np.median(self.data.imag[startidx:endidx])
 
         return self.running_median
 
@@ -1205,7 +1194,25 @@ class HeterodynedData(TimeSeriesBase):
         The variances of the data points.
         """
 
-        return self.__vars
+        try:
+            vars = self.__vars
+        except AttributeError:
+            vars = None
+        return vars
+
+    @vars.setter
+    def vars(self, vars):
+        if vars is not None:
+            if isinstance(vars, float):
+                if vars <= 0.0:
+                    raise ValueError("Variance cannot be negative")
+                self.__vars = vars * np.ones(len(self))
+            else:
+                if len(vars) != len(self):
+                    raise ValueError("Supplied variances are wrong length")
+                self.__vars = np.asarray(vars)
+        else:
+            self.__vars = None
 
     @property
     def stds(self):
@@ -1221,10 +1228,14 @@ class HeterodynedData(TimeSeriesBase):
     @stds.setter
     def stds(self, stds):
         if stds is not None:
-            if len(stds) != len(self):
-                raise ValueError("Supplied standard deviations are wrong length")
-
-            self.__vars = np.assary(stds) ** 2
+            if isinstance(stds, float):
+                if stds <= 0.0:
+                    raise ValueError("Standard deviation cannot be negative")
+                self.__vars = (stds ** 2) * np.ones(len(self))
+            else:
+                if len(stds) != len(self):
+                    raise ValueError("Supplied standard deviations are wrong length")
+                self.__vars = np.asarray(stds) ** 2
         else:
             self.__vars = None
 
@@ -1321,13 +1332,13 @@ class HeterodynedData(TimeSeriesBase):
 
         # initialise the injection to zero
         inj_data = TimeSeriesBase(
-            np.zeros_like(self.data),
-            times=self.times,
-            channel=self.channel,
+            np.zeros_like(self.data), times=self.times, channel=self.channel
         )
 
         for timerange in self.injtimes:
-            timeidxs = np.arange(len(self))[(self.times >= timerange[0]) & (self.times <= timerange[1])]
+            timeidxs = np.arange(len(self))[
+                (self.times >= timerange[0]) & (self.times <= timerange[1])
+            ]
             inj_data[timeidxs] = signal[timeidxs]
 
         # add injection to data
@@ -1386,7 +1397,6 @@ class HeterodynedData(TimeSeriesBase):
 
         where and :math:`s` is the pure signal and :math:`\sigma` is the
         estimated noise standard deviation.
-
         """
 
         if not self.injection:
@@ -1439,7 +1449,7 @@ class HeterodynedData(TimeSeriesBase):
                 freqfactor=self.freq_factor,
             )
 
-        return TimesSeries(signal, times=self.times, channel=self.channel)
+        return TimeSeriesBase(signal, times=self.times, channel=self.channel)
 
     def signal_snr(self, signalpar):
         """
@@ -1551,7 +1561,17 @@ class HeterodynedData(TimeSeriesBase):
                 # check is str is a detector alias
                 aliases = {
                     "AV": ["Virgo", "V1", "ADV", "ADVANCEDVIRGO", "AV"],
-                    "AL": ["H1", "L1", "LHO", "LLO", "ALIGO", "ADVANCEDLIGO", "AL", "AH1", "AL1"],
+                    "AL": [
+                        "H1",
+                        "L1",
+                        "LHO",
+                        "LLO",
+                        "ALIGO",
+                        "ADVANCEDLIGO",
+                        "AL",
+                        "AH1",
+                        "AL1",
+                    ],
                     "IL": ["iH1", "IL1", "INITIALLIGO", "IL"],
                     "IV": ["iV1", "INITIALVIRGO", "IV"],
                     "G1": ["G1", "GEO", "GEOHF"],
@@ -1577,7 +1597,17 @@ class HeterodynedData(TimeSeriesBase):
                     namemap = {
                         "H1": ["H1", "LHO", "iH1", "AH1"],
                         "L1": ["L1", "LLO", "iL1", "AL1"],
-                        "V1": ["V1", "Virgo", "V1", "AdV", "AdvancedVirgo", "AV", "iV1", "InitialVirgo", "IV"],
+                        "V1": [
+                            "V1",
+                            "Virgo",
+                            "V1",
+                            "AdV",
+                            "AdvancedVirgo",
+                            "AV",
+                            "iV1",
+                            "InitialVirgo",
+                            "IV",
+                        ],
                         "G1": ["G1", "GEO", "GEOHF", "IG", "GEO600", "InitialGEO"],
                         "T1": ["T1", "TAMA", "TAMA300"],
                         "K1": ["K1", "KAGRA", "LCGT"],
@@ -1586,7 +1616,7 @@ class HeterodynedData(TimeSeriesBase):
                     nameval = None
                     for dkey in namemap:
                         if asd.upper() in namemap[dkey]:
-                            namevale = dkey
+                            nameval = dkey
                             self.channel = Channel("{}:".format(dkey))
                             break
 
@@ -1646,10 +1676,10 @@ class HeterodynedData(TimeSeriesBase):
         # get noise for real and imaginary components
         noise = TimeSeriesBase(
             (
-                rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1)) +
-                1j * rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1)),
+                rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1))
+                + 1j * rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1)),
             ),
-            times=self.times
+            times=self.times,
         )
 
         self = self.inject(noise)
@@ -1658,11 +1688,10 @@ class HeterodynedData(TimeSeriesBase):
         _ = self.compute_running_median(N=self.window)
 
         # (re)compute change points (and variances)
-        self.bayesian_blocks(
-            threshold=self._bbthreshold,
-            minlength=self._bbminlength,
-            maxlength=self._bbmaxlength,
-        )
+        self.bayesian_blocks()
+
+        # set noise based on provided value
+        self.stds = sigmaval
 
     def bayesian_blocks(self, threshold="default", minlength=5, maxlength=np.inf):
         """
@@ -1708,25 +1737,20 @@ class HeterodynedData(TimeSeriesBase):
            <https:arxiv.org/abs/1705.08978v1>`_, 2017.
         """
 
-        if not isinstance(minlength, int) and not np.isinf(minlength):
-            raise TypeError("Minimum chunk length must be an integer")
-
-        if not np.isinf(minlength):
-            if minlength < 1:
-                raise ValueError("Minimum chunk length must be a positive integer")
-
-        if maxlength < minlength:
-            raise ValueError(
-                "Maximum chunk length must be greater than the minimum chunk length."
-            )
-
         # chop up the data (except if minlength is greater than the data length)
         self.__change_point_indices_and_ratios = []
 
-        if minlength < len(self):
-            self._chop_data(
-                self.subtract_running_median().value, threshold=threshold, minlength=minlength
-            )
+        if self.bbthreshold is None:
+            self.bbthreshold = threshold
+
+        if self.bbminlength is None:
+            self.bbminlength = minlength
+
+        if self.bbmaxlength is None:
+            self.bbmaxlength = maxlength
+
+        if self.bbminlength < len(self):
+            self._chop_data(self.subtract_running_median().value)
 
             # sort the indices
             self.__change_point_indices_and_ratios = sorted(
@@ -1734,11 +1758,11 @@ class HeterodynedData(TimeSeriesBase):
             )
 
             # if any chunks are longer than maxlength, then split them
-            if maxlength < len(self):
+            if self.bbmaxlength < len(self):
                 insertcps = []
                 cppos = 0
                 for clength in self.chunk_lengths:
-                    if clength > maxlength:
+                    if clength > self.bbmaxlength:
                         insertcps.append((cppos + maxlength, 0))
                     cppos += clength
 
@@ -1749,6 +1773,77 @@ class HeterodynedData(TimeSeriesBase):
 
         # (re)calculate the variances for each chunk
         _ = self.compute_variance(N=self.window)
+
+    @property
+    def bbthreshold(self):
+        """
+        The threshold method/value for cutting the data in the Bayesian Blocks
+        algorithm.
+        """
+
+        try:
+            thresh = self.__bbthreshold
+        except AttributeError:
+            thresh = None
+
+        return thresh
+
+    @bbthreshold.setter
+    def bbthreshold(self, thresh):
+        if isinstance(thresh, str):
+            if thresh.lower() not in ["default", "trials"]:
+                raise ValueError("Threshold '{}' is not a valid type".format(thresh))
+        elif not isinstance(thresh, float) and thresh is not None:
+            raise ValueError("Threshold '{}' is not a valid type".format(thresh))
+
+        self.__bbthreshold = thresh
+
+    @property
+    def bbminlength(self):
+        """
+        The minimum length of a chunk that the data can be split into by
+        the Bayesian Blocks algorithm.
+        """
+
+        try:
+            minlen = self.__bbminlength
+        except AttributeError:
+            minlen = None
+
+        return minlen
+
+    @bbminlength.setter
+    def bbminlength(self, minlength):
+        if not isinstance(minlength, int) and not np.isinf(minlength):
+            raise TypeError("Minimum chunk length must be an integer")
+
+        if not np.isinf(minlength):
+            if minlength < 1:
+                raise ValueError("Minimum chunk length must be a positive integer")
+
+        self.__bbminlength = minlength
+
+    @property
+    def bbmaxlength(self):
+        """
+        The maximum length of a data chunk.
+        """
+
+        try:
+            maxlen = self.__bbmaxlength
+        except AttributeError:
+            maxlen = None
+
+        return maxlen
+
+    @bbmaxlength.setter
+    def bbmaxlength(self, maxlength):
+        if maxlength < self.bbminlength:
+            raise ValueError(
+                "Maximum chunk length must be greater than the minimum chunk length."
+            )
+
+        self.__bbmaxlength = maxlength
 
     @property
     def change_point_indices(self):
@@ -1798,22 +1893,22 @@ class HeterodynedData(TimeSeriesBase):
         else:
             return len(self.change_point_indices)
 
-    def _chop_data(self, data, threshold="default", minlength=5, startidx=0):
+    def _chop_data(self, data, startidx=0):
         # find change point (don't split if data is zero)
         if np.all(self.subtract_running_median().value == (0.0 + 0 * 1j)):
             lratio, cpidx, ntrials = (-np.inf, 0, 1)
         else:
-            lratio, cpidx, ntrials = self._find_change_point(data, minlength)
+            lratio, cpidx, ntrials = self._find_change_point(data, self.bbminlength)
 
         # set the threshold
-        if threshold == "default":
+        if self.bbthreshold.lower() == "default":
             # default threshold for data splitting
             thresh = 4.07 + 1.33 * np.log10(len(data))
-        elif threshold == "trials":
+        elif self.bbthreshold.lower() == "trials":
             # assign equal prior probability for each hypothesis
             thresh = np.log(ntrials)
-        elif isinstance(threshold, float):
-            thresh = threshold
+        elif isinstance(self.bbthreshold, float):
+            thresh = self.bbthreshold
         else:
             raise ValueError("threshold is not recognised")
 
@@ -1825,8 +1920,8 @@ class HeterodynedData(TimeSeriesBase):
             chunk1 = data[0:cpidx]
             chunk2 = data[cpidx:]
 
-            self._chop_data(chunk1, threshold, minlength, startidx=startidx)
-            self._chop_data(chunk2, threshold, minlength, startidx=(cpidx + startidx))
+            self._chop_data(chunk1, startidx=startidx)
+            self._chop_data(chunk2, startidx=(cpidx + startidx))
 
     @staticmethod
     @jit(nopython=True)
@@ -1968,7 +2063,7 @@ class HeterodynedData(TimeSeriesBase):
         # return boolean array of real or imaginary indices above the threshold
         return (modzscore[0] > thresh) | (modzscore[1] > thresh)
 
-    def _not_outliers(self, thresh=3.5):
+    def _not_outliers(self, thresh):
         """
         Get an array of indices of points that are not outliers as identiied
         by :meth:`cwinpy.data.HeterodynedData.find_outliers`.
@@ -1983,11 +2078,58 @@ class HeterodynedData(TimeSeriesBase):
         :meth:`cwinpy.data.HeterodynedData.find_outliers`.
         """
 
-        bidx = self._not_outliers(thresh=thresh)
+        if self.outlier_thresh is None:
+            self.outlier_thresh = thresh
+
+        self.outliers_removed = True
+
+        bidx = self._not_outliers(thresh=self.outlier_thresh)
         self = self.take(bidx)
 
         if self.__stds is not None:
             self.__stds = self.__stds[bidx]
+
+    @property
+    def outlier_thresh(self):
+        """
+        The modified z-score threshold for removing outliers (see
+        :meth:`~cwinpy.data.HeterodynedData.find_outliers`).
+        """
+
+        try:
+            thresh = self.__outlier_thresh
+        except AttributeError:
+            thresh = None
+
+        return thresh
+
+    @outlier_thresh.setter
+    def outlier_thresh(self, thresh):
+        if not isinstance(thresh, (float, int)) and thresh is not None:
+            raise TypeError("Outlier threshold must be a number")
+
+        self.__outlier_thresh = thresh
+
+    @property
+    def outliers_removed(self):
+        """
+        Return a boolean stating whether outliers have been removed from the
+        data set or not.
+        """
+
+        try:
+            rem = self.__outliers_removed
+        except AttributeError:
+            rem = False
+
+        return rem
+
+    @outliers_removed.setter
+    def outliers_removed(self, rem):
+        try:
+            self.__outliers_removed = bool(rem)
+        except Exception as e:
+            raise TypeError("Value must be boolean: {}".format(e))
 
     def plot(
         self,
@@ -2060,139 +2202,47 @@ class HeterodynedData(TimeSeriesBase):
 
         """
 
-        if remove_outliers and not self._remove_outliers:
+        if remove_outliers and not self.outliers_removed:
             idx = self._not_outliers(thresh=thresh)
         else:
             idx = np.arange(len(self))
 
+        # set some default plotting styles
+        if "ls" not in plotkwargs:
+            # set the line style to "None"
+            plotkwargs["ls"] = "None"
+
+        if "marker" not in plotkwargs:
+            # set marker to a circle
+            plotkwargs["marker"] = "o"
+
         # set the data to use
         if which.lower() in ["abs", "absolute"]:
-            pldata = np.abs(self.data[idx])
+            if "ylabel" not in plotkwargs:
+                plotkwargs["ylabel"] = "$|B_k|$"
+            plot = super(HeterodynedData, self.take(idx).abs()).plot(**plotkwargs)
         elif which.lower() in ["real", "re"]:
-            pldata = self.data.real[idx]
+            if "ylabel" not in plotkwargs:
+                plotkwargs["ylabel"] = "$\\Re{(B_k)}$"
+            plot = super(HeterodynedData, self.take(idx).real).plot(**plotkwargs)
         elif which.lower() in ["im", "imag", "imaginary"]:
-            pldata = self.data.imag[idx]
+            if "ylabel" not in plotkwargs:
+                plotkwargs["ylabel"] = "$\\Im{(B_k)}$"
+            plot = super(HeterodynedData, self.take(idx).imag).plot(**plotkwargs)
         elif which.lower() == "both":
-            pldata = (self.data.real[idx], self.data.imag[idx])
+            from gwpy.timeseries import TimeSeriesDict
+
+            pldata = TimeSeriesDict()
+            pldata["Real"] = self.take(idx).real
+            pldata["Imag"] = self.take(idx).imag
+            if "ylabel" not in plotkwargs:
+                plotkwargs["ylabel"] = "$B_k$"
+            plot = pldata.plot(**plotkwargs)
+            plot.gca().legend(loc="upper right", numpoints=1)
         else:
             raise ValueError("'which' must be 'abs', 'real', 'imag' or 'both")
 
-        pltimes = self.times[idx]
-        t0 = pltimes[0]
-        if zero_time:
-            pltimes -= pltimes[0]
-
-        # set plotting defaults
-        if labelsize is None:
-            labelsize = self.PLOTTING_DEFAULTS["labelsize"]
-        if labelname is None:
-            labelname = self.PLOTTING_DEFAULTS["labelname"]
-        if fontsize is None:
-            fontsize = self.PLOTTING_DEFAULTS["fontsize"]
-        if fontname is None:
-            fontname = self.PLOTTING_DEFAULTS["fontname"]
-
-        try:
-            from matplotlib import pyplot as pl
-            from matplotlib.axes import Axes
-
-            # set 'label' and 'color' defaults
-            if self.detector is not None:
-                if "label" not in plotkwargs:
-                    plotkwargs["label"] = self.detector
-
-                if self.detector in GW_OBSERVATORY_COLORS and "color" not in plotkwargs:
-                    plotkwargs["color"] = GW_OBSERVATORY_COLORS[self.detector]
-
-            # set some default plotting styles
-            if "ls" not in plotkwargs:
-                # set the line style to "None"
-                plotkwargs["ls"] = "None"
-
-            if "marker" not in plotkwargs:
-                # set marker to a circle
-                plotkwargs["marker"] = "o"
-
-            if isinstance(ax, Axes):
-                fig = ax.get_figure()
-                thisax = ax
-            else:
-                fig, thisax = pl.subplots(figsize=figsize)
-
-            if which.lower() != "both":
-                thisax.plot(pltimes, pldata, **plotkwargs)
-            else:
-                # plot real and imaginary components
-                plotkwargs["markerfacecolor"] = "None"
-                for i in range(2):
-                    copykwargs = plotkwargs.copy()
-                    if i == 0:
-                        copykwargs["marker"] = "o"
-                        if "label" in plotkwargs:
-                            copykwargs["label"] = "Real {}".format(plotkwargs["label"])
-                        else:
-                            copykwargs["label"] = "Real"
-                    else:
-                        copykwargs["marker"] = "+"
-                        if "label" in plotkwargs:
-                            copykwargs["label"] = "Imag {}".format(plotkwargs["label"])
-                        else:
-                            copykwargs["label"] = "Imag"
-
-                    thisax.plot(pltimes, pldata[i], **copykwargs)
-                plotkwargs["label"] = True  # add to produce legend below
-
-            if zero_time:
-                thisax.set_xlabel(
-                    "GPS - {}".format(int(t0)), fontsize=fontsize, fontname=fontname
-                )
-                thisax.set_xlim([0.0, pltimes[-1]])
-            else:
-                thisax.set_xlabel("GPS time", fontsize=fontsize, fontname=fontname)
-                thisax.set_xlim([pltimes[0], pltimes[-1]])
-
-            if which.lower() in ["abs", "absolute"]:
-                thisax.set_ylabel("$|B_k|$", fontsize=fontsize, fontname=fontname)
-            elif which.lower() in ["real", "re"]:
-                thisax.set_ylabel("$\\Re{(B_k)}$", fontsize=fontsize, fontname=fontname)
-            elif which.lower() in ["imag", "im"]:
-                thisax.set_ylabel("$\\Im{(B_k)}$", fontsize=fontsize, fontname=fontname)
-            else:
-                thisax.set_ylabel("$B_k$", fontsize=fontsize, fontname=fontname)
-
-            if "label" in plotkwargs:
-                from matplotlib.font_manager import FontProperties
-
-                if legendsize is None:
-                    legendsize = fontsize
-
-                legfont = FontProperties(family=fontname, size=legendsize)
-                thisax.legend(loc="upper right", numpoints=1, prop=legfont)
-
-            # set the axes tick label size
-            thisax.tick_params(which="both", labelsize=labelsize)
-
-            # set the axes tick label font
-            if labelname is None:
-                labelname = fontname
-
-            for tick in thisax.get_xticklabels() + thisax.get_yticklabels():
-                tick.set_fontname(labelname)
-
-            # add a grid
-            thisax.grid(True, linewidth=0.5, linestyle="--")
-
-            # set axes to use scientific notation
-            thisax.ticklabel_format(axis="y", style="sci", useMathText=True)
-            thisax.ticklabel_format(
-                axis="x", style="sci", scilimits=(0, 5), useMathText=True
-            )
-        except Exception as e:
-            raise RuntimeError("Problem with plotting: {}".format(e))
-
-        fig.tight_layout()
-
-        return fig
+        return plot
 
     def spectrogram(
         self,
@@ -2497,7 +2547,7 @@ class HeterodynedData(TimeSeriesBase):
         # get the zero padded data
         padded = self._zero_pad(remove_outliers=remove_outliers, thresh=thresh)
 
-        if not self._remove_outliers and remove_outliers:
+        if not self.outliers_removed and remove_outliers:
             idx = self._not_outliers(thresh=thresh)
             times = self.times[idx]
             tottime = times[-1] - times[0]
@@ -2739,7 +2789,7 @@ class HeterodynedData(TimeSeriesBase):
             An array of the data padded with zeros.
         """
 
-        if not self._remove_outliers and remove_outliers:
+        if not self.outliers_removed and remove_outliers:
             idx = self._not_outliers(thresh=thresh)
             times = self.times[idx]
             data = self.data[idx]
