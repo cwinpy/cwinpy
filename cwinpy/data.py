@@ -15,10 +15,12 @@ import lalpulsar
 # import utility functions
 from .utils import logfactorial, gcd_array
 
-# import colors from gwpy
+# imports from gwpy
+from gwpy.types import Series
 from gwpy.timeseries import TimeSeriesBase
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
 from gwpy.detector import Channel
+from gwpy.io.mp import read_multi
 
 
 class MultiHeterodynedData(object):
@@ -66,18 +68,18 @@ class MultiHeterodynedData(object):
     ):
 
         # set keyword argument
-        self.__heterodyned_data_kwargs = {}
-        self.__heterodyned_data_kwargs["window"] = window
-        self.__heterodyned_data_kwargs["par"] = par
-        self.__heterodyned_data_kwargs["injpar"] = injpar
-        self.__heterodyned_data_kwargs["inject"] = inject
-        self.__heterodyned_data_kwargs["freqfactor"] = freqfactor
-        self.__heterodyned_data_kwargs["bbthreshold"] = bbthreshold
-        self.__heterodyned_data_kwargs["remove_outliers"] = remove_outliers
-        self.__heterodyned_data_kwargs["thresh"] = thresh
+        self._heterodyned_data_kwargs = {}
+        self._heterodyned_data_kwargs["window"] = window
+        self._heterodyned_data_kwargs["par"] = par
+        self._heterodyned_data_kwargs["injpar"] = injpar
+        self._heterodyned_data_kwargs["inject"] = inject
+        self._heterodyned_data_kwargs["freqfactor"] = freqfactor
+        self._heterodyned_data_kwargs["bbthreshold"] = bbthreshold
+        self._heterodyned_data_kwargs["remove_outliers"] = remove_outliers
+        self._heterodyned_data_kwargs["thresh"] = thresh
 
-        self.__data = OrderedDict()  # initialise empty dict
-        self.__currentidx = 0  # index for iterator
+        self._data = OrderedDict()  # initialise empty dict
+        self._currentidx = 0  # index for iterator
 
         # add data
         if data is not None:
@@ -139,18 +141,18 @@ class MultiHeterodynedData(object):
 
     def _add_HeterodynedData(self, data):
         detname = data.detector
-        if detname not in self.__data:
-            self.__data[detname] = [data]  # add as a list
+        if detname not in self._data:
+            self._data[detname] = [data]  # add as a list
         else:
             # if data from that detector already exists then append to the list
-            self.__data[detname].append(data)
+            self._data[detname].append(data)
 
     def _add_data(self, data, detector, times=None):
         if detector is None or data is None:
             raise ValueError("data and detector must be set")
 
         het = HeterodynedData(
-            data, times, detector=detector, **self.__heterodyned_data_kwargs
+            data, times, detector=detector, **self._heterodyned_data_kwargs
         )
 
         self._add_HeterodynedData(het)
@@ -162,21 +164,21 @@ class MultiHeterodynedData(object):
         """
 
         if det in self.detectors:
-            return self.__data[det]
+            return self._data[det]
         else:
             return None
 
     def pop(self, det):
-        return self.__data.pop(det)
+        return self._data.pop(det)
 
     @property
     def to_list(self):
         datalist = []
-        for key in self.__data:
-            if isinstance(self.__data[key], list):
-                datalist += self.__data[key]
+        for key in self._data:
+            if isinstance(self._data[key], list):
+                datalist += self._data[key]
             else:
-                datalist.append(self.__data[key])
+                datalist.append(self._data[key])
 
         return datalist
 
@@ -186,7 +188,7 @@ class MultiHeterodynedData(object):
         Return the list of detectors contained in the object.
         """
 
-        return list(self.__data.keys())
+        return list(self._data.keys())
 
     @property
     def pars(self):
@@ -234,15 +236,15 @@ class MultiHeterodynedData(object):
         return np.sqrt(snr2)
 
     def __iter__(self):
-        self.__currentidx = 0  # reset iterator index
+        self._currentidx = 0  # reset iterator index
         return self
 
     def __next__(self):
-        if self.__currentidx >= len(self):
+        if self._currentidx >= len(self):
             raise StopIteration
         else:
-            self.__currentidx += 1
-            return self.to_list[self.__currentidx - 1]
+            self._currentidx += 1
+            return self.to_list[self._currentidx - 1]
 
     def plot(
         self,
@@ -683,9 +685,9 @@ class MultiHeterodynedData(object):
 
     def __len__(self):
         length = 0
-        for key in self.__data:
-            if isinstance(self.__data[key], list):
-                length += len(self.__data[key])
+        for key in self._data:
+            if isinstance(self._data[key], list):
+                length += len(self._data[key])
             else:
                 length += 1
         return length
@@ -827,7 +829,25 @@ class HeterodynedData(TimeSeriesBase):
         "labelname": "Carlito",  # font names for axes tick labels
     }
 
-    # change __init__ to __new__
+    _metadata_slots = Series._metadata_slots + (
+        "comments",
+        "par",
+        "injpar",
+        "window",
+        "laldetector",
+        "vars",
+        "bbthreshold",
+        "bbminlength",
+        "bbmaxlength",
+        "outlier_thresh",
+        "injtimes",
+        "freq_factor",
+        "running_median",
+        "inj_data",
+        "input_stds",
+        "outlier_mask",
+    )
+
     def __new__(
         cls,
         data=None,
@@ -849,68 +869,68 @@ class HeterodynedData(TimeSeriesBase):
         thresh=3.5,
         comments="",
     ):
-        # set the detector from which the data came using a dummy channel
-        if isinstance(detector, str):
-            channel = "{}:".format(detector)
-        elif isinstance(detector, lal.Detector):
-            channel = "{}:".format(detector.frDetector.prefix)
-        else:
-            channel = None
-
         stds = None  # initialise standard deviations
 
         # read/parse data
         if isinstance(data, str):
-            new = cls.read(data)
+            try:
+                new = cls.read(data)
+            except Exception as e:
+                raise IOError("Error reading file '{}':\n{}".format(data, e))
             new.detector = detector
-        elif isinstance(data, (TimeSeriesBase, HeterodynedData)):
-            dataarray = data.value
-            hettimes = data.times
-
-            if channel is None:
-                channel = data.channel
-
-            if type(data) is HeterodynedData:
-                if data.stds is not None:
-                    stds = data.stds
         else:
-            # use data
-            hettimes = None
-            if times is None and data is None:
-                raise ValueError("Time stamps and/or data must be supplied")
-            elif data is not None:
-                dataarray = np.atleast_2d(np.asarray(data))
+            if isinstance(data, (TimeSeriesBase, HeterodynedData)):
+                dataarray = data.value
+                hettimes = data.times
 
-                if dataarray.shape[0] == 1:
-                    dataarray = dataarray.T
+                if detector is None:
+                    detector = data.detector
+
+                if type(data) is HeterodynedData:
+                    if data.stds is not None:
+                        stds = data.stds
             else:
-                # set data to zeros
+                # use data
                 hettimes = times
-                dataarray = np.zeros((len(hettimes), 1), dtype=np.complex)
+                if hettimes is None and data is None:
+                    raise ValueError("Time stamps and/or data must be supplied")
+                elif data is not None:
+                    dataarray = np.atleast_2d(np.asarray(data))
 
-            if (
-                dataarray.shape[1] == 1
-                and dataarray.dtype == np.complex
-                and times is not None
-            ):
-                dataarray = dataarray.flatten()
-            elif dataarray.shape[1] == 2 and times is not None:
-                # real and imaginary components are separate
-                dataarray = dataarray[:, 0] + 1j * dataarray[:, 1]
-                hettimes = times
-            elif dataarray.shape[1] == 3 or dataarray.shape[1] == 4:
-                if times is not None:
-                    hettimes = times
+                    if dataarray.shape[0] == 1:
+                        dataarray = dataarray.T
                 else:
-                    # first column of array should be times
-                    hettimes = dataarray[:, 0]
+                    # set data to zeros
+                    dataarray = np.zeros((len(hettimes), 1), dtype=np.complex)
 
-                if dataarray.shape[1] == 4:
-                    stds = dataarray[:, 3]
-
-                dataarray = dataarray[:, 1] + 1j * dataarray[:, 2]
-            else:
-                raise ValueError("Supplied data array is the wrong shape")
+                if (
+                    dataarray.shape[1] == 1
+                    and dataarray.dtype == np.complex
+                    and hettimes is not None
+                ):
+                    dataarray = dataarray.flatten()
+                elif dataarray.shape[1] == 2 and hettimes is not None:
+                    # real and imaginary components are separate
+                    dataarray = dataarray[:, 0] + 1j * dataarray[:, 1]
+                elif dataarray.shape[1] == 3:
+                    if hettimes is None:
+                        # first column of array should be times
+                        hettimes = dataarray[:, 0]
+                        dataarray = dataarray[:, 1] + 1j * dataarray[:, 2]
+                    else:
+                        # third column can be standard deviations
+                        stds = dataarray[:, 2]
+                        dataarray = dataarray[:, 0] + 1j * dataarray[:, 1]
+                elif dataarray.shape[1] == 4:
+                    if hettimes is None:
+                        # first column of array should be times
+                        hettimes = dataarray[:, 0]
+                        stds = dataarray[:, 3]
+                        dataarray = dataarray[:, 1] + 1j * dataarray[:, 2]
+                    else:
+                        raise ValueError("Supplied data array is the wrong shape")
+                else:
+                    raise ValueError("Supplied data array is the wrong shape")
 
             if hettimes is not None and times is not None:
                 if not np.array_equal(hettimes, times):
@@ -920,41 +940,52 @@ class HeterodynedData(TimeSeriesBase):
 
             # generate TimeSeriesBase
             new = super(HeterodynedData, cls).__new__(
-                cls, dataarray, times=hettimes, channel=channel
+                cls, dataarray, times=hettimes
             )
 
             new.stds = None
             if stds is not None:
                 # set pre-calculated data standard deviations
                 new.stds = stds
+                new._input_stds = True
+            else:
+                new._input_stds = False
+
+            new.detector = detector
 
         new.window = window  # set the window size
 
         # remove outliers
+        new.outlier_mask = None
         if remove_outliers:
             new.remove_outliers(thresh=thresh)
 
         # set the (minimum) time step and sampling frequency
-        if len(new.times) > 1:
-            new.dt = np.min(np.diff(new.times))
-            new.fs = 1.0 / new.dt
-        else:
-            warnings.warn("Your data is only one data point long!")
-            new.dt = None
-            new.fs = None
+        try:
+            _ = new.dt
+        except AttributeError:
+            # time do not get set in a TimeSeries if steps are irregular, so
+            # manually set the time step to the minimum time difference
+            if len(new) > 1:
+                new.dt = np.min(np.diff(new.times))
+            else:
+                warnings.warn("Your data is only one data point long!")
+                new.dt = None
 
         # for the moment there is the assumption that time stamps are integers,
         # so check this
         if not new.tottime.value.is_integer() or not new.dt.value.is_integer():
             raise ValueError("Time stamps must be integers")
 
-        # initialise the running median
-        _ = new.compute_running_median(N=new.window)
+        # don't recomute values on data that has been read in
+        if not isinstance(data, str) or remove_outliers:
+            # initialise the running median
+            _ = new.compute_running_median(N=new.window)
 
-        # calculate change points (and variances)
-        new.bayesian_blocks(
-            threshold=bbthreshold, minlength=bbminlength, maxlength=bbmaxlength
-        )
+            # calculate change points (and variances)
+            new.bayesian_blocks(
+                threshold=bbthreshold, minlength=bbminlength, maxlength=bbmaxlength
+            )
 
         # set the parameter file
         new.par = par
@@ -979,11 +1010,15 @@ class HeterodynedData(TimeSeriesBase):
 
         return new
 
+    @classmethod
+    def read(cls, source, *args, **kwargs):
+        return read_multi(lambda x: x[0], cls, source, *args, **kwargs)
+
     @property
     def window(self):
         """The running median window length."""
 
-        return self.__window
+        return self._window
 
     @window.setter
     def window(self, window):
@@ -991,7 +1026,7 @@ class HeterodynedData(TimeSeriesBase):
             if window < 2:
                 raise ValueError("Window length must be greater than 2")
             else:
-                self.__window = window
+                self._window = window
         else:
             raise TypeError("Window must be an integer")
 
@@ -999,14 +1034,14 @@ class HeterodynedData(TimeSeriesBase):
     def comments(self):
         """Any comments on the data"""
 
-        return self.__comments
+        return self._comments
 
     @comments.setter
     def comments(self, comment):
         if comment is None:
-            self.__comment = None
+            self._comments = None
         elif isinstance(comment, str):
-            self.__comments = comment
+            self._comments = comment
         else:
             raise TypeError("Data comment should be a string")
 
@@ -1016,7 +1051,17 @@ class HeterodynedData(TimeSeriesBase):
         A :class:`numpy.ndarray` containing the heterodyned data.
         """
 
-        return self.value
+        if self.outlier_mask is not None:
+            return self.value[self.outlier_mask]
+        else:
+            return self.value
+
+    @property
+    def times(self):
+        if self.outlier_mask is not None:
+            return super(HeterodynedData, self).times[self.outlier_mask]
+        else:
+            return super(HeterodynedData, self).times
 
     @property
     def tottime(self):
@@ -1027,44 +1072,20 @@ class HeterodynedData(TimeSeriesBase):
         return self.times[-1] - self.times[0]
 
     @property
-    def dt(self):
-        """
-        The (minimum) time step between data points.
-        """
-
-        return self.__dt
-
-    @dt.setter
-    def dt(self, dt):
-        self.__dt = dt
-
-    @property
-    def fs(self):
-        """
-        The sampling frequency (assuming even sampling)
-        """
-
-        return self.__fs
-
-    @fs.setter
-    def fs(self, fs):
-        self.__fs = fs
-
-    @property
     def par(self):
-        return self.__par
+        return self._par
 
     @par.setter
     def par(self, par):
-        self.__par = self._parse_par(par)
+        self._par = self._parse_par(par)
 
     @property
     def injpar(self):
-        return self.__injpar
+        return self._injpar
 
     @injpar.setter
     def injpar(self, par):
-        self.__injpar = self._parse_par(par)
+        self._injpar = self._parse_par(par)
 
     def _parse_par(self, par):
         """
@@ -1104,7 +1125,10 @@ class HeterodynedData(TimeSeriesBase):
     def detector(self):
         """The name of the detector from which the data came."""
 
-        return self.channel.ifo
+        try:
+            return self.channel.ifo
+        except AttributeError:
+            return None
 
     @property
     def laldetector(self):
@@ -1113,18 +1137,21 @@ class HeterodynedData(TimeSeriesBase):
         location.
         """
 
-        return self.__laldetector
+        try:
+            return self._laldetector
+        except AttributeError:
+            return None
 
     @detector.setter
     def detector(self, detector):
         if isinstance(detector, lal.Detector):
             self.channel = Channel("{}:".format(detector.frDetector.prefix))
-            self.__laldetector = detector
+            self._laldetector = detector
         elif isinstance(detector, str):
             self.channel = Channel("{}:".format(detector))
 
             try:
-                self.__laldetector = lalpulsar.GetSiteInfo(detector)
+                self._laldetector = lalpulsar.GetSiteInfo(detector)
             except RuntimeError:
                 raise ValueError("Could not set LAL detector!")
 
@@ -1132,7 +1159,7 @@ class HeterodynedData(TimeSeriesBase):
     def running_median(self):
         """A :class:`~numpy.ndarray` containing the running median of the data."""
 
-        return self.__running_median
+        return self._running_median
 
     def compute_running_median(self, N=30):
         """
@@ -1156,7 +1183,7 @@ class HeterodynedData(TimeSeriesBase):
         if N < 2:
             raise ValueError("The running median window must be greater than 1")
 
-        self.__running_median = TimeSeriesBase(
+        self._running_median = TimeSeriesBase(
             np.zeros(len(self), dtype=np.complex), times=self.times
         )
         for i in range(len(self)):
@@ -1170,7 +1197,7 @@ class HeterodynedData(TimeSeriesBase):
                 startidx = i - (N // 2) + 1
                 endidx = i + (N // 2) + 1
 
-            self.__running_median[i] = np.median(
+            self._running_median[i] = np.median(
                 self.data.real[startidx:endidx]
             ) + 1j * np.median(self.data.imag[startidx:endidx])
 
@@ -1187,7 +1214,7 @@ class HeterodynedData(TimeSeriesBase):
             running median subtracted.
         """
 
-        return self - self.running_median
+        return self.data - self.running_median.value
 
     @property
     def vars(self):
@@ -1196,10 +1223,12 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         try:
-            vars = self.__vars
-        except AttributeError:
-            vars = None
-        return vars
+            if self.outlier_mask is None:
+                return self._vars
+            else:
+                return self._vars[self.outlier_mask]
+        except (AttributeError, TypeError):
+            return None
 
     @vars.setter
     def vars(self, vars):
@@ -1207,13 +1236,28 @@ class HeterodynedData(TimeSeriesBase):
             if isinstance(vars, float):
                 if vars <= 0.0:
                     raise ValueError("Variance cannot be negative")
-                self.__vars = vars * np.ones(len(self))
+                tmpmsk = None
+                if self.outlier_mask is not None:
+                    tmpmsk = np.copy(self.outlier_mask)
+
+                self._vars = vars * np.ones(len(self))
+
+                if tmpmsk is not None:
+                    self.outlier_mask = tmpmsk  # reset mask
             else:
                 if len(vars) != len(self):
                     raise ValueError("Supplied variances are wrong length")
-                self.__vars = np.asarray(vars)
+
+                if self.outlier_mask is None:
+                    self._vars = np.asarray(vars)
+                else:
+                    tmpmsk = np.copy(self.outlier_mask)
+                    self.outlier_mask = None
+                    self._vars = np.zeros(len(self))
+                    self._vars[tmpmsk] = vars
+                    self.outlier_mask = tmpmsk  # reset mask
         else:
-            self.__vars = None
+            self._vars = None
 
     @property
     def stds(self):
@@ -1221,24 +1265,20 @@ class HeterodynedData(TimeSeriesBase):
         The standard deviations of the data points.
         """
 
-        if self.__vars is None:
+        try:
+            if self._vars is None:
+                return None
+            else:
+                return np.sqrt(self._vars)
+        except AttributeError:
             return None
-        else:
-            return np.sqrt(self.__vars)
 
     @stds.setter
     def stds(self, stds):
         if stds is not None:
-            if isinstance(stds, float):
-                if stds <= 0.0:
-                    raise ValueError("Standard deviation cannot be negative")
-                self.__vars = (stds ** 2) * np.ones(len(self))
-            else:
-                if len(stds) != len(self):
-                    raise ValueError("Supplied standard deviations are wrong length")
-                self.__vars = np.asarray(stds) ** 2
+            self.vars = stds ** 2
         else:
-            self.__vars = None
+            self.vars = None
 
     def compute_variance(self, change_points=None, N=30):
         """
@@ -1263,19 +1303,20 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         if self.vars is not None:
-            return self.vars
-        else:
-            self.stds = np.zeros(len(self))
+            if len(self.vars) == len(self):
+                return self.vars
 
         # subtract running median from the data
-        datasub = self.subtract_running_median().value
+        datasub = self.subtract_running_median()
 
-        if change_points is None and self.__change_point_indices_and_ratios is None:
+        if change_points is None and len(self._change_point_indices_and_ratios) == 0:
             # return the (sample) variance (hence 'ddof=1')
-            self.__vars = np.full(
+            self.vars = np.full(
                 len(self), np.hstack((datasub.real, datasub.imag)).var(ddof=1)
             )
         else:
+            tmpvars = np.zeros(len(self))
+
             if change_points is not None:
                 cps = np.concatenate(
                     ([0], np.asarray(change_points), [len(datasub)])
@@ -1301,9 +1342,11 @@ class HeterodynedData(TimeSeriesBase):
                 datachunk = datasub[cps[i] : cps[i + 1]]
 
                 # get (sample) variance of chunk
-                self.__vars[cps[i] : cps[i + 1]] = np.hstack(
+                tmpvars[cps[i] : cps[i + 1]] = np.hstack(
                     (datachunk.real, datachunk.imag)
                 ).var(ddof=1)
+
+            self.vars = tmpvars
 
         return self.vars
 
@@ -1346,7 +1389,7 @@ class HeterodynedData(TimeSeriesBase):
         self = self.inject(inj_data)
 
         # save injection data
-        self.__inj_data = inj_data
+        self._inj_data = inj_data
 
         # (re)compute the running median
         _ = self.compute_running_median(N=self.window)
@@ -1357,7 +1400,7 @@ class HeterodynedData(TimeSeriesBase):
         A list of times at which an injection was added to the data.
         """
 
-        return self.__injtimes
+        return self._injtimes
 
     @injtimes.setter
     def injtimes(self, injtimes):
@@ -1376,7 +1419,7 @@ class HeterodynedData(TimeSeriesBase):
             if timerange[0] >= timerange[1]:
                 raise ValueError("Injection time ranges are incorrect")
 
-        self.__injtimes = timelist
+        self._injtimes = timelist
 
     @property
     def injection_data(self):
@@ -1384,7 +1427,7 @@ class HeterodynedData(TimeSeriesBase):
         The pure simulated signal that was added to the data.
         """
 
-        return self.__inj_data.value
+        return self._inj_data.value
 
     @property
     def injection_snr(self):
@@ -1485,7 +1528,7 @@ class HeterodynedData(TimeSeriesBase):
         was heterodyned.
         """
 
-        return self.__freq_factor
+        return self._freq_factor
 
     @freq_factor.setter
     def freq_factor(self, freqfactor):
@@ -1495,7 +1538,7 @@ class HeterodynedData(TimeSeriesBase):
         if freqfactor <= 0.0:
             raise ValueError("Frequency scale factor must be a positive number")
 
-        self.__freq_factor = float(freqfactor)
+        self._freq_factor = float(freqfactor)
 
     def add_noise(self, asd, issigma=False, seed=None):
         """
@@ -1694,6 +1737,9 @@ class HeterodynedData(TimeSeriesBase):
         # set noise based on provided value
         self.stds = sigmaval
 
+        # standard devaitions have been provided rather than calculated
+        self._input_stds = True
+
     def bayesian_blocks(self, threshold="default", minlength=5, maxlength=np.inf):
         """
         Apply a Bayesian-Block-style algorithm to cut the data (after
@@ -1739,7 +1785,7 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         # chop up the data (except if minlength is greater than the data length)
-        self.__change_point_indices_and_ratios = []
+        self._change_point_indices_and_ratios = []
 
         if self.bbthreshold is None:
             self.bbthreshold = threshold
@@ -1751,11 +1797,11 @@ class HeterodynedData(TimeSeriesBase):
             self.bbmaxlength = maxlength
 
         if self.bbminlength < len(self):
-            self._chop_data(self.subtract_running_median().value)
+            self._chop_data(self.subtract_running_median())
 
             # sort the indices
-            self.__change_point_indices_and_ratios = sorted(
-                self.__change_point_indices_and_ratios
+            self._change_point_indices_and_ratios = sorted(
+                self._change_point_indices_and_ratios
             )
 
             # if any chunks are longer than maxlength, then split them
@@ -1767,13 +1813,14 @@ class HeterodynedData(TimeSeriesBase):
                         insertcps.append((cppos + maxlength, 0))
                     cppos += clength
 
-                self.__change_point_indices_and_ratios += insertcps
-                self.__change_point_indices_and_ratios = sorted(
-                    self.__change_point_indices_and_ratios
+                self._change_point_indices_and_ratios += insertcps
+                self._change_point_indices_and_ratios = sorted(
+                    self._change_point_indices_and_ratios
                 )
 
         # (re)calculate the variances for each chunk
-        _ = self.compute_variance(N=self.window)
+        if not self._input_stds:
+            _ = self.compute_variance(N=self.window)
 
     @property
     def bbthreshold(self):
@@ -1783,11 +1830,9 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         try:
-            thresh = self.__bbthreshold
+            return self._bbthreshold
         except AttributeError:
-            thresh = None
-
-        return thresh
+            return None
 
     @bbthreshold.setter
     def bbthreshold(self, thresh):
@@ -1797,7 +1842,7 @@ class HeterodynedData(TimeSeriesBase):
         elif not isinstance(thresh, float) and thresh is not None:
             raise ValueError("Threshold '{}' is not a valid type".format(thresh))
 
-        self.__bbthreshold = thresh
+        self._bbthreshold = thresh
 
     @property
     def bbminlength(self):
@@ -1807,14 +1852,16 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         try:
-            minlen = self.__bbminlength
+            return self._bbminlength
         except AttributeError:
-            minlen = None
-
-        return minlen
+            return None
 
     @bbminlength.setter
     def bbminlength(self, minlength):
+        if minlength is None:
+            self._bbminlength = None
+            return
+
         if not isinstance(minlength, int) and not np.isinf(minlength):
             raise TypeError("Minimum chunk length must be an integer")
 
@@ -1822,7 +1869,7 @@ class HeterodynedData(TimeSeriesBase):
             if minlength < 1:
                 raise ValueError("Minimum chunk length must be a positive integer")
 
-        self.__bbminlength = minlength
+        self._bbminlength = minlength
 
     @property
     def bbmaxlength(self):
@@ -1831,20 +1878,22 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         try:
-            maxlen = self.__bbmaxlength
+            return self._bbmaxlength
         except AttributeError:
-            maxlen = None
-
-        return maxlen
+            return None
 
     @bbmaxlength.setter
     def bbmaxlength(self, maxlength):
+        if maxlength is None:
+            self._bbmaxlength = None
+            return
+
         if maxlength < self.bbminlength:
             raise ValueError(
                 "Maximum chunk length must be greater than the minimum chunk length."
             )
 
-        self.__bbmaxlength = maxlength
+        self._bbmaxlength = maxlength
 
     @property
     def change_point_indices(self):
@@ -1852,10 +1901,10 @@ class HeterodynedData(TimeSeriesBase):
         Return a list of indices of statistical change points in the data.
         """
 
-        if len(self.__change_point_indices_and_ratios) == 0:
+        if len(self._change_point_indices_and_ratios) == 0:
             return [0]
         else:
-            return [0] + [cps[0] for cps in self.__change_point_indices_and_ratios]
+            return [0] + [cps[0] for cps in self._change_point_indices_and_ratios]
 
     @property
     def change_point_ratios(self):
@@ -1864,11 +1913,11 @@ class HeterodynedData(TimeSeriesBase):
         change points in the data.
         """
 
-        if len(self.__change_point_indices_and_ratios) == 0:
+        if len(self._change_point_indices_and_ratios) == 0:
             return [-np.inf]
         else:
             return [-np.inf] + [
-                cps[1] for cps in self.__change_point_indices_and_ratios
+                cps[1] for cps in self._change_point_indices_and_ratios
             ]
 
     @property
@@ -1878,7 +1927,7 @@ class HeterodynedData(TimeSeriesBase):
         split.
         """
 
-        if len(self.__change_point_indices_and_ratios) == 0:
+        if len(self._change_point_indices_and_ratios) == 0:
             return [len(self)]
         else:
             return np.diff(np.concatenate((self.change_point_indices, [len(self)])))
@@ -1896,26 +1945,26 @@ class HeterodynedData(TimeSeriesBase):
 
     def _chop_data(self, data, startidx=0):
         # find change point (don't split if data is zero)
-        if np.all(self.subtract_running_median().value == (0.0 + 0 * 1j)):
+        if np.all(self.subtract_running_median() == (0.0 + 0 * 1j)):
             lratio, cpidx, ntrials = (-np.inf, 0, 1)
         else:
             lratio, cpidx, ntrials = self._find_change_point(data, self.bbminlength)
 
         # set the threshold
-        if self.bbthreshold.lower() == "default":
+        if isinstance(self.bbthreshold, float):
+            thresh = self.bbthreshold
+        elif self.bbthreshold.lower() == "default":
             # default threshold for data splitting
             thresh = 4.07 + 1.33 * np.log10(len(data))
         elif self.bbthreshold.lower() == "trials":
             # assign equal prior probability for each hypothesis
             thresh = np.log(ntrials)
-        elif isinstance(self.bbthreshold, float):
-            thresh = self.bbthreshold
         else:
             raise ValueError("threshold is not recognised")
 
         if lratio > thresh:
             # split the data at the change point
-            self.__change_point_indices_and_ratios.append((cpidx + startidx, lratio))
+            self._change_point_indices_and_ratios.append((cpidx + startidx, lratio))
 
             # split the data and check for another change point
             chunk1 = data[0:cpidx]
@@ -2053,6 +2102,9 @@ class HeterodynedData(TimeSeriesBase):
 
         modzscore = []
 
+        # reset mask to show all points
+        self._outlier_mask = None
+
         for points in [self.data.real, self.data.imag]:
             median = np.median(points)
             diff = np.abs(
@@ -2066,7 +2118,7 @@ class HeterodynedData(TimeSeriesBase):
 
     def _not_outliers(self, thresh):
         """
-        Get an array of indices of points that are not outliers as identiied
+        Get an boolean array of points that are not outliers as identiied
         by :meth:`cwinpy.data.HeterodynedData.find_outliers`.
         """
 
@@ -2077,18 +2129,78 @@ class HeterodynedData(TimeSeriesBase):
         """
         Remove any outliers from the object using the method decribed in
         :meth:`cwinpy.data.HeterodynedData.find_outliers`.
+
+        Parameters
+        ----------
+        thresh: float
         """
 
         if self.outlier_thresh is None:
             self.outlier_thresh = thresh
 
-        self.outliers_removed = True
+        idx = ~self.find_outliers(thresh=self.outlier_thresh)
 
-        bidx = self._not_outliers(thresh=self.outlier_thresh)
-        self = self.take(bidx)
+        if not np.all(idx):
+            self.outliers_removed = True
+            self.remove(idx)
 
-        if self.__stds is not None:
-            self.__stds = self.__stds[bidx]
+    def remove(self, idx):
+        """
+        Create a mask to effectively remove values at given indices from
+        the object. This will recalculate the Bayesian Blocks data splitting
+        and variances if required.
+
+        Parameters
+        ----------
+        idx: int, array_like
+            A list of indices to remove.
+        """
+
+        try:
+            self.outlier_mask = idx
+
+            if self.outlier_mask is None:
+                return
+
+            # recalculate running median, Bayesian Blocks and variances
+            _ = self.compute_running_median(N=self.window)
+
+            self.bayesian_blocks()
+
+        except Exception as e:
+            raise RuntimeError("Problem removing elements from data:\n{}".format(e))
+
+    @property
+    def outlier_mask(self):
+        """
+        Masking array to remove outliers.
+        """
+
+        return self._outlier_mask
+
+    @outlier_mask.setter
+    def outlier_mask(self, mask):
+        self._outlier_mask = None  # reset mask
+
+        if mask is None:
+            return
+
+        idx = np.asarray(mask)
+        if idx.dtype == np.int:
+            zidx = np.ones(len(self), dtype=np.bool)
+            zidx[idx] = False
+        elif idx.dtype == np.bool:
+            if len(idx) != len(self):
+                raise ValueError("Outlier mask is the wrong size")
+            else:
+                zidx = idx
+        else:
+            raise TypeError("Outlier mask is the wrong type")
+
+        if np.all(zidx):
+            self._outlier_mask = None
+        else:
+            self._outlier_mask = zidx
 
     @property
     def outlier_thresh(self):
@@ -2098,7 +2210,7 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         try:
-            thresh = self.__outlier_thresh
+            thresh = self._outlier_thresh
         except AttributeError:
             thresh = None
 
@@ -2109,7 +2221,7 @@ class HeterodynedData(TimeSeriesBase):
         if not isinstance(thresh, (float, int)) and thresh is not None:
             raise TypeError("Outlier threshold must be a number")
 
-        self.__outlier_thresh = thresh
+        self._outlier_thresh = thresh
 
     @property
     def outliers_removed(self):
@@ -2119,7 +2231,7 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         try:
-            rem = self.__outliers_removed
+            rem = self._outliers_removed
         except AttributeError:
             rem = False
 
@@ -2128,7 +2240,7 @@ class HeterodynedData(TimeSeriesBase):
     @outliers_removed.setter
     def outliers_removed(self, rem):
         try:
-            self.__outliers_removed = bool(rem)
+            self._outliers_removed = bool(rem)
         except Exception as e:
             raise TypeError("Value must be boolean: {}".format(e))
 
@@ -2203,7 +2315,7 @@ class HeterodynedData(TimeSeriesBase):
 
         """
 
-        if remove_outliers and not self.outliers_removed:
+        if remove_outliers and self.outlier_mask is None:
             idx = self._not_outliers(thresh=thresh)
         else:
             idx = np.arange(len(self))
@@ -2548,7 +2660,7 @@ class HeterodynedData(TimeSeriesBase):
         # get the zero padded data
         padded = self._zero_pad(remove_outliers=remove_outliers, thresh=thresh)
 
-        if not self.outliers_removed and remove_outliers:
+        if self.outlier_mask is None and remove_outliers:
             idx = self._not_outliers(thresh=thresh)
             times = self.times[idx]
             tottime = times[-1] - times[0]
@@ -2790,7 +2902,7 @@ class HeterodynedData(TimeSeriesBase):
             An array of the data padded with zeros.
         """
 
-        if not self.outliers_removed and remove_outliers:
+        if self.outlier_mask is None and remove_outliers:
             idx = self._not_outliers(thresh=thresh)
             times = self.times[idx]
             data = self.data[idx]

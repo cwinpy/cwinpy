@@ -29,13 +29,16 @@ def read_ascii_series(input_, array_type=HeterodynedData, **kwargs):
 
     if input_.endswith(".gz"):
         import gzip
-        open = gzip.open
+        openfunc = gzip.open
+    else:
+        openfunc = open
 
-    with open(input_, "r") as fp:
+    with openfunc(input_, "r") as fp:
         for line in fp.readlines():
-            if line[0] in commentstrs:
+            firstchar = line.strip()[0]  # remove any proceeding whitespace
+            if firstchar in commentstrs:
                 # strip the comment delimiter and any leading whitespace
-                comments += line.strip(line[0]).strip()
+                comments += line.strip(firstchar).strip()
 
     if data.shape[1] < 2:
         raise IOError("Problem reading in data")
