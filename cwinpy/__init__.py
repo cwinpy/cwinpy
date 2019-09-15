@@ -1,7 +1,6 @@
 ### import bilby and bilby_pipe removing the logger version info output ###
 import logging
 import io
-from . import iostream
 
 bilby_logger = logging.getLogger("bilby")
 handler = logging.StreamHandler(io.StringIO())
@@ -23,6 +22,9 @@ from bilby_pipe.utils import setup_logger as bilby_pipe_setup_logger
 
 bilby_pipe_setup_logger()
 ###
+
+# register reader/writer
+from . import iostream
 
 from .data import HeterodynedData, MultiHeterodynedData
 from .likelihood import TargetedPulsarLikelihood

@@ -28,7 +28,7 @@ setup(
     version=VERSION,
     author="Matthew Pitkin",
     author_email="matthew.pitkin@ligo.org",
-    packages=["cwinpy", "cwinpy.knope"],
+    packages=["cwinpy", "cwinpy.knope", "cwinpy.iostream"],
     url="http://git.ligo.org/CW/software/cwinpy",
     license="MIT",
     description="A Python module for Bayesian inferences with continuous gravitational-wave sources",
