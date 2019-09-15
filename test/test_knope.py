@@ -250,7 +250,7 @@ class TestKnope(object):
             assert tv.hetdata.freq_factors[0] == 2
             assert np.allclose(tv.hetdata["H1"][0].data.real, self.H1data[1][:, 1])
             assert np.allclose(tv.hetdata["H1"][0].data.imag, self.H1data[1][:, 2])
-            assert np.allclose(tv.hetdata["H1"][0].times, self.times)
+            assert np.allclose(tv.hetdata["H1"][0].times.value, self.times)
             assert PriorDict(tv.prior) == self.priorbilby
 
         # now pass two detectors
@@ -345,7 +345,7 @@ class TestKnope(object):
                 assert tv.hetdata[det][0].par["F"][0] == self.f0
                 assert np.allclose(tv.hetdata[det][0].data.real, data[:, 1])
                 assert np.allclose(tv.hetdata[det][0].data.imag, data[:, 2])
-                assert np.allclose(tv.hetdata[det][0].times, self.times)
+                assert np.allclose(tv.hetdata[det][0].times.value, self.times)
                 assert PriorDict(tv.prior) == self.priorbilby
 
         # pass data at 1f
@@ -383,7 +383,7 @@ class TestKnope(object):
             assert tv.hetdata["H1"][0].par["F"][0] == self.f0
             assert np.allclose(tv.hetdata["H1"][0].data.real, self.H1data[0][:, 1])
             assert np.allclose(tv.hetdata["H1"][0].data.imag, self.H1data[0][:, 2])
-            assert np.allclose(tv.hetdata["H1"][0].times, self.times)
+            assert np.allclose(tv.hetdata["H1"][0].times.value, self.times)
             assert PriorDict(tv.prior) == self.priorbilby
 
         # test with two detectors and two frequencies
@@ -454,11 +454,11 @@ class TestKnope(object):
                 assert tv.hetdata[det][0].par["F"][0] == self.f0
                 assert np.allclose(tv.hetdata[det][0].data.real, data1f[:, 1])
                 assert np.allclose(tv.hetdata[det][0].data.imag, data1f[:, 2])
-                assert np.allclose(tv.hetdata[det][0].times, self.times)
+                assert np.allclose(tv.hetdata[det][0].times.value, self.times)
                 assert tv.hetdata[det][1].par["F"][0] == self.f0
                 assert np.allclose(tv.hetdata[det][1].data.real, data2f[:, 1])
                 assert np.allclose(tv.hetdata[det][1].data.imag, data2f[:, 2])
-                assert np.allclose(tv.hetdata[det][1].times, self.times)
+                assert np.allclose(tv.hetdata[det][1].times.value, self.times)
                 assert PriorDict(tv.prior) == self.priorbilby
         os.remove(configfile)
 
