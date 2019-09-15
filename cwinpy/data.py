@@ -939,9 +939,7 @@ class HeterodynedData(TimeSeriesBase):
                     )
 
             # generate TimeSeriesBase
-            new = super(HeterodynedData, cls).__new__(
-                cls, dataarray, times=hettimes
-            )
+            new = super(HeterodynedData, cls).__new__(cls, dataarray, times=hettimes)
 
             new.stds = None
             if stds is not None:
@@ -1381,12 +1379,12 @@ class HeterodynedData(TimeSeriesBase):
 
         for timerange in self.injtimes:
             timeidxs = np.arange(len(self))[
-                (self.times >= timerange[0]) & (self.times <= timerange[1])
+                (self.times.value >= timerange[0]) & (self.times.value <= timerange[1])
             ]
             inj_data[timeidxs] = signal[timeidxs]
 
         # add injection to data
-        self = self.inject(inj_data)
+        self += inj_data
 
         # save injection data
         self._inj_data = inj_data
@@ -1406,7 +1404,7 @@ class HeterodynedData(TimeSeriesBase):
     def injtimes(self, injtimes):
         if injtimes is None:
             # include all time
-            timelist = np.array([[self.times[0], self.times[-1]]])
+            timelist = np.array([[self.times[0].value, self.times[-1].value]])
         else:
             timelist = injtimes
 
@@ -1696,7 +1694,7 @@ class HeterodynedData(TimeSeriesBase):
                     "No time step present. Does your data only consist of one value?"
                 )
 
-            sigmaval = 0.5 * asdval / np.sqrt(self.dt)
+            sigmaval = 0.5 * asdval / np.sqrt(self.dt.value)
         elif isinstance(asd, float):
             if issigma:
                 sigmaval = asd
@@ -1707,7 +1705,7 @@ class HeterodynedData(TimeSeriesBase):
                         "only consist of one value?"
                     )
 
-                sigmaval = 0.5 * asd / np.sqrt(self.dt)
+                sigmaval = 0.5 * asd / np.sqrt(self.dt.value)
         else:
             raise TypeError("ASD must be a float or a string with a detector name.")
 
@@ -1720,13 +1718,13 @@ class HeterodynedData(TimeSeriesBase):
         # get noise for real and imaginary components
         noise = TimeSeriesBase(
             (
-                rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1))
-                + 1j * rstate.normal(loc=0.0, scale=sigmaval, size=(len(self), 1)),
+                rstate.normal(loc=0.0, scale=sigmaval, size=len(self))
+                + 1j * rstate.normal(loc=0.0, scale=sigmaval, size=len(self))
             ),
             times=self.times,
         )
 
-        self = self.inject(noise)
+        self += noise
 
         # (re)compute the running median
         _ = self.compute_running_median(N=self.window)
@@ -1916,9 +1914,7 @@ class HeterodynedData(TimeSeriesBase):
         if len(self._change_point_indices_and_ratios) == 0:
             return [-np.inf]
         else:
-            return [-np.inf] + [
-                cps[1] for cps in self._change_point_indices_and_ratios
-            ]
+            return [-np.inf] + [cps[1] for cps in self._change_point_indices_and_ratios]
 
     @property
     def chunk_lengths(self):
@@ -2665,11 +2661,11 @@ class HeterodynedData(TimeSeriesBase):
 
         if self.outlier_mask is None and remove_outliers:
             idx = self._not_outliers(thresh=thresh)
-            times = self.times[idx]
+            times = self.times[idx].value
             tottime = times[-1] - times[0]
         else:
-            times = self.times
-            tottime = self.tottime
+            times = self.times.value
+            tottime = self.tottime.value
 
         Fs = 1.0 / gcd_array(np.diff(times))  # sampling frequency
 
