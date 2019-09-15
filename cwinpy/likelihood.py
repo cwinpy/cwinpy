@@ -392,7 +392,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 ftimes = np.arange(
                     0.0, lal.DAYSID_SI, lal.DAYSID_SI / model.resp.ntimebins
                 )
-                inttimes = data.times[cpidx : cpidx + cplen] - t0
+                inttimes = data.times[cpidx : cpidx + cplen].value - t0
 
                 # dictionary of chunk data and antenna responses
                 rs = OrderedDict()
