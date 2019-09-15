@@ -2176,7 +2176,10 @@ class HeterodynedData(TimeSeriesBase):
         Masking array to remove outliers.
         """
 
-        return self._outlier_mask
+        try:
+            return self._outlier_mask
+        except AttributeError:
+            return None
 
     @outlier_mask.setter
     def outlier_mask(self, mask):
