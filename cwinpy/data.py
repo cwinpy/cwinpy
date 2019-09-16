@@ -1010,6 +1010,14 @@ class HeterodynedData(TimeSeriesBase):
 
     @classmethod
     def read(cls, source, *args, **kwargs):
+        """
+        Read in a time series of data from a given file. Currently this only
+        supports ascii text files as described for the
+        :class:`~cwinpy.data.HeterodynedData` class.
+
+        See :meth:`gwpy.timeseries.TimeSeries.read` for more information.
+        """
+
         return read_multi(lambda x: x[0], cls, source, *args, **kwargs)
 
     @property

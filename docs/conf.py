@@ -224,7 +224,8 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3/', None),
                        'astropy': ('http://docs.astropy.org/en/stable/', None),
                        'bilby': ('https://lscsoft.docs.ligo.org/bilby/', None),
                        'pycondor': ('https://jrbourbeau.github.io/pycondor/', None),
-                       'numba': ('http://numba.pydata.org/numba-doc/latest/', None),}
+                       'numba': ('http://numba.pydata.org/numba-doc/latest/', None),
+                       'gwpy': ('https://gwpy.github.io/docs/stable/', None),}
 
 
 # generate cwinpy_knope help string for docs
