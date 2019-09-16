@@ -27,11 +27,11 @@ def test_gcd_array():
 
     a = 1  # non-list value
     with pytest.raises(TypeError):
-        answer = gcd_array(a)
+        gcd_array(a)
 
     a = [1]  # single value
     with pytest.raises(ValueError):
-        answer = gcd_array(a)
+        gcd_array(a)
 
     a = [5, 25, 90]
     assert gcd_array(a) == 5
