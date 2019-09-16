@@ -24,7 +24,7 @@ class TestHeterodynedData(object):
 
         # test exception if no data or times are passed
         with pytest.raises(ValueError):
-            het = HeterodynedData()
+            HeterodynedData()
 
     def test_broken_data(self):
         """
@@ -44,14 +44,14 @@ class TestHeterodynedData(object):
             fp.write(brokendata)
 
         with pytest.raises(IOError):
-            het = HeterodynedData(brokenfile)
+            HeterodynedData(brokenfile)
 
         # run through MultiHeterodynedData
         with pytest.raises(ValueError):
-            mhet = MultiHeterodynedData(brokenfile)
+            MultiHeterodynedData(brokenfile)
 
         with pytest.raises(IOError):
-            mhet = MultiHeterodynedData({"H1": brokenfile})
+            MultiHeterodynedData({"H1": brokenfile})
 
         os.remove(brokenfile)  # clean up file
 
@@ -124,18 +124,18 @@ class TestHeterodynedData(object):
 
         # create a "broken" input file (not the spurious "H")
         brokendata = """\
-    # times       real      imaginary  std    extra
-    1000000000.0  -2.3e-25   4.3e-26   1e-26  1
-    1000000060.0   3.2e-26   1.2e-25   1e-26  2
-    1000000120.0  -1.7e-25  -2.8e-25   1e-26  3
-    1000000180.0  -7.6e-26  -8.9e-26   1e-26  4
-    """
+# times       real      imaginary  std    extra
+1000000000.0  -2.3e-25   4.3e-26   1e-26  1
+1000000060.0   3.2e-26   1.2e-25   1e-26  2
+1000000120.0  -1.7e-25  -2.8e-25   1e-26  3
+1000000180.0  -7.6e-26  -8.9e-26   1e-26  4
+"""
         brokenfile = "brokendata.txt"
         with open(brokenfile, "w") as fp:
             fp.write(brokendata)
 
-        with pytest.raises(ValueError):
-            het = HeterodynedData(brokenfile)
+        with pytest.raises(IOError):
+            HeterodynedData(brokenfile)
 
         os.remove(brokenfile)  # clean up file
 
@@ -146,18 +146,18 @@ class TestHeterodynedData(object):
 
         # create a "broken" input file (not the spurious "H")
         brokendata = """\
-    # times       real
-    1000000000.0  -2.3e-25
-    1000000060.0   3.2e-26
-    1000000120.0  -1.7e-25
-    1000000180.0  -7.6e-26
-    """
+# times       real
+1000000000.0  -2.3e-25
+1000000060.0   3.2e-26
+1000000120.0  -1.7e-25
+1000000180.0  -7.6e-26
+"""
         brokenfile = "brokendata.txt"
         with open(brokenfile, "w") as fp:
             fp.write(brokendata)
 
-        with pytest.raises(ValueError):
-            het = HeterodynedData(brokenfile)
+        with pytest.raises(IOError):
+            HeterodynedData(brokenfile)
 
         os.remove(brokenfile)  # clean up file
 
@@ -168,12 +168,12 @@ class TestHeterodynedData(object):
 
         # create a data file to output
         hetdata = """\
-    # times       real      imaginary
-    1000000000.0  -2.3e-25   4.3e-26
-    1000000060.0   3.2e-26   1.2e-25
-    1000000120.0  -1.7e-25  -2.8e-25
-    1000000180.0  -7.6e-26  -8.9e-26
-    """
+# times       real      imaginary
+1000000000.0  -2.3e-25   4.3e-26
+1000000060.0   3.2e-26   1.2e-25
+1000000120.0  -1.7e-25  -2.8e-25
+1000000180.0  -7.6e-26  -8.9e-26
+"""
         datafile = "testdata.txt"
         with open("testdata.txt", "w") as fp:
             fp.write(hetdata)
@@ -183,9 +183,9 @@ class TestHeterodynedData(object):
         assert len(het) == 4
         assert (het.data.real[0] == -2.3e-25) and (het.data.real[-1] == -7.6e-26)
         assert (het.data.imag[0] == 4.3e-26) and (het.data.imag[-1] == -8.9e-26)
-        assert (het.times[0] == 1000000000.0) and (het.times[-1] == 1000000180.0)
-        assert het.dt == 60.0
-        assert het.fs == 1.0 / 60.0
+        assert (het.times[0].value == 1000000000.0) and (het.times[-1].value == 1000000180.0)
+        assert het.dt.value == 60.0
+        assert het.sample_rate.value == 1.0 / 60.0
 
         os.remove(datafile)  # clean up file
 
@@ -196,12 +196,12 @@ class TestHeterodynedData(object):
 
         # create a data file to output
         hetdata = """\
-    # times       real      imaginary  std
-    1000000000.0  -2.3e-25   4.3e-26   1.1e-26
-    1000000060.0   3.2e-26   1.2e-25   2.1e-26
-    1000000120.0  -1.7e-25  -2.8e-25   1.5e-26
-    1000000180.0  -7.6e-26  -8.9e-26   1.3e-26
-    """
+# times       real      imaginary  std
+1000000000.0  -2.3e-25   4.3e-26   1.1e-26
+1000000060.0   3.2e-26   1.2e-25   2.1e-26
+1000000120.0  -1.7e-25  -2.8e-25   1.5e-26
+1000000180.0  -7.6e-26  -8.9e-26   1.3e-26
+"""
         datafile = "testdata.txt"
         with open("testdata.txt", "w") as fp:
             fp.write(hetdata)
@@ -213,9 +213,9 @@ class TestHeterodynedData(object):
         assert (het.data.imag[0] == 4.3e-26) and (het.data.imag[-1] == -8.9e-26)
         assert (het.stds[0] == 1.1e-26) and (het.stds[-1] == 1.3e-26)
         assert (het.vars[0] == (1.1e-26) ** 2) and (het.vars[-1] == (1.3e-26) ** 2)
-        assert (het.times[0] == 1000000000.0) and (het.times[-1] == 1000000180.0)
-        assert het.dt == 60.0
-        assert het.fs == 1.0 / 60.0
+        assert (het.times[0].value == 1000000000.0) and (het.times[-1].value == 1000000180.0)
+        assert het.dt.value == 60.0
+        assert het.sample_rate.value == 1.0 / 60.0
 
         os.remove(datafile)  # clean up file
 
@@ -243,19 +243,10 @@ class TestHeterodynedData(object):
 
         het = HeterodynedData(data, times=times)
 
-        assert np.all(het.times == times)
+        assert np.all(het.times.value == times)
         assert np.all(het.data.real == data[:, 0])
         assert np.all(het.data.imag == data[:, 1])
-        assert het.dt == (times[1] - times[0])
-
-        # overwrite data directly using data setter (testing for errors)
-        newdata = (data,)  # too short tuple
-        with pytest.raises(ValueError):
-            het.data = newdata
-
-        with pytest.raises(ValueError):
-            # error due to no times being supplied
-            het.data = data
+        assert het.dt.value == (times[1] - times[0])
 
     def test_noninteger_timestamps(self):
         """
@@ -266,7 +257,7 @@ class TestHeterodynedData(object):
         data = np.random.normal(0.0, 1e-25, size=(1440, 2))
 
         with pytest.raises(ValueError):
-            het = HeterodynedData(data, times=times)
+            HeterodynedData(data, times=times)
 
     def test_array_data_complex(self):
         """
@@ -280,10 +271,10 @@ class TestHeterodynedData(object):
 
         het = HeterodynedData(data, times=times)
 
-        assert np.all(het.times == times)
+        assert np.all(het.times.value == times)
         assert np.all(het.data.real == data.real)
         assert np.all(het.data.imag == data.imag)
-        assert het.dt == (times[1] - times[0])
+        assert het.dt.value == (times[1] - times[0])
 
     def test_array_data_broken_lengths(self):
         """
@@ -297,7 +288,7 @@ class TestHeterodynedData(object):
         )
 
         with pytest.raises(ValueError):
-            het = HeterodynedData(data, times=times)
+            HeterodynedData(data, times=times)
 
     def test_array_no_times(self):
         """
@@ -309,7 +300,7 @@ class TestHeterodynedData(object):
         )
 
         with pytest.raises(ValueError):
-            het = HeterodynedData(data)
+            HeterodynedData(data)
 
     def test_parse_detector(self):
         """
@@ -327,7 +318,7 @@ class TestHeterodynedData(object):
         )
 
         with pytest.raises(ValueError):
-            het = HeterodynedData(data, times=times, detector=det)
+            HeterodynedData(data, times=times, detector=det)
 
         det = "H1"  # good detector
         laldet = GetSiteInfo("H1")
@@ -377,13 +368,13 @@ PHI0     2.4
         # try passing a none str or PulsarParameterPy object
         parfile = 1
         with pytest.raises(TypeError):
-            het = HeterodynedData(data, times=times, detector=det, par=parfile)
+            HeterodynedData(data, times=times, detector=det, par=parfile)
 
         parfile = "J0123+3456.par"
 
         # try reading parfile that doesn't exists
         with pytest.raises(IOError):
-            het = HeterodynedData(data, times=times, detector=det, par=parfile)
+            HeterodynedData(data, times=times, detector=det, par=parfile)
 
         # add content to the par file
         with open(parfile, "w") as fp:
@@ -542,19 +533,24 @@ PHI0     2.4
         # check errors if re-running Bayesian blocks
         minlength = 5.2  # must be an integer
         with pytest.raises(TypeError):
+            het.bbminlength = None
             het.bayesian_blocks(minlength=minlength)
 
         minlength = 0  # must be greater than 1
         with pytest.raises(ValueError):
+            het.bbminlength = None
             het.bayesian_blocks(minlength=minlength)
 
         minlength = 5
         maxlength = 4  # maxlength must be greater than minlength
         with pytest.raises(ValueError):
+            het.bbminlength = None
+            het.bbmaxlength = None
             het.bayesian_blocks(minlength=minlength, maxlength=maxlength)
 
         # test re-splitting
         maxlength = 360
+        het.bbmaxlength = None
         het.bayesian_blocks(maxlength=maxlength)
         for cl in het.chunk_lengths:
             assert cl <= maxlength

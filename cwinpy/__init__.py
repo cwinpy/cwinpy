@@ -23,6 +23,9 @@ from bilby_pipe.utils import setup_logger as bilby_pipe_setup_logger
 bilby_pipe_setup_logger()
 ###
 
+# register reader/writer
+from . import iostream
+
 from .data import HeterodynedData, MultiHeterodynedData
 from .likelihood import TargetedPulsarLikelihood
 
