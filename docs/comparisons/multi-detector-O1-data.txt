@@ -1,0 +1,23 @@
+Multiple detectors, O1 data
+===========================
+
+Here we compare ``lalapps_pulsar_parameter_estimation_nested`` with ``cwinpy`` in the case of real
+gravitational-wave data from two detectors (H1 and L1). This data (you can downloaded the
+:download:`H1 <scripts/data/O1_Crab_H1.txt.gz>` and :download:`L1 <scripts/data/O1_Crab_L1.txt.gz>`
+data) comes from the `O1 run <https://www.gw-openscience.org/O1/>`_ and has been heterodyned using
+the parameters for the Crab pulsar given in this file: :download:`J0534+2200.par
+<scripts/data/J0534+2200.par>`. The parameters being estimated are :math:`h_0`, :math:`\phi_0`,
+:math:`\psi` and :math:`\cos{\iota}`, all with uniform priors.
+
+The script for this comparison, using the `dynesty <https://dynesty.readthedocs.io/en/latest/>`_
+nested sampling algorithm, is shown at the bottom of the page_. It produces the following comparison
+data:
+
+.. image:: scripts/outputs/multi_detector_O1_data_corner.png
+
+.. include:: scripts/outputs/multi_detector_O1_data_compare.txt
+
+.. _page:
+
+.. literalinclude:: scripts/multi_detector_O1_data.py
+   :language: python
