@@ -33,6 +33,7 @@ setup(
     license="MIT",
     description="A Python module for Bayesian inferences with continuous gravitational-wave sources",
     long_description=readfile(os.path.join(os.path.dirname(__file__), "README.md")),
+    long_description_content_type='text/markdown',
     install_requires=readfile(
         os.path.join(os.path.dirname(__file__), "requirements.txt")
     ),
