@@ -11,6 +11,7 @@
 
 stages:
   - test
+  - comparisons
   #- deploy
 
 # test example on python 3
@@ -42,6 +43,42 @@ python-3.7:
   artifacts:
     paths:
       - docs/_build/html/
+
+
+# run comparisons when a new tag is made
+run-comparisons:
+  stage: comparisons
+  image: python:3.7-stretch
+  allow_failure: true
+  only:
+    - tags
+  before_script:
+    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
+    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$GIT_SSH_PRIV_KEY")
+    - git config --global user.email "matthew.pitkikn@ligo.org"
+    - git config --global user.name "Matthew Pitkin"
+    #- mkdir -p ~/.ssh
+    #- cat gitlab-known-hosts >> ~/.ssh/known_hosts
+    - pip install --upgrade pip
+    - pip install numpy
+  script:
+    # clone the CWInPy repo
+    - cd ~
+    - git clone git@git.ligo.org:CW/software/cwinpy.git
+    - cd cwinpy
+    # Install the dependencies specified in the Pipfile
+    - pip install -r requirements.txt
+    # install CWInPy
+    - python setup.py install
+    # run the comparison scripts
+    - cd docs/comparisons/scripts
+    - COMPFILES=`ls *.py`
+    - SUCCESS=0
+    - for cf in $COMPFILES; do if [ -x $cf ]; then python $cf; SUCCESS=$?; if [ SUCCESS -ne 0 ]; then break; fi; fi; done
+    # commit results
+    - if [ $SUCCESS -eq 0 ]; then git commit -a -m "[skip ci] Updated comparison plots"; git pull --rebase origin master; git push origin master; fi
 
 #pages:
 #  stage: deploy
