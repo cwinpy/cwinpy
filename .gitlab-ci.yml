@@ -10,7 +10,7 @@
 # before the next stage begins
 
 stages:
-  - test
+  # remove this for tesing on this branch- test
   - comparisons
   #- deploy
 
@@ -50,8 +50,11 @@ run-comparisons:
   stage: comparisons
   image: python:3.7-stretch
   allow_failure: true
+#  only:
+  #  - tags
   only:
-    - tags
+    # test on CI runner branch first
+    - cirunner
   before_script:
     - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
@@ -68,17 +71,21 @@ run-comparisons:
     - cd ~
     - git clone git@git.ligo.org:CW/software/cwinpy.git
     - cd cwinpy
+    # FOR TESTING - switch to cirunner branch
+    - git checkout cirunner
     # Install the dependencies specified in the Pipfile
     - pip install -r requirements.txt
     # install CWInPy
     - python setup.py install
     # run the comparison scripts
     - cd docs/comparisons/scripts
-    - COMPFILES=`ls *.py`
+    #- COMPFILES=`ls *.py`
+    - COMPFILES=`ls single_detector_noise_only.py`
     - SUCCESS=0
     - for cf in $COMPFILES; do if [ -x $cf ]; then python $cf; SUCCESS=$?; if [ SUCCESS -ne 0 ]; then break; fi; fi; done
     # commit results
-    - if [ $SUCCESS -eq 0 ]; then git commit -a -m "[skip ci] Updated comparison plots"; git pull --rebase origin master; git push origin master; fi
+    #- if [ $SUCCESS -eq 0 ]; then git commit -a -m "[skip ci] Updated comparison plots"; git pull --rebase origin master; git push origin master; fi
+    - if [ $SUCCESS -eq 0 ]; then git commit -a -m "[skip ci] Updated comparison plots"; git pull --rebase origin cirunner; git push origin cirunner; fi
 
 #pages:
 #  stage: deploy
