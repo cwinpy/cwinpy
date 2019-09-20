@@ -50,7 +50,7 @@ run-comparisons:
   stage: comparisons
   image: python:3.7-stretch
   allow_failure: true
-#  only:
+  #only:
   #  - tags
   only:
     # test on CI runner branch first
