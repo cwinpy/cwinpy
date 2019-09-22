@@ -70,6 +70,7 @@ run-comparisons:
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
     - chmod 644 ~/.ssh/known_hosts
     - pip install --upgrade pip
+    - pip install numpy
   script:
     # clone the CWInPy repo
     - cd ~
