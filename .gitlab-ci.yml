@@ -59,11 +59,16 @@ run-comparisons:
     - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
     - eval $(ssh-agent -s)
-    - ssh-add <(echo "$GIT_SSH_PRIV_KEY")
+    #- ssh-add <(echo "$GIT_SSH_PRIV_KEY")
+    - echo "$GIT_SSH_PRIV_KEY" | tr -d '\r' | ssh-add -
     - git config --global user.email "matthew.pitkikn@ligo.org"
     - git config --global user.name "Matthew Pitkin"
     #- mkdir -p ~/.ssh
     #- cat gitlab-known-hosts >> ~/.ssh/known_hosts
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
     - pip install --upgrade pip
   script:
     # clone the CWInPy repo
