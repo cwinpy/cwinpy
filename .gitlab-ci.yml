@@ -15,34 +15,34 @@ stages:
   #- deploy
 
 # test example on python 3
-python-3.7:
-  stage: test
-  image: python:3.7-stretch
+#python-3.7:
+#  stage: test
+#  image: python:3.7-stretch
   #before_install:
     # add a latex install for the matplotlib testing
     #- sudo apt-get -qq update && sudo apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng
-  before_script:
-    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
+    #  before_script:
+    #    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
     # Install the dependencies specified in the Pipfile
-    - pip install --upgrade pip
-    - pip install numpy
-    - pip install -r requirements.txt
-    - pip install -r docs-requirements.txt
-    - pip install -r test-requirements.txt
-  script:
-    - python setup.py install
+    #    - pip install --upgrade pip
+    #    - pip install numpy
+    #    - pip install -r requirements.txt
+    #    - pip install -r docs-requirements.txt
+    #    - pip install -r test-requirements.txt
+    #  script:
+    #- python setup.py install
 
     # run tests
-    - pytest
+    #- pytest
 
     # Make the documentation
-    - cd docs
-    - make clean
-    - make html
+    #- cd docs
+    #- make clean
+    #- make html
 
-  artifacts:
-    paths:
-      - docs/_build/html/
+    #  artifacts:
+    #paths:
+    #  - docs/_build/html/
 
 
 # run comparisons when a new tag is made
@@ -65,7 +65,6 @@ run-comparisons:
     #- mkdir -p ~/.ssh
     #- cat gitlab-known-hosts >> ~/.ssh/known_hosts
     - pip install --upgrade pip
-    - pip install numpy
   script:
     # clone the CWInPy repo
     - cd ~
