@@ -61,7 +61,7 @@ run-comparisons:
     - eval $(ssh-agent -s)
     #- ssh-add <(echo "$GIT_SSH_PRIV_KEY")
     - echo "$GIT_SSH_PRIV_KEY" | tr -d '\r' | ssh-add -
-    - git config --global user.email "matthew.pitkikn@ligo.org"
+    - git config --global user.email "matthew.pitkin@ligo.org"
     - git config --global user.name "Matthew Pitkin"
     #- mkdir -p ~/.ssh
     #- cat gitlab-known-hosts >> ~/.ssh/known_hosts
