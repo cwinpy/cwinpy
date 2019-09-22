@@ -82,8 +82,6 @@ run-comparisons:
     - pip install -r requirements.txt
     # install CWInPy
     - python setup.py install
-    # set dummy CONDA_PREFIX environment variable
-    - CONDA_PREFIX=/usr/local
     # run the comparison scripts
     - cd docs/comparisons/scripts
     #- COMPFILES=`ls *.py`
