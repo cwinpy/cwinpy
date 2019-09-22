@@ -80,10 +80,10 @@ run-comparisons:
     - git checkout cirunner
     # Install the dependencies specified in the Pipfile
     - pip install -r requirements.txt
-    - which lalapps_heterodyne_pulsar
     # install CWInPy
     - python setup.py install
-    - which cwinpy_knope
+    # set dummy CONDA_PREFIX environment variable
+    - CONDA_PREFIX=/usr/local
     # run the comparison scripts
     - cd docs/comparisons/scripts
     #- COMPFILES=`ls *.py`
