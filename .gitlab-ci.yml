@@ -10,61 +10,55 @@
 # before the next stage begins
 
 stages:
-  # remove this for tesing on this branch- test
+  - test
   - comparisons
   #- deploy
 
 # test example on python 3
-#python-3.7:
-#  stage: test
-#  image: python:3.7-stretch
-  #before_install:
-    # add a latex install for the matplotlib testing
-    #- sudo apt-get -qq update && sudo apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng
-    #  before_script:
-    #    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
+python-3.7:
+  stage: test
+  image: python:3.7-stretch
+  before_script:
+    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
     # Install the dependencies specified in the Pipfile
-    #    - pip install --upgrade pip
-    #    - pip install numpy
-    #    - pip install -r requirements.txt
-    #    - pip install -r docs-requirements.txt
-    #    - pip install -r test-requirements.txt
-    #  script:
-    #- python setup.py install
+    - pip install --upgrade pip
+    - pip install numpy
+    - pip install -r requirements.txt
+    - pip install -r docs-requirements.txt
+    - pip install -r test-requirements.txt
+  script:
+    - python setup.py install
 
     # run tests
-    #- pytest
+    - pytest
 
     # Make the documentation
-    #- cd docs
-    #- make clean
-    #- make html
+    - cd docs
+    - make clean
+    - make html
 
     #  artifacts:
     #paths:
     #  - docs/_build/html/
-
 
 # run comparisons when a new tag is made
 run-comparisons:
   stage: comparisons
   image: python:3.7-stretch
   allow_failure: true
-  #only:
-  #  - tags
   only:
-    # test on CI runner branch first
-    - cirunner
+    # only run on tags (I'm assuming I'll only tag new versions!)
+    - tags
+  except:
+    # only run on master branch (hopefully https://stackoverflow.com/a/52807912/1862861 works)
+    - branches
   before_script:
     - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
     - eval $(ssh-agent -s)
-    #- ssh-add <(echo "$GIT_SSH_PRIV_KEY")
     - echo "$GIT_SSH_PRIV_KEY" | tr -d '\r' | ssh-add -
     - git config --global user.email "matthew.pitkin@ligo.org"
     - git config --global user.name "Matthew Pitkin"
-    #- mkdir -p ~/.ssh
-    #- cat gitlab-known-hosts >> ~/.ssh/known_hosts
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
@@ -76,21 +70,17 @@ run-comparisons:
     - cd ~
     - git clone git@git.ligo.org:CW/software/cwinpy.git
     - cd cwinpy
-    # FOR TESTING - switch to cirunner branch
-    - git checkout cirunner
     # Install the dependencies specified in the Pipfile
     - pip install -r requirements.txt
     # install CWInPy
     - python setup.py install
     # run the comparison scripts
     - cd docs/comparisons/scripts
-    #- COMPFILES=`ls *.py`
-    - COMPFILES=`ls single_detector_noise_only.py`
+    - COMPFILES=`ls *.py`
     - SUCCESS=0
     - for cf in $COMPFILES; do if [ -x $cf ]; then python $cf; SUCCESS=$?; if [ SUCCESS -ne 0 ]; then break; fi; fi; done
     # commit results
-    #- if [ $SUCCESS -eq 0 ]; then git commit -a -m "[skip ci] Updated comparison plots"; git pull --rebase origin master; git push origin master; fi
-    - if [ $SUCCESS -eq 0 ]; then git commit -a -m "[skip ci] Updated comparison plots"; git pull --rebase origin cirunner; git push origin cirunner; fi
+    - if [ $SUCCESS -eq 0 ]; then git commit -a -m "[skip ci] Updated comparison plots"; git pull --rebase origin master; git push origin master; fi
 
 #pages:
 #  stage: deploy
