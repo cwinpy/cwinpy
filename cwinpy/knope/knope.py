@@ -1640,6 +1640,25 @@ class KnopeDAGRunner(object):
                     elif isinstance(priors, str):
                         if os.path.isfile(priors):
                             priorfiles = {psr: priors for psr in pulsardict.keys()}
+                        elif os.path.isdir(priors):
+                            # add * wildcard to directories (if not already present)
+                            if priors[-1] != "*":
+                                priorfile = os.path.join(priors, "*")
+                            else:
+                                priorfile = priors
+                            allpriors = [pf for pf in glob.glob(priorfile)]
+
+                            priorfiles = {}
+                            for pname in pulsardict.keys():
+                                for priorfile in allpriors:
+                                    if pname in priorfile:
+                                        if pname not in priorfiles:
+                                            priorfiles[pname] = priorfile
+                                        else:
+                                            warnings.warn(
+                                                "Duplicate prior '{}' data. Ignoring "
+                                                "duplicate.".format(pname)
+                                            )
                         else:
                             raise ValueError(
                                 "Prior file '{}' does not exist".format(priors)
