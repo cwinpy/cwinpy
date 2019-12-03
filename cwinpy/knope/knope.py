@@ -894,7 +894,13 @@ class KnopeRunner(object):
         if not isinstance(self.prior, (str, dict, bilby.core.prior.PriorDict)):
             raise ValueError("The prior is not defined")
         else:
-            self.prior = bilby.core.prior.PriorDict(self.prior)
+            try:
+                self.prior = bilby.core.prior.PriorDict.from_json(self.prior)
+            except Exception as e1:
+                try:
+                    self.prior = bilby.core.prior.PriorDict(self.prior)
+                except Exception as e2:
+                    raise RuntimeError("Problem setting prior dictionary: {}\n{}".format(e1, e2))
 
         # output parameters
         if "outdir" in kwargs:
