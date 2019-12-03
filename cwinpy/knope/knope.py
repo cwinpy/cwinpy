@@ -1844,7 +1844,7 @@ def knope_dag(**kwargs):
             config.read_file(open(configfile, "r"))
         except Exception as e:
             raise IOError(
-                "Problem reading configuation file '{}'\n: {}".format(configfile, e)
+                "Problem reading configuration file '{}'\n: {}".format(configfile, e)
             )
 
     return KnopeDAGRunner(config)
