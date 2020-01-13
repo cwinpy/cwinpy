@@ -596,7 +596,7 @@ class TestKnope(object):
 
         assert (fd1.hetdata.detectors == ["H1"]) and (fd2.hetdata.detectors == ["H1"])
         assert np.array_equal(
-            fd1.hetdata["H1"][0].times, np.arange(1000000000, 1000086400, 60)
+            fd1.hetdata["H1"][0].times.value, np.arange(1000000000, 1000086400, 60)
         )
         assert np.array_equal(fd1.hetdata["H1"][0].data, fd2.hetdata["H1"][0].data)
         assert len(fd1.hetdata.freq_factors) == 1
@@ -613,7 +613,7 @@ class TestKnope(object):
 
         assert (fd1.hetdata.detectors == ["H1"]) and (fd3.hetdata.detectors == ["H1"])
         assert np.array_equal(
-            fd3.hetdata["H1"][0].times, np.arange(1000000000, 1000086400, 60)
+            fd3.hetdata["H1"][0].times.value, np.arange(1000000000, 1000086400, 60)
         )
         assert np.array_equal(fd1.hetdata["H1"][0].data, fd3.hetdata["H1"][0].data)
         assert fd1.hetdata.freq_factors == fd3.hetdata.freq_factors
@@ -665,7 +665,7 @@ class TestKnope(object):
         assert (fd1.hetdata.detectors == ["H1"]) and (fd2.hetdata.detectors == ["H1"])
         assert len(fd1.hetdata["H1"]) == 2 and len(fd2.hetdata["H1"]) == 2
         assert np.array_equal(
-            fd1.hetdata["H1"][0].times, np.arange(1000000000, 1000086400, 60)
+            fd1.hetdata["H1"][0].times.value, np.arange(1000000000, 1000086400, 60)
         )
         assert np.array_equal(fd1.hetdata["H1"][0].times, fd1.hetdata["H1"][1].times)
         assert np.array_equal(fd2.hetdata["H1"][0].times, fd1.hetdata["H1"][0].times)
@@ -744,11 +744,11 @@ class TestKnope(object):
         assert fd3.hetdata.detectors == fd1.hetdata.detectors
         assert "L1" in fd1.hetdata.detectors and "H1" in fd1.hetdata.detectors
         assert np.array_equal(
-            fd1.hetdata["H1"][0].times, np.arange(1000000000, 1000086400, 60)
+            fd1.hetdata["H1"][0].times.value, np.arange(1000000000, 1000086400, 60)
         )
         assert np.array_equal(fd1.hetdata["H1"][0].times, fd2.hetdata["H1"][0].times)
         assert np.array_equal(
-            fd1.hetdata["L1"][0].times, np.arange(1000000100, 1000086500, 60)
+            fd1.hetdata["L1"][0].times.value, np.arange(1000000100, 1000086500, 60)
         )
         assert np.array_equal(fd1.hetdata["L1"][0].times, fd2.hetdata["L1"][0].times)
         assert np.array_equal(fd1.hetdata["H1"][0].data, fd2.hetdata["H1"][0].data)
@@ -800,7 +800,7 @@ class TestKnope(object):
         assert fd1.hetdata.detectors == fd2.hetdata.detectors
         assert "L1" in fd1.hetdata.detectors and "H1" in fd1.hetdata.detectors
         assert np.array_equal(
-            fd1.hetdata["H1"][0].times, np.arange(1000000000, 1000086400, 60)
+            fd1.hetdata["H1"][0].times.value, np.arange(1000000000, 1000086400, 60)
         )
         assert np.array_equal(fd1.hetdata["H1"][0].times, fd2.hetdata["H1"][0].times)
         assert np.array_equal(fd1.hetdata["H1"][0].times, fd1.hetdata["H1"][1].times)
@@ -843,10 +843,10 @@ class TestKnope(object):
 
         assert len(fd1.hetdata.detectors) == 2
         assert "L1" in fd1.hetdata.detectors and "H1" in fd1.hetdata.detectors
-        assert np.array_equal(fd1.hetdata["H1"][0].times, self.sigH11f[:, 0])
-        assert np.array_equal(fd1.hetdata["H1"][1].times, self.sigH12f[:, 0])
-        assert np.array_equal(fd1.hetdata["L1"][0].times, self.sigL11f[:, 0])
-        assert np.array_equal(fd1.hetdata["L1"][1].times, self.sigL12f[:, 0])
+        assert np.array_equal(fd1.hetdata["H1"][0].times.value, self.sigH11f[:, 0])
+        assert np.array_equal(fd1.hetdata["H1"][1].times.value, self.sigH12f[:, 0])
+        assert np.array_equal(fd1.hetdata["L1"][0].times.value, self.sigL11f[:, 0])
+        assert np.array_equal(fd1.hetdata["L1"][1].times.value, self.sigL12f[:, 0])
         assert np.allclose(
             fd1.hetdata["H1"][0].injection_data,
             self.sigH11f[:, 1] + 1j * self.sigH11f[:, 2],
