@@ -44,5 +44,7 @@ setup(
             "cwinpy_knope_generate_pp_plots=cwinpy.knope.testing:generate_pp_plots",
             ]
         },
-    classifiers=["Programming Language :: Python :: 3.7"],
+    classifiers=[
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7"],
 )
