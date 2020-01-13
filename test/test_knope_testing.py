@@ -81,9 +81,11 @@ class TestKnopePP(object):
         )
 
         # check output prior
-        assert bilby.core.prior.PriorDict(
-            filename=run.priorfile
-        ) == bilby.core.prior.PriorDict(dictionary=self.priors)
+        for prior1, prior2 in zip(
+            bilby.core.prior.PriorDict(filename=run.priorfile),
+            bilby.core.prior.PriorDict(dictionary=self.priors),
+        ):
+            assert prior1 == prior2
 
         # check for the correct number of pulsars
         assert len(run.pulsars) == self.ninj
