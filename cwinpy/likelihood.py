@@ -7,7 +7,6 @@ import lal
 import bilby
 from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-from collections import OrderedDict
 import re
 from numba import jit, types
 from numba.typed import Dict as numbadict
@@ -395,7 +394,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 inttimes = data.times[cpidx : cpidx + cplen].value - t0
 
                 # dictionary of chunk data and antenna responses
-                rs = OrderedDict()
+                rs = dict()
                 rs["d"] = data.data[cpidx : cpidx + cplen]
                 rs["Tp"] = np.interp(
                     inttimes, ftimes, model.resp.fplus.data, period=lal.DAYSID_SI

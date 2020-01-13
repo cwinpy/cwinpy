@@ -5,7 +5,6 @@ Classes for dealing with data products.
 import os
 import numpy as np
 import warnings
-from collections import OrderedDict
 from numba import jit
 
 # import lal and lalpulsar
@@ -78,7 +77,7 @@ class MultiHeterodynedData(object):
         self._heterodyned_data_kwargs["remove_outliers"] = remove_outliers
         self._heterodyned_data_kwargs["thresh"] = thresh
 
-        self._data = OrderedDict()  # initialise empty dict
+        self._data = dict()  # initialise empty dict
         self._currentidx = 0  # index for iterator
 
         # add data

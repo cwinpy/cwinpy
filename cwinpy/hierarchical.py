@@ -5,7 +5,6 @@ Classes for hierarchical parameter inference.
 import numpy as np
 from scipy.stats import gaussian_kde, truncnorm, expon
 from scipy.interpolate import interp1d
-from collections import OrderedDict
 from itertools import compress
 import bilby
 from lintegrate import logtrapz
@@ -146,7 +145,7 @@ class BaseDistribution(object):
 
     @fixed.setter
     def fixed(self, hyperparameters):
-        self._fixed = OrderedDict()
+        self._fixed = dict()
 
         for param, value in hyperparameters.items():
             if isinstance(value, bilby.core.prior.Prior):
@@ -172,7 +171,7 @@ class BaseDistribution(object):
         indexed.
         """
 
-        fixed = OrderedDict()
+        fixed = dict()
 
         for param, value in zip(self.unpacked_parameters, self.unpacked_values):
             if isinstance(value, bilby.core.prior.Prior):
