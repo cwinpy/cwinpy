@@ -10,10 +10,12 @@ python:
 before_install:
   # add a latex install for the matplotlib testing
   - sudo apt-get -qq update && sudo apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
+  - sudo apt-get remove python-numpy
 services:  # see https://docs.travis-ci.com/user/gui-and-headless-browsers/#using-services-xvfb
   - xvfb
 install:
   - pip install --upgrade pip
+  - pip uninstall -y numpy 
   - pip install -r requirements.txt
   # install packages for testing
   - pip install -r test-requirements.txt
