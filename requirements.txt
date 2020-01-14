@@ -1,4 +1,4 @@
-astropy[all]
+astropy
 numpy>=1.15
 bilby>=0.5.8
 bilby_pipe>=0.2.0
