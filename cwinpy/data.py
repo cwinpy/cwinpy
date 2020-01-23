@@ -1632,7 +1632,7 @@ class HeterodynedData(TimeSeriesBase):
                 # set mapping of detector names to lalsimulation PSD functions
                 simmap = {
                     "AV": lalsim.SimNoisePSDAdvVirgo,  # advanced Virgo
-                    "AL": lalsim.SimNoisePSDaLIGOZeroDetHighPower,  # aLIGO
+                    "AL": lalsim.SimNoisePSDaLIGOaLIGODesignSensitivityT1800044,  # aLIGO
                     "IL": lalsim.SimNoisePSDiLIGOSRD,  # iLIGO
                     "IV": lalsim.SimNoisePSDVirgo,  # iVirgo
                     "IG": lalsim.SimNoisePSDGEO,  # GEO600
