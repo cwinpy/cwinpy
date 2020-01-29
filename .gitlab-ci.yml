@@ -18,6 +18,12 @@ stages:
 python-3.7:
   stage: test
   image: python:3.7-stretch
+  only:
+    # only run on tags (I'm assuming I'll only tag new versions!)
+    - tags
+  except:
+    # only run on master branch (hopefully https://stackoverflow.com/a/52807912/1862861 works)
+    - branches
   before_script:
     - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
     # Install the dependencies specified in the Pipfile
