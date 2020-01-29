@@ -24,7 +24,7 @@ from comparitors import comparisons
 
 
 # URL for ephemeris files
-DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/src/{}"
+DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
 
 label = "single_detector_O1_data"
 outdir = "outputs"

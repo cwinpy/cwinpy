@@ -25,7 +25,7 @@ from comparitors import comparisons_two_harmonics
 
 
 # URL for ephemeris files
-DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/src/{}"
+DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
 
 # create a fake pulsar parameter file
 parcontent = """\
