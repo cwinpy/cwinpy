@@ -10,8 +10,8 @@
 # before the next stage begins
 
 stages:
+  - test
   - comparisons
-  #- test
   #- deploy
 
 # test example on python 3
