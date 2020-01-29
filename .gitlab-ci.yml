@@ -10,8 +10,8 @@
 # before the next stage begins
 
 stages:
-  #- test
   - comparisons
+  #- test
   #- deploy
 
 # test example on python 3
@@ -46,9 +46,6 @@ run-comparisons:
   stage: comparisons
   image: python:3.7-stretch
   allow_failure: true
-  #only:
-    # only run on tags (I'm assuming I'll only tag new versions!)
-  #  - tags
   except:
     # only run on master branch (hopefully https://stackoverflow.com/a/52807912/1862861 works)
     - branches
