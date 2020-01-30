@@ -80,7 +80,7 @@ for detector in detectors:
     np.savetxt(
         hetfile,
         np.vstack(
-            (het[detector].times, het[detector].data.real, het[detector].data.imag)
+            (het[detector].times.value, het[detector].data.real, het[detector].data.imag)
         ).T,
     )
     hetfiles.append(hetfile)

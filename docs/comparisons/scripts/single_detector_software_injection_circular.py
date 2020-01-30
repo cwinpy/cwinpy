@@ -74,7 +74,7 @@ het = HeterodynedData(
 
 # output the data
 hetfile = os.path.join(outdir, "{}_data.txt".format(label))
-np.savetxt(hetfile, np.vstack((het.times, het.data.real, het.data.imag)).T)
+np.savetxt(hetfile, np.vstack((het.times.value, het.data.real, het.data.imag)).T)
 
 # create priors
 phi0range = [0.0, np.pi]

@@ -89,7 +89,7 @@ for harmonic, asd in zip(harmonics, asds):
     np.savetxt(
         hetfile,
         np.vstack(
-            (het.times, het.data.real, het.data.imag)
+            (het.times.value, het.data.real, het.data.imag)
         ).T,
     )
     hetfiles.append(hetfile)
