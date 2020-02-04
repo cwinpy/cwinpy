@@ -45,7 +45,7 @@ python-3.7:
 run-comparisons:
   stage: comparisons
   image: python:3.7-stretch
-    only:
+  only:
     # only run on tags (I'm assuming I'll only tag new versions!)
     - tags
   except:
