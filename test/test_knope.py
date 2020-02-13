@@ -3,11 +3,11 @@ Test script for knope analysis.
 """
 
 import os
-import pytest
-import numpy as np
 
-from cwinpy.knope.knope import knope, KnopeRunner
+import numpy as np
+import pytest
 from bilby.core.prior import PriorDict
+from cwinpy.knope.knope import KnopeRunner, knope
 
 
 class TestKnope(object):

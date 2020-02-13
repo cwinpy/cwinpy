@@ -16,10 +16,12 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-import sys
-import cwinpy
 import subprocess
-sys.path.insert(0, os.path.abspath('../cwinpy/'))
+import sys
+
+import cwinpy
+
+sys.path.insert(0, os.path.abspath("../cwinpy/"))
 
 # -- General configuration ------------------------------------------------
 
@@ -31,42 +33,42 @@ sys.path.insert(0, os.path.abspath('../cwinpy/'))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.intersphinx',
-    'numpydoc',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.autosectionlabel',
-    'sphinx_tabs.tabs',
-    'recommonmark',
-    'sphinx.ext.todo',
-    'sphinxcontrib.images'
+    "sphinx.ext.autodoc",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.intersphinx",
+    "numpydoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.autosectionlabel",
+    "sphinx_tabs.tabs",
+    "recommonmark",
+    "sphinx.ext.todo",
+    "sphinxcontrib.images",
 ]
 
 autosummary_generate = True
 autodoc_docstring_signature = True
-autodoc_default_options = {
-    'members-order': 'groupwise',
-    'show-inheritance': True}
+autodoc_default_options = {"members-order": "groupwise", "show-inheritance": True}
 todo_include_todos = True
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_suffix = {'.rst': 'restructuredtext',
-                 '.txt': 'restructuredtext',
-                 '.md': 'markdown'}
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".txt": "restructuredtext",
+    ".md": "markdown",
+}
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # General information about the project.
-project = u'cwinpy'
-copyright = u'2019, Matthew Pitkin'
-author = u'Matthew Pitkin'
+project = u"cwinpy"
+copyright = u"2019, Matthew Pitkin"
+author = u"Matthew Pitkin"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -75,7 +77,7 @@ author = u'Matthew Pitkin'
 fullversion = cwinpy.__version__
 
 # The short X.Y version.
-version = '.'.join(fullversion.split('.')[:2])
+version = ".".join(fullversion.split(".")[:2])
 
 # The full version, including alpha/beta/rc tags.
 release = fullversion
@@ -90,35 +92,40 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'requirements.txt',
-                    'comparisons/scripts/outputs/*_data.txt',
-                    'comparisons/scripts/outputs/*_prior.txt',
-                    'comparisons/scripts/outputs/*_SNR',
-                    'comparisons/scripts/outputs/*_Znoise',
-                    'comparisons/scripts/outputs/*.par',
-                    'comparisons/scripts/outputs/*.hdf',
-                    'comparisons/scripts/outputs/*.json',
-                    'comparisons/scripts/outputs/*.json.old',
-                    'comparisons/scripts/data',
-                    'knope/knope_help.txt',
-                    'knope/cwinpy_knope_dag.ini',
-                    'knope/data/*.txt',
-                    'knope/data/*.par',
-                    'knope/data/*.ini',
-                    'knope/data/*.txt.gz',
-                    'knope/data/example1/*.json',
-                    'knope/data/example1/*.pickle',
-                    'knope/data/example1/*_trace.png',
-                    'knope/data/example2/*.json',
-                    'knope/data/example2/*.pickle',
-                    'knope/data/example2/*_trace.png']
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    "requirements.txt",
+    "comparisons/scripts/outputs/*_data.txt",
+    "comparisons/scripts/outputs/*_prior.txt",
+    "comparisons/scripts/outputs/*_SNR",
+    "comparisons/scripts/outputs/*_Znoise",
+    "comparisons/scripts/outputs/*.par",
+    "comparisons/scripts/outputs/*.hdf",
+    "comparisons/scripts/outputs/*.json",
+    "comparisons/scripts/outputs/*.json.old",
+    "comparisons/scripts/data",
+    "knope/knope_help.txt",
+    "knope/cwinpy_knope_dag.ini",
+    "knope/data/*.txt",
+    "knope/data/*.par",
+    "knope/data/*.ini",
+    "knope/data/*.txt.gz",
+    "knope/data/example1/*.json",
+    "knope/data/example1/*.pickle",
+    "knope/data/example1/*_trace.png",
+    "knope/data/example2/*.json",
+    "knope/data/example2/*.pickle",
+    "knope/data/example2/*_trace.png",
+]
 
 add_function_parentheses = True
 add_module_names = False
 show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
@@ -129,7 +136,7 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -140,7 +147,7 @@ html_theme = 'sphinx_rtd_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -148,12 +155,12 @@ html_static_path = ['_static']
 # This is required for the alabaster theme
 # refs: http://alabaster.readthedocs.io/en/latest/installation.html#sidebars
 html_sidebars = {
-    '**': [
-        'about.html',
-        'navigation.html',
-        'relations.html',  # needs 'show_related': True theme option to display
-        'searchbox.html',
-        'donate.html',
+    "**": [
+        "about.html",
+        "navigation.html",
+        "relations.html",  # needs 'show_related': True theme option to display
+        "searchbox.html",
+        "donate.html",
     ]
 }
 
@@ -161,7 +168,7 @@ html_sidebars = {
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'cwinpydoc'
+htmlhelp_basename = "cwinpydoc"
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -170,15 +177,12 @@ latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     #
     # 'papersize': 'letterpaper',
-
     # The font size ('10pt', '11pt' or '12pt').
     #
     # 'pointsize': '10pt',
-
     # Additional stuff for the LaTeX preamble.
     #
     # 'preamble': '',
-
     # Latex figure (float) alignment
     #
     # 'figure_align': 'htbp',
@@ -188,8 +192,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'cwinpy.tex', u'cwinpy Documentation',
-     u'Matthew Pitkin', 'manual'),
+    (master_doc, "cwinpy.tex", u"cwinpy Documentation", u"Matthew Pitkin", "manual"),
 ]
 
 
@@ -197,10 +200,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'cwinpy', u'cwinpy Documentation',
-     [author], 1)
-]
+man_pages = [(master_doc, "cwinpy", u"cwinpy Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -209,26 +209,34 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'cwinpy', u'cwinpy Documentation',
-     author, 'cwinpy', 'One line description of project.',
-     'Miscellaneous'),
+    (
+        master_doc,
+        "cwinpy",
+        u"cwinpy Documentation",
+        author,
+        "cwinpy",
+        "One line description of project.",
+        "Miscellaneous",
+    ),
 ]
 
 numpydoc_show_class_members = False
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'python': ('https://docs.python.org/3/', None),
-                       'numpy': ('https://docs.scipy.org/doc/numpy/', None),
-                       'scipy': ('https://docs.scipy.org/doc/scipy/reference/', None),
-                       'matplotlib': ('https://matplotlib.org/', None),
-                       'astropy': ('http://docs.astropy.org/en/stable/', None),
-                       'bilby': ('https://lscsoft.docs.ligo.org/bilby/', None),
-                       'pycondor': ('https://jrbourbeau.github.io/pycondor/', None),
-                       'numba': ('http://numba.pydata.org/numba-doc/latest/', None),
-                       'gwpy': ('https://gwpy.github.io/docs/stable/', None),}
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3/", None),
+    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
+    "matplotlib": ("https://matplotlib.org/", None),
+    "astropy": ("http://docs.astropy.org/en/stable/", None),
+    "bilby": ("https://lscsoft.docs.ligo.org/bilby/", None),
+    "pycondor": ("https://jrbourbeau.github.io/pycondor/", None),
+    "numba": ("http://numba.pydata.org/numba-doc/latest/", None),
+    "gwpy": ("https://gwpy.github.io/docs/stable/", None),
+}
 
 
 # generate cwinpy_knope help string for docs
-knope_help = subprocess.getoutput('cwinpy_knope --help')
-with open('knope/knope_help.txt', 'w') as fp:
+knope_help = subprocess.getoutput("cwinpy_knope --help")
+with open("knope/knope_help.txt", "w") as fp:
     fp.write(knope_help)

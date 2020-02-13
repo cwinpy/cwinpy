@@ -6,6 +6,7 @@ sources.
 """
 
 import os
+
 import versioneer
 
 try:
@@ -33,7 +34,7 @@ setup(
     license="MIT",
     description="A Python module for Bayesian inferences with continuous gravitational-wave sources",
     long_description=readfile(os.path.join(os.path.dirname(__file__), "README.md")),
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
     install_requires=readfile(
         os.path.join(os.path.dirname(__file__), "requirements.txt")
     ),
@@ -42,9 +43,10 @@ setup(
             "cwinpy_knope=cwinpy.knope.knope:knope_cli",
             "cwinpy_knope_dag=cwinpy.knope.knope:knope_dag_cli",
             "cwinpy_knope_generate_pp_plots=cwinpy.knope.testing:generate_pp_plots",
-            ]
-        },
+        ]
+    },
     classifiers=[
         "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7"],
+        "Programming Language :: Python :: 3.7",
+    ],
 )

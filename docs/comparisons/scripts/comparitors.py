@@ -4,16 +4,16 @@ runs and cwinpy runs
 """
 
 import os
+
+import bilby
+import cwinpy
 import h5py
 import numpy as np
-from scipy.stats import ks_2samp, combine_pvalues
-from scipy.spatial.distance import jensenshannon
-from lalinference.io import read_samples
-from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 from bilby.core.result import read_in_result
-import cwinpy
-import bilby
-
+from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
+from lalinference.io import read_samples
+from scipy.spatial.distance import jensenshannon
+from scipy.stats import combine_pvalues, ks_2samp
 
 # comparison rst table information
 FILETEXT = """\
@@ -98,8 +98,7 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
 
     # get posterior samples
     post = read_samples(
-        lppenfile,
-        tablename=LALInferenceHDF5PosteriorSamplesDatasetName
+        lppenfile, tablename=LALInferenceHDF5PosteriorSamplesDatasetName
     )
 
     # get uncertainty on ln(evidence)
@@ -147,9 +146,7 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
     for method in ["lalapps", "cwinpy"]:
         values[idx + 9] = int(cred * 100)
         for p in priors.keys():
-            samples = (
-                post[p.upper()] if method == "lalapps" else result.posterior[p]
-            )
+            samples = post[p.upper()] if method == "lalapps" else result.posterior[p]
 
             # convert iota to cos(iota)
             if p == "iota":
@@ -183,7 +180,9 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
     for method in ["lalapps", "cwinpy"]:
         for p in priors.keys():
             maxpval = (
-                post[p.upper()][maxidxlppen] if method == "lalapps" else result.posterior[p][maxidx]
+                post[p.upper()][maxidxlppen]
+                if method == "lalapps"
+                else result.posterior[p][maxidx]
             )
             if p == "h0":
                 exponent = int(np.floor(np.log10(maxpval)))
@@ -198,7 +197,10 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
             values[idx] = (
                 post["logL"][maxidxlppen]
                 if method == "lalapps"
-                else (result.posterior["log_likelihood"][maxidx] + result.log_noise_evidence)
+                else (
+                    result.posterior["log_likelihood"][maxidx]
+                    + result.log_noise_evidence
+                )
             )
         else:
             values[idx] = (
@@ -234,8 +236,8 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
     idx += 1
     values[idx] = np.max(jsvalues)
 
-    values[idx+1] = cwinpy.__version__
-    values[idx+2] = bilby.__version__
+    values[idx + 1] = cwinpy.__version__
+    values[idx + 2] = bilby.__version__
 
     with open(comparefile, "w") as fp:
         fp.write(FILETEXT.format(*values))
@@ -252,8 +254,7 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
 
     # get posterior samples
     post = read_samples(
-        lppenfile,
-        tablename=LALInferenceHDF5PosteriorSamplesDatasetName
+        lppenfile, tablename=LALInferenceHDF5PosteriorSamplesDatasetName
     )
 
     # get uncertainty on ln(evidence)
@@ -292,9 +293,7 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
     for method in ["lalapps", "cwinpy"]:
         values[idx + 14] = int(cred * 100)
         for p in priors.keys():
-            samples = (
-                post[p.upper()] if method == "lalapps" else result.posterior[p]
-            )
+            samples = post[p.upper()] if method == "lalapps" else result.posterior[p]
 
             # convert iota to cos(iota)
             if p == "iota":
@@ -328,7 +327,9 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
     for method in ["lalapps", "cwinpy"]:
         for p in priors.keys():
             maxpval = (
-                post[p.upper()][maxidxlppen] if method == "lalapps" else result.posterior[p][maxidx]
+                post[p.upper()][maxidxlppen]
+                if method == "lalapps"
+                else result.posterior[p][maxidx]
             )
             if p in ["c21", "c22"]:
                 exponent = int(np.floor(np.log10(maxpval)))
@@ -342,7 +343,10 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
             values[idx] = (
                 post["logL"][maxidxlppen]
                 if method == "lalapps"
-                else (result.posterior["log_likelihood"][maxidx] + result.log_noise_evidence)
+                else (
+                    result.posterior["log_likelihood"][maxidx]
+                    + result.log_noise_evidence
+                )
             )
         else:
             values[idx] = (
@@ -378,8 +382,8 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
     idx += 1
     values[idx] = np.max(jsvalues)
 
-    values[idx+1] = cwinpy.__version__
-    values[idx+2] = bilby.__version__
+    values[idx + 1] = cwinpy.__version__
+    values[idx + 2] = bilby.__version__
 
     with open(comparefile, "w") as fp:
         fp.write(FILETEXTTWOHARMONICS.format(*values))

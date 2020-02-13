@@ -2,12 +2,13 @@
 Classes providing likelihood functions.
 """
 
-import numpy as np
-import lal
-import bilby
-from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 import re
+
+import bilby
+import lal
+import numpy as np
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 from numba import jit, types
 from numba.typed import Dict as numbadict
 

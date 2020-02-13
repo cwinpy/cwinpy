@@ -4,10 +4,11 @@ Test script for testing class.
 
 import os
 import shutil
-import pytest
+
 import bilby
 import numpy as np
 import pycondor
+import pytest
 from cwinpy.knope.testing import KnopePPPlotsDAG
 
 

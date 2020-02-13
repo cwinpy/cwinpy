@@ -2,22 +2,23 @@
 General utility functions.
 """
 
-import numpy as np
-#from scipy.special import gammaln
-from math import gcd
+import ctypes
 from functools import reduce
+# from scipy.special import gammaln
+from math import gcd
 
+import numpy as np
+from numba import jit, njit
 # numba functions
 from numba.extending import get_cython_function_address
-from numba import jit, njit
-import ctypes
-
 
 # create a numba-ified version of scipy's gammaln function (see, e.g.
 # https://github.com/numba/numba/issues/3086#issuecomment-403469308)
 addr = get_cython_function_address("scipy.special.cython_special", "gammaln")
 functype = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double, ctypes.c_int)
 gammaln_fn = functype(addr)
+
+
 @njit
 def gammaln(x):
     return gammaln_fn(x, 0)  # 0 is for the required int!

@@ -2,13 +2,13 @@
 Classes for hierarchical parameter inference.
 """
 
-import numpy as np
-from scipy.stats import gaussian_kde, truncnorm, expon
-from scipy.interpolate import interp1d
 from itertools import compress
-import bilby
-from lintegrate import logtrapz
 
+import bilby
+import numpy as np
+from lintegrate import logtrapz
+from scipy.interpolate import interp1d
+from scipy.stats import expon, gaussian_kde, truncnorm
 
 # allowed distributions and their required hyperparameters
 DISTRIBUTION_REQUIREMENTS = {

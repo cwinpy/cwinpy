@@ -3,13 +3,12 @@ Test script for data.py classes.
 """
 
 import os
-import pytest
-import numpy as np
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
-from cwinpy import HeterodynedData, MultiHeterodynedData
-from cwinpy import TargetedPulsarLikelihood
+import numpy as np
+import pytest
 from bilby.core.prior import PriorDict, Uniform
+from cwinpy import HeterodynedData, MultiHeterodynedData, TargetedPulsarLikelihood
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
 class TestTargetedPulsarLikelhood(object):

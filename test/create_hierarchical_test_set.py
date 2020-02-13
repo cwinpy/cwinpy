@@ -9,16 +9,14 @@ Note: to run this it requires a version of lalsuite with this MR applied https:/
 
 import os
 import subprocess as sp
-import numpy as np
-import corner
 from collections import OrderedDict
-from cwinpy import HeterodynedData
-from cwinpy import TargetedPulsarLikelihood
+
 import bilby
-from bilby.core.prior import Uniform, PriorDict
-
+import corner
+import numpy as np
 from astropy.utils.data import download_file
-
+from bilby.core.prior import PriorDict, Uniform
+from cwinpy import HeterodynedData, TargetedPulsarLikelihood
 
 # URL for ephemeris files
 DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/src/{}"

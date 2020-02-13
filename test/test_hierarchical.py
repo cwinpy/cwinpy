@@ -3,8 +3,12 @@ Test script for the hierarchical classes.
 """
 
 import os
-import pytest
+
 import numpy as np
+import pytest
+from bilby.core.grid import Grid
+from bilby.core.prior import Uniform
+from bilby.core.result import Result, ResultList
 from cwinpy.hierarchical import (
     BaseDistribution,
     BoundedGaussianDistribution,
@@ -12,9 +16,6 @@ from cwinpy.hierarchical import (
     MassQuadrupoleDistribution,
     create_distribution,
 )
-from bilby.core.prior import Uniform
-from bilby.core.result import Result, ResultList
-from bilby.core.grid import Grid
 
 
 class TestDistributionObjects(object):

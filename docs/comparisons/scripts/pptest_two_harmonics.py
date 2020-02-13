@@ -10,11 +10,14 @@ import bilby
 import numpy as np
 from cwinpy.knope.testing import KnopePPPlotsDAG
 
-
 # set the priors
 prior = {}
-prior["c21"] = bilby.core.prior.Uniform(minimum=0., maximum=1e-22, latex_label="$C_{21}$")
-prior["c22"] = bilby.core.prior.Uniform(minimum=0., maximum=1e-22, latex_label="$C_{22}$")
+prior["c21"] = bilby.core.prior.Uniform(
+    minimum=0.0, maximum=1e-22, latex_label="$C_{21}$"
+)
+prior["c22"] = bilby.core.prior.Uniform(
+    minimum=0.0, maximum=1e-22, latex_label="$C_{22}$"
+)
 prior["phi21"] = bilby.core.prior.Uniform(
     name="phi21",
     minimum=0.0,
@@ -30,18 +33,10 @@ prior["phi22"] = bilby.core.prior.Uniform(
     unit="rad",
 )
 prior["iota"] = bilby.core.prior.Sine(
-    name="iota",
-    minimum=0.0,
-    maximum=np.pi,
-    latex_label=r"$\iota$",
-    unit="rad",
+    name="iota", minimum=0.0, maximum=np.pi, latex_label=r"$\iota$", unit="rad",
 )
 prior["psi"] = bilby.core.prior.Uniform(
-    name="psi",
-    minimum=0.0,
-    maximum=np.pi / 2,
-    latex_label=r"$\psi$",
-    unit="rad",
+    name="psi", minimum=0.0, maximum=np.pi / 2, latex_label=r"$\psi$", unit="rad",
 )
 
 # Maximum amplitude for any of the injection signal (below the prior maximum)

@@ -2,10 +2,9 @@
 Test script for utils.py function.
 """
 
-import pytest
 import numpy as np
-
-from cwinpy.utils import logfactorial, gcd_array
+import pytest
+from cwinpy.utils import gcd_array, logfactorial
 
 
 def test_logfactorial():

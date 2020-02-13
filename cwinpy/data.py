@@ -3,23 +3,22 @@ Classes for dealing with data products.
 """
 
 import os
-import numpy as np
 import warnings
-from numba import jit
 
 # import lal and lalpulsar
 import lal
 import lalpulsar
-
-# import utility functions
-from .utils import logfactorial, gcd_array
-
-# imports from gwpy
-from gwpy.types import Series
-from gwpy.timeseries import TimeSeriesBase
-from gwpy.plot.colors import GW_OBSERVATORY_COLORS
+import numpy as np
 from gwpy.detector import Channel
 from gwpy.io.mp import read_multi
+from gwpy.plot.colors import GW_OBSERVATORY_COLORS
+from gwpy.timeseries import TimeSeriesBase
+# imports from gwpy
+from gwpy.types import Series
+from numba import jit
+
+# import utility functions
+from .utils import gcd_array, logfactorial
 
 
 class MultiHeterodynedData(object):
