@@ -4,12 +4,10 @@ General utility functions.
 
 import ctypes
 from functools import reduce
-# from scipy.special import gammaln
 from math import gcd
 
 import numpy as np
 from numba import jit, njit
-# numba functions
 from numba.extending import get_cython_function_address
 
 # create a numba-ified version of scipy's gammaln function (see, e.g.
