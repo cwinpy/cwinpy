@@ -5,7 +5,6 @@ Classes for dealing with data products.
 import os
 import warnings
 
-# import lal and lalpulsar
 import lal
 import lalpulsar
 import numpy as np
@@ -13,7 +12,6 @@ from gwpy.detector import Channel
 from gwpy.io.mp import read_multi
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
 from gwpy.timeseries import TimeSeriesBase
-# imports from gwpy
 from gwpy.types import Series
 from numba import jit
 
@@ -1441,7 +1439,8 @@ class HeterodynedData(TimeSeriesBase):
 
         .. math::
 
-           \\rho = \\sqrt{\\sum_i \\left(\\left[\\frac{\\Re{(s_i)}}{\\sigma_i}\\right]^2 + \\left[\\frac{\\Im{(s_i)}}{\\sigma_i}\\right]^2\\right)}
+           \\rho = \\sqrt{\\sum_i \\left(\\left[\\frac{\\Re{(s_i)}}{\\sigma_i}\\right]^2 +
+           \\left[\\frac{\\Im{(s_i)}}{\\sigma_i}\\right]^2\\right)}
 
         where and :math:`s` is the pure signal and :math:`\sigma` is the
         estimated noise standard deviation.
@@ -2129,7 +2128,7 @@ class HeterodynedData(TimeSeriesBase):
 
     def remove_outliers(self, thresh=3.5):
         """
-        Remove any outliers from the object using the method decribed in
+        Remove any outliers from the object using the method described in
         :meth:`cwinpy.data.HeterodynedData.find_outliers`.
 
         Parameters
