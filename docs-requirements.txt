@@ -1,5 +1,5 @@
 recommonmark
-sphinx
+sphinx>=2.0
 numpydoc
 nbsphinx
 autodoc
