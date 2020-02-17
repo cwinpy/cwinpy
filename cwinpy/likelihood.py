@@ -2,12 +2,13 @@
 Classes providing likelihood functions.
 """
 
-import numpy as np
-import lal
-import bilby
-from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 import re
+
+import bilby
+import lal
+import numpy as np
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 from numba import jit, types
 from numba.typed import Dict as numbadict
 
@@ -295,7 +296,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
         .. math::
 
-           (d/\\sigma) \\cdot (d^*/\\sigma) = \\sum_i \\frac{d_id_i^*}{\\sigma_i^2} \\equiv \\sum_i \\frac{\\Re{(d)}^2 + \\Im{(d)}^2}{\\sigma_i^2}.
+           (d/\\sigma) \\cdot (d^*/\\sigma) = \\sum_i \\frac{d_id_i^*}{\\sigma_i^2}
+           \\equiv \\sum_i \\frac{\\Re{(d)}^2 + \\Im{(d)}^2}{\\sigma_i^2}.
 
         For the antenna patterns, for example :math:`F_+` and
         :math:`F_{\\times}`, we would have

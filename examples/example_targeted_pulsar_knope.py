@@ -6,10 +6,8 @@ pulsar-type search using the knope interface.
 """
 
 import numpy as np
-from cwinpy import HeterodynedData
-from cwinpy import TargetedPulsarLikelihood
+from bilby.core.prior import Uniform
 from cwinpy.knope import knope
-from bilby.core.prior import PriorDict, Uniform
 from matplotlib import pyplot as pl
 
 # create a fake pulsar parameter file

@@ -1,11 +1,11 @@
-from numpy import (loadtxt, savetxt, column_stack)
-from ..data import HeterodynedData
-
 from gwpy.io import registry as io_registry
 from gwpy.io.utils import identify_factory
+from numpy import column_stack, loadtxt, savetxt
 
+from ..data import HeterodynedData
 
 # -- read ---------------------------------------------------------------------
+
 
 def read_ascii_series(input_, array_type=HeterodynedData, **kwargs):
     """
@@ -29,6 +29,7 @@ def read_ascii_series(input_, array_type=HeterodynedData, **kwargs):
 
     if input_.endswith(".gz"):
         import gzip
+
         openfunc = gzip.open
     else:
         openfunc = open
@@ -47,6 +48,7 @@ def read_ascii_series(input_, array_type=HeterodynedData, **kwargs):
 
 
 # -- write --------------------------------------------------------------------
+
 
 def write_ascii_series(series, output, **kwargs):
     """Write a `Series` to a file in ASCII format
@@ -71,17 +73,19 @@ def write_ascii_series(series, output, **kwargs):
     except AttributeError:
         comments = ""
 
-    return savetxt(output, column_stack((xarr, yarrr, yarri)), header=comments, **kwargs)
+    return savetxt(
+        output, column_stack((xarr, yarrr, yarri)), header=comments, **kwargs
+    )
 
 
 # -- register -----------------------------------------------------------------
 
 
-def register_ascii_series_io(array_type, format='txt', identify=True,
-                             **defaults):
+def register_ascii_series_io(array_type, format="txt", identify=True, **defaults):
     """
     Register ASCII read/write/identify methods for the given array
     """
+
     def _read(filepath, **kwargs):
         kwgs = defaults.copy()
         kwgs.update(kwargs)
@@ -97,5 +101,4 @@ def register_ascii_series_io(array_type, format='txt', identify=True,
     io_registry.register_reader(format, array_type, _read)
     io_registry.register_writer(format, array_type, _write)
     if identify:
-        io_registry.register_identifier(format, array_type,
-                                        identify_factory(format))
+        io_registry.register_identifier(format, array_type, identify_factory(format))

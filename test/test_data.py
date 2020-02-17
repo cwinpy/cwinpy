@@ -3,13 +3,13 @@ Test script for data.py classes.
 """
 
 import os
-import pytest
-import numpy as np
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-import lal
-from matplotlib.figure import Figure
 
+import lal
+import numpy as np
+import pytest
 from cwinpy import HeterodynedData, MultiHeterodynedData
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+from matplotlib.figure import Figure
 
 
 class TestHeterodynedData(object):
@@ -183,7 +183,9 @@ class TestHeterodynedData(object):
         assert len(het) == 4
         assert (het.data.real[0] == -2.3e-25) and (het.data.real[-1] == -7.6e-26)
         assert (het.data.imag[0] == 4.3e-26) and (het.data.imag[-1] == -8.9e-26)
-        assert (het.times[0].value == 1000000000.0) and (het.times[-1].value == 1000000180.0)
+        assert (het.times[0].value == 1000000000.0) and (
+            het.times[-1].value == 1000000180.0
+        )
         assert het.dt.value == 60.0
         assert het.sample_rate.value == 1.0 / 60.0
 
@@ -213,7 +215,9 @@ class TestHeterodynedData(object):
         assert (het.data.imag[0] == 4.3e-26) and (het.data.imag[-1] == -8.9e-26)
         assert (het.stds[0] == 1.1e-26) and (het.stds[-1] == 1.3e-26)
         assert (het.vars[0] == (1.1e-26) ** 2) and (het.vars[-1] == (1.3e-26) ** 2)
-        assert (het.times[0].value == 1000000000.0) and (het.times[-1].value == 1000000180.0)
+        assert (het.times[0].value == 1000000000.0) and (
+            het.times[-1].value == 1000000180.0
+        )
         assert het.dt.value == 60.0
         assert het.sample_rate.value == 1.0 / 60.0
 
@@ -484,12 +488,14 @@ PHI0     2.4
 
         idxs = het.find_outliers()
 
-        assert len(np.where(idxs == True)[0]) >= 2
-        assert (10 in np.where(idxs == True)[0]) and (20 in np.where(idxs == True)[0])
+        assert len(np.where(idxs == True)[0]) >= 2  # noqa: E712
+        assert (10 in np.where(idxs == True)[0]) and (
+            20 in np.where(idxs == True)[0]
+        )  # noqa: E712
 
         # test removing the outlier automatically
         newhet = HeterodynedData(data, times=times, remove_outliers=True)
-        assert len(newhet) == (len(data) - len(np.where(idxs == True)[0]))
+        assert len(newhet) == (len(data) - len(np.where(idxs == True)[0]))  # noqa: E712
 
     def test_bayesian_blocks(self):
         """
@@ -560,10 +566,7 @@ PHI0     2.4
         # test no-splitting
         minlength = np.inf
         het = HeterodynedData(
-            data,
-            times=times,
-            bbthreshold="default",
-            bbminlength=minlength,
+            data, times=times, bbthreshold="default", bbminlength=minlength
         )
 
         assert len(het.chunk_lengths) == 1
@@ -751,9 +754,9 @@ PEPOCH  56789.0
 H0      1.5e-22
 """
 
-        parfile = 'test.par'
-        with open(parfile, 'w') as fp:
-           fp.write(parcontent)
+        parfile = "test.par"
+        with open(parfile, "w") as fp:
+            fp.write(parcontent)
 
         # one point per 10 mins
         times = np.linspace(1000000000.0, 1000085800.0, 144)
@@ -765,11 +768,7 @@ H0      1.5e-22
 
         # set the asd explicitly
         het = HeterodynedData(
-            times=times,
-            fakeasd=1e-24,
-            detector="H1",
-            par=parfile,
-            inject=True,
+            times=times, fakeasd=1e-24, detector="H1", par=parfile, inject=True
         )
         mhd = MultiHeterodynedData(het)
 

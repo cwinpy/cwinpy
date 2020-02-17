@@ -27,7 +27,7 @@ python-3.7:
     - pip install -r docs-requirements.txt
     - pip install -r test-requirements.txt
   script:
-    - python setup.py install
+    - pip install .
 
     # run tests
     - pytest
@@ -40,6 +40,25 @@ python-3.7:
     #  artifacts:
     #paths:
     #  - docs/_build/html/
+
+# test example on python 3
+pre-commit-python-3.7:
+  stage: test
+  image: python:3.7-stretch
+  before_script:
+    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
+    # Install the dependencies specified in the Pipfile
+    - pip install --upgrade pip
+    - pip install numpy
+    - pip install -r requirements.txt
+    - pip install -r docs-requirements.txt
+    - pip install -r test-requirements.txt
+    - pip install -r dev-requirements.txt
+  script:
+    - pip install .
+
+    # run pre-commit checks
+    - pre-commit run --all-files --verbose --show-diff-on-failure
 
 # run comparisons when a new tag is made
 run-comparisons:

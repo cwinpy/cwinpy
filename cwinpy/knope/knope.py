@@ -2,30 +2,30 @@
 Run known pulsar parameter estimation using bilby.
 """
 
-import os
-import sys
 import ast
-import glob
-import signal
-import warnings
 import configparser
+import glob
 import json
+import os
+import signal
+import sys
+import warnings
 from argparse import ArgumentParser
-import numpy as np
-
-import cwinpy
-from ..data import HeterodynedData, MultiHeterodynedData
-from ..likelihood import TargetedPulsarLikelihood
 
 import bilby
+import cwinpy
+import numpy as np
 from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.utils import parse_args, convert_string_to_dict, BilbyPipeError
+from bilby_pipe.utils import BilbyPipeError, convert_string_to_dict, parse_args
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+
+from ..data import HeterodynedData, MultiHeterodynedData
+from ..likelihood import TargetedPulsarLikelihood
 
 
 def sighandler(signum, frame):
     # perform periodic eviction with exit code 130
-    # see https://git.ligo.org/lscsoft/bilby_pipe/blob/0b5ca550e3a92494ef3e04801e79a2f9cd902b44/bilby_pipe/parser.py#L270
+    # see https://git.ligo.org/lscsoft/bilby_pipe/blob/0b5ca550e3a92494ef3e04801e79a2f9cd902b44/bilby_pipe/parser.py#L270  # noqa: E501
     sys.exit(130)
 
 
@@ -900,7 +900,9 @@ class KnopeRunner(object):
                 try:
                     self.prior = bilby.core.prior.PriorDict(self.prior)
                 except Exception as e2:
-                    raise RuntimeError("Problem setting prior dictionary: {}\n{}".format(e1, e2))
+                    raise RuntimeError(
+                        "Problem setting prior dictionary: {}\n{}".format(e1, e2)
+                    )
 
         # output parameters
         if "outdir" in kwargs:

@@ -7,22 +7,20 @@ data for a single detector with two harmonics.
 
 import os
 import subprocess as sp
-import numpy as np
-import corner
 from collections import OrderedDict
+
+import corner
 import h5py
+import matplotlib.font_manager as font_manager
+import numpy as np
+from astropy.utils.data import download_file
+from bilby.core.prior import Uniform
+from comparitors import comparisons_two_harmonics
 from cwinpy import HeterodynedData
 from cwinpy.knope import knope
-from bilby.core.prior import Uniform
-from astropy.utils.data import download_file
-from matplotlib.lines import Line2D
-import matplotlib.font_manager as font_manager
-from lalinference.io import read_samples
 from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
-
-# comparison function
-from comparitors import comparisons_two_harmonics
-
+from lalinference.io import read_samples
+from matplotlib.lines import Line2D
 
 # URL for ephemeris files
 DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
@@ -67,13 +65,10 @@ for harmonic, asd in zip(harmonics, asds):
     )
 
     # output the data
-    hetfile = os.path.join(outdir, "{}_{}_{}_data.txt".format(label, detector, harmonic))
-    np.savetxt(
-        hetfile,
-        np.vstack(
-            (het.times.value, het.data.real, het.data.imag)
-        ).T,
+    hetfile = os.path.join(
+        outdir, "{}_{}_{}_data.txt".format(label, detector, harmonic)
     )
+    np.savetxt(hetfile, np.vstack((het.times.value, het.data.real, het.data.imag)).T)
     hetfiles.append(hetfile)
 
 # create priors
@@ -170,12 +165,7 @@ runcmd = " ".join(
     ]
 )
 
-p = sp.Popen(
-    runcmd,
-    stdout=sp.PIPE,
-    stderr=sp.PIPE,
-    shell=True,
-)
+p = sp.Popen(runcmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
 out, err = p.communicate()
 
 # convert nested samples to posterior samples
@@ -193,20 +183,17 @@ with sp.Popen(
         print(line, end="")
 
 # get posterior samples
-post = read_samples(
-    outpost,
-    tablename=LALInferenceHDF5PosteriorSamplesDatasetName
-)
+post = read_samples(outpost, tablename=LALInferenceHDF5PosteriorSamplesDatasetName)
 lp = len(post["H0"])
 postsamples = np.zeros((lp, len(priors)))
 for i, p in enumerate(priors.keys()):
     postsamples[:, i] = post[p.upper()]
 
 # get evidence
-hdf = h5py.File(outpost, 'r')
-a = hdf['lalinference']['lalinference_nest']
-evsig = a.attrs['log_evidence']
-evnoise = a.attrs['log_noise_evidence']
+hdf = h5py.File(outpost, "r")
+a = hdf["lalinference"]["lalinference_nest"]
+evsig = a.attrs["log_evidence"]
+evnoise = a.attrs["log_noise_evidence"]
 hdf.close()
 
 # run bilby via the knope interface

@@ -2,20 +2,22 @@
 Run P-P plot testing for cwinpy_knope.
 """
 
-import os
-import sys
-import glob
-import shutil
-import json
 import ast
-from configparser import ConfigParser
+import glob
+import json
+import os
+import shutil
+import sys
 from argparse import ArgumentParser
+from configparser import ConfigParser
+
+import astropy.units as u
 import bilby
 import numpy as np
-from .knope import knope_dag
-from bilby_pipe.pp_test import read_in_result_list
 from astropy.coordinates import SkyCoord
-import astropy.units as u
+from bilby_pipe.pp_test import read_in_result_list
+
+from .knope import knope_dag
 
 
 def generate_pp_plots(**kwargs):  # pragma: no cover
@@ -59,12 +61,11 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
         snrs = kwargs.get("snrs", False)
     elif "cwinpy_knope_generate_pp_plots" == os.path.split(sys.argv[0])[-1]:
         parser = ArgumentParser(
-            description=(
-                "A script to create a PP plot of CW signal parameters"
-            )
+            description=("A script to create a PP plot of CW signal parameters")
         )
         parser.add_argument(
-            "--path", "-p",
+            "--path",
+            "-p",
             required=True,
             help=(
                 "A glob-able path pattern to a set of bilby JSON results "
@@ -73,27 +74,22 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
             dest="path",
         )
         parser.add_argument(
-            "--output", "-o",
-            help=(
-                "The output plot file name [default: %(default)s]."
-            ),
+            "--output",
+            "-o",
+            help=("The output plot file name [default: %(default)s]."),
             default=os.path.join(os.getcwd(), "ppplot.png"),
             dest="outfile",
         )
         parser.add_argument(
             "--parameter",
             action="append",
-            help=(
-                "The parameters with which to create the PP plots."
-            ),
+            help=("The parameters with which to create the PP plots."),
         )
         parser.add_argument(
             "--snrs",
             action="store_true",
             default=False,
-            help=(
-                "Set to plot distribution of injected signal-to-noise ratios."
-            )
+            help=("Set to plot distribution of injected signal-to-noise ratios."),
         )
 
         args = parser.parse_args()
@@ -112,17 +108,13 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
     # get results files
     try:
         resfiles = [
-            rfile
-            for rfile in glob.glob(path)
-            if os.path.splitext(rfile)[1] == ".json"
+            rfile for rfile in glob.glob(path) if os.path.splitext(rfile)[1] == ".json"
         ]
     except Exception as e:
         raise IOError("Problem finding results files: {}".format(e))
 
     if len(resfiles) == 0:
-        raise IOError(
-            "Problem finding results files. Probably an invalid path!"
-        )
+        raise IOError("Problem finding results files. Probably an invalid path!")
 
     # read in results (need to create dummy class for args)
     class DummyClass(object):
@@ -141,15 +133,9 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
 
     # make plots
     try:
-        _ = bilby.core.result.make_pp_plot(
-            results,
-            filename=outfile,
-            keys=parameters,
-        )
+        _ = bilby.core.result.make_pp_plot(results, filename=outfile, keys=parameters,)
     except Exception as e:
-        raise RuntimeError(
-            "Problem creating PP plots: {}".format(e)
-        )
+        raise RuntimeError("Problem creating PP plots: {}".format(e))
 
     # make SNR plot
     if snrs:
@@ -163,9 +149,7 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
             raise IOError("Problem finding SNR files: {}".format(e))
 
         if len(snrfiles) == 0:
-            raise IOError(
-                "Problem finding SNR files. Probably an invalid path!"
-            )
+            raise IOError("Problem finding SNR files. Probably an invalid path!")
 
         snrvals = []
         for snrfile in snrfiles:
@@ -254,11 +238,23 @@ class KnopePPPlotsDAG(object):
 
     """
 
-    def __init__(self, prior, ninj=100, maxamp=None, basedir=None,
-                 detector="AH1", submit=False, accountuser=None,
-                 accountgroup=None, getenv=False, sampler="dynesty",
-                 sampler_kwargs=None, freqrange=(10.0, 750.0),
-                 outputsnr=True, numba=False):
+    def __init__(
+        self,
+        prior,
+        ninj=100,
+        maxamp=None,
+        basedir=None,
+        detector="AH1",
+        submit=False,
+        accountuser=None,
+        accountgroup=None,
+        getenv=False,
+        sampler="dynesty",
+        sampler_kwargs=None,
+        freqrange=(10.0, 750.0),
+        outputsnr=True,
+        numba=False,
+    ):
 
         if isinstance(prior, dict):
             self.prior = bilby.core.prior.PriorDict(dictionary=prior)
@@ -272,7 +268,7 @@ class KnopePPPlotsDAG(object):
         # set maximum amplitude if given
         self.maxamp = None
         if isinstance(maxamp, float):
-            if maxamp > 0.:
+            if maxamp > 0.0:
                 self.maxamp = maxamp
             else:
                 raise ValueError("Maximum amplitude must be positive")
@@ -349,7 +345,9 @@ class KnopePPPlotsDAG(object):
             raise TypeError("Frequency range must be a list or tuple")
         else:
             if len(freqrange) != 2:
-                raise ValueError("Frequency range must contain an upper and lower value")
+                raise ValueError(
+                    "Frequency range must contain an upper and lower value"
+                )
 
         self.pulsars = {}
         for i in range(self.ninj):
@@ -365,7 +363,7 @@ class KnopePPPlotsDAG(object):
                 raval = pulsar.pop("ra")
 
             if "dec" not in self.prior:
-                decval = -(np.pi/2.) + np.arccos(np.random.uniform(-1.0, 1.0))
+                decval = -(np.pi / 2.0) + np.arccos(np.random.uniform(-1.0, 1.0))
             else:
                 decval = pulsar.pop("dec")
 
@@ -378,9 +376,8 @@ class KnopePPPlotsDAG(object):
                 for amp in amppars:
                     if amp in self.prior:
                         pulsar[amp.upper()] = bilby.core.prior.Uniform(
-                            name=amp,
-                            minimum=0.0,
-                            maximum=self.maxamp).sample()
+                            name=amp, minimum=0.0, maximum=self.maxamp
+                        ).sample()
 
             # set (rotation) frequency upper and lower bounds
             if "f0" not in self.prior:
@@ -391,15 +388,13 @@ class KnopePPPlotsDAG(object):
             decstr = skypos.dec.to_string(
                 u.deg, fields=2, sep="", pad=True, alwayssign=True
             )
-            pname = 'J{}{}'.format(rastr, decstr)
+            pname = "J{}{}".format(rastr, decstr)
             pnameorig = str(pname)  # copy of original name
             counter = 0
             alphas = ["A", "B", "C", "D", "E", "F", "G"]
             while pname in self.pulsars:
                 if counter == len(alphas):
-                    raise RuntimeError(
-                        "Too many pulsars in the same sky position!"
-                    )
+                    raise RuntimeError("Too many pulsars in the same sky position!")
                 pname = pnameorig + alphas[counter]
                 counter += 1
 
@@ -413,8 +408,8 @@ class KnopePPPlotsDAG(object):
                     fp.write("{}\t{}\n".format(param, pulsar[param]))
 
             self.pulsars[pname] = {}
-            self.pulsars[pname]['file'] = pfile
-            self.pulsars[pname]['parameters'] = pulsar
+            self.pulsars[pname]["file"] = pfile
+            self.pulsars[pname]["parameters"] = pulsar
 
     def create_config(self):
         """
@@ -442,11 +437,11 @@ class KnopePPPlotsDAG(object):
         self.config["knope"]["numba"] = str(self.numba)
 
         # set fake data
-        if 'h0' in self.prior or 'c22' in self.prior or 'q22' in self.prior:
+        if "h0" in self.prior or "c22" in self.prior or "q22" in self.prior:
             self.config["knope"]["fake-asd-2f"] = str(self.detector)
-        if 'c21' in self.prior and 'c22' in self.prior:
+        if "c21" in self.prior and "c22" in self.prior:
             self.config["knope"]["fake-asd-1f"] = str(self.detector)
-        if 'c21' in self.prior and 'c22 not in self.prior':
+        if "c21" in self.prior and "c22 not in self.prior":
             self.config["knope"]["fake-asd-1f"] = str(self.detector)
 
         # set the prior file
@@ -500,5 +495,7 @@ class KnopePPPlotsDAG(object):
             jobargs += "--snrs "
         job.add_arg(jobargs)
 
-        job.add_parents(self.runner.dag.nodes[:-1])  # exclude cwinpy_knope_pp_plots job itself
+        job.add_parents(
+            self.runner.dag.nodes[:-1]
+        )  # exclude cwinpy_knope_pp_plots job itself
         self.runner.dag.build()
