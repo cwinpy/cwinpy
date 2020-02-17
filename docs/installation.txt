@@ -58,8 +58,9 @@ then install the requirements and the software using:
       Developers must install the requirements in the ``dev-requirements.txt`` file, which includes
       the `pre-commit <https://github.com/pre-commit/pre-commit>`_ package. This is used to set up
       git pre-commit hooks that automatically run scripts such as
-      `flake8 <https://pypi.org/project/flake8/>`_, `black <https://pypi.org/project/black/>`_ and
-      a spell check to ensure that any commits you make have a consistent style. Before starting
+      `flake8 <https://pypi.org/project/flake8/>`_, `black <https://pypi.org/project/black/>`_,
+      `isort <https://isort.readthedocs.io/>`_ and a `spell check <https://github.com/codespell-project/codespell>`_
+      to ensure that any commits you make have a consistent style. Before starting
       as a developer you must run
 
       .. code-block:: console
@@ -67,8 +68,11 @@ then install the requirements and the software using:
          $ pre-commit install
 
       within the cwinpy repository directory, which will add the ``pre-commit`` hook file to your
-      ``.git/hooks`` directory.
-
+      ``.git/hooks`` directory. After this, when running ``git commit`` the checks will automatically
+      be run, and results will be presented to you. In some cases any required fixes will be
+      automatically applied, but in cases where there was some failure it will print a message about
+      why it failed. In these cases you will have to manually correct the offending files before
+      running ``git commit`` again.
 
 To run the parameter estimation via the `bilby <https://lscsoft.docs.ligo.org/bilby/index.html>`_
 package with any sampler other than the default of `dynesty
