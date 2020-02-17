@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 from bilby.core.prior import PriorDict, Uniform
 from cwinpy import HeterodynedData, MultiHeterodynedData, TargetedPulsarLikelihood
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
 class TestTargetedPulsarLikelhood(object):
@@ -91,7 +90,7 @@ PHI0     2.4
         )
 
         with pytest.raises(ValueError):
-            like = TargetedPulsarLikelihood(het, PriorDict(priors))
+            _ = TargetedPulsarLikelihood(het, PriorDict(priors))
 
     def test_wrong_likelihood(self):
         """
@@ -106,7 +105,7 @@ PHI0     2.4
         priors["h0"] = Uniform(0.0, 1.0e-23, "h0")
 
         with pytest.raises(ValueError):
-            like = TargetedPulsarLikelihood(het, PriorDict(priors), likelihood="blah")
+            _ = TargetedPulsarLikelihood(het, PriorDict(priors), likelihood="blah")
 
     def test_likelihood_null_likelihood(self):
         """
@@ -147,7 +146,7 @@ PHI0     2.4
             like1.parameters = {"h0": 1e-24}
 
             like2 = TargetedPulsarLikelihood(
-                het, PriorDict(priors), likelihood=likelihood, numba=True,
+                het, PriorDict(priors), likelihood=likelihood, numba=True
             )
             like2.parameters = {"h0": 1e-24}
 

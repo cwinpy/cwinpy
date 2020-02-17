@@ -25,7 +25,7 @@ from ..likelihood import TargetedPulsarLikelihood
 
 def sighandler(signum, frame):
     # perform periodic eviction with exit code 130
-    # see https://git.ligo.org/lscsoft/bilby_pipe/blob/0b5ca550e3a92494ef3e04801e79a2f9cd902b44/bilby_pipe/parser.py#L270
+    # see https://git.ligo.org/lscsoft/bilby_pipe/blob/0b5ca550e3a92494ef3e04801e79a2f9cd902b44/bilby_pipe/parser.py#L270  # noqa: E501
     sys.exit(130)
 
 

@@ -488,12 +488,14 @@ PHI0     2.4
 
         idxs = het.find_outliers()
 
-        assert len(np.where(idxs == True)[0]) >= 2
-        assert (10 in np.where(idxs == True)[0]) and (20 in np.where(idxs == True)[0])
+        assert len(np.where(idxs == True)[0]) >= 2  # noqa: E712
+        assert (10 in np.where(idxs == True)[0]) and (
+            20 in np.where(idxs == True)[0]
+        )  # noqa: E712
 
         # test removing the outlier automatically
         newhet = HeterodynedData(data, times=times, remove_outliers=True)
-        assert len(newhet) == (len(data) - len(np.where(idxs == True)[0]))
+        assert len(newhet) == (len(data) - len(np.where(idxs == True)[0]))  # noqa: E712
 
     def test_bayesian_blocks(self):
         """
@@ -564,7 +566,7 @@ PHI0     2.4
         # test no-splitting
         minlength = np.inf
         het = HeterodynedData(
-            data, times=times, bbthreshold="default", bbminlength=minlength,
+            data, times=times, bbthreshold="default", bbminlength=minlength
         )
 
         assert len(het.chunk_lengths) == 1
@@ -766,7 +768,7 @@ H0      1.5e-22
 
         # set the asd explicitly
         het = HeterodynedData(
-            times=times, fakeasd=1e-24, detector="H1", par=parfile, inject=True,
+            times=times, fakeasd=1e-24, detector="H1", par=parfile, inject=True
         )
         mhd = MultiHeterodynedData(het)
 

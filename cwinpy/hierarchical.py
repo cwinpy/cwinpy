@@ -253,7 +253,7 @@ class BaseDistribution(object):
         """
         Draw a sample from the distribution as defined by the given
         hyperparameters.
-        
+
         Parameters
         ----------
         hyperparameters: dict
@@ -429,7 +429,7 @@ class BoundedGaussianDistribution(BaseDistribution):
         """
         Draw a sample from the bounded Gaussian distribution as defined by the
         given hyperparameters.
-        
+
         Parameters
         ----------
         hyperparameters: dict
@@ -1065,7 +1065,8 @@ class MassQuadrupoleDistribution(object):
     def sample(self, **run_kwargs):
         """
         Sample the posterior distribution using ``bilby``. This can take
-        keyword argument required by the bilby `run sampler() <https://lscsoft.docs.ligo.org/bilby/samplers.html#bilby.run_sampler>`_ method.
+        keyword argument required by the bilby `run sampler() <https://lscsoft.docs.ligo.org/bilby/samplers.html#bilby.run_sampler>`_  # noqa: E501
+        method.
         """
 
         # set use_ratio to False by default, i.e., don't use the likelihood
