@@ -3,23 +3,15 @@
 """
 Run analysis to create two test pulsars and posterior samples to use
 in the testing of the hierarchical code.
-
-Note: to run this it requires a version of lalsuite with this MR applied https://git.ligo.org/lscsoft/lalsuite/merge_requests/812.
 """
 
 import os
-import subprocess as sp
 from collections import OrderedDict
 
 import bilby
-import corner
 import numpy as np
-from astropy.utils.data import download_file
 from bilby.core.prior import PriorDict, Uniform
 from cwinpy import HeterodynedData, TargetedPulsarLikelihood
-
-# URL for ephemeris files
-DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/src/{}"
 
 # create a two fake pulsar parameter files
 parcontent1 = """\

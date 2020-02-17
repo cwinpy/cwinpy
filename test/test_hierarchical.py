@@ -61,7 +61,7 @@ class TestDistributionObjects(object):
 
         # test failure when getting unknown item
         with pytest.raises(KeyError):
-            val = dist["kgksda"]
+            _ = dist["kgksda"]
 
         del dist
 

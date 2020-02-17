@@ -22,7 +22,6 @@ from bilby.core.prior import (
     MultivariateGaussianDist,
     Uniform,
 )
-# comparison function
 from comparitors import comparisons
 from cwinpy.knope import knope
 from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName

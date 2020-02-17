@@ -15,7 +15,6 @@ import matplotlib.font_manager as font_manager
 import numpy as np
 from astropy.utils.data import download_file
 from bilby.core.prior import Uniform
-# comparison function
 from comparitors import comparisons
 from cwinpy import HeterodynedData
 from cwinpy.knope import knope

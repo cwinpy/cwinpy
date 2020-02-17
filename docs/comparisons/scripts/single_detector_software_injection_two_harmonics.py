@@ -16,7 +16,6 @@ import matplotlib.font_manager as font_manager
 import numpy as np
 from astropy.utils.data import download_file
 from bilby.core.prior import Uniform
-# comparison function
 from comparitors import comparisons_two_harmonics
 from cwinpy import HeterodynedData
 from cwinpy.knope import knope
@@ -87,9 +86,7 @@ for harmonic, asd in zip(harmonics, asds):
     hetfile = os.path.join(
         outdir, "{}_{}_{}_data.txt".format(label, detector, harmonic)
     )
-    np.savetxt(
-        hetfile, np.vstack((het.times.value, het.data.real, het.data.imag)).T,
-    )
+    np.savetxt(hetfile, np.vstack((het.times.value, het.data.real, het.data.imag)).T)
     hetfiles.append(hetfile)
 
 # create priors
@@ -186,7 +183,7 @@ runcmd = " ".join(
     ]
 )
 
-p = sp.Popen(runcmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True,)
+p = sp.Popen(runcmd, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
 out, err = p.communicate()
 
 # convert nested samples to posterior samples
