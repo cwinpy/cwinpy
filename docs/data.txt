@@ -18,29 +18,31 @@ the form:
 
 .. math::
 
-   \phi(t) = 2 \pi C\left(f_0(t-T_0) + \frac{1}{2}\dot{f}_0(t-T_0)^2 + \dots\right)
+   \phi(t') = 2 \pi C\left(f_0(t'-T_0) + \frac{1}{2}\dot{f}_0(t'-T_0)^2 + \dots\right)
 
 where :math:`f_0` is the source rotation frequency, :math:`\dot{f}_0` is the first frequency
-derivative (higher order derivatives can also be used), :math:`t` is the time, incorporating any
-source and detector position-dependent Doppler and relativistic delays, :math:`T_0` is the time
-reference epoch in the pulsar proper time (often set to the solar system barycentre), and :math:`C`
-is an emission mechanism-dependent scaling factor (often set to 2, for emission from the
-:math:`l=m=2` quadrupole mode.) In searches for known pulsars, the frequency and its derivatives,
-and the Doppler and relativistic delays, are assumed to be known from the observed properties of the
+derivative (higher order derivatives can also be used), :math:`t'` is the time in a frame at rest
+with respect to the pulsar (the pulsar proper time, which for isolated pulsars is assumed to be
+consistent with the solar system barycentre), :math:`T_0` is the time reference epoch in the pulsar
+proper time, and :math:`C` is an emission mechanism-dependent scaling factor (often set to 2, for
+emission from the :math:`l=m=2` quadrupole mode.) In searches for known pulsars, the frequency, its
+derivatives, and the source position are assumed to be known from the observed properties of the
 pulsar.
 
 The raw real time series of :math:`h(t)` from a detector is "heterodyned",
 
 .. math::
 
-   h'(t) = h(t) e^{-2\pi i \phi(t)},
+   h'(t) = h(t) e^{-2\pi i \phi(t + \Delta t(t))},
 
-to remove the high-frequency variation of the potential source signal. The resulting complex series
-:math:`h'(t)` is low-pass filtered (effectively a band-pass filter on the two-sided complex data)
-using a high order Butterworth filter, often with a knee frequency of 0.25 Hz, and down-sampled, via
-averaging, to a far lower sample rate than the original raw data. In general gravitational-wave
-detector data is sampled at 16384 Hz, and often the heterodyned data is downsampled to 1/60 Hz (one
-sample per minute).
+to remove the high-frequency variation of the potential source signal, where :math:`\Delta t(t)` is
+a time- and source-and-position-dependent delay term that accounts for the Doppler and relativistic
+delays between the time at the detector and the pulsar proper time (see, e.g., Equation 1 of [4]_).
+The resulting complex series :math:`h'(t)` is low-pass filtered (effectively a band-pass filter on
+the two-sided complex data) using a high order Butterworth filter, often with a knee frequency of
+0.25 Hz, and down-sampled, via averaging, to a far lower sample rate than the original raw data. In
+general gravitational-wave detector data is sampled at 16384 Hz, and often the heterodyned data is
+downsampled to 1/60 Hz (one sample per minute).
 
 .. autoclass:: cwinpy.data.MultiHeterodynedData
    :members:
@@ -60,5 +62,9 @@ References
    *Astrophys. J.*, **839**, 12 (2017)
 
 .. [3] `R. Dupius & G. Woan
-   <https://ui.adsabs.harvard.edu/#abs/2005PhRvD..72j2002D/abstract>`_
+   <https://ui.adsabs.harvard.edu/#abs/2005PhRvD..72j2002D/abstract>`_,
    *Phys. Rev. D*, **72**, 102002 (2005)
+
+.. [4] `G. Hobbs, R. T. Edwards, R. N. Manchester
+   <https://ui.adsabs.harvard.edu/abs/2006MNRAS.369..655H/abstract>`_,
+   *Mon. Not. R. Astron. Soc.*, **369**, 655 (2006)
