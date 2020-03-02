@@ -34,7 +34,7 @@ then install the requirements and the software using:
       .. code-block:: console
 
          $ cd cwinpy/
-         $ pip install -r requirements.txttest-requirements.txt
+         $ pip install -r requirements.txt
          $ pip install .
 
    .. tab:: Developer
@@ -69,7 +69,7 @@ then install the requirements and the software using:
 
       within the cwinpy repository directory, which will add the ``pre-commit`` hook file to your
       ``.git/hooks`` directory. After this, when running ``git commit`` the checks will automatically
-      be run, and results will be presented to you. In some cases any required fixes will be
+      be run, and results will be presented to you. In some cases the required fixes will be
       automatically applied, but in cases where there was some failure it will print a message about
       why it failed. In these cases you will have to manually correct the offending files before
       running ``git commit`` again.
