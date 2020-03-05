@@ -946,7 +946,7 @@ class MassQuadrupoleDistribution(object):
                 self._distribution = distribution
         elif isinstance(distribution, str):
             self._distribution = create_distribution(
-                "Q22", distribution.lower(), **distkwargs
+                "Q22", distribution.lower(), distkwargs
             )
 
         # set the priors from the distribution
