@@ -67,7 +67,8 @@ for i, content in enumerate([parcontent1, parcontent2]):
     # output the data
     hetfile = os.path.join(outdir, "{}_{}_data.txt".format(label, i))
     np.savetxt(
-        hetfile, np.vstack((hets[i].times, hets[i].data.real, hets[i].data.imag)).T
+        hetfile,
+        np.vstack((hets[i].times.value, hets[i].data.real, hets[i].data.imag)).T,
     )
 
 # create priors
@@ -89,7 +90,7 @@ with open(priorfile, "w") as fp:
 
 # set prior for bilby
 priors = OrderedDict()
-priors["Q22"] = Uniform(q22range[0], q22range[1], "Q22", latex_label=r"$Q_{22}$")
+priors["q22"] = Uniform(q22range[0], q22range[1], "q22", latex_label=r"$Q_{22}$")
 priors["phi0"] = Uniform(
     phi0range[0], phi0range[1], "phi0", latex_label=r"$\phi_0$", unit="rad"
 )

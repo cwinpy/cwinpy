@@ -851,15 +851,29 @@ class MassQuadrupoleDistribution(object):
         for result in data:
             # check all posteriors contain Q22
             if (
-                "Q22" not in result.search_parameter_keys
-                or "Q22" not in result.posterior.columns
+                "Q22" not in result.posterior.columns
+                and "q22" not in result.posterior.columns
             ):
                 raise RuntimeError("Results do not contain Q22")
 
         if self._q22_interp_values is None:
             # set q22 range from data
-            maxq22 = np.max([res.posterior["Q22"].max() for res in data])
-            minq22 = np.min([res.posterior["Q22"].min() for res in data])
+            maxq22 = np.max(
+                [
+                    res.posterior["q22"].max()
+                    if "q22" in res.posterior.columns
+                    else res.posterior["Q22"].max()
+                    for res in data
+                ]
+            )
+            minq22 = np.min(
+                [
+                    res.posterior["q22"].min()
+                    if "q22" in res.posterior.columns
+                    else res.posterior["Q22"].min()
+                    for res in data
+                ]
+            )
             self.set_q22range([minq22, maxq22])
 
         # create KDEs
@@ -867,7 +881,8 @@ class MassQuadrupoleDistribution(object):
             self._bw = bw
 
             try:
-                samples = result.posterior["Q22"]
+                q22str = "q22" if "q22" in result.posterior.columns else "Q22"
+                samples = result.posterior[q22str]
 
                 # get reflected samples
                 samps = np.concatenate((samples, -samples))
@@ -889,9 +904,9 @@ class MassQuadrupoleDistribution(object):
                 interpvals += result.log_evidence
 
             # divide by Q22 prior
-            if "Q22" not in result.priors:
+            if q22str not in [key for key in result.priors]:
                 raise KeyError("Prior contains no Q22 value")
-            prior = result.priors["Q22"]
+            prior = result.priors[q22str]
             interpvals -= prior.ln_prob(self._q22_interp_values)
 
             # create and add interpolator
