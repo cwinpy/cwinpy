@@ -67,7 +67,8 @@ for i, content in enumerate([parcontent1, parcontent2]):
     # output the data
     hetfile = os.path.join(outdir, "{}_{}_data.txt".format(label, i))
     np.savetxt(
-        hetfile, np.vstack((hets[i].times, hets[i].data.real, hets[i].data.imag)).T
+        hetfile,
+        np.vstack((hets[i].times.value, hets[i].data.real, hets[i].data.imag)).T,
     )
 
 # create priors
