@@ -263,7 +263,7 @@ class TestMassQuadrupoleDistribution(object):
         res = ResultList([testdata1, testdata2])
 
         # remove Q22 from results to test error
-        del res[0].posterior["Q22"]
+        del res[0].posterior["q22"]
         with pytest.raises(RuntimeError):
             MassQuadrupoleDistribution(data=res)
 
