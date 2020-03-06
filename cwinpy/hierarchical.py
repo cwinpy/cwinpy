@@ -1211,7 +1211,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
                 log_like += np.log(
                     np.mean(self.distribution.pdf(self.parameters, samps))
                 )
-        elif self.q22grid is not None:
+        else:
             # log-likelihood numerically integrating over Q22
             for intfunc in self.likelihoods:
                 # evaluate the hyperparameter distribution
@@ -1221,23 +1221,6 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
                 logl = intfunc(self.q22grid)
 
                 log_like += logtrapz(logp + logl, self.q22grid)
-        else:
-            # draw Q22 sample for each source (not sure if this will work!)
-            try:
-                values = self.distribution.sample(self.parameters, size=len(self))
-            except Exception as e:
-                raise RuntimeError(
-                    'Could not draw sample from distribution: "{}"'.format(e)
-                )
-
-            for i, intfunc in enumerate(self.likelihoods):
-                if values[i] < np.min(intfunc.x) or values[i] > np.max(intfunc.x):
-                    return -np.inf
-
-                log_like += intfunc(values[i])
-
-                # evaluate the hyperparameter distribution
-                log_like += self.distribution.log_pdf(self.parameters, values[i])
 
         return log_like
 
