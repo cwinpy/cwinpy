@@ -1157,8 +1157,14 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         elif not isinstance(like, list):
             raise TypeError("Likelihoods must be a list")
         else:
-            self._likelihoods = like
-            self._nsources = len(like)
+            if self.q22grid is not None:
+                # evaluate the interpolated (log) likelihoods on the grid
+                self._likelihoods = []
+                for l in like:
+                    self._likelihoods.append(like(self.q22grid))
+                self._nsources = len(like)
+            else:
+                raise ValueError("Q22 grid must be set to evaluate likelihoods")
 
     @property
     def q22grid(self):
@@ -1212,14 +1218,11 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
                     np.mean(self.distribution.pdf(self.parameters, samps))
                 )
         else:
+            # evaluate the hyperparameter distribution
+            logp = self.distribution.log_pdf(self.parameters, self.q22grid)
+
             # log-likelihood numerically integrating over Q22
-            for intfunc in self.likelihoods:
-                # evaluate the hyperparameter distribution
-                logp = self.distribution.log_pdf(self.parameters, self.q22grid)
-
-                # evaluate the likelihood
-                logl = intfunc(self.q22grid)
-
+            for logl in self.likelihoods:
                 log_like += logtrapz(logp + logl, self.q22grid)
 
         return log_like
