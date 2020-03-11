@@ -782,6 +782,8 @@ class MassQuadrupoleDistribution(object):
             start of the range. Default is True.
         """
 
+        self._q22bins = q22bins
+
         if q22range is None:
             self._q22_interp_values = None
             return
@@ -790,7 +792,7 @@ class MassQuadrupoleDistribution(object):
             if q22range[1] < q22range[0]:
                 raise ValueError("Q22 range is badly defined")
             self._q22_interp_values = np.logspace(
-                np.log10(q22range[0]), np.log10(q22range[1]), q22bins
+                np.log10(q22range[0]), np.log10(q22range[1]), self._q22bins
             )
 
             if prependzero:
@@ -874,7 +876,7 @@ class MassQuadrupoleDistribution(object):
                     for res in data
                 ]
             )
-            self.set_q22range([minq22, maxq22])
+            self.set_q22range([minq22, maxq22], self._q22bins)
 
         # create KDEs
         for result in data:
