@@ -1160,8 +1160,8 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
             if self.q22grid is not None:
                 # evaluate the interpolated (log) likelihoods on the grid
                 self._likelihoods = []
-                for l in like:
-                    self._likelihoods.append(like(self.q22grid))
+                for ll in like:
+                    self._likelihoods.append(ll(self.q22grid))
                 self._nsources = len(like)
             else:
                 raise ValueError("Q22 grid must be set to evaluate likelihoods")
