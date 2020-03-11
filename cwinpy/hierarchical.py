@@ -1139,8 +1139,8 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
 
         inferred_parameters = {param: None for param in distribution.unknown_parameters}
         self.distribution = distribution
-        self.likelihoods = likelihoods
         self.q22grid = q22grid
+        self.likelihoods = likelihoods
         self.samples = samples
 
         super().__init__(parameters=inferred_parameters)
