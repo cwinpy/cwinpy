@@ -195,7 +195,7 @@ class PEPPPlotsDAG(object):
     ninj: int
         The number of simulated signals to create. Defaults to 100.
     maxamp: float
-        A maxmimum on the amplitude parameter(s) to use when drawing the
+        A maximum on the amplitude parameter(s) to use when drawing the
         injection parameters. If none is given then this will be taken
         from the prior if using an amplitude parameter.
     basedir: str
