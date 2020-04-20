@@ -106,18 +106,18 @@ exclude_patterns = [
     "comparisons/scripts/outputs/*.json",
     "comparisons/scripts/outputs/*.json.old",
     "comparisons/scripts/data",
-    "knope/knope_help.txt",
-    "knope/cwinpy_knope_dag.ini",
-    "knope/data/*.txt",
-    "knope/data/*.par",
-    "knope/data/*.ini",
-    "knope/data/*.txt.gz",
-    "knope/data/example1/*.json",
-    "knope/data/example1/*.pickle",
-    "knope/data/example1/*_trace.png",
-    "knope/data/example2/*.json",
-    "knope/data/example2/*.pickle",
-    "knope/data/example2/*_trace.png",
+    "pe/pe_help.txt",
+    "pe/cwinpy_pe_dag.ini",
+    "pe/data/*.txt",
+    "pe/data/*.par",
+    "pe/data/*.ini",
+    "pe/data/*.txt.gz",
+    "pe/data/example1/*.json",
+    "pe/data/example1/*.pickle",
+    "pe/data/example1/*_trace.png",
+    "pe/data/example2/*.json",
+    "pe/data/example2/*.pickle",
+    "pe/data/example2/*_trace.png",
 ]
 
 add_function_parentheses = True
@@ -236,7 +236,7 @@ intersphinx_mapping = {
 }
 
 
-# generate cwinpy_knope help string for docs
-knope_help = subprocess.getoutput("cwinpy_knope --help")
-with open("knope/knope_help.txt", "w") as fp:
-    fp.write(knope_help)
+# generate cwinpy_pe help string for docs
+pe_help = subprocess.getoutput("cwinpy_pe --help")
+with open("pe/pe_help.txt", "w") as fp:
+    fp.write(pe_help)

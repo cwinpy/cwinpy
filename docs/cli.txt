@@ -8,4 +8,4 @@ base for running actual analyses.
 .. toctree::
    :maxdepth: 1
 
-   knope/knope
+   pe/pe

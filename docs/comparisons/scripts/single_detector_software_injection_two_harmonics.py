@@ -18,7 +18,7 @@ from astropy.utils.data import download_file
 from bilby.core.prior import Uniform
 from comparitors import comparisons_two_harmonics
 from cwinpy import HeterodynedData
-from cwinpy.knope import knope
+from cwinpy.pe import pe
 from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 from lalinference.io import read_samples
 from matplotlib.lines import Line2D
@@ -214,8 +214,8 @@ evsig = a.attrs["log_evidence"]
 evnoise = a.attrs["log_noise_evidence"]
 hdf.close()
 
-# run bilby via the knope interface
-runner = knope(
+# run bilby via the pe interface
+runner = pe(
     data_file_1f=hetfiles[0],
     data_file_2f=hetfiles[1],
     par_file=parfile,
@@ -250,7 +250,7 @@ axes = fig.get_axes()
 # custom legend
 legend_elements = [
     Line2D([], [], color="r", label="lalapps_pulsar_parameter_estimation_nested"),
-    Line2D([], [], color="b", label="cwinpy_knope"),
+    Line2D([], [], color="b", label="cwinpy_pe"),
 ]
 font = font_manager.FontProperties(family="monospace")
 leg = axes[3].legend(
