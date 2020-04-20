@@ -2,7 +2,19 @@
 Generate simulations for running the hierarchical analysis.
 """
 
-class KnopeMassQuadrupoleSimulationDAG(object):
+import os
+import shutil
+from configparser import ConfigParser
+
+import astropy.units as u
+import bilby
+import numpy as np
+from astropy.coordinates import SkyCoord
+
+from .pe import pe_dag
+
+
+class PEMassQuadrupoleSimulationDAG(object):
     """
     This class will generate a HTCondor Dagman job to create a number of
     simulated gravitational-wave signals from pulsars. These signals will
@@ -12,8 +24,8 @@ class KnopeMassQuadrupoleSimulationDAG(object):
     including the pulsar distance, or using fake pulsars with sky
     locations and distances drawn from input distribution (by default the sky
     location distribution will be uniform on the sky).
-    
-    These signals will be analysed using the ``cwinpy_knope`` script to sample
+
+    These signals will be analysed using the ``cwinpy_pe`` script to sample
     the posterior probability distributions of the required parameter space,
     including the mass quadrupole.
 
@@ -42,7 +54,7 @@ class KnopeMassQuadrupoleSimulationDAG(object):
     skydist: :class:`bilby.core.prior.PriorDict`
         The distribution from which to draw pulsar sky positions if needed.
         If this is required the distribution will default to being uniform over
-        the sky. 
+        the sky.
 
     prior: dict A bilby-style prior dictionary giving the prior distributions from which to draw the
         injected signal values, and to use for signal recovery. ninj: int The number of simulated
@@ -139,7 +151,7 @@ class KnopeMassQuadrupoleSimulationDAG(object):
         self.create_config()
 
         # create the DAG for cwinpy_knope jobs
-        self.runner = knope_dag(config=self.config, build=False)
+        self.runner = pe_dag(config=self.config, build=False)
 
         # add PP plot creation DAG
         self.ppplots()
