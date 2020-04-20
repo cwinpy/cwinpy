@@ -9,10 +9,10 @@ import bilby
 import numpy as np
 import pycondor
 import pytest
-from cwinpy.knope.testing import KnopePPPlotsDAG
+from cwinpy.pe.testing import PEPPPlotsDAG
 
 
-class TestKnopePP(object):
+class TestPEPP(object):
     @classmethod
     def setup_class(cls):
         """
@@ -42,25 +42,25 @@ class TestKnopePP(object):
 
     def test_failures(self):
         with pytest.raises(TypeError):
-            KnopePPPlotsDAG(1)
+            PEPPPlotsDAG(1)
 
         with pytest.raises(ValueError):
-            KnopePPPlotsDAG(self.priors, ninj=-1)
+            PEPPPlotsDAG(self.priors, ninj=-1)
 
         with pytest.raises(ValueError):
-            KnopePPPlotsDAG(self.priors, maxamp=-1.0)
+            PEPPPlotsDAG(self.priors, maxamp=-1.0)
 
         with pytest.raises(IOError):
-            KnopePPPlotsDAG(self.priors, basedir=1)
+            PEPPPlotsDAG(self.priors, basedir=1)
 
         with pytest.raises(TypeError):
-            KnopePPPlotsDAG(self.priors, basedir=self.basedir, freqrange=1)
+            PEPPPlotsDAG(self.priors, basedir=self.basedir, freqrange=1)
 
         with pytest.raises(ValueError):
-            KnopePPPlotsDAG(self.priors, basedir=self.basedir, freqrange=[1, 2, 3])
+            PEPPPlotsDAG(self.priors, basedir=self.basedir, freqrange=[1, 2, 3])
 
     def test_run(self):
-        run = KnopePPPlotsDAG(
+        run = PEPPPlotsDAG(
             self.priors,
             basedir=self.basedir,
             ninj=self.ninj,

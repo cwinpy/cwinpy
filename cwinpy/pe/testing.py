@@ -1,5 +1,5 @@
 """
-Run P-P plot testing for cwinpy_knope.
+Run P-P plot testing for cwinpy_pe.
 """
 
 import ast
@@ -17,7 +17,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from bilby_pipe.pp_test import read_in_result_list
 
-from .knope import knope_dag
+from .pe import pe_dag
 
 
 def generate_pp_plots(**kwargs):  # pragma: no cover
@@ -59,7 +59,7 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
 
         # create SNR plot
         snrs = kwargs.get("snrs", False)
-    elif "cwinpy_knope_generate_pp_plots" == os.path.split(sys.argv[0])[-1]:
+    elif "cwinpy_pe_generate_pp_plots" == os.path.split(sys.argv[0])[-1]:
         parser = ArgumentParser(
             description=("A script to create a PP plot of CW signal parameters")
         )
@@ -175,11 +175,11 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
             raise IOError("Problem saving figure: {}".format(e))
 
 
-class KnopePPPlotsDAG(object):
+class PEPPPlotsDAG(object):
     """
     This class will generate a HTCondor Dagman job to create a number of
     simulated gravitational-wave signals from pulsars in Gaussian noise. These
-    will be analysed using the ``cwinpy_knope`` script to sample the posterior
+    will be analysed using the ``cwinpy_pe`` script to sample the posterior
     probability distributions of the required parameter space. For each
     simulation and parameter combination the credible interval (bounded at the
     low end by the lowest sample in the posterior) in which the known true
@@ -304,8 +304,8 @@ class KnopePPPlotsDAG(object):
         self.numba = numba
         self.create_config()
 
-        # create the DAG for cwinpy_knope jobs
-        self.runner = knope_dag(config=self.config, build=False)
+        # create the DAG for cwinpy_pe jobs
+        self.runner = pe_dag(config=self.config, build=False)
 
         # add PP plot creation DAG
         self.ppplots()
@@ -430,30 +430,30 @@ class KnopePPPlotsDAG(object):
         if self.accountuser is not None:
             self.config["job"]["accounting_group_user"] = self.accountuser
 
-        self.config["knope"] = {}
-        self.config["knope"]["pulsars"] = self.pulsardir
-        self.config["knope"]["injections"] = self.pulsardir
-        self.config["knope"]["results"] = self.resultsdir
-        self.config["knope"]["numba"] = str(self.numba)
+        self.config["pe"] = {}
+        self.config["pe"]["pulsars"] = self.pulsardir
+        self.config["pe"]["injections"] = self.pulsardir
+        self.config["pe"]["results"] = self.resultsdir
+        self.config["pe"]["numba"] = str(self.numba)
 
         # set fake data
         if "h0" in self.prior or "c22" in self.prior or "q22" in self.prior:
-            self.config["knope"]["fake-asd-2f"] = str(self.detector)
+            self.config["pe"]["fake-asd-2f"] = str(self.detector)
         if "c21" in self.prior and "c22" in self.prior:
-            self.config["knope"]["fake-asd-1f"] = str(self.detector)
+            self.config["pe"]["fake-asd-1f"] = str(self.detector)
         if "c21" in self.prior and "c22 not in self.prior":
-            self.config["knope"]["fake-asd-1f"] = str(self.detector)
+            self.config["pe"]["fake-asd-1f"] = str(self.detector)
 
         # set the prior file
         label = "ppplot"
         self.priorfile = os.path.join(self.basedir, "{}.prior".format(label))
         self.prior.to_file(outdir=self.basedir, label=label)
 
-        self.config["knope"]["priors"] = self.priorfile
-        self.config["knope"]["sampler"] = self.sampler
+        self.config["pe"]["priors"] = self.priorfile
+        self.config["pe"]["sampler"] = self.sampler
         if isinstance(self.sampler_kwargs, dict):
-            self.config["knope"]["sampler_kwargs"] = str(self.sampler_kwargs)
-        self.config["knope"]["output_snr"] = str(self.outputsnr)
+            self.config["pe"]["sampler_kwargs"] = str(self.sampler_kwargs)
+        self.config["pe"]["output_snr"] = str(self.outputsnr)
 
     def ppplots(self):
         """
@@ -463,7 +463,7 @@ class KnopePPPlotsDAG(object):
         from pycondor import Job
 
         # get executable
-        jobexec = shutil.which("cwinpy_knope_generate_pp_plots")
+        jobexec = shutil.which("cwinpy_pe_generate_pp_plots")
 
         extra_lines = []
         if self.accountgroup is not None:
@@ -471,9 +471,9 @@ class KnopePPPlotsDAG(object):
         if self.accountuser is not None:
             extra_lines.append("accounting_group_user = {}".format(self.accountuser))
 
-        # create cwinpy_knope Job
+        # create cwinpy_pe Job
         job = Job(
-            "cwinpy_knope_pp_plots",
+            "cwinpy_pe_pp_plots",
             jobexec,
             error=self.runner.error,
             log=self.runner.log,
@@ -497,5 +497,5 @@ class KnopePPPlotsDAG(object):
 
         job.add_parents(
             self.runner.dag.nodes[:-1]
-        )  # exclude cwinpy_knope_pp_plots job itself
+        )  # exclude cwinpy_pe_pp_plots job itself
         self.runner.dag.build()

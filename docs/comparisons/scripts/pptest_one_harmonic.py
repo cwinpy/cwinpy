@@ -8,7 +8,7 @@ frequency: h0, iota, psi and phi0.
 
 import bilby
 import numpy as np
-from cwinpy.knope.testing import KnopePPPlotsDAG
+from cwinpy.pe.testing import PEPPPlotsDAG
 
 # set the priors
 prior = {}
@@ -35,7 +35,7 @@ numba = True
 getenv = True
 freqrange = (100.0, 200.0)
 
-run = KnopePPPlotsDAG(
+run = PEPPPlotsDAG(
     prior,
     ninj=ninj,
     maxamp=maxamp,

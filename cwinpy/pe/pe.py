@@ -29,7 +29,7 @@ def sighandler(signum, frame):
     sys.exit(130)
 
 
-def create_knope_parser():
+def create_pe_parser():
     """
     Create the argument parser.
     """
@@ -353,7 +353,7 @@ continuous gravitational-wave signal from a known pulsar."""
     return parser
 
 
-class KnopeRunner(object):
+class PERunner(object):
     """
     Set up and run the known pulsar parameter estimation.
 
@@ -1042,9 +1042,9 @@ class KnopeRunner(object):
         return self.grid
 
 
-def knope(**kwargs):
+def pe(**kwargs):
     """
-    Run knope within Python.
+    Run PE within Python.
 
     Parameters
     ----------
@@ -1184,9 +1184,9 @@ def knope(**kwargs):
         Python this defaults to 10000000.
     """
 
-    if "cwinpy_knope" == os.path.split(sys.argv[0])[-1] or "config" in kwargs:
+    if "cwinpy_pe" == os.path.split(sys.argv[0])[-1] or "config" in kwargs:
         # get command line arguments
-        parser = create_knope_parser()
+        parser = create_pe_parser()
 
         # parse config file or command line arguments
         if "config" in kwargs:
@@ -1209,7 +1209,7 @@ def knope(**kwargs):
         dargs = kwargs
 
     # set up the run
-    runner = KnopeRunner(dargs)
+    runner = PERunner(dargs)
 
     # run the sampler (expect in testing)
     if runner.use_grid:
@@ -1220,16 +1220,16 @@ def knope(**kwargs):
     return runner
 
 
-def knope_cli(**kwargs):  # pragma: no cover
+def pe_cli(**kwargs):  # pragma: no cover
     """
-    Entry point to ``cwinpy_knope script``. This just calls :func:`cwinpy.knope.knope`,
+    Entry point to ``cwinpy_pe script``. This just calls :func:`cwinpy.pe.pe`,
     but does not return any objects.
     """
 
-    _ = knope(**kwargs)
+    _ = pe(**kwargs)
 
 
-class KnopeDAGRunner(object):
+class PEDAGRunner(object):
     """
     Set up and run the known pulsar parameter estimation DAG.
 
@@ -1267,7 +1267,7 @@ class KnopeDAGRunner(object):
         try:
             from pycondor import Job, Dagman
         except ImportError:
-            raise ImportError("To run 'cwinpy_knope_dag' you must install pycondor")
+            raise ImportError("To run 'cwinpy_pe_dag' you must install pycondor")
 
         # get output directory base from the [run] section
         basedir = config.get("run", "basedir", fallback=None)
@@ -1286,7 +1286,7 @@ class KnopeDAGRunner(object):
         submit = config.get("dag", "submit", fallback=os.path.join(basedir, "submit"))
 
         # DAG name prefix
-        name = config.get("dag", "name", fallback="cwinpy_knope_dag")
+        name = config.get("dag", "name", fallback="cwinpy_pe_dag")
 
         # get whether to build the dag
         self.build = config.getboolean("dag", "build", fallback=True)
@@ -1300,19 +1300,19 @@ class KnopeDAGRunner(object):
         # create the Dagman
         self.dag = Dagman(name=name, submit=submit)
 
-        # get the cwinpy_knope job arguments
+        # get the cwinpy_pe job arguments
         # executable
         from shutil import which
 
-        jobexec = which(config.get("job", "executable", fallback="cwinpy_knope"))
+        jobexec = which(config.get("job", "executable", fallback="cwinpy_pe"))
 
         if jobexec is None:
-            raise ValueError("cwinpy_knope executable is not specified")
-        elif os.path.basename(jobexec) != "cwinpy_knope":
-            raise ValueError("Executable '{}' is not 'cwinpy_knope'!".format(jobexec))
+            raise ValueError("cwinpy_pe executable is not specified")
+        elif os.path.basename(jobexec) != "cwinpy_pe":
+            raise ValueError("Executable '{}' is not 'cwinpy_pe'!".format(jobexec))
 
         # job name prefix
-        jobname = config.get("job", "name", fallback="cwinpy_knope")
+        jobname = config.get("job", "name", fallback="cwinpy_pe")
 
         # condor universe
         self.universe = config.get("job", "universe", fallback="vanilla")
@@ -1358,7 +1358,7 @@ class KnopeDAGRunner(object):
         if name == jobname:
             raise ValueError("Dagman name and Job name must be different")
 
-        # create cwinpy_knope Job
+        # create cwinpy_pe Job
         self.job = Job(
             jobname,
             jobexec,
@@ -1377,22 +1377,22 @@ class KnopeDAGRunner(object):
             dag=self.dag,
         )
 
-        # create configurations for each cwinpy_knope job
-        if config.has_section("knope"):
+        # create configurations for each cwinpy_pe job
+        if config.has_section("pe"):
             # get the path to output the results to
             resultsdir = config.get(
-                "knope", "results", fallback=os.path.join(basedir, "results")
+                "pe", "results", fallback=os.path.join(basedir, "results")
             )
 
             # get the paths to the pulsar parameter files
-            parfiles = config.get("knope", "pulsars", fallback=None)
+            parfiles = config.get("pe", "pulsars", fallback=None)
 
             if parfiles is None:
                 raise ValueError(
                     "Configuration must contain a set of pulsar parameter files"
                 )
 
-            # the "pulsars" option in the [knope] section can either be:
+            # the "pulsars" option in the [pe] section can either be:
             #  - the path to a single file
             #  - a list of parameter files
             #  - a directory (or glob-able directory pattern) containing parameter files
@@ -1430,10 +1430,10 @@ class KnopeDAGRunner(object):
                             "ignored".format(pulsar)
                         )
 
-            # the "injections" option in the [knope] section can be specified
+            # the "injections" option in the [pe] section can be specified
             # in the same way as the "pulsars" option
             # get paths to pulsar injection files
-            injfiles = config.get("knope", "injections", fallback=None)
+            injfiles = config.get("pe", "injections", fallback=None)
             if injfiles is not None:
                 injfiles = self.eval(injfiles)
                 if not isinstance(injfiles, list):
@@ -1467,7 +1467,7 @@ class KnopeDAGRunner(object):
                                 "ignored".format(inj)
                             )
 
-            # the "data-file-1f" and "data-file-2f" options in the [knope]
+            # the "data-file-1f" and "data-file-2f" options in the [pe]
             # section specify the locations of heterodyned data files at the
             # rotation frequency and twice the rotation frequency of each
             # source. It is expected that the heterodyned file names
@@ -1476,13 +1476,11 @@ class KnopeDAGRunner(object):
             # with keys being the detector name for the data sets. If a
             # "data-file" option is given it is assumed to be for data at twice
             # the rotation frequency.
-            datafiles1f = config.get("knope", "data-file-1f", fallback=None)
-            datafiles2fdefault = config.get("knope", "data-file", fallback=None)
-            datafiles2f = config.get(
-                "knope", "data-file-2f", fallback=datafiles2fdefault
-            )
+            datafiles1f = config.get("pe", "data-file-1f", fallback=None)
+            datafiles2fdefault = config.get("pe", "data-file", fallback=None)
+            datafiles2f = config.get("pe", "data-file-2f", fallback=datafiles2fdefault)
 
-            # the "fake-asd-1f" and "fake-asd-2f" options in the [knope]
+            # the "fake-asd-1f" and "fake-asd-2f" options in the [pe]
             # section specify amplitude spectral densities with which to
             # generate simulated Gaussian data for a given detector. If this is
             # a list of detectors then the design ASDs for the given detectors
@@ -1490,9 +1488,9 @@ class KnopeDAGRunner(object):
             # detector names, each giving an ASD value, or file from which the
             # ASD can be read. If a "fake-asd" option is given it is assumed to
             # be for data at twice the rotation frequency.
-            fakeasd1f = config.get("knope", "fake-asd-1f", fallback=None)
-            fakeasd2fdefault = config.get("knope", "fake-asd", fallback=None)
-            fakeasd2f = config.get("knope", "fake-asd-2f", fallback=fakeasd2fdefault)
+            fakeasd1f = config.get("pe", "fake-asd-1f", fallback=None)
+            fakeasd2fdefault = config.get("pe", "fake-asd", fallback=None)
+            fakeasd2f = config.get("pe", "fake-asd-2f", fallback=fakeasd2fdefault)
             simdata = {}
 
             if datafiles1f is not None or datafiles2f is not None:
@@ -1611,7 +1609,7 @@ class KnopeDAGRunner(object):
             ).format(**{"2pi": 2.0 * np.pi, "pi": np.pi, "pi_2": (np.pi / 2.0)})
 
             # get priors (if none are specified use the defaults)
-            priors = config.get("knope", "priors", fallback=None)
+            priors = config.get("pe", "priors", fallback=None)
 
             # "priors" can be a file, list of files, directory containing files,
             # glob-able path pattern to a set of files, or a dictionary of files
@@ -1708,9 +1706,9 @@ class KnopeDAGRunner(object):
                     if pname in pulsardict:
                         pulsardict.pop(pname)
 
-            # check location to output 'cwinpy_knope' input configuration files.
+            # check location to output 'cwinpy_pe' input configuration files.
             configlocation = config.get(
-                "knope", "config", fallback=os.path.join(basedir, "configs")
+                "pe", "config", fallback=os.path.join(basedir, "configs")
             )
 
             if configlocation is not None:
@@ -1724,18 +1722,18 @@ class KnopeDAGRunner(object):
                     )
 
             # output the SNRs (injected and recovered)
-            outputsnr = config.getboolean("knope", "output_snr", fallback=False)
+            outputsnr = config.getboolean("pe", "output_snr", fallback=False)
 
             # get the sampler (default is dynesty)
-            sampler = config.get("knope", "sampler", fallback="dynesty")
+            sampler = config.get("pe", "sampler", fallback="dynesty")
 
             # get the sampler keyword arguments
-            samplerkwargs = config.get("knope", "sampler_kwargs", fallback=None)
+            samplerkwargs = config.get("pe", "sampler_kwargs", fallback=None)
 
             # get whether to use numba
-            numba = config.getboolean("knope", "numba", fallback=False)
+            numba = config.getboolean("pe", "numba", fallback=False)
         else:
-            raise IOError("Configuration file must have a [knope] section.")
+            raise IOError("Configuration file must have a [pe] section.")
 
         if len(pulsardict) == 0:
             raise ValueError("No pulsars have been specified!")
@@ -1830,10 +1828,10 @@ class KnopeDAGRunner(object):
         return newobj
 
 
-def knope_dag(**kwargs):
+def pe_dag(**kwargs):
     """
-    Run knope_dag within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
-    DAG for running multiple ``cwinpy_knope`` instances on a computer cluster.
+    Run pe_dag within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
+    DAG for running multiple ``cwinpy_pe`` instances on a computer cluster.
 
     Parameters
     ----------
@@ -1874,13 +1872,13 @@ def knope_dag(**kwargs):
                 "Problem reading configuration file '{}'\n: {}".format(configfile, e)
             )
 
-    return KnopeDAGRunner(config)
+    return PEDAGRunner(config)
 
 
-def knope_dag_cli(**kwargs):  # pragma: no cover
+def pe_dag_cli(**kwargs):  # pragma: no cover
     """
-    Entry point to the cwinpy_knope_dag script. This just calls
-    :func:`cwinpy.knope.knope_dag`, but does not return any objects.
+    Entry point to the cwinpy_pe_dag script. This just calls
+    :func:`cwinpy.pe.pe_dag`, but does not return any objects.
     """
 
-    _ = knope_dag(**kwargs)
+    _ = pe_dag(**kwargs)

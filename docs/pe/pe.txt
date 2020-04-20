@@ -8,10 +8,10 @@ parameter posterior distributions CWInPy uses the `bilby
 <https://lscsoft.docs.ligo.org/bilby/>`_ package as an interface to a variety of stochastic sampling
 methods.
 
-CWInPy comes with an executable, ``cwinpy_knope`` ("knope" = "\ **KNO**\ wn pulsar **P**\
-arameter **E**\ stimation"), for performing this analysis, which tries to emulate, as much as
-possible, the functionality from the `LALSuite <https://lscsoft.docs.ligo.org/lalsuite/>`_ code
-``lalapps_pulsar_parameter_estimation_nested`` described in [1]_.
+CWInPy comes with an executable, ``cwinpy_pe``, for performing this analysis, which tries to
+emulate, as much as possible, the functionality from the `LALSuite
+<https://lscsoft.docs.ligo.org/lalsuite/>`_ code ``lalapps_pulsar_parameter_estimation_nested``
+described in [1]_.
 
 There is also an API for running this analysis from within a Python shell or script as described
 :ref:`below<API>`.
@@ -22,8 +22,8 @@ Running the analysis
 The script, and :ref:`API`, can be used to perform parameter estimation over a variety of signal
 parameter both on real data or simulated data. We will cover some examples of both cases and show
 equivalent ways of running the analysis via the use of: command line arguments to the
-``cwinpy_knope`` script; a configuration files, or the :ref:`API`. The current command line
-arguments for ``cwinpy_knope`` are given :ref:`below<Command line arguments>`.
+``cwinpy_pe`` script; a configuration files, or the :ref:`API`. The current command line
+arguments for ``cwinpy_pe`` are given :ref:`below<Command line arguments>`.
 
 Example: single detector data
 =============================
@@ -74,7 +74,7 @@ frequency.
 
 With the data at hand, and the priors defined, the analysis can now be run. It is recommended to run
 by setting up a configuration file, although as mentioned equivalent command line arguments can be
-passed to ``cwinpy_knope`` (or a combination of a configuration file and command line arguments may
+passed to ``cwinpy_pe`` (or a combination of a configuration file and command line arguments may
 be useful if defining some fixed setting for many analyses in the file, but making minor changes for
 individual cases on the command line.) A configuration file for this example is shown below, with
 comments describing the parameters given inline:
@@ -85,7 +85,7 @@ The analysis can then be run using:
 
 .. code-block:: bash
 
-   cwinpy_knope --config example1_config.ini
+   cwinpy_pe --config example1_config.ini
 
 which should only take a few minutes, with information on the run output to the terminal.
 
@@ -133,7 +133,7 @@ Rather than using the configuration file, all the arguments could be given on th
 
 .. code-block:: bash
 
-   cwinpy_knope --detector H1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --outdir example1 --label example1 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example1_prior.txt --show-truths
+   cwinpy_pe --detector H1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --outdir example1 --label example1 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example1_prior.txt --show-truths
 
 where it should be noted that the ``--sampler-kwargs`` dictionary argument must be given within
 quotation marks.
@@ -166,7 +166,7 @@ The analysis can then be run using:
 
 .. code-block:: bash
 
-   cwinpy_knope --config example2_config.ini
+   cwinpy_pe --config example2_config.ini
 
 This will create a directory called ``example2`` containing: the results as a bilby ``Results``
 object saved in a `JSON <https://www.json.org/>`_ format file called ``example2_result.json`` (see
@@ -205,7 +205,7 @@ The equivalent full command line arguments that could be used are:
 
 .. code-block:: bash
 
-   cwinpy_knope --detector H1 --detector L1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --data-file fine-L1-PULSAR08.txt.gz --outdir example2 --label example2 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example2_prior.txt --show-truths
+   cwinpy_pe --detector H1 --detector L1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --data-file fine-L1-PULSAR08.txt.gz --outdir example2 --label example2 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example2_prior.txt --show-truths
 
 
 Running on multiple sources
@@ -257,21 +257,21 @@ An example of such a directory tree structure might be:
     |    └── ...
     └── ...
 
-The DAG for the analysis can be created using the ``cwinpy_knope_dag`` script, which requires a
+The DAG for the analysis can be created using the ``cwinpy_pe_dag`` script, which requires a
 configuration file as it's only input. An example configuration file, based on the above directory
 tree structure is given below. Comments about each input parameter, and different potential input
 options are given inline; some input parameters are also commented out using a ``;`` if the default
 values are appropriate. For more information on the various HTCondor options see the `user manual
 <https://htcondor.readthedocs.io/en/v8_8_4/users-manual/index.html>`_.
 
-.. literalinclude:: cwinpy_knope_dag.ini
+.. literalinclude:: cwinpy_pe_dag.ini
 
-Once the configuration file is created (called, say, ``cwinpy_knope_dag.ini``), the Condor DAG dag
+Once the configuration file is created (called, say, ``cwinpy_pe_dag.ini``), the Condor DAG dag
 can be generated with:
 
 .. code-block:: bash
 
-    cwinpy_knope_dag cwinpy_knope_dag.ini
+    cwinpy_pe_dag cwinpy_pe_dag.ini
 
 This will, using the defaults and values in the above file, generate the following directory tree
 structure:
@@ -283,18 +283,18 @@ structure:
     |    ├── pulsar1       # directory to contain the results for pulsar1 (named using the PSRJ name)
     |    ├── pulsar1       # directory to contain the results for pulsar2 (named using the PSRJ name)
     |    └── ...
-    ├── configs            # directory containing the cwinpy_knope configuration files for each pulsar
-    |    ├── pulsar1.ini   # cwinpy_knope configuration file for pulsar1 (named using the PSRJ name)
-    |    ├── pulsar2.ini   # cwinpy_knope configuration file for pulsar2 (named using the PSRJ name)
+    ├── configs            # directory containing the cwinpy_pe configuration files for each pulsar
+    |    ├── pulsar1.ini   # cwinpy_pe configuration file for pulsar1 (named using the PSRJ name)
+    |    ├── pulsar2.ini   # cwinpy_pe configuration file for pulsar2 (named using the PSRJ name)
     |    └── ...
     ├── submit             # directory containing the DAG and job submit files
-    |    ├── cwinpy_knope_dag_DATETAG.submit   # Condor DAG submit file
-    |    └── cwinpy_knope_DATETAG.submit       # cwinpy_knope job submit file
+    |    ├── cwinpy_pe_dag_DATETAG.submit   # Condor DAG submit file
+    |    └── cwinpy_pe_DATETAG.submit       # cwinpy_pe job submit file
     ├── log                # directory for the job log files
     ├── out                # directory for the job stdout files
     └── error              # directory for the job stderr files
 
-If the original ``cwinpy_knope_dag`` configuration file contained the line:
+If the original ``cwinpy_pe_dag`` configuration file contained the line:
 
 .. code-block:: bash
 
@@ -305,7 +305,7 @@ submitted with:
 
 .. code-block:: bash
 
-   condor_submit_dag /root/submit/cwinpy_knope_dag_DATETAG.submit
+   condor_submit_dag /root/submit/cwinpy_pe_dag_DATETAG.submit
 
 where ``DATETAG`` is the filename tag generated by `PyCondor
 <https://jrbourbeau.github.io/pycondor/>`_ from the current date.
@@ -313,23 +313,23 @@ where ``DATETAG`` is the filename tag generated by `PyCondor
 Command line arguments
 ----------------------
 
-The command line arguments for ``cwinpy_knope`` (as extracted using ``cwinpy_knope --help``) are
+The command line arguments for ``cwinpy_pe`` (as extracted using ``cwinpy_pe --help``) are
 given below:
 
-.. literalinclude:: knope_help.txt
+.. literalinclude:: pe_help.txt
    :language: none
 
 API
 ---
 
-.. automodule:: cwinpy.knope.knope
-   :members: knope, knope_dag
+.. automodule:: cwinpy.pe.pe
+   :members: pe, pe_dag
 
-.. automodule:: cwinpy.knope.testing
-   :members: KnopePPPlotsDAG, generate_pp_plots
+.. automodule:: cwinpy.pe.testing
+   :members: PEPPPlotsDAG, generate_pp_plots
 
-``cwinpy_knope`` References
----------------------------
+``cwinpy_pe`` References
+------------------------
 
 .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
        <https:arxiv.org/abs/1705.08978v1>`_, 2017.

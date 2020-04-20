@@ -2,12 +2,12 @@
 
 """
 An example estimating the posterior on h0 for some fake data in a targeted
-pulsar-type search using the knope interface.
+pulsar-type search using the pe interface.
 """
 
 import numpy as np
 from bilby.core.prior import Uniform
-from cwinpy.knope import knope
+from cwinpy.pe import pe
 from matplotlib import pyplot as pl
 
 # create a fake pulsar parameter file
@@ -29,7 +29,7 @@ parfile = "J0123+3456.par"
 with open(parfile, "w") as fp:
     fp.write(parcontent)
 
-# use knope to create the data and sample on a grid
+# use pe to create the data and sample on a grid
 detector = "H1"  # the detector to use
 times = np.linspace(1000000000.0, 1000086340.0, 1440)  # times
 asd = 1e-24
@@ -39,7 +39,7 @@ priors = dict()
 priors["h0"] = Uniform(0.0, 1e-24, "h0")
 h0s = np.linspace(0.0, 1e-24, 500)  # h0 values to evaluate at
 
-run = knope(
+run = pe(
     detector=detector,
     fake_times=times,
     par_file=parfile,
