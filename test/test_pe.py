@@ -1,5 +1,5 @@
 """
-Test script for knope analysis.
+Test script for PE analysis.
 """
 
 import os
@@ -7,10 +7,10 @@ import os
 import numpy as np
 import pytest
 from bilby.core.prior import PriorDict
-from cwinpy.knope.knope import KnopeRunner, knope
+from cwinpy.pe.pe import PERunner, pe
 
 
-class TestKnope(object):
+class TestPE(object):
     @classmethod
     def setup_class(cls):
         """
@@ -76,7 +76,7 @@ class TestKnope(object):
             "PEPOCH   56789"
         )
 
-        cls.parfile = "knope_test.par"
+        cls.parfile = "pe_test.par"
         with open(cls.parfile, "w") as fp:
             fp.write(parcontent.format(cls.f0))
 
@@ -98,7 +98,7 @@ class TestKnope(object):
             "UNITS    TCB"
         )
 
-        cls.parfilesig = "knope_test_sig.par"
+        cls.parfilesig = "pe_test_sig.par"
         with open(cls.parfilesig, "w") as fp:
             fp.write(parcontent.format(cls.f0))
 
@@ -134,7 +134,7 @@ class TestKnope(object):
         )
 
         # create a prior file
-        cls.priorfile = "knope_test.prior"
+        cls.priorfile = "pe_test.prior"
         cls.priormin = 0.0
         cls.priormax = 1e-22
         priorcontent = "h0 = Uniform(name='h0', minimum={}, maximum={})"
@@ -154,14 +154,14 @@ class TestKnope(object):
         os.remove(cls.parfilesig)
         os.remove(cls.priorfile)
 
-    def test_knope_runner_input(self):
+    def test_pe_runner_input(self):
         """
-        Test the KnopeRunner class fails as expected for wrong input types.
+        Test the PERunner class fails as expected for wrong input types.
         """
 
         for inputs in [1.0, "hello", 1, True]:
             with pytest.raises(TypeError):
-                KnopeRunner(inputs)
+                PERunner(inputs)
 
     def test_data_input(self):
         """
@@ -179,19 +179,19 @@ class TestKnope(object):
 
         # no detector specified
         with pytest.raises(ValueError):
-            knope(config=configfile)
+            pe(config=configfile)
 
         with pytest.raises(ValueError):
-            knope(par_file=self.parfile, data_file=datafile)
+            pe(par_file=self.parfile, data_file=datafile)
 
         # not prior file specified
         with pytest.raises(ValueError):
-            knope(par_file=self.parfile, data_file=datafile, detector="H1")
+            pe(par_file=self.parfile, data_file=datafile, detector="H1")
 
         # comparisons
 
         # pass as keyword arguments (detector as keyword)
-        t1kw1 = knope(
+        t1kw1 = pe(
             par_file=self.parfile,
             data_file=datafile,
             detector="H1",
@@ -199,14 +199,14 @@ class TestKnope(object):
         )
 
         # pass as keyword arguments (detector in data file string)
-        t1kw2 = knope(
+        t1kw2 = pe(
             par_file=self.parfile,
             data_file="{}:{}".format("H1", datafile),
             prior=self.priorbilby,
         )
 
         # pass as keyword arguments (detector in data file dict)
-        t1kw3 = knope(
+        t1kw3 = pe(
             par_file=self.parfile, data_file={"H1": datafile}, prior=self.priorbilby
         )
 
@@ -214,10 +214,10 @@ class TestKnope(object):
         config = "par-file = {}\n" "data-file = {}\n" "prior = {}\n" "detector = H1"
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, datafile, self.priorfile))
-        t1c1 = knope(config=configfile)
+        t1c1 = pe(config=configfile)
 
         # use the data_file_2f option instead
-        t1kw4 = knope(
+        t1kw4 = pe(
             par_file=self.parfile,
             data_file_2f=datafile,
             detector="H1",
@@ -225,14 +225,14 @@ class TestKnope(object):
         )
 
         # pass as keyword arguments (detector in data file string)
-        t1kw5 = knope(
+        t1kw5 = pe(
             par_file=self.parfile,
             data_file_2f="{}:{}".format("H1", datafile),
             prior=self.priorbilby,
         )
 
         # pass as keyword arguments (detector in data file dict)
-        t1kw6 = knope(
+        t1kw6 = pe(
             par_file=self.parfile, data_file_2f={"H1": datafile}, prior=self.priorbilby
         )
 
@@ -240,7 +240,7 @@ class TestKnope(object):
         config = "par-file = {}\n" "data-file-2f = {}\n" "prior = {}\n" "detector = H1"
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, datafile, self.priorfile))
-        t1c2 = knope(config=configfile)
+        t1c2 = pe(config=configfile)
 
         # perform consistency checks
         for tv in [t1kw1, t1kw2, t1kw3, t1c1, t1kw4, t1kw5, t1kw6, t1c2]:
@@ -255,7 +255,7 @@ class TestKnope(object):
 
         # now pass two detectors
         # pass as keyword arguments (detector as keyword)
-        t2kw1 = knope(
+        t2kw1 = pe(
             par_file=self.parfile,
             data_file=[self.H1file[1], self.L1file[1]],
             detector=["H1", "L1"],
@@ -263,7 +263,7 @@ class TestKnope(object):
         )
 
         # pass as keyword arguments (detector in data file string)
-        t2kw2 = knope(
+        t2kw2 = pe(
             par_file=self.parfile,
             data_file=[
                 "{}:{}".format("H1", self.H1file[1]),
@@ -273,7 +273,7 @@ class TestKnope(object):
         )
 
         # pass as keyword arguments (detector in data file dict)
-        t2kw3 = knope(
+        t2kw3 = pe(
             par_file=self.parfile,
             data_file={"H1": self.H1file[1], "L1": self.L1file[1]},
             prior=self.priorbilby,
@@ -292,10 +292,10 @@ class TestKnope(object):
                     self.parfile, self.H1file[1], self.L1file[1], self.priorfile
                 )
             )
-        t2c1 = knope(config=configfile)
+        t2c1 = pe(config=configfile)
 
         # use the data_file_2f option instead
-        t2kw4 = knope(
+        t2kw4 = pe(
             par_file=self.parfile,
             data_file_2f=[self.H1file[1], self.L1file[1]],
             detector=["H1", "L1"],
@@ -303,7 +303,7 @@ class TestKnope(object):
         )
 
         # pass as keyword arguments (detector in data file string)
-        t2kw5 = knope(
+        t2kw5 = pe(
             par_file=self.parfile,
             data_file_2f=[
                 "{}:{}".format("H1", self.H1file[1]),
@@ -313,7 +313,7 @@ class TestKnope(object):
         )
 
         # pass as keyword arguments (detector in data file dict)
-        t2kw6 = knope(
+        t2kw6 = pe(
             par_file=self.parfile,
             data_file_2f={"H1": self.H1file[1], "L1": self.L1file[1]},
             prior=self.priorbilby,
@@ -332,7 +332,7 @@ class TestKnope(object):
                     self.parfile, self.H1file[1], self.L1file[1], self.priorfile
                 )
             )
-        t2c2 = knope(config=configfile)
+        t2c2 = pe(config=configfile)
 
         # perform consistency checks
         for tv in [t2kw1, t2kw2, t2kw3, t2c1, t2kw4, t2kw5, t2kw6, t2c2]:
@@ -350,7 +350,7 @@ class TestKnope(object):
 
         # pass data at 1f
         datafile = self.H1file[0]
-        t3kw1 = knope(
+        t3kw1 = pe(
             par_file=self.parfile,
             data_file_1f=datafile,
             detector="H1",
@@ -358,14 +358,14 @@ class TestKnope(object):
         )
 
         # pass as keyword arguments (detector in data file string)
-        t3kw2 = knope(
+        t3kw2 = pe(
             par_file=self.parfile,
             data_file_1f="{}:{}".format("H1", datafile),
             prior=self.priorbilby,
         )
 
         # pass as keyword arguments (detector in data file dict)
-        t3kw3 = knope(
+        t3kw3 = pe(
             par_file=self.parfile, data_file_1f={"H1": datafile}, prior=self.priorbilby
         )
 
@@ -373,7 +373,7 @@ class TestKnope(object):
         config = "par-file = {}\n" "data-file-1f = {}\n" "prior = {}\n" "detector = H1"
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, datafile, self.priorfile))
-        t3c1 = knope(config=configfile)
+        t3c1 = pe(config=configfile)
 
         # perform consistency checks
         for tv in [t3kw1, t3kw2, t3kw3, t3c1]:
@@ -388,7 +388,7 @@ class TestKnope(object):
 
         # test with two detectors and two frequencies
         # pass as keyword arguments (detector as keyword)
-        t4kw1 = knope(
+        t4kw1 = pe(
             par_file=self.parfile,
             data_file_1f=[self.H1file[0], self.L1file[0]],
             data_file_2f=[self.H1file[1], self.L1file[1]],
@@ -397,7 +397,7 @@ class TestKnope(object):
         )
 
         # pass as keyword arguments (detector in data file string)
-        t4kw2 = knope(
+        t4kw2 = pe(
             par_file=self.parfile,
             data_file_1f=[
                 "{}:{}".format("H1", self.H1file[0]),
@@ -411,7 +411,7 @@ class TestKnope(object):
         )
 
         # pass as keyword arguments (detector in data file dict)
-        t4kw3 = knope(
+        t4kw3 = pe(
             par_file=self.parfile,
             data_file_1f={"H1": self.H1file[0], "L1": self.L1file[0]},
             data_file_2f={"H1": self.H1file[1], "L1": self.L1file[1]},
@@ -437,7 +437,7 @@ class TestKnope(object):
                     self.priorfile,
                 )
             )
-        t4c1 = knope(config=configfile)
+        t4c1 = pe(config=configfile)
 
         # perform consistency checks
         for tv in [t4kw1, t4kw2, t4kw3, t4c1]:
@@ -464,7 +464,7 @@ class TestKnope(object):
 
     def test_fake_data_exceptions(self):
         """
-        Test the exceptions when creating fake data using knope.
+        Test the exceptions when creating fake data using pe.
         """
 
         # pass as config file (with incompatible injection times)
@@ -482,7 +482,7 @@ class TestKnope(object):
             fp.write(config.format(self.parfile, self.parfile, self.priorfile))
 
         with pytest.raises(TypeError):
-            knope(config=configfile)
+            pe(config=configfile)
 
         # create fake data in one detector with no signal
         # First test error for an inconsistent number of start times
@@ -501,7 +501,7 @@ class TestKnope(object):
             fp.write(config.format(self.parfile, self.parfile, self.priorfile))
 
         with pytest.raises(ValueError):
-            knope(config=configfile)
+            pe(config=configfile)
 
         # Test inconsistent detector and start time
         config = (
@@ -519,7 +519,7 @@ class TestKnope(object):
             fp.write(config.format(self.parfile, self.parfile, self.priorfile))
 
         with pytest.raises(ValueError):
-            knope(config=configfile)
+            pe(config=configfile)
 
         # Test inconsistent detector and end time
         config = (
@@ -537,7 +537,7 @@ class TestKnope(object):
             fp.write(config.format(self.parfile, self.parfile, self.priorfile))
 
         with pytest.raises(ValueError):
-            knope(config=configfile)
+            pe(config=configfile)
 
         # Test inconsistent detector and time step
         config = (
@@ -555,7 +555,7 @@ class TestKnope(object):
             fp.write(config.format(self.parfile, self.parfile, self.priorfile))
 
         with pytest.raises(ValueError):
-            knope(config=configfile)
+            pe(config=configfile)
 
         os.remove(configfile)
 
@@ -579,7 +579,7 @@ class TestKnope(object):
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, self.parfile, self.priorfile, seed))
 
-        fd1 = knope(config=configfile)
+        fd1 = pe(config=configfile)
 
         config = (
             "par-file = {}\n"
@@ -592,7 +592,7 @@ class TestKnope(object):
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, self.parfile, self.priorfile, seed))
 
-        fd2 = knope(config=configfile)
+        fd2 = pe(config=configfile)
 
         assert (fd1.hetdata.detectors == ["H1"]) and (fd2.hetdata.detectors == ["H1"])
         assert np.array_equal(
@@ -604,7 +604,7 @@ class TestKnope(object):
         assert fd2.hetdata.freq_factors[0] == 2
 
         # Check that using fake-asd and fake-asd-2f are equivalent
-        fd3 = knope(
+        fd3 = pe(
             par_file=self.parfile,
             prior=self.priorfile,
             fake_asd_2f={"H1": 1e-24},
@@ -646,7 +646,7 @@ class TestKnope(object):
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, self.parfile, self.priorfile, seed))
 
-        fd1 = knope(config=configfile)
+        fd1 = pe(config=configfile)
 
         config = (
             "par-file = {}\n"
@@ -660,7 +660,7 @@ class TestKnope(object):
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, self.parfile, self.priorfile, seed))
 
-        fd2 = knope(config=configfile)
+        fd2 = pe(config=configfile)
 
         assert (fd1.hetdata.detectors == ["H1"]) and (fd2.hetdata.detectors == ["H1"])
         assert len(fd1.hetdata["H1"]) == 2 and len(fd2.hetdata["H1"]) == 2
@@ -704,7 +704,7 @@ class TestKnope(object):
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, self.parfile, self.priorfile, seed))
 
-        fd1 = knope(config=configfile)
+        fd1 = pe(config=configfile)
 
         config = (
             "par-file = {}\n"
@@ -719,7 +719,7 @@ class TestKnope(object):
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, self.parfile, self.priorfile, seed))
 
-        fd2 = knope(config=configfile)
+        fd2 = pe(config=configfile)
 
         config = (
             "par-file = {}\n"
@@ -733,7 +733,7 @@ class TestKnope(object):
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, self.parfile, self.priorfile))
 
-        fd3 = knope(config=configfile)
+        fd3 = pe(config=configfile)
 
         assert (
             (len(fd1.hetdata.detectors) == 2)
@@ -780,7 +780,7 @@ class TestKnope(object):
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, self.parfile, self.priorfile, seed))
 
-        fd1 = knope(config=configfile)
+        fd1 = pe(config=configfile)
 
         config = (
             "par-file = {}\n"
@@ -794,7 +794,7 @@ class TestKnope(object):
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, self.parfile, self.priorfile, seed))
 
-        fd2 = knope(config=configfile)
+        fd2 = pe(config=configfile)
 
         assert (len(fd1.hetdata.detectors) == 2) and (len(fd2.hetdata.detectors) == 2)
         assert fd1.hetdata.detectors == fd2.hetdata.detectors
@@ -839,7 +839,7 @@ class TestKnope(object):
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfilesig, self.parfilesig, self.priorfile))
 
-        fd1 = knope(config=configfile)
+        fd1 = pe(config=configfile)
 
         assert len(fd1.hetdata.detectors) == 2
         assert "L1" in fd1.hetdata.detectors and "H1" in fd1.hetdata.detectors
