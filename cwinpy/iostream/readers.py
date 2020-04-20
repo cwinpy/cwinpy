@@ -132,13 +132,11 @@ def write_hdf5_series(series, output, path=None, **kwargs):
         for documentation of keyword arguments
     """
 
-    kwgs = kwargs.copy()
-
     # get from kwargs
     path = kwargs.pop("path", None)
 
     # set additional attributes to save
-    attrs = {}
+    attrs = kwargs.pop("attrs", {})
 
     try:
         attrs["comments"] = series.comments
@@ -165,7 +163,7 @@ def write_hdf5_series(series, output, path=None, **kwargs):
     except Exception:
         pass
 
-    return gwpy_write_hdf5_series(series, output, path=path, attrs=attrs, **kwgs)
+    return gwpy_write_hdf5_series(series, output, path=path, attrs=attrs, **kwargs)
 
 
 # -- register -----------------------------------------------------------------
