@@ -873,7 +873,9 @@ class HeterodynedData(TimeSeriesBase):
                 new = cls.read(data)
             except Exception as e:
                 raise IOError("Error reading file '{}':\n{}".format(data, e))
-            new.detector = detector
+
+            if new.detector is None:
+                new.detector = detector
         else:
             if isinstance(data, (TimeSeriesBase, HeterodynedData)):
                 dataarray = data.value
@@ -982,7 +984,8 @@ class HeterodynedData(TimeSeriesBase):
             )
 
         # set the parameter file
-        new.par = par
+        if new.par is None and par is not None:
+            new.par = par
 
         # set the frequency scale factor
         new.freq_factor = freqfactor
