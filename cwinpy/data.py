@@ -1027,7 +1027,7 @@ class HeterodynedData(TimeSeriesBase):
 
     def write(self, target, *args, **kwargs):
         """
-        Write this :class:~`cwinpy.data.HeterodynedData` object to a file.
+        Write this :class:`~cwinpy.data.HeterodynedData` object to a file.
 
         Parameters
         ----------
