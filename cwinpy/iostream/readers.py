@@ -1,3 +1,6 @@
+import os
+
+from gwpy.io import hdf5 as io_hdf5
 from gwpy.io import registry as io_registry
 from gwpy.io.utils import identify_factory
 from gwpy.types.io.hdf5 import write_hdf5_series as gwpy_write_hdf5_series
@@ -10,16 +13,14 @@ from ..data import HeterodynedData
 
 def read_ascii_series(input_, array_type=HeterodynedData, **kwargs):
     """
-    Read a `Series` from an ASCII file. This is a based on the
-    :meth:`gwpy.types.io.ascii.read_ascii_series` function.
+    Read a `Series` from an ASCII text file.
 
     Parameters
     ----------
-    input : `str`, `file`
-        file to read
-
-    array_type : `type`
-        desired return type
+    input_: str, file
+        The ascii text file to read
+    array_type: type
+        The desired return type. Defaults to :class:`cwinpy.data.HeterodynedData`.
     """
 
     data = loadtxt(input_, **kwargs)
@@ -48,43 +49,50 @@ def read_ascii_series(input_, array_type=HeterodynedData, **kwargs):
     return array_type(data[:, 1:], times=data[:, 0], comments=comments)
 
 
-def read_hdf5_series(input_, array_type=HeterodynedData, **kwargs):
+@io_hdf5.with_read_hdf5
+def read_hdf5_series(
+    source, array_type=HeterodynedData, path="HeterodynedData", **kwargs
+):
     """
-    Read a `Series` from a HDF5 file.
+    Read a `Series` from an HDF5 file.
 
     Parameters
     ----------
-    input : `str`, `file`
-        file to read
-
-    array_type : `type`
-        desired return type
+    source: str
+        The HDF5 file to be read.
+    array_type: type
+        The desired return type. Defaults to :class:`cwinpy.data.HeterodynedData`.
     """
 
-    data = loadtxt(input_, **kwargs)
+    dataset = io_hdf5.find_dataset(source, path=path)
+    kwargs = dict(dataset.attrs)
 
-    # get any comment lines from the file
-    commentstrs = list(kwargs.get("comments", ["%", "#"]))  # delimiters
-    comments = ""
+    parfiles = {}
+    for par in ["par", "injpar"]:
+        if par in kwargs:
+            # convert parameter file string to file
+            import tempfile
 
-    if input_.endswith(".gz"):
-        import gzip
+            parfiles[par] = tempfile.mkstemp(suffix=".par")[1]
+            with open(parfiles[par], "w") as fp:
+                fp.write(kwargs[par])
+            kwargs[par] = parfiles[par]
 
-        openfunc = gzip.open
-    else:
-        openfunc = open
+    # make sure window is an integer
+    if "window" in kwargs:
+        kwargs["window"] = int(kwargs["window"])
 
-    with openfunc(input_, "r") as fp:
-        for line in fp.readlines():
-            firstchar = line.strip()[0]  # remove any proceeding whitespace
-            if firstchar in commentstrs:
-                # strip the comment delimiter and any leading whitespace
-                comments += line.strip(firstchar).strip()
+    # complex time series data
+    data = dataset[()]
 
-    if data.shape[1] < 2:
-        raise IOError("Problem reading in data")
+    array = array_type(data, **kwargs)
 
-    return array_type(data[:, 1:], times=data[:, 0], comments=comments)
+    for par in ["par", "injpar"]:
+        if par in parfiles:
+            # remove temporary parameter file
+            os.remove(parfiles[par])
+
+    return array
 
 
 # -- write --------------------------------------------------------------------
@@ -118,7 +126,7 @@ def write_ascii_series(series, output, **kwargs):
     )
 
 
-def write_hdf5_series(series, output, path=None, **kwargs):
+def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
     """Write a `Series` to a file in ASCII format
     Parameters
     ----------
@@ -132,38 +140,41 @@ def write_hdf5_series(series, output, path=None, **kwargs):
         for documentation of keyword arguments
     """
 
-    # get from kwargs
-    path = kwargs.pop("path", None)
-
     # set additional attributes to save
     attrs = kwargs.pop("attrs", {})
 
-    try:
-        attrs["comments"] = series.comments
-    except AttributeError:
-        attrs["comments"] = ""  # no comments
-
-    try:
+    if hasattr(series, "detector"):
         attrs["detector"] = series.detector
-    except AttributeError:
-        pass
 
-    try:
-        # output pulsar parameter data to temporary file
-        # Note: a better option would be to add a __str__ method to the PulsarParametersPy object
+    for par in ["par", "injpar"]:
         import tempfile
 
-        f = tempfile.NamedTemporaryFile()
-        series.par.pp_to_par(f.name)
-        with open(f.name, "r") as fp:
-            pardata = fp.readlines()
-        f.close()
+        if hasattr(series, par):
+            # output pulsar parameter data to temporary file
+            # Note: a better option would be to add a __str__ method to the PulsarParametersPy object
+            tempf = tempfile.mkstemp(suffix=".par")[1]
+            series.par.pp_to_par(tempf)
+            with open(tempf, "r") as fp:
+                pardata = fp.readlines()
+            os.remove(tempf)
 
-        attrs["par"] = pardata
-    except Exception:
-        pass
+            attrs[par] = "".join(pardata)
 
-    return gwpy_write_hdf5_series(series, output, path=path, attrs=attrs, **kwargs)
+    # add times as extra attribute
+    attrs["times"] = series.times
+
+    # remove metadata slots that can't/shouldn't be written as attributes
+    slots = tuple()
+    origslots = tuple(series._metadata_slots)
+    for slot in series._metadata_slots:
+        if slot not in ["par", "injpar", "laldetector", "running_median", "vars"]:
+            slots += (slot,)
+    series._metadata_slots = slots
+
+    outseries = gwpy_write_hdf5_series(series, output, path=path, attrs=attrs, **kwargs)
+    series._metadata_slots = origslots
+
+    return outseries
 
 
 # -- register -----------------------------------------------------------------

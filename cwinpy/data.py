@@ -60,7 +60,7 @@ class MultiHeterodynedData(object):
         bbthreshold="default",
         remove_outliers=False,
         thresh=3.5,
-        **kwargs
+        **kwargs,
     ):
 
         # set keyword argument
@@ -256,7 +256,7 @@ class MultiHeterodynedData(object):
         legendsize=None,
         fontname=None,
         labelname=None,
-        **plotkwargs
+        **plotkwargs,
     ):
         """
         Plot all, or some of, the time series' contained in the class. The
@@ -324,7 +324,7 @@ class MultiHeterodynedData(object):
                     legendsize=legendsize,
                     fontname=fontname,
                     labelname=labelname,
-                    **plotkwargs
+                    **plotkwargs,
                 )
         else:
             # a list of figures
@@ -349,7 +349,7 @@ class MultiHeterodynedData(object):
                         legendsize=legendsize,
                         fontname=fontname,
                         labelname=labelname,
-                        **plotkwargs
+                        **plotkwargs,
                     )
                 )
 
@@ -373,7 +373,7 @@ class MultiHeterodynedData(object):
         average=None,
         window=None,
         overlap=None,
-        **plotkwargs
+        **plotkwargs,
     ):
         """
         Plot all, or some of, the power spectra of the time series' contained
@@ -415,7 +415,7 @@ class MultiHeterodynedData(object):
             average=average,
             window=window,
             overlap=overlap,
-            **plotkwargs
+            **plotkwargs,
         )
 
     def periodogram(
@@ -432,7 +432,7 @@ class MultiHeterodynedData(object):
         labelname=None,
         fraction_labels=None,
         fraction_label_num=None,
-        **plotkwargs
+        **plotkwargs,
     ):
         """
         Plot all, or some of, the periodograms of the time series' contained
@@ -470,7 +470,7 @@ class MultiHeterodynedData(object):
             fontname=fontname,
             fraction_labels=fraction_labels,
             fraction_label_num=fraction_label_num,
-            **plotkwargs
+            **plotkwargs,
         )
 
     def spectrogram(
@@ -490,7 +490,7 @@ class MultiHeterodynedData(object):
         dt=None,
         overlap=None,
         window=None,
-        **plotkwargs
+        **plotkwargs,
     ):
         """
         Plot all, or some of, the spectograms of the time series' contained
@@ -531,7 +531,7 @@ class MultiHeterodynedData(object):
             fraction_labels=fraction_labels,
             fraction_label_num=fraction_label_num,
             overlap=overlap,
-            **plotkwargs
+            **plotkwargs,
         )
 
     def _plot_power(
@@ -553,7 +553,7 @@ class MultiHeterodynedData(object):
         window=None,
         fraction_labels=None,
         fraction_label_num=None,
-        **plotkwargs
+        **plotkwargs,
     ):
         """
         General purpose function for plotting the various spectrum figures.
@@ -864,6 +864,7 @@ class HeterodynedData(TimeSeriesBase):
         remove_outliers=False,
         thresh=3.5,
         comments="",
+        **kwargs,
     ):
         stds = None  # initialise standard deviations
 
@@ -984,7 +985,7 @@ class HeterodynedData(TimeSeriesBase):
             )
 
         # set the parameter file
-        if new.par is None and par is not None:
+        if par is not None:
             new.par = par
 
         # set the frequency scale factor
@@ -2264,7 +2265,7 @@ class HeterodynedData(TimeSeriesBase):
         legendsize=None,
         fontname=None,
         labelname=None,
-        **plotkwargs
+        **plotkwargs,
     ):
         """
         Plot the data time series.
@@ -2381,7 +2382,7 @@ class HeterodynedData(TimeSeriesBase):
         fontname=None,
         labelname=None,
         legendsize=None,
-        **plotkwargs
+        **plotkwargs,
     ):
         """
         Compute and plot a spectrogram from the data using the
@@ -2473,7 +2474,7 @@ class HeterodynedData(TimeSeriesBase):
             labelname=labelname,
             fontname=fontname,
             legendsize=legendsize,
-            **plotkwargs
+            **plotkwargs,
         )
 
     def periodogram(
@@ -2490,7 +2491,7 @@ class HeterodynedData(TimeSeriesBase):
         fontsize=None,
         fontname=None,
         legendsize=None,
-        **plotkwargs
+        **plotkwargs,
     ):
         """
         Compute and plot a two-sided periodogram of the data using
@@ -2535,7 +2536,7 @@ class HeterodynedData(TimeSeriesBase):
             labelname=labelname,
             fontname=fontname,
             legendsize=legendsize,
-            **plotkwargs
+            **plotkwargs,
         )
 
     def power_spectrum(
@@ -2556,7 +2557,7 @@ class HeterodynedData(TimeSeriesBase):
         legendsize=None,
         window=None,
         overlap=0.5,
-        **plotkwargs
+        **plotkwargs,
     ):
         """
         Compute and plot the power spectrum of the data. This compute the
@@ -2604,7 +2605,7 @@ class HeterodynedData(TimeSeriesBase):
             labelname=labelname,
             fontname=fontname,
             legendsize=legendsize,
-            **plotkwargs
+            **plotkwargs,
         )
 
     def _plot_power(
@@ -2617,7 +2618,7 @@ class HeterodynedData(TimeSeriesBase):
         fontsize=None,
         fontname=None,
         legendsize=None,
-        **plotkwargs
+        **plotkwargs,
     ):
         """
         General function for plotting the
@@ -2776,7 +2777,7 @@ class HeterodynedData(TimeSeriesBase):
                     else:
                         # set the fraction label
                         sign = "-" if tick < 0.0 else ""
-                        label = u"${0}^{{{1}}}\u2044_{{{2}}}$".format(
+                        label = "${0}^{{{1}}}\u2044_{{{2}}}$".format(
                             sign, 1, int(np.abs(tick))
                         )
                         labels.append(label)
