@@ -986,7 +986,11 @@ class HeterodynedData(TimeSeriesBase):
 
         # set the parameter file
         if par is not None:
+            # overwrite existing par file
             new.par = par
+        else:
+            if not hasattr(new, "par"):
+                new.par = None
 
         # set the frequency scale factor
         new.freq_factor = freqfactor
