@@ -4,7 +4,7 @@ from gwpy.io import hdf5 as io_hdf5
 from gwpy.io import registry as io_registry
 from gwpy.io.utils import identify_factory
 from gwpy.types.io.hdf5 import write_hdf5_series as gwpy_write_hdf5_series
-from numpy import column_stack, loadtxt, savetxt
+from numpy import column_stack, isfinite, loadtxt, savetxt, sqrt
 
 from ..data import HeterodynedData
 
@@ -78,14 +78,22 @@ def read_hdf5_series(
                 fp.write(kwargs[par])
             kwargs[par] = parfiles[par]
 
-    # make sure window is an integer
-    if "window" in kwargs:
-        kwargs["window"] = int(kwargs["window"])
+    # make sure certain values are integers
+    for key in kwargs:
+        if key in ["window", "bbminlength", "bbmaxlength"]:
+            if isfinite(kwargs[key]):
+                kwargs[key] = int(kwargs[key])
 
     # complex time series data
     data = dataset[()]
 
-    array = array_type(data, **kwargs)
+    # extract data variances if contained in the file
+    vars = kwargs.pop("vars", None)
+
+    if vars is None:
+        array = array_type(data, **kwargs)
+    else:
+        array = array_type(column_stack((data.real, data.imag, sqrt(vars))), **kwargs)
 
     for par in ["par", "injpar"]:
         if par in parfiles:
@@ -116,14 +124,24 @@ def write_ascii_series(series, output, **kwargs):
     yarrr = series.value.real
     yarri = series.value.imag
 
+    stds = None
+    if kwargs.pop("includestds", False):
+        if hasattr(series, "vars"):
+            stds = series.stds
+
     try:
         comments = series.comments
     except AttributeError:
         comments = ""
 
-    return savetxt(
-        output, column_stack((xarr, yarrr, yarri)), header=comments, **kwargs
-    )
+    if stds is None:
+        return savetxt(
+            output, column_stack((xarr, yarrr, yarri)), header=comments, **kwargs
+        )
+    else:
+        return savetxt(
+            output, column_stack((xarr, yarrr, yarri, stds)), header=comments, **kwargs
+        )
 
 
 def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
@@ -166,8 +184,14 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
     # remove metadata slots that can't/shouldn't be written as attributes
     slots = tuple()
     origslots = tuple(series._metadata_slots)
+    badslots = ["par", "injpar", "laldetector", "running_median", "vars"]
+
+    if kwargs.pop("includestds", False):
+        # allow vars to be included
+        badslots.remove("vars")
+
     for slot in series._metadata_slots:
-        if slot not in ["par", "injpar", "laldetector", "running_median", "vars"]:
+        if slot not in badslots:
             slots += (slot,)
     series._metadata_slots = slots
 

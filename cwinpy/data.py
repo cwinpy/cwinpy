@@ -8,6 +8,7 @@ import warnings
 import lal
 import lalpulsar
 import numpy as np
+from astropy.io import registry as io_registry
 from gwpy.detector import Channel
 from gwpy.io.mp import read_multi
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
@@ -1023,6 +1024,26 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         return read_multi(lambda x: x[0], cls, source, *args, **kwargs)
+
+    def write(self, target, *args, **kwargs):
+        """
+        Write this :class:~`cwinpy.data.HeterodynedData` object to a file.
+
+        Parameters
+        ----------
+        target: str
+            The path of output file.
+        format: str (optional)
+            The output format identifier. If not given, the format will be
+            detected from the target string if possible. Data can be written
+            to plain ascii text files or HDF5 files (the latter is
+            recommended)
+        includestds: bool, False
+            Set this to include the standard deviations at each data point in
+            the output file. By default these will not be included.
+        """
+
+        return io_registry.write(self, target, *args, **kwargs)
 
     @property
     def window(self):
