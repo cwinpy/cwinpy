@@ -3,6 +3,7 @@ import os
 from gwpy.io import hdf5 as io_hdf5
 from gwpy.io import registry as io_registry
 from gwpy.io.utils import identify_factory
+from gwpy.timeseries import TimeSeriesBase
 from gwpy.types.io.hdf5 import write_hdf5_series as gwpy_write_hdf5_series
 from numpy import column_stack, isfinite, loadtxt, savetxt, sqrt
 
@@ -78,6 +79,9 @@ def read_hdf5_series(
                 fp.write(kwargs[par])
             kwargs[par] = parfiles[par]
 
+    # check whether injected signal is given
+    injdata = kwargs.pop("inj_data", None)
+
     # make sure certain values are integers
     for key in kwargs:
         if key in ["window", "bbminlength", "bbmaxlength"]:
@@ -94,6 +98,14 @@ def read_hdf5_series(
         array = array_type(data, **kwargs)
     else:
         array = array_type(column_stack((data.real, data.imag, sqrt(vars))), **kwargs)
+
+    # re-add noise-free injected signal
+    if injdata is not None:
+        array._inj_data = TimeSeriesBase(
+            injdata, times=array.times, channel=array.channel
+        )
+        array.injection = True
+        array.injpar = parfiles["injpar"]
 
     for par in ["par", "injpar"]:
         if par in parfiles:

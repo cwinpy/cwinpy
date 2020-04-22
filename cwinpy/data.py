@@ -1038,10 +1038,10 @@ class HeterodynedData(TimeSeriesBase):
             detected from the target string if possible. Data can be written
             to plain ascii text files or HDF5 files (the latter is
             recommended)
-        includestds: bool, False
-            Set this to include the standard deviations at each data point in
-            the output file. By default these will not be included.
         """
+
+        if self._input_stds:
+            kwargs["includestds"] = True
 
         return io_registry.write(self, target, *args, **kwargs)
 

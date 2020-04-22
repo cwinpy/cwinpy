@@ -6,7 +6,7 @@ Classes to deal with data products from searches for continuous sources of gravi
 can be used for inference.
 
 Heterodyned Data
-----------------
+================
 
 The data product used for source parameter inference in the Bayesian targeted pulsar searches
 perform by the `LIGO Scientific Collaboration <https://www.ligo.org/>`_ and `Virgo Collaboration
@@ -43,6 +43,66 @@ the two-sided complex data) using a high order Butterworth filter, often with a 
 0.25 Hz, and down-sampled, via averaging, to a far lower sample rate than the original raw data. In
 general gravitational-wave detector data is sampled at 16384 Hz, and often the heterodyned data is
 downsampled to 1/60 Hz (one sample per minute).
+
+Reading and writing
+-------------------
+
+The :class:`~cwinpy.data.HeterdoynedData` object can be written to and read from both ASCII and HDF5
+file formats. The ASCII read/writer is mainly to access legacy data as produced by the
+`lalapps_heterodyne_pulsar` code within `LALSuite <https://doi.org/10.7935/GT1W-FZ16>`_. However, it
+is advisable to now use the HDF5 routines if purely using CWInPy for analyses. The
+:class:`~cwinpy.data.HeterdoynedData` class has both a :method:`~cwinpy.data.HeterdoynedData.read`
+and :method:`~cwinpy.data.HeterdoynedData.write` method based on those for a GWPy `TimesSeries
+<https://gwpy.github.io/docs/stable/timeseries/io.html>`_ object.
+
+ASCII
+^^^^^
+
+The :class:`~cwinpy.data.HeterdoynedData` class will automatically detect an ASCII file provided it
+has the suffix ``.txt`` or, if it is gzipped, ``.txt.gz``. Any comments in the file taken from lines
+starting with a ``#`` or ``%`` will be stored in the object. The format of data required in an ASCII
+text file is shown for with the :class:`~cwinpy.data.HeterodynedData` API below.
+Given a text file called ``data.txt``, it could either be read in as:
+
+.. code-block:: python
+
+    >>> data = HeterodynedData("data.txt")
+
+or using the :method:`~cwinpy.data.HeterdoynedData.read` method with:
+
+.. code-block:: python
+
+    >>> data = HeterodynedData.read("data.txt")
+
+If you have an instance of a :class:`~cwinpy.data.HeterdoynedData` class called, e.g., ``het``, then
+writing to an ASCII file can be done using the :method:`~cwinpy.data.HeterdoynedData.write` method
+with:
+
+.. code-block:: python
+
+    >>> het.write("data.txt")
+
+If the file you are writing to already exists it will be overwritten.
+
+A disadvantage of using the ASCII format is that you cannot stored additional metadata such as the
+detector, pulsar parameter file used, and any injected signal, whereas this *will* be stored in a HDF5
+file.
+
+HDF5
+^^^^
+
+`HDF5 <https://support.hdfgroup.org/HDF5/doc/H5.intro.html#Intro-WhatIs>`_ is a flexible binary
+storage format. In the context of a :class:`~cwinpy.data.HeterdoynedData` object it will store both
+the complex timeseries of data and metadata about the object, such as the detector and pulsar
+parameter file used for heterodyning.
+
+The path within the HDF5 file within which the data is stored is ``HeterodynedData``
+
+If the file you are writing to already exists the, by default it will not be overwritten and an exception will be raised. To overwrite a file use:
+
+  .. code-block:: python
+
+    >>> het.write("data.hdf5", overwrite=True)
 
 .. autoclass:: cwinpy.data.MultiHeterodynedData
    :members:

@@ -161,7 +161,7 @@ class TestHeterodynedData(object):
 
         os.remove(brokenfile)  # clean up file
 
-    def test_read_data(self):
+    def test_read_text_data(self):
         """
         Test that a valid input file is read in correctly.
         """
@@ -191,7 +191,7 @@ class TestHeterodynedData(object):
 
         os.remove(datafile)  # clean up file
 
-    def test_read_data_std(self):
+    def test_read_text_data_std(self):
         """
         Test that a valid file with standard deviations is read in correctly.
         """
@@ -222,6 +222,175 @@ class TestHeterodynedData(object):
         assert het.sample_rate.value == 1.0 / 60.0
 
         os.remove(datafile)  # clean up file
+
+    def test_write_text_data(self):
+        """
+        Test that data can be correctly written (and re-read) from a text file.
+        """
+
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=(1440, 2))
+
+        het = HeterodynedData(data, times=times)
+
+        for suffix in ["txt", "txt.gz"]:
+            datafile = "testdata.{}".format(suffix)
+            het.write(datafile)
+
+            # read in data
+            hetnew = HeterodynedData.read(datafile)
+
+            assert np.array_equal(het.data, hetnew.data)
+            assert np.array_equal(het.times, hetnew.times)
+
+            # check things that the read-in data should not contain
+            assert hetnew.detector is None
+            assert hetnew.par is None
+
+            os.remove(datafile)  # clean up file
+
+    def test_write_text_data_std(self):
+        """
+        Test that data can be correctly written (and re-read) from a text file
+        with the standard deviations also output.
+        """
+
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=(1440, 2))
+        stds = 1e-25 * np.ones_like(times)
+        data = np.column_stack((data, stds))
+
+        het = HeterodynedData(data, times=times)
+
+        for suffix in ["txt", "txt.gz"]:
+            datafile = "testdata.{}".format(suffix)
+            het.write(datafile)
+
+            # read in data
+            hetnew = HeterodynedData.read(datafile)
+
+            assert np.array_equal(het.data, hetnew.data)
+            assert np.array_equal(het.times, hetnew.times)
+            assert np.array_equal(het.stds, hetnew.stds)
+
+            # check things that the read-in data should not contain
+            assert hetnew.detector is None
+            assert hetnew.par is None
+
+            os.remove(datafile)  # clean up file
+
+    def test_write_hdf_data(self):
+        """
+        Test that data can be correctly written (and re-read) from a HDF5 file.
+        """
+
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=(1440, 2))
+        det = "H1"
+
+        parcontent = """\
+PSRJ     J0123+3456
+RAJ      01:23:45.6789
+DECJ     34:56:54.321
+F0       567.89
+F1       -1.2e-12
+PEPOCH   56789
+H0       9.87e-26
+COSIOTA  0.3
+PSI      1.1
+PHI0     2.4
+"""
+
+        parfile = "J0123+3456.par"
+
+        # add content to the par file
+        with open(parfile, "w") as fp:
+            fp.write(parcontent)
+
+        het = HeterodynedData(data, times=times, detector=det, par=parfile)
+
+        for suffix in ["hdf5", "hdf", "h5"]:
+            datafile = "testdata.{}".format(suffix)
+            het.write(datafile, overwrite=True)
+
+            # read in data
+            hetnew = HeterodynedData.read(datafile)
+
+            assert np.array_equal(het.data, hetnew.data)
+            assert np.array_equal(het.times, hetnew.times)
+
+            # check that detector and par file are read in correctly
+            assert hetnew.detector == det
+            for key in het.par.as_dict():
+                if isinstance(hetnew.par[key], str):
+                    assert hetnew.par[key] == het.par[key]
+                else:
+                    assert np.allclose(hetnew.par[key], het.par[key])
+
+            os.remove(datafile)  # clean up file
+
+        os.remove(parfile)
+
+    def test_write_hdf_data_std(self):
+        """
+        Test that data can be correctly written (and re-read) from a HDF5 file
+        with the standard deviations also output. Also, add an injection!
+        """
+
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=(1440, 2))
+        stds = 1e-25 * np.ones_like(times)
+        data = np.column_stack((data, stds))
+        det = "H1"
+
+        parcontent = """\
+PSRJ     J0123+3456
+RAJ      01:23:45.6789
+DECJ     34:56:54.321
+F0       567.89
+F1       -1.2e-12
+PEPOCH   56789
+H0       9.87e-26
+COSIOTA  0.3
+PSI      1.1
+PHI0     2.4
+"""
+
+        parfile = "J0123+3456.par"
+
+        # add content to the par file
+        with open(parfile, "w") as fp:
+            fp.write(parcontent)
+
+        het = HeterodynedData(data, times=times, detector=det, par=parfile, inject=True)
+
+        for suffix in ["hdf5", "hdf", "h5"]:
+            datafile = "testdata.{}".format(suffix)
+            het.write(datafile, overwrite=True)
+
+            # read in data
+            hetnew = HeterodynedData.read(datafile)
+
+            assert np.array_equal(het.data, hetnew.data)
+            assert np.array_equal(het.times, hetnew.times)
+            assert np.array_equal(het.stds, hetnew.stds)
+            assert hetnew.injection is True
+            assert np.array_equal(het.injection_data, hetnew.injection_data)
+
+            # check that detector and par file are read in correctly
+            assert hetnew.detector == det
+            for key in het.par.as_dict():
+                if key in hetnew.par.as_dict():
+                    if isinstance(hetnew.par[key], str):
+                        assert hetnew.par[key] == het.par[key]
+                        assert hetnew.injpar[key] == het.injpar[key]
+                    else:
+                        assert np.allclose(hetnew.par[key], het.par[key])
+                        assert np.allclose(hetnew.injpar[key], het.injpar[key])
+
+            os.remove(datafile)  # clean up file
+
+        os.remove(parfile)
 
     def test_zero_data(self):
         """
