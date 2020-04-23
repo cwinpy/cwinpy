@@ -47,18 +47,18 @@ downsampled to 1/60 Hz (one sample per minute).
 Reading and writing
 -------------------
 
-The :class:`~cwinpy.data.HeterdoynedData` object can be written to and read from both ASCII and HDF5
+The :class:`~cwinpy.data.HeterodynedData` object can be written to and read from both ASCII and HDF5
 file formats. The ASCII read/writer is mainly to access legacy data as produced by the
 `lalapps_heterodyne_pulsar` code within `LALSuite <https://doi.org/10.7935/GT1W-FZ16>`_. However, it
 is advisable to use the HDF5 routines if purely using CWInPy for analyses. The
-:class:`~cwinpy.data.HeterdoynedData` class has both a :meth:`~cwinpy.data.HeterdoynedData.read`
-and :meth:`~cwinpy.data.HeterdoynedData.write` method based on those for a GWPy `TimesSeries
+:class:`~cwinpy.data.HeterodynedData` class has both a :meth:`~cwinpy.data.HeterodynedData.read`
+and :meth:`~cwinpy.data.HeterodynedData.write` method based on those for a GWPy `TimesSeries
 <https://gwpy.github.io/docs/stable/timeseries/io.html>`_ object.
 
 ASCII
 ^^^^^
 
-The :class:`~cwinpy.data.HeterdoynedData` class will automatically detect an ASCII file provided it
+The :class:`~cwinpy.data.HeterodynedData` class will automatically detect an ASCII file provided it
 has the file extension ``.txt`` or, if it is gzipped, ``.txt.gz``. Any comments in the file taken
 from lines starting with a ``#`` or ``%`` will be stored in the object. The format of data required
 in an ASCII text file is shown for with the :class:`~cwinpy.data.HeterodynedData` API below. Given a
@@ -69,14 +69,14 @@ text file called ``data.txt``, it could either be read in as:
     >>> from cwinpy.data import HeterodynedData
     >>> data = HeterodynedData("data.txt")
 
-or using the :meth:`~cwinpy.data.HeterdoynedData.read` method with:
+or using the :meth:`~cwinpy.data.HeterodynedData.read` method with:
 
 .. code-block:: python
 
     >>> data = HeterodynedData.read("data.txt")
 
-If you have an instance of a :class:`~cwinpy.data.HeterdoynedData` class called, e.g., ``het``, then
-writing to an ASCII file can be done using the :meth:`~cwinpy.data.HeterdoynedData.write` method
+If you have an instance of a :class:`~cwinpy.data.HeterodynedData` class called, e.g., ``het``, then
+writing to an ASCII file can be done using the :meth:`~cwinpy.data.HeterodynedData.write` method
 with:
 
 .. code-block:: python
@@ -93,7 +93,7 @@ HDF5
 ^^^^
 
 `HDF5 <https://support.hdfgroup.org/HDF5/doc/H5.intro.html#Intro-WhatIs>`_ is a flexible binary
-storage format. In the context of a :class:`~cwinpy.data.HeterdoynedData` object, it will store both
+storage format. In the context of a :class:`~cwinpy.data.HeterodynedData` object, it will store both
 the complex time series of data and metadata about the object, such as the detector and contents of
 the pulsar parameter file used for heterodyning. The HDF5 file will be detected if it has the file
 extension ``.hdf``, ``.hdf5``, or ``.h5``. A HDF5 file called ``data.hdf5`` can be read in with,
@@ -110,8 +110,8 @@ or
 
     >>> data = HeterodynedData.read("data.hdf5")
 
-If you have an instance of a :class:`~cwinpy.data.HeterdoynedData` class called, e.g., ``het``, then
-writing to a HDF5 file can be done using the :meth:`~cwinpy.data.HeterdoynedData.write` method
+If you have an instance of a :class:`~cwinpy.data.HeterodynedData` class called, e.g., ``het``, then
+writing to a HDF5 file can be done using the :meth:`~cwinpy.data.HeterodynedData.write` method
 with:
 
 .. code-block:: python
@@ -122,7 +122,7 @@ The `"Dataset" <http://docs.h5py.org/en/stable/high/dataset.html#>`_ within the 
 which the data is stored is called ``HeterodynedData``. So, the data could be read in just using the
 Python `h5py <https://www.h5py.org/>`_ package using:
 
-... code-block:: python
+.. code-block:: python
 
     >>> import h5py
     >>> hfile = h5py.File("data.hdf5", "r")
@@ -136,7 +136,7 @@ Python `h5py <https://www.h5py.org/>`_ package using:
 If the file you are writing to already exists the, by default it will not be overwritten and an
 exception will be raised. To overwrite a file use:
 
-  .. code-block:: python
+.. code-block:: python
 
     >>> het.write("data.hdf5", overwrite=True)
 
