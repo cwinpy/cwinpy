@@ -118,8 +118,9 @@ with:
 
     >>> het.write("data.hdf5")
 
-The "path" within the HDF5 file within which the data is stored is ``HeterodynedData``. So, the data
-could be read in just using the Python `h5py <https://www.h5py.org/>`_ package using:
+The `"Dataset" <http://docs.h5py.org/en/stable/high/dataset.html#>`_ within the HDF5 file within
+which the data is stored is called ``HeterodynedData``. So, the data could be read in just using the
+Python `h5py <https://www.h5py.org/>`_ package using:
 
 ... code-block:: python
 
