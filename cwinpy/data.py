@@ -1028,16 +1028,6 @@ class HeterodynedData(TimeSeriesBase):
     def write(self, target, *args, **kwargs):
         """
         Write this :class:`~cwinpy.data.HeterodynedData` object to a file.
-
-        Parameters
-        ----------
-        target: str
-            The path of output file.
-        format: str (optional)
-            The output format identifier. If not given, the format will be
-            detected from the target string if possible. Data can be written
-            to plain ascii text files or HDF5 files (the latter is
-            recommended)
         """
 
         if self._input_stds:

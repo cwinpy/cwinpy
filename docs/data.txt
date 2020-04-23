@@ -51,8 +51,8 @@ The :class:`~cwinpy.data.HeterdoynedData` object can be written to and read from
 file formats. The ASCII read/writer is mainly to access legacy data as produced by the
 `lalapps_heterodyne_pulsar` code within `LALSuite <https://doi.org/10.7935/GT1W-FZ16>`_. However, it
 is advisable to now use the HDF5 routines if purely using CWInPy for analyses. The
-:class:`~cwinpy.data.HeterdoynedData` class has both a :method:`~cwinpy.data.HeterdoynedData.read`
-and :method:`~cwinpy.data.HeterdoynedData.write` method based on those for a GWPy `TimesSeries
+:class:`~cwinpy.data.HeterdoynedData` class has both a :meth:`~cwinpy.data.HeterdoynedData.read`
+and :meth:`~cwinpy.data.HeterdoynedData.write` method based on those for a GWPy `TimesSeries
 <https://gwpy.github.io/docs/stable/timeseries/io.html>`_ object.
 
 ASCII
@@ -68,14 +68,14 @@ Given a text file called ``data.txt``, it could either be read in as:
 
     >>> data = HeterodynedData("data.txt")
 
-or using the :method:`~cwinpy.data.HeterdoynedData.read` method with:
+or using the :meth:`~cwinpy.data.HeterdoynedData.read` method with:
 
 .. code-block:: python
 
     >>> data = HeterodynedData.read("data.txt")
 
 If you have an instance of a :class:`~cwinpy.data.HeterdoynedData` class called, e.g., ``het``, then
-writing to an ASCII file can be done using the :method:`~cwinpy.data.HeterdoynedData.write` method
+writing to an ASCII file can be done using the :meth:`~cwinpy.data.HeterdoynedData.write` method
 with:
 
 .. code-block:: python
@@ -111,7 +111,7 @@ If the file you are writing to already exists the, by default it will not be ove
    :members:
 
 References
-----------
+==========
 
 .. [1] `J. Aasi et al
    <https://ui.adsabs.harvard.edu/#abs/2014ApJ...785..119A/abstract>`_,
