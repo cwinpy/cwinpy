@@ -37,8 +37,8 @@ class PEMassQuadrupoleSimulationDAG(object):
         directory containing the parameter files.
     datafiles: dict, str, :class:`cwinpy.data.MultiHeterodynedData`
         If using real data for each pulsar then pass a dictionary of paths to
-        the data files keyed to the pulsar name, or a directory containing
-        the heterodyned data files, or a
+        the data files keyed to the pulsar name (or detector then pulsar name),
+        or a directory containing the heterodyned data files, or a
         :class:`~cwinpy.data.MultiHeterodynedData` object containing the data.
     npulsars: int
         The number of pulsars to include in the simulation.
@@ -47,34 +47,48 @@ class PEMassQuadrupoleSimulationDAG(object):
         the simulated signals.
     ddist: :class:`bilby.core.prior.Prior`
         The distribution from which to randomly draw pulsar distances if
-        required.
+        required. This defaults to a uniform distribution between 0.1 and 10
+        kpc.
     fdist: :class:`bilby.core.prior.Prior`
         The distribution from which to draw pulsar spin frequencies if
-        required.
+        required. This defaults to a uniform distribution between 10 and 750
+        Hz.
     skydist: :class:`bilby.core.prior.PriorDict`
         The distribution from which to draw pulsar sky positions if needed.
         If this is required the distribution will default to being uniform over
         the sky.
-
-    prior: dict A bilby-style prior dictionary giving the prior distributions from which to draw the
-        injected signal values, and to use for signal recovery. ninj: int The number of simulated
-        signals to create. Defaults to 100. maxamp: float A maximum on the amplitude parameter(s) to
-        use when drawing the injection parameters. If none is given then this will be taken from the
-        prior if using an amplitude parameter. basedir: str The base directory into which the
-        simulations and outputs will be placed. If None then the current working directory will be
-        used. detector: str, list A string, or list of strings, of detector prefixes for the
-        simulated data. This defaults to a single detector - the LIGO Hanford Observatory - from
-        which the simulated noise will be drawn from the advanced detector design sensitivity curve
-        (e.g., [1]_). submit: bool Set whether to submit the Condor DAG or not. accountuser: str
-        Value to give to the 'account_user' parameter in the Condor submit file. Default is to set
-        no value. accountgroup: str Value to give to the 'account_user_group' parameter in the
-        Condor submit file. Default is to set no value. getenv: bool Set the value for the 'getenv'
-        parameter in the Condor submit file. Default is False. sampler: str The sampler to use.
-        Defaults to dynesty. sampler_kwargs: dict A dictionary of keyword arguments for the sampler.
-        Defaults to None. freqrange: list, tuple A pair of values giving the lower and upper
-        rotation frequency ranges (in Hz) for the simulated signals. Defaults to (10, 750) Hz.
-        outputsnr: bool Set whether to output the injected and recovered signal-to-noise ratios.
-        Defaults to True. numba: bool Set whether or not to use the likelihood with numba enabled.
+    prior: dict
+        A bilby-style prior dictionary giving the prior distributions from
+        which to use for signal recovery.
+    basedir: str
+        The base directory into which the simulations and outputs will be
+        placed. If None then the current working directory will be used.
+    detector: str, list
+        A string, or list of strings, of detector prefixes for the
+        simulated data. This defaults to a single detector - the LIGO Hanford
+        Observatory - from which the simulated noise will be drawn from the
+        advanced detector design sensitivity curve (e.g., [1]_).
+    submit: bool
+        Set whether to submit the Condor DAG or not.
+    accountuser: str
+        Value to give to the 'account_user' parameter in the Condor submit
+        file. Default is to set no value.
+    accountgroup: str
+        Value to give to the 'account_user_group' parameter in the Condor
+        submit file. Default is to set no value.
+    getenv: bool
+        Set the value for the 'getenv' parameter in the Condor submit file.
+        Default is False.
+    sampler: str
+        The sampler to use. Defaults to dynesty.
+    sampler_kwargs: dict
+        A dictionary of keyword arguments for the sampler. Defaults to None.
+    outputsnr: bool
+        Set whether to output the injected and recovered signal-to-noise
+        ratios. Defaults to True.
+    numba: bool
+        Set whether or not to use the likelihood with numba enabled. Defaults
+        to True.
 
     References
     ----------
@@ -86,20 +100,25 @@ class PEMassQuadrupoleSimulationDAG(object):
 
     def __init__(
         self,
+        parfiles,
         prior,
-        ninj=100,
-        maxamp=None,
+        qdist,
+        datafiles=None,
+        npulsars=100,
         basedir=None,
-        detector="AH1",
+        detector="H1",
+        ddist=bilby.core.prior.Uniform(
+            (0.1 * u.kpc).to("m"), (10.0 * u.kpc).to("m"), name="distance"
+        ),
+        fdist=bilby.core.prior.Uniform(10.0, 750.0, name="frequency"),
         submit=False,
         accountuser=None,
         accountgroup=None,
         getenv=False,
         sampler="dynesty",
         sampler_kwargs=None,
-        freqrange=(10.0, 750.0),
         outputsnr=True,
-        numba=False,
+        numba=True,
     ):
 
         if isinstance(prior, dict):
@@ -107,17 +126,9 @@ class PEMassQuadrupoleSimulationDAG(object):
         else:
             raise TypeError("Prior must be a dictionary-type object")
 
-        if ninj < 1:
+        if npulsars < 1:
             raise ValueError("A positive number of injection must be given")
-        self.ninj = int(ninj)
-
-        # set maximum amplitude if given
-        self.maxamp = None
-        if isinstance(maxamp, float):
-            if maxamp > 0.0:
-                self.maxamp = maxamp
-            else:
-                raise ValueError("Maximum amplitude must be positive")
+        self.npulsars = int(npulsars)
 
         if basedir is not None:
             self.basedir = basedir
@@ -137,7 +148,8 @@ class PEMassQuadrupoleSimulationDAG(object):
         self.makedirs(self.resultsdir)
 
         # create pulsar parameter files
-        self.create_pulsars(freqrange=freqrange)
+        self.fdist = fdist
+        self.create_pulsars()
 
         # create dag configuration file
         self.accountuser = accountuser
@@ -169,15 +181,9 @@ class PEMassQuadrupoleSimulationDAG(object):
         except Exception as e:
             raise IOError("Could not create directory: {}\n{}".format(dir, e))
 
-    def create_pulsars(self, freqrange):
+    def create_pulsars(self):
         """
         Create the pulsar parameter files based on the samples from the priors.
-
-        Parameters
-        ----------
-        freqrange: list, tuple
-            A pair of values giving the lower and upper rotation frequency ranges
-            (in Hz) for the simulated signals.
         """
 
         # pulsar parameter file directory
@@ -185,18 +191,10 @@ class PEMassQuadrupoleSimulationDAG(object):
         self.makedirs(self.pulsardir)
 
         # "amplitude" parameters
-        amppars = ["h0", "c21", "c22", "q22"]
-
-        if not isinstance(freqrange, (list, tuple, np.ndarray)):
-            raise TypeError("Frequency range must be a list or tuple")
-        else:
-            if len(freqrange) != 2:
-                raise ValueError(
-                    "Frequency range must contain an upper and lower value"
-                )
+        # amppars = ["h0", "c21", "c22", "q22"]
 
         self.pulsars = {}
-        for i in range(self.ninj):
+        for i in range(self.npulsars):
             pulsar = {}
 
             for param in self.prior:
@@ -217,17 +215,9 @@ class PEMassQuadrupoleSimulationDAG(object):
             pulsar["RAJ"] = skypos.ra.to_string(u.hour, fields=3, sep=":", pad=True)
             pulsar["DECJ"] = skypos.dec.to_string(u.deg, fields=3, sep=":", pad=True)
 
-            # set maximum amplitude if given
-            if self.maxamp is not None:
-                for amp in amppars:
-                    if amp in self.prior:
-                        pulsar[amp.upper()] = bilby.core.prior.Uniform(
-                            name=amp, minimum=0.0, maximum=self.maxamp
-                        ).sample()
-
             # set (rotation) frequency upper and lower bounds
             if "f0" not in self.prior:
-                pulsar["F0"] = np.random.uniform(freqrange[0], freqrange[1])
+                pulsar["F0"] = self.fdist.sample()
 
             # set pulsar name from sky position
             rastr = skypos.ra.to_string(u.hour, fields=2, sep="", pad=True)
