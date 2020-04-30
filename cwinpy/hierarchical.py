@@ -615,7 +615,7 @@ class ExponentialDistribution(BaseDistribution):
 class DeltaFunctionDistribution(BaseDistribution):
     """
     A distribution defining a delta function (useful if wanting to fix a
-    parameter at a specific value if creating signals).
+    parameter at a specific value if creating signals, or use as a null model).
 
     Parameters
     ----------

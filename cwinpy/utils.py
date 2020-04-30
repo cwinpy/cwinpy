@@ -3,10 +3,13 @@ General utility functions.
 """
 
 import ctypes
+import os
+import subprocess
 from functools import reduce
 from math import gcd
 
 import numpy as np
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from numba import jit, njit
 from numba.extending import get_cython_function_address
 
@@ -60,3 +63,48 @@ def gcd_array(denominators):
         raise ValueError("Must have more than two values")
 
     return reduce(lambda a, b: gcd(a, b), denoms)
+
+
+def is_par_file(parfile):
+    """
+    Check if a TEMPO-style pulsar parameter file is valid.
+
+    Parameters
+    ----------
+    parfile: str
+        The path to a file.
+
+    Returns
+    -------
+    ispar: bool
+        Returns True is if it is a valid parameter file.
+    """
+
+    # check that the file is ASCII text (see, e.g.,
+    # https://stackoverflow.com/a/1446571/1862861)
+
+    if os.path.isfile(parfile):
+        msg = subprocess.Popen(
+            ["file", "--mime", parfile], stdout=subprocess.PIPE
+        ).communicate()[0]
+        if "text/plain" in msg.decode():
+            psr = PulsarParametersPy(parfile)
+            # file must contain a frequency, right ascension, declination and
+            # pulsar name
+            # file must contain right ascension and declination
+            if (
+                psr["F"] is None
+                or (psr["RAJ"] is None and psr["RA"] is None)
+                or (psr["DECJ"] is None and psr["DEC"] is None)
+                or (
+                    psr["PSRJ"] is None
+                    and psr["PSRB"] is None
+                    and psr["PSR"] is None
+                    and psr["NAME"] is None
+                )
+            ):
+                return False
+
+            return True
+
+    return False

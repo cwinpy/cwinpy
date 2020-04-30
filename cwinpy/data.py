@@ -17,7 +17,7 @@ from gwpy.types import Series
 from numba import jit
 
 # import utility functions
-from .utils import gcd_array, logfactorial
+from .utils import gcd_array, is_par_file, logfactorial
 
 
 class MultiHeterodynedData(object):
@@ -1154,12 +1154,10 @@ class HeterodynedData(TimeSeriesBase):
             if isinstance(par, PulsarParametersPy):
                 return par
             elif isinstance(par, str):
-                try:
+                if is_par_file(par):
                     newpar = PulsarParametersPy(par)
-                except Exception as e:
-                    raise IOError(
-                        "Could not read in pulsar parameter " "file: {}".format(e)
-                    )
+                else:
+                    raise IOError("Could not read in pulsar parameter file")
             else:
                 raise TypeError("'par' is not a recognised type")
         else:

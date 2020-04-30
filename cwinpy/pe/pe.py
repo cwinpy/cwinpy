@@ -21,6 +21,7 @@ from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..likelihood import TargetedPulsarLikelihood
+from ..utils import is_par_file
 
 
 def sighandler(signum, frame):
@@ -1450,10 +1451,17 @@ class PEDAGRunner(object):
             # get names of all the pulsars
             pulsardict = {}
             for pulsar in list(pulsars):
-                if os.path.isfile(pulsar):
+                if is_par_file(pulsar):
                     psr = PulsarParametersPy(pulsar)
-                    if psr["PSRJ"] is not None:
-                        pulsardict[psr["PSRJ"]] = pulsar
+
+                    # try names with order or precedence
+                    names = [
+                        psr[name]
+                        for name in ["PSRJ", "PSRB", "PSR", "NAME"]
+                        if psr[name] is not None
+                    ]
+                    if len(names) > 0:
+                        pulsardict[names[0]] = pulsar
                     else:
                         warnings.warn(
                             "Parameter file '{}' has no name, so it will be "

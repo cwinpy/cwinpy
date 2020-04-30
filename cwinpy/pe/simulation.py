@@ -3,14 +3,16 @@ Generate simulations for running the hierarchical analysis.
 """
 
 import os
-import shutil
 from configparser import ConfigParser
 
 import astropy.units as u
 import bilby
 import numpy as np
 from astropy.coordinates import SkyCoord
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
+from ..hierarchical import BaseDistribution
+from ..utils import is_par_file
 from .pe import pe_dag
 
 
@@ -31,6 +33,12 @@ class PEMassQuadrupoleSimulationDAG(object):
 
     Parameters
     ----------
+    q22dist: :class:`cwinpy.hierarchical.BaseDistribution`
+        The distribution from the the mass quadrupole values will be drawn for
+        the simulated signals.
+    prior: dict
+        A bilby-style prior dictionary giving the prior distributions from
+        which to use for signal recovery.
     parfiles: dict, str
         If using real pulsar parameter files pass a dictionary of paths to
         individual files keyed to the pulsar name, or pass the path to a
@@ -42,24 +50,15 @@ class PEMassQuadrupoleSimulationDAG(object):
         :class:`~cwinpy.data.MultiHeterodynedData` object containing the data.
     npulsars: int
         The number of pulsars to include in the simulation.
-    qdist: :class:`cwinpy.hierarchical.BaseDistribution`
-        The distribution from the the mass quadrupole values will be drawn for
-        the simulated signals.
-    ddist: :class:`bilby.core.prior.Prior`
-        The distribution from which to randomly draw pulsar distances if
-        required. This defaults to a uniform distribution between 0.1 and 10
-        kpc.
+    posdist: :class:`bilby.core.prior.Prior`
+        The distribution from which to randomly draw pulsar positions (right
+        ascension, declination and distance) if required. This defaults to a
+        uniform distribution on the sky and uniform in distance between 0.1
+        and 10 kpc.
     fdist: :class:`bilby.core.prior.Prior`
         The distribution from which to draw pulsar spin frequencies if
         required. This defaults to a uniform distribution between 10 and 750
         Hz.
-    skydist: :class:`bilby.core.prior.PriorDict`
-        The distribution from which to draw pulsar sky positions if needed.
-        If this is required the distribution will default to being uniform over
-        the sky.
-    prior: dict
-        A bilby-style prior dictionary giving the prior distributions from
-        which to use for signal recovery.
     basedir: str
         The base directory into which the simulations and outputs will be
         placed. If None then the current working directory will be used.
@@ -100,16 +99,14 @@ class PEMassQuadrupoleSimulationDAG(object):
 
     def __init__(
         self,
-        parfiles,
         prior,
-        qdist,
+        q22dist,
+        parfiles=None,
         datafiles=None,
-        npulsars=100,
+        npulsars=None,
         basedir=None,
         detector="H1",
-        ddist=bilby.core.prior.Uniform(
-            (0.1 * u.kpc).to("m"), (10.0 * u.kpc).to("m"), name="distance"
-        ),
+        posdist=None,
         fdist=bilby.core.prior.Uniform(10.0, 750.0, name="frequency"),
         submit=False,
         accountuser=None,
@@ -120,21 +117,40 @@ class PEMassQuadrupoleSimulationDAG(object):
         outputsnr=True,
         numba=True,
     ):
+        if isinstance(q22dist, BaseDistribution):
+            self.q22dist = q22dist
+        else:
+            raise TypeError("Q22 distribution must be a child of a BaseDistribution")
 
-        if isinstance(prior, dict):
-            self.prior = bilby.core.prior.PriorDict(dictionary=prior)
+        if isinstance(prior, (dict, bilby.core.prior.PriorDict)):
+            if "q22" in prior:
+                self.prior = bilby.core.prior.PriorDict(prior)
+            else:
+                raise ValueError("Prior must contain 'q22'")
         else:
             raise TypeError("Prior must be a dictionary-type object")
 
-        if npulsars < 1:
-            raise ValueError("A positive number of injection must be given")
-        self.npulsars = int(npulsars)
+        self.parfiles = parfiles
 
         if basedir is not None:
             self.basedir = basedir
             self.makedirs(basedir)
         else:
             self.basedir = os.getcwd()
+
+        # create pulsar parameter files if none are given
+        if self.parfiles is None:
+            if npulsars < 1:
+                raise ValueError("A positive number of injection must be given")
+            self.npulsars = int(npulsars)
+
+            # set frequency distribution
+            self.fdist = fdist
+
+        # set sky location and distance distribution
+        self.posdist = posdist
+
+        self.create_pulsars()
 
         # build output directory structure
         self.detector = detector
@@ -146,10 +162,6 @@ class PEMassQuadrupoleSimulationDAG(object):
         # posterior sample results directory
         self.resultsdir = os.path.join(self.basedir, "results")
         self.makedirs(self.resultsdir)
-
-        # create pulsar parameter files
-        self.fdist = fdist
-        self.create_pulsars()
 
         # create dag configuration file
         self.accountuser = accountuser
@@ -165,11 +177,78 @@ class PEMassQuadrupoleSimulationDAG(object):
         # create the DAG for cwinpy_knope jobs
         self.runner = pe_dag(config=self.config, build=False)
 
-        # add PP plot creation DAG
-        self.ppplots()
-
         if self.submit:
             self.runner.dag.submit_dag()
+
+    @property
+    def parfiles(self):
+        return self._parfiles
+
+    @parfiles.setter
+    def parfiles(self, parfiles):
+        pfs = {}
+
+        if parfiles is not None:
+            if isinstance(parfiles, dict):
+                self._parfiles = parfiles
+
+                for psr in self._parfiles:
+                    if not is_par_file(self._parfiles[psr]):
+                        raise IOError(
+                            "{} is not a pulsar parameter file".format(
+                                self._parfiles[psr]
+                            )
+                        )
+            elif os.path.isdir(parfiles):
+                for pf in os.listdir(parfiles):
+                    parfile = os.path.join(parfiles, pf)
+                    if is_par_file(parfile):
+                        psr = PulsarParametersPy(parfile)
+
+                        # add parfile to dictionary
+                        for name in ["PSRJ", "PSRB", "PSR", "NAME"]:
+                            if psr[name] is not None:
+                                pfs[psr[name]] = parfile
+            else:
+                raise TypeError(
+                    "Must give directory of dictionary of pulsar " "parameter files"
+                )
+            self._parfiles = pfs
+            self.npulsars = len(self._parfiles)
+        else:
+            self._parfiles = None
+            self.npulsars = None
+
+    @property
+    def posdist(self):
+        return self._posdist
+
+    @posdist.setter
+    def posdist(self, posdist):
+        if posdist is None:
+            # set default position distribution
+            ddist = bilby.core.prior.Uniform(
+                (0.1 * u.kpc).to("m"), (10.0 * u.kpc).to("m"), name="distance"
+            )
+            radist = bilby.core.prior.Uniform(0.0, 2.0 * np.pi, name="ra")
+            decdist = bilby.core.prior.Sine(name="dec")
+            self._posdist = bilby.core.prior.PriorDict(
+                {"distance": ddist, "ra": radist, "dec": decdist}
+            )
+        elif isinstance(posdist, bilby.core.prior.PriorDict):
+            # check that distribution contains distance, ra and dec
+            if self.parfiles is None:
+                keys = ["ra", "dec", "distance"]
+            else:
+                keys = ["distance"]
+            for key in keys:
+                if key not in posdist:
+                    raise ValueError(
+                        "Position distribution must contain {}".format(keys)
+                    )
+            self._posdist = posdist
+        else:
+            raise TypeError("Position distribution is not correct type")
 
     def makedirs(self, dir):
         """
@@ -186,65 +265,72 @@ class PEMassQuadrupoleSimulationDAG(object):
         Create the pulsar parameter files based on the samples from the priors.
         """
 
-        # pulsar parameter file directory
+        # pulsar parameter/injection file directory
         self.pulsardir = os.path.join(self.basedir, "pulsars")
         self.makedirs(self.pulsardir)
 
-        # "amplitude" parameters
-        # amppars = ["h0", "c21", "c22", "q22"]
-
         self.pulsars = {}
         for i in range(self.npulsars):
-            pulsar = {}
+            # generate fake pulsar parameters
+            if self.posdist is not None:
+                skyloc = self.posdist.sample()
 
-            for param in self.prior:
-                pulsar[param.upper()] = self.prior[param].sample()
+            if self.fdist is not None:
+                freq = self.fdist.sample()
 
-            # draw sky position uniformly from the sky if no prior is given
-            if "ra" not in self.prior:
-                raval = np.random.uniform(0.0, 2.0 * np.pi)
+            if self.parfiles is None:
+                pulsar = {}
+                skypos = SkyCoord(skyloc["ra"] * u.rad, skyloc["dec"] * u.rad)
+                pulsar["RAJ"] = skypos.ra.to_string(u.hour, fields=3, sep=":", pad=True)
+                pulsar["DECJ"] = skypos.dec.to_string(
+                    u.deg, fields=3, sep=":", pad=True
+                )
+                pulsar["DIST"] = skyloc["distance"]
+
+                # set pulsar name from sky position
+                rastr = skypos.ra.to_string(u.hour, fields=2, sep="", pad=True)
+                decstr = skypos.dec.to_string(
+                    u.deg, fields=2, sep="", pad=True, alwayssign=True
+                )
+                pname = "J{}{}".format(rastr, decstr)
+                pnameorig = str(pname)  # copy of original name
+                counter = 0
+                alphas = ["A", "B", "C", "D", "E", "F", "G"]
+                while pname in self.pulsars:
+                    if counter == len(alphas):
+                        raise RuntimeError("Too many pulsars in the same sky position!")
+                    pname = pnameorig + alphas[counter]
+                    counter += 1
+
+                pulsar["PSRJ"] = pname
+                pulsar["F"] = [freq]
+
+                # output file name
+                pfile = os.path.join(self.pulsardir, "{}.par".format(pname))
+                injfile = pfile
             else:
-                raval = pulsar.pop("ra")
+                pfile = list(self.parfiles.values())[i]
+                pulsar = PulsarParametersPy(pfile)
+                pname = list(self.parfiles.keys())[i]
+                injfile = os.path.join(self.pulsar, "{}.par".format(pname))
 
-            if "dec" not in self.prior:
-                decval = -(np.pi / 2.0) + np.arccos(np.random.uniform(-1.0, 1.0))
-            else:
-                decval = pulsar.pop("dec")
+                if pulsar["DIST"] is None:
+                    # add distance if not present in parameter file
+                    pulsar["DIST"] = skyloc["distance"]
 
-            skypos = SkyCoord(raval * u.rad, decval * u.rad)
-            pulsar["RAJ"] = skypos.ra.to_string(u.hour, fields=3, sep=":", pad=True)
-            pulsar["DECJ"] = skypos.dec.to_string(u.deg, fields=3, sep=":", pad=True)
+            # set Q22 value
+            pulsar["Q22"] = self.q22dist.sample()
 
-            # set (rotation) frequency upper and lower bounds
-            if "f0" not in self.prior:
-                pulsar["F0"] = self.fdist.sample()
-
-            # set pulsar name from sky position
-            rastr = skypos.ra.to_string(u.hour, fields=2, sep="", pad=True)
-            decstr = skypos.dec.to_string(
-                u.deg, fields=2, sep="", pad=True, alwayssign=True
-            )
-            pname = "J{}{}".format(rastr, decstr)
-            pnameorig = str(pname)  # copy of original name
-            counter = 0
-            alphas = ["A", "B", "C", "D", "E", "F", "G"]
-            while pname in self.pulsars:
-                if counter == len(alphas):
-                    raise RuntimeError("Too many pulsars in the same sky position!")
-                pname = pnameorig + alphas[counter]
-                counter += 1
-
-            pulsar["PSRJ"] = pname
-
-            # output file name
-            pfile = os.path.join(self.pulsardir, "{}.par".format(pname))
-
-            with open(pfile, "w") as fp:
-                for param in pulsar:
-                    fp.write("{}\t{}\n".format(param, pulsar[param]))
+            with open(injfile, "w") as fp:
+                if self.parfiles is None:
+                    for param in pulsar:
+                        fp.write("{}\t{}\n".format(param, pulsar[param]))
+                else:
+                    fp.write(str(pulsar))
 
             self.pulsars[pname] = {}
             self.pulsars[pname]["file"] = pfile
+            self.pulsars[pname]["injection_file"] = injfile
             self.pulsars[pname]["parameters"] = pulsar
 
     def create_config(self):
@@ -266,72 +352,26 @@ class PEMassQuadrupoleSimulationDAG(object):
         if self.accountuser is not None:
             self.config["job"]["accounting_group_user"] = self.accountuser
 
-        self.config["knope"] = {}
-        self.config["knope"]["pulsars"] = self.pulsardir
-        self.config["knope"]["injections"] = self.pulsardir
-        self.config["knope"]["results"] = self.resultsdir
-        self.config["knope"]["numba"] = str(self.numba)
+        self.config["pe"] = {}
+        self.config["pe"]["pulsars"] = [
+            self.pulsars[pname]["file"] for pname in self.pulsars
+        ]
+        self.config["pe"]["injections"] = [
+            self.pulsars[pname]["injection_file"] for pname in self.pulsars
+        ]
+        self.config["pe"]["results"] = self.resultsdir
+        self.config["pe"]["numba"] = str(self.numba)
 
         # set fake data
-        if "h0" in self.prior or "c22" in self.prior or "q22" in self.prior:
-            self.config["knope"]["fake-asd-2f"] = str(self.detector)
-        if "c21" in self.prior and "c22" in self.prior:
-            self.config["knope"]["fake-asd-1f"] = str(self.detector)
-        if "c21" in self.prior and "c22 not in self.prior":
-            self.config["knope"]["fake-asd-1f"] = str(self.detector)
+        self.config["pe"]["fake-asd-2f"] = str(self.detector)
 
         # set the prior file
-        label = "ppplot"
+        label = "simulation"
         self.priorfile = os.path.join(self.basedir, "{}.prior".format(label))
         self.prior.to_file(outdir=self.basedir, label=label)
 
-        self.config["knope"]["priors"] = self.priorfile
-        self.config["knope"]["sampler"] = self.sampler
+        self.config["pe"]["priors"] = self.priorfile
+        self.config["pe"]["sampler"] = self.sampler
         if isinstance(self.sampler_kwargs, dict):
-            self.config["knope"]["sampler_kwargs"] = str(self.sampler_kwargs)
-        self.config["knope"]["output_snr"] = str(self.outputsnr)
-
-    def ppplots(self):
-        """
-        Set up job to create PP plots.
-        """
-
-        from pycondor import Job
-
-        # get executable
-        jobexec = shutil.which("cwinpy_knope_generate_pp_plots")
-
-        extra_lines = []
-        if self.accountgroup is not None:
-            extra_lines.append("accounting_group = {}".format(self.accountgroup))
-        if self.accountuser is not None:
-            extra_lines.append("accounting_group_user = {}".format(self.accountuser))
-
-        # create cwinpy_knope Job
-        job = Job(
-            "cwinpy_knope_pp_plots",
-            jobexec,
-            error=self.runner.error,
-            log=self.runner.log,
-            output=self.runner.output,
-            submit=self.runner.jobsubmit,
-            universe=self.runner.universe,
-            request_memory=self.runner.reqmem,
-            getenv=self.getenv,
-            queue=1,
-            requirements=self.runner.requirements,
-            retry=self.runner.retry,
-            extra_lines=extra_lines,
-            dag=self.runner.dag,
-        )
-
-        jobargs = "--path '{}' ".format(os.path.join(self.basedir, "results", "*", "*"))
-        jobargs += "--output {} ".format(os.path.join(self.basedir, "ppplot.png"))
-        if self.outputsnr:
-            jobargs += "--snrs "
-        job.add_arg(jobargs)
-
-        job.add_parents(
-            self.runner.dag.nodes[:-1]
-        )  # exclude cwinpy_knope_pp_plots job itself
-        self.runner.dag.build()
+            self.config["pe"]["sampler_kwargs"] = str(self.sampler_kwargs)
+        self.config["pe"]["output_snr"] = str(self.outputsnr)
