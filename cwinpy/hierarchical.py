@@ -14,6 +14,7 @@ from scipy.stats import expon, gaussian_kde, truncnorm
 DISTRIBUTION_REQUIREMENTS = {
     "exponential": ["mu"],
     "gaussian": ["mu", "sigma", "weight"],
+    "deltafunction": ["peak"],
 }
 
 
@@ -208,18 +209,18 @@ class BaseDistribution(object):
             )
         )
 
-    def log_pdf(self, hyperparameters, value):
+    def log_pdf(self, value, hyperparameters):
         """
         The natural logarithm of the distribution's probability density
         function at the given value.
 
         Parameters
         ----------
+        value: float
+            The value at which to evaluate the probability.
         hyperparameters: dict
             A dictionary of the hyperparameter values that define the current
             state of the distribution.
-        value: float
-            The value at which to evaluate the probability.
 
         Returns
         -------
@@ -229,17 +230,17 @@ class BaseDistribution(object):
 
         return np.nan
 
-    def pdf(self, hyperparameters, value):
+    def pdf(self, value, hyperparameters):
         """
         The distribution's probability density function at the given value.
 
         Parameters
         ----------
+        value: float
+            The value at which to evaluate the probability.
         hyperparameters: dict
             A dictionary of the hyperparameter values that define the current
             state of the distribution.
-        value: float
-            The value at which to evaluate the probability.
 
         Returns
         -------
@@ -247,7 +248,7 @@ class BaseDistribution(object):
             The probability density.
         """
 
-        return np.exp(self.log_pdf(hyperparameters, value))
+        return np.exp(self.log_pdf(value, hyperparameters))
 
     def sample(self, hyperparameters, size=1):
         """
@@ -337,18 +338,18 @@ class BoundedGaussianDistribution(BaseDistribution):
             name, "gaussian", hyperparameters=gaussianparameters, low=low, high=high
         )
 
-    def log_pdf(self, hyperparameters, value):
+    def log_pdf(self, value, hyperparameters={}):
         """
         The natural logarithm of the pdf of a 1d (potentially multi-modal)
         Gaussian probability distribution.
 
         Parameters
         ----------
+        value: float
+            The value at which the probability is to be evaluated.
         hyperparameters: dict
             A dictionary containing the current values of the hyperparameters
             that need to be inferred.
-        value: float
-            The value at which the probability is to be evaluated.
 
         Returns
         -------
@@ -425,7 +426,7 @@ class BoundedGaussianDistribution(BaseDistribution):
 
         return logpdf
 
-    def sample(self, hyperparameters, size=1):
+    def sample(self, hyperparameters={}, size=1):
         """
         Draw a sample from the bounded Gaussian distribution as defined by the
         given hyperparameters.
@@ -524,25 +525,22 @@ class ExponentialDistribution(BaseDistribution):
     """
 
     def __init__(self, name, mu):
-        if not isinstance(mu, bilby.core.prior.Prior):
-            raise TypeError("Mean must be a Prior distribution")
-
         # initialise
         super().__init__(
             name, "exponential", hyperparameters=dict(mu=mu), low=0.0, high=np.inf
         )
 
-    def log_pdf(self, hyperparameters, value):
+    def log_pdf(self, value, hyperparameters={}):
         """
         The natural logarithm of the pdf of an exponential distribution.
 
         Parameters
         ----------
+        value: float
+            The value at which the probability is to be evaluated.
         hyperparameters: dict
             A dictionary containing the current values of the hyperparameters
             that need to be inferred.
-        value: float
-            The value at which the probability is to be evaluated.
 
         Returns
         -------
@@ -553,10 +551,12 @@ class ExponentialDistribution(BaseDistribution):
         if np.any((value < self.low) | (value > self.high)):
             return -np.inf
 
-        try:
-            mu = hyperparameters["mu"]
-        except KeyError:
-            raise KeyError("Cannot evaluate the probability when mu is not given")
+        mu = self["mu"]
+        if not self.fixed["mu"]:
+            try:
+                mu = hyperparameters["mu"]
+            except KeyError:
+                raise KeyError("Cannot evaluate the probability when mu is not given")
 
         if mu <= 0.0:
             return -np.inf
@@ -566,7 +566,7 @@ class ExponentialDistribution(BaseDistribution):
 
         return logpdf
 
-    def sample(self, hyperparameters, size=1):
+    def sample(self, hyperparameters={}, size=1):
         """
         Draw a sample from the exponential distribution as defined by the
         given hyperparameters.
@@ -585,10 +585,12 @@ class ExponentialDistribution(BaseDistribution):
             A sample, or set of samples, from the distribution.
         """
 
-        try:
-            mu = hyperparameters["mu"]
-        except KeyError:
-            raise KeyError("Cannot evaluate the probability when mu is not given")
+        mu = self["mu"]
+        if not self.fixed["mu"]:
+            try:
+                mu = hyperparameters["mu"]
+            except KeyError:
+                raise KeyError("Cannot evaluate the probability when mu is not given")
 
         samples = expon.rvs(scale=mu, size=size)
 
@@ -608,6 +610,85 @@ class ExponentialDistribution(BaseDistribution):
             sample = samples
 
         return sample
+
+
+class DeltaFunctionDistribution(BaseDistribution):
+    """
+    A distribution defining a delta function (useful if wanting to fix a
+    parameter at a specific value if creating signals).
+
+    Parameters
+    ----------
+    name: str
+        See :class:`~cwinpy.hierarchical.BaseDistribution`
+    peak: float
+        The value at which the delta function is non-zero.
+    """
+
+    def __init__(self, name, peak):
+        # initialise
+        super().__init__(
+            name, "deltafunction", hyperparameters=dict(peak=peak),
+        )
+
+    def log_pdf(self, value, hyperparameters={}):
+        """
+        The natural logarithm of the pdf of a delta function distribution.
+
+        Parameters
+        ----------
+        value: float
+            The value at which the probability is to be evaluated.
+        hyperparameters: dict
+            A dictionary containing the current values of the hyperparameters
+            that need to be inferred.
+
+        Returns
+        -------
+        logpdf:
+            The natural logarithm of the probability at the given value.
+        """
+
+        peak = self["peak"]
+        if not self.fixed["peak"]:
+            try:
+                peak = hyperparameters["peak"]
+            except KeyError:
+                raise KeyError("Cannot evaluate the probability when peak is not given")
+
+        if value != peak:
+            return -np.inf
+        return 0.0
+
+    def sample(self, hyperparameters={}, size=1):
+        """
+        Return the position of the delta function.
+
+        Parameters
+        ----------
+        hyperparameters: dict
+            A dictionary of the hyperparameter values (``peak``) that define
+            the current state of the distribution.
+        size: int
+            The number of samples to draw from the distribution.
+
+        Returns
+        -------
+        sample:
+            A sample, or set of samples, from the distribution.
+        """
+
+        peak = self["peak"]
+        if not self.fixed["peak"]:
+            try:
+                peak = hyperparameters["peak"]
+            except KeyError:
+                raise KeyError("Cannot evaluate the probability when peak is not given")
+
+        if size == 1:
+            return peak
+        else:
+            return peak * np.ones(size)
 
 
 def create_distribution(name, distribution, distkwargs={}):
@@ -642,6 +723,8 @@ def create_distribution(name, distribution, distkwargs={}):
             return BoundedGaussianDistribution(name, **distkwargs)
         elif distribution.lower() == "exponential":
             return ExponentialDistribution(name, **distkwargs)
+        elif distribution.lower() == "deltafunction":
+            return DeltaFunctionDistribution(name, **distkwargs)
     else:
         raise TypeError("Unknown distribution")
 
@@ -1217,11 +1300,11 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
             # log-likelihood using expectation value from samples
             for samps in self.samples:
                 log_like += np.log(
-                    np.mean(self.distribution.pdf(self.parameters, samps))
+                    np.mean(self.distribution.pdf(samps, self.parameters, samps))
                 )
         else:
             # evaluate the hyperparameter distribution
-            logp = self.distribution.log_pdf(self.parameters, self.q22grid)
+            logp = self.distribution.log_pdf(self.q22grid, self.parameters)
 
             # log-likelihood numerically integrating over Q22
             for logl in self.likelihoods:

@@ -12,6 +12,7 @@ from bilby.core.result import Result, ResultList
 from cwinpy.hierarchical import (
     BaseDistribution,
     BoundedGaussianDistribution,
+    DeltaFunctionDistribution,
     ExponentialDistribution,
     MassQuadrupoleDistribution,
     create_distribution,
@@ -48,8 +49,7 @@ class TestDistributionObjects(object):
             BaseDistribution(name, "gaussian", hyperparameters="blah")
 
         with pytest.raises(TypeError):
-            hyper = "blah"
-            BaseDistribution(name, "exponential", hyperparameters=hyper)
+            BaseDistribution(name, "exponential", hyperparameters="blah")
 
         # test default log_pdf is NaN
         hyper = {"mu": 2.0}
@@ -74,6 +74,11 @@ class TestDistributionObjects(object):
         # test setter
         dist["mu"] = Uniform(0.0, 1.0, "mu")
         assert isinstance(dist["mu"], Uniform)
+
+        # test failure with invalid hyperparameter type
+        with pytest.raises(TypeError):
+            hyper = "blah"
+            BaseDistribution(name, "deltafunction", hyperparameters=hyper)
 
     def test_bounded_gaussian(self):
         """
@@ -120,23 +125,23 @@ class TestDistributionObjects(object):
         value = 1.0
         hyper = {"mu8": 0.5, "sigma0": 0.5, "weight0": 0.5}
         with pytest.raises(KeyError):
-            dist.log_pdf(hyper, value)
+            dist.log_pdf(value, hyper)
 
         hyper = {"mu0": 0.5, "sigma8": 0.5, "weight0": 0.5}
         with pytest.raises(KeyError):
-            dist.log_pdf(hyper, value)
+            dist.log_pdf(value, hyper)
 
         hyper = {"mu0": 0.5, "sigma0": 0.5, "weight8": 0.5}
         with pytest.raises(KeyError):
-            dist.log_pdf(hyper, value)
+            dist.log_pdf(value, hyper)
 
         hyper = {"mu0": 0.5, "sigma0": 0.5, "weight0": 0.5}
-        assert np.isfinite(dist.log_pdf(hyper, value))
-        assert np.exp(dist.log_pdf(hyper, value)) == dist.pdf(hyper, value)
+        assert np.isfinite(dist.log_pdf(value, hyper))
+        assert np.exp(dist.log_pdf(value, hyper)) == dist.pdf(value, hyper)
 
         # check negative values give -inf by default
         value = -1.0
-        assert dist.log_pdf(hyper, value) == -np.inf
+        assert dist.log_pdf(value, hyper) == -np.inf
 
         # check drawn sample is within bounds
         assert dist.low < dist.sample(hyper) < dist.high
@@ -170,15 +175,18 @@ class TestDistributionObjects(object):
 
         name = "test"
 
-        with pytest.raises(TypeError):
-            ExponentialDistribution(name, mu=1.0)
+        dist = ExponentialDistribution(name, mu=1.0)
+        assert dist["mu"] == 1.0
+        assert dist.fixed["mu"] is True
 
         dist = ExponentialDistribution(name, mu=Uniform(0.0, 1.0, "mu"))
 
         value = -1.0
         hyper = {"mu": 0.5}
-        assert dist.log_pdf(hyper, value) == -np.inf
-        assert np.exp(dist.log_pdf(hyper, value)) == dist.pdf(hyper, value)
+        assert isinstance(dist["mu"], Uniform)
+        assert dist.fixed["mu"] is False
+        assert dist.log_pdf(value, hyper) == -np.inf
+        assert np.exp(dist.log_pdf(value, hyper)) == dist.pdf(value, hyper)
 
         # check drawn sample is within bounds
         assert dist.low < dist.sample(hyper) < dist.high
@@ -192,7 +200,46 @@ class TestDistributionObjects(object):
         value = 1.0
         hyper = {"kgsdg": 0.5}
         with pytest.raises(KeyError):
-            dist.log_pdf(hyper, value)
+            dist.log_pdf(value, hyper)
+
+    def test_deltafunction(self):
+        """
+        Test the DeltaFunctionDistribution class.
+        """
+
+        name = "test"
+
+        dist = DeltaFunctionDistribution(name, peak=1.0)
+        assert dist["peak"] == 1.0
+        assert dist.fixed["peak"] is True
+        assert np.all(dist.sample(size=10) == 1.0)
+
+        dist = DeltaFunctionDistribution(name, peak=Uniform(0.0, 1.0, "peak"))
+
+        value = 0.1
+        hyper = {"peak": 0.5}
+        assert isinstance(dist["peak"], Uniform)
+        assert dist.fixed["peak"] is False
+        assert dist.log_pdf(value, hyper) == -np.inf
+        assert np.exp(dist.log_pdf(value, hyper)) == dist.pdf(value, hyper)
+
+        value = 0.5
+        assert dist.log_pdf(value, hyper) == 0.0
+        assert np.exp(dist.log_pdf(value, hyper)) == dist.pdf(value, hyper)
+
+        # check drawn sample is within bounds
+        assert dist.low < dist.sample(hyper) < dist.high
+
+        # draw multiple samples
+        N = 100
+        samples = dist.sample(hyper, size=N)
+        assert len(samples) == N
+        assert np.all((samples > dist.low) & (samples < dist.high))
+
+        value = 1.0
+        hyper = {"kgsdg": 0.5}
+        with pytest.raises(KeyError):
+            dist.log_pdf(value, hyper)
 
     def test_create_distribution(self):
         """
@@ -228,6 +275,11 @@ class TestDistributionObjects(object):
         newdist = create_distribution(name, dist)
         assert isinstance(newdist, ExponentialDistribution)
         assert newdist["mu"] == dist["mu"]
+
+        deltakwargs = {"peak": Uniform(0.0, 1.0, "peak")}
+        dist = create_distribution(name, "DeltaFunction", deltakwargs)
+        assert isinstance(dist, DeltaFunctionDistribution)
+        assert dist["peak"] == deltakwargs["peak"]
 
 
 class TestMassQuadrupoleDistribution(object):
