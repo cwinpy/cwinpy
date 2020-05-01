@@ -1494,15 +1494,21 @@ class PEDAGRunner(object):
 
                 injdict = {}
                 for inj in list(injections):
-                    if os.path.isfile(inj):
+                    if is_par_file(inj):
                         psr = PulsarParametersPy(inj)
-                        if psr["PSRJ"] is not None:
-                            if psr["PSRJ"] in pulsardict:
-                                injdict[psr["PSRJ"]] = inj
+
+                        # try names with order or precedence
+                        names = [
+                            psr[name]
+                            for name in ["PSRJ", "PSRB", "PSR", "NAME"]
+                            if psr[name] is not None
+                        ]
+                        if len(names) > 0:
+                            injdict[names[0]] = inj
                         else:
                             warnings.warn(
-                                "Parameter file '{}' has no name, so it will be "
-                                "ignored".format(inj)
+                                "Parameter file '{}' has no name, so it will "
+                                "be ignored".format(inj)
                             )
 
             # the "data-file-1f" and "data-file-2f" options in the [pe]

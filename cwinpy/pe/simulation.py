@@ -33,7 +33,7 @@ class PEMassQuadrupoleSimulationDAG(object):
 
     Parameters
     ----------
-    q22dist: :class:`cwinpy.hierarchical.BaseDistribution`
+    q22dist: :class:`~cwinpy.hierarchical.BaseDistribution`, :class:`~bilby.core.prior.Prior`
         The distribution from the the mass quadrupole values will be drawn for
         the simulated signals.
     prior: dict
@@ -117,10 +117,12 @@ class PEMassQuadrupoleSimulationDAG(object):
         outputsnr=True,
         numba=True,
     ):
-        if isinstance(q22dist, BaseDistribution):
+        if isinstance(q22dist, (BaseDistribution, bilby.core.prior.Prior)):
             self.q22dist = q22dist
         else:
-            raise TypeError("Q22 distribution must be a child of a BaseDistribution")
+            raise TypeError(
+                "Q22 distribution must be a child of a BaseDistribution or bilby Prior"
+            )
 
         if isinstance(prior, (dict, bilby.core.prior.PriorDict)):
             if "q22" in prior:
@@ -152,12 +154,14 @@ class PEMassQuadrupoleSimulationDAG(object):
 
         self.create_pulsars()
 
-        # build output directory structure
+        # check whether detectors or data files are specified
         self.detector = detector
-        if isinstance(self.detector, str):
-            self.detector = [self.detector]
-        if not isinstance(self.detector, list):
-            raise TypeError("Detector must be a string or list of strings")
+        if self.detector is not None:
+            if isinstance(self.detector, str):
+                self.detector = [self.detector]
+            if not isinstance(self.detector, list):
+                raise TypeError("Detector must be a string or list of strings")
+        self.datafiles = datafiles
 
         # posterior sample results directory
         self.resultsdir = os.path.join(self.basedir, "results")
@@ -353,17 +357,22 @@ class PEMassQuadrupoleSimulationDAG(object):
             self.config["job"]["accounting_group_user"] = self.accountuser
 
         self.config["pe"] = {}
-        self.config["pe"]["pulsars"] = [
-            self.pulsars[pname]["file"] for pname in self.pulsars
-        ]
-        self.config["pe"]["injections"] = [
-            self.pulsars[pname]["injection_file"] for pname in self.pulsars
-        ]
+        self.config["pe"]["pulsars"] = str(
+            [self.pulsars[pname]["file"] for pname in self.pulsars]
+        )
+        self.config["pe"]["injections"] = str(
+            [self.pulsars[pname]["injection_file"] for pname in self.pulsars]
+        )
         self.config["pe"]["results"] = self.resultsdir
         self.config["pe"]["numba"] = str(self.numba)
 
         # set fake data
-        self.config["pe"]["fake-asd-2f"] = str(self.detector)
+        if self.datafiles is None and self.detector is not None:
+            self.config["pe"]["fake-asd-2f"] = str(self.detector)
+        elif self.datafiles is not None:
+            self.config["pe"]["data-file-2f"] = str(self.datafiles)
+        else:
+            raise ValueError("No data files of fake detectors are given!")
 
         # set the prior file
         label = "simulation"
