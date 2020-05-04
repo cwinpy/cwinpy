@@ -354,7 +354,13 @@ class PEPPPlotsDAG(object):
             pulsar = {}
 
             for param in self.prior:
-                pulsar[param.upper()] = self.prior[param].sample()
+                if self.maxamp is not None and param in amppars:
+                    # set maximum amplitude if given
+                    pulsar[param.upper()] = bilby.core.prior.Uniform(
+                        name=param, minimum=0.0, maximum=self.maxamp
+                    ).sample()
+                else:
+                    pulsar[param.upper()] = self.prior[param].sample()
 
             # draw sky position uniformly from the sky if no prior is given
             if "ra" not in self.prior:
@@ -370,14 +376,6 @@ class PEPPPlotsDAG(object):
             skypos = SkyCoord(raval * u.rad, decval * u.rad)
             pulsar["RAJ"] = skypos.ra.to_string(u.hour, fields=3, sep=":", pad=True)
             pulsar["DECJ"] = skypos.dec.to_string(u.deg, fields=3, sep=":", pad=True)
-
-            # set maximum amplitude if given
-            if self.maxamp is not None:
-                for amp in amppars:
-                    if amp in self.prior:
-                        pulsar[amp.upper()] = bilby.core.prior.Uniform(
-                            name=amp, minimum=0.0, maximum=self.maxamp
-                        ).sample()
 
             # set (rotation) frequency upper and lower bounds
             if "f0" not in self.prior:

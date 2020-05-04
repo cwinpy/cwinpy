@@ -55,6 +55,10 @@ class PEMassQuadrupoleSimulationDAG(object):
         ascension, declination and distance) if required. This defaults to a
         uniform distribution on the sky and uniform in distance between 0.1
         and 10 kpc.
+    oridist: :class:`bilby.core.prior.Prior`
+        The distribution if the pulsar orientation parameters. This defaults
+        to uniform over a hemisphere in inclination and polarisation angle,
+        and uniform over pi radians in rotational phase.
     fdist: :class:`bilby.core.prior.Prior`
         The distribution from which to draw pulsar spin frequencies if
         required. This defaults to a uniform distribution between 10 and 750
@@ -107,7 +111,8 @@ class PEMassQuadrupoleSimulationDAG(object):
         basedir=None,
         detector="H1",
         posdist=None,
-        fdist=bilby.core.prior.Uniform(10.0, 750.0, name="frequency"),
+        oridist=None,
+        fdist=None,
         submit=False,
         accountuser=None,
         accountgroup=None,
@@ -146,11 +151,10 @@ class PEMassQuadrupoleSimulationDAG(object):
                 raise ValueError("A positive number of injection must be given")
             self.npulsars = int(npulsars)
 
-            # set frequency distribution
-            self.fdist = fdist
-
-        # set sky location and distance distribution
+        # set sky location, orientation and frequency distributions
         self.posdist = posdist
+        self.oridist = oridist
+        self.fdist = fdist
 
         self.create_pulsars()
 
@@ -224,6 +228,20 @@ class PEMassQuadrupoleSimulationDAG(object):
             self.npulsars = None
 
     @property
+    def fdist(self):
+        return self._fdist
+
+    @fdist.setter
+    def fdist(self, fdist):
+        if fdist is None:
+            # set default frequency distribution
+            self._fdist = bilby.core.prior.Uniform(10.0, 750.0, name="frequency")
+        elif isinstance(fdist, bilby.core.prior.Prior):
+            self._fdist = fdist
+        else:
+            raise TypeError("Frequency distribution is not the correct type")
+
+    @property
     def posdist(self):
         return self._posdist
 
@@ -254,6 +272,41 @@ class PEMassQuadrupoleSimulationDAG(object):
         else:
             raise TypeError("Position distribution is not correct type")
 
+    @property
+    def oridist(self):
+        return self._oridist
+
+    @oridist.setter
+    def oridist(self, oridist):
+        if oridist is None:
+            # set default orientation distribution
+            phase = bilby.core.prior.Uniform(0.0, np.pi, name="phi0")
+            psi = bilby.core.prior.Uniform(0.0, np.pi / 2.0, name="psi")
+            iota = bilby.core.prior.Sine(0.0, np.pi, name="iota")
+
+            self._oridist = bilby.core.prior.PriorDict(
+                {"phi0": phase, "psi": psi, "iota": iota}
+            )
+        elif isinstance(oridist, bilby.core.prior.PriorDict):
+            # check that distribution contains phi0, psi and iota
+            # and add defaults for any not included
+            self._oridist = bilby.core.prior.PriorDict(oridist)
+
+            if "phi0" not in oridist:
+                self._oridist["phi0"] = bilby.core.prior.Uniform(
+                    0.0, np.pi, name="phi0"
+                )
+
+            if "psi" not in oridist:
+                self._oridist["psi"] = bilby.core.prior.Uniform(
+                    0.0, np.pi / 2.0, name="psi"
+                )
+
+            if "iota" not in oridist:
+                self._oridist["iota"] = bilby.core.prior.Sine(0.0, np.pi, name="iota")
+        else:
+            raise TypeError("Orientation distribution is not correct type")
+
     def makedirs(self, dir):
         """
         Make a directory tree recursively.
@@ -266,7 +319,7 @@ class PEMassQuadrupoleSimulationDAG(object):
 
     def create_pulsars(self):
         """
-        Create the pulsar parameter files based on the samples from the priors.
+        Create the pulsar parameter files based on the supplied distributions.
         """
 
         # pulsar parameter/injection file directory
@@ -281,6 +334,9 @@ class PEMassQuadrupoleSimulationDAG(object):
 
             if self.fdist is not None:
                 freq = self.fdist.sample()
+
+            # generate orientation parameters
+            orientation = self.oridist.sample()
 
             if self.parfiles is None:
                 pulsar = {}
@@ -309,6 +365,9 @@ class PEMassQuadrupoleSimulationDAG(object):
                 pulsar["PSRJ"] = pname
                 pulsar["F"] = [freq]
 
+                for param in ["psi", "iota", "phi0"]:
+                    pulsar[param.upper()] = orientation[param]
+
                 # output file name
                 pfile = os.path.join(self.pulsardir, "{}.par".format(pname))
                 injfile = pfile
@@ -321,6 +380,11 @@ class PEMassQuadrupoleSimulationDAG(object):
                 if pulsar["DIST"] is None:
                     # add distance if not present in parameter file
                     pulsar["DIST"] = skyloc["distance"]
+
+                for param in ["psi", "iota", "phi0"]:
+                    # add orientation values if not present in parameter file
+                    if pulsar[param.upper()] is None:
+                        pulsar[param.upper()] = orientation[param]
 
             # set Q22 value
             pulsar["Q22"] = self.q22dist.sample()
