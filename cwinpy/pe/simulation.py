@@ -184,6 +184,7 @@ class PEMassQuadrupoleSimulationDAG(object):
 
         # create the DAG for cwinpy_knope jobs
         self.runner = pe_dag(config=self.config, build=False)
+        self.runner.dag.build()
 
         if self.submit:
             self.runner.dag.submit_dag()
@@ -250,10 +251,12 @@ class PEMassQuadrupoleSimulationDAG(object):
         if posdist is None:
             # set default position distribution
             ddist = bilby.core.prior.Uniform(
-                (0.1 * u.kpc).to("m"), (10.0 * u.kpc).to("m"), name="distance"
+                (0.1 * u.kpc).to("m").value,
+                (10.0 * u.kpc).to("m").value,
+                name="distance",
             )
             radist = bilby.core.prior.Uniform(0.0, 2.0 * np.pi, name="ra")
-            decdist = bilby.core.prior.Sine(name="dec")
+            decdist = bilby.core.prior.Cosine(name="dec")
             self._posdist = bilby.core.prior.PriorDict(
                 {"distance": ddist, "ra": radist, "dec": decdist}
             )
@@ -282,7 +285,7 @@ class PEMassQuadrupoleSimulationDAG(object):
             # set default orientation distribution
             phase = bilby.core.prior.Uniform(0.0, np.pi, name="phi0")
             psi = bilby.core.prior.Uniform(0.0, np.pi / 2.0, name="psi")
-            iota = bilby.core.prior.Sine(0.0, np.pi, name="iota")
+            iota = bilby.core.prior.Sine(name="iota")
 
             self._oridist = bilby.core.prior.PriorDict(
                 {"phi0": phase, "psi": psi, "iota": iota}
@@ -363,7 +366,7 @@ class PEMassQuadrupoleSimulationDAG(object):
                     counter += 1
 
                 pulsar["PSRJ"] = pname
-                pulsar["F"] = [freq]
+                pulsar["F0"] = freq
 
                 for param in ["psi", "iota", "phi0"]:
                     pulsar[param.upper()] = orientation[param]
