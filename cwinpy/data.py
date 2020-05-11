@@ -1477,6 +1477,15 @@ class HeterodynedData(TimeSeriesBase):
         """
         Make a signal at the data time stamps given a parameter file.
 
+        Note that the antenna response applied to the signal will be that after
+        averaging over the data time step (e.g., if a time step of 30 minutes
+        is used then the antenna response will be the average of +/- 15 minutes
+        around the timestamp). However, it assumes other variations are slower,
+        so it does not average out any differences in the phase evolution
+        between the heterodyne parameters and any injected parameters (if
+        specified as different) and just produced a point estimate at the data
+        timestamp.
+
         Parameters
         ----------
         signalpar: (str, lalpulsar.PulsarParametersPy)
