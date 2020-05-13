@@ -38,7 +38,8 @@ class PEMassQuadrupoleSimulationDAG(object):
         the simulated signals.
     prior: dict
         A bilby-style prior dictionary giving the prior distributions from
-        which to use for signal recovery.
+        which to use for signal recovery. This must contain a ``"q22"`` key
+        for the prior in the :math:`Q_{22}` mass quadrupole.
     parfiles: dict, str
         If using real pulsar parameter files pass a dictionary of paths to
         individual files keyed to the pulsar name, or pass the path to a
@@ -142,10 +143,10 @@ class PEMassQuadrupoleSimulationDAG(object):
             )
 
         if isinstance(prior, (dict, bilby.core.prior.PriorDict)):
-            if "q22" in prior:
-                self.prior = bilby.core.prior.PriorDict(prior)
-            else:
-                raise ValueError("Prior must contain 'q22'")
+            self.prior = bilby.core.prior.PriorDict(prior)
+
+            if len(self.prior) == 0:
+                raise ValueError("Prior is empty!")
         else:
             raise TypeError("Prior must be a dictionary-type object")
 
