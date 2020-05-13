@@ -8,7 +8,7 @@ from configparser import ConfigParser
 import astropy.units as u
 import bilby
 import numpy as np
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import ICRS, Galactic, Galactocentric, SkyCoord
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 from ..hierarchical import BaseDistribution
@@ -50,15 +50,27 @@ class PEMassQuadrupoleSimulationDAG(object):
         :class:`~cwinpy.data.MultiHeterodynedData` object containing the data.
     npulsars: int
         The number of pulsars to include in the simulation.
-    posdist: :class:`bilby.core.prior.Prior`
-        The distribution from which to randomly draw pulsar positions (right
-        ascension, declination and distance) if required. This defaults to a
-        uniform distribution on the sky and uniform in distance between 0.1
-        and 10 kpc.
+    posdist: ``bilby.core.prior.PriorDict``
+        The distribution from which to randomly draw pulsar positions if
+        required. This defaults to a uniform distribution on the sky and
+        uniform in distance between 0.1 and 10 kpc. If you want to specify a
+        distribution in right ascension, declination and distance they must be
+        in the prior dictionary with the keys ``"ra"`` (radians), ``"dec"``
+        (radians) and ``"distance"`` (kpc), respectively. Alternatively, you
+        can specify a distribution in
+        :class:`~astropy.coordinates.Galactocentric` coordinates using the
+        dictionary keys ``"x"``, ``"y"`` and ``"z"`` all in units of kpc, or
+        :class:`~astropy.coordinates.Galactic` coordinates using the
+        dictionary keys ``"l"`` (Galactic longitude in radians), ``"b"``
+        (Galactic latitude in radians) and ``"distance"`` (kpc). These
+        will be converted into the equivalent RA, declination and distance.
     oridist: :class:`bilby.core.prior.Prior`
         The distribution if the pulsar orientation parameters. This defaults
         to uniform over a hemisphere in inclination and polarisation angle,
-        and uniform over pi radians in rotational phase.
+        and uniform over :math:`\pi` radians in rotational phase. The
+        dictionary keys must be ``"phi0"`` (initial phase), ``"iota"``
+        (inclination angle), and ``"psi"`` (polarisation angle), all in
+        radians.
     fdist: :class:`bilby.core.prior.Prior`
         The distribution from which to draw pulsar spin frequencies if
         required. This defaults to a uniform distribution between 10 and 750
@@ -249,28 +261,35 @@ class PEMassQuadrupoleSimulationDAG(object):
     @posdist.setter
     def posdist(self, posdist):
         if posdist is None:
-            # set default position distribution
-            ddist = bilby.core.prior.Uniform(
-                (0.1 * u.kpc).to("m").value,
-                (10.0 * u.kpc).to("m").value,
-                name="distance",
-            )
+            # set default position distribution (0.1 to 10 kpc) and uniform on
+            # the sky
+            ddist = bilby.core.prior.Uniform(0.1, 10.0, name="distance")
             radist = bilby.core.prior.Uniform(0.0, 2.0 * np.pi, name="ra")
             decdist = bilby.core.prior.Cosine(name="dec")
             self._posdist = bilby.core.prior.PriorDict(
                 {"distance": ddist, "ra": radist, "dec": decdist}
             )
+            self._posdist_type = "equatorial"
         elif isinstance(posdist, bilby.core.prior.PriorDict):
             # check that distribution contains distance, ra and dec
             if self.parfiles is None:
-                keys = ["ra", "dec", "distance"]
-            else:
-                keys = ["distance"]
-            for key in keys:
-                if key not in posdist:
+                # check whether Galactic, Galactocentric or equatorial coordinates
+                if set(["ra", "dec", "distance"]) == set(posdist.keys()):
+                    self._posdist_type = "equatorial"
+                elif set(["l", "b", "distance"]) == set(posdist.keys()):
+                    self._posdist_type = "galactic"
+                elif set(["x", "y", "z"]) == set(posdist.keys()):
+                    self._posdist_type = "galactocentric"
+                else:
                     raise ValueError(
-                        "Position distribution must contain {}".format(keys)
+                        "Position distribution '{}' does not contain all required values".format(
+                            posdist.keys()
+                        )
                     )
+            else:
+                if "distance" not in posdist:
+                    raise ValueError("Position distribution must contain distance")
+
             self._posdist = posdist
         else:
             raise TypeError("Position distribution is not correct type")
@@ -334,6 +353,26 @@ class PEMassQuadrupoleSimulationDAG(object):
             # generate fake pulsar parameters
             if self.posdist is not None:
                 skyloc = self.posdist.sample()
+
+                if self._posdist_type in ["galactocentric", "galactic"]:
+                    # transform coordinates if required
+                    gpos = (
+                        Galactocentric(
+                            x=skyloc["x"] * u.kpc,
+                            y=skyloc["y"] * u.kpc,
+                            z=skyloc["z"] * u.kpc,
+                        )
+                        if self._posdist_type
+                        else Galactic(
+                            l=skyloc["l"] * u.rad,  # noqa: E741
+                            b=skyloc["b"] * u.rad,
+                            distance=skyloc["distance"] * u.kpc,
+                        )
+                    )
+                    eqpos = gpos.transform_to(ICRS)
+                    skyloc["ra"] = eqpos.ra.rad
+                    skyloc["dec"] = eqpos.dec.rad
+                    skyloc["distance"] = eqpos.distance.value
 
             if self.fdist is not None:
                 freq = self.fdist.sample()
