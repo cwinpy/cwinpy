@@ -17,6 +17,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from bilby_pipe.pp_test import read_in_result_list
 
+from ..utils import alphanum
 from .pe import pe_dag
 
 
@@ -388,12 +389,10 @@ class PEPPPlotsDAG(object):
             )
             pname = "J{}{}".format(rastr, decstr)
             pnameorig = str(pname)  # copy of original name
-            counter = 0
-            alphas = ["A", "B", "C", "D", "E", "F", "G"]
+            counter = 1
             while pname in self.pulsars:
-                if counter == len(alphas):
-                    raise RuntimeError("Too many pulsars in the same sky position!")
-                pname = pnameorig + alphas[counter]
+                anum = alphanum(counter)
+                pname = pnameorig + anum
                 counter += 1
 
             pulsar["PSRJ"] = pname

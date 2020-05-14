@@ -4,6 +4,7 @@ General utility functions.
 
 import ctypes
 import os
+import string
 import subprocess
 from functools import reduce
 from math import gcd
@@ -108,3 +109,42 @@ def is_par_file(parfile):
             return True
 
     return False
+
+
+def alphanum(pos, case="upper"):
+    """
+    For an integer number generate a corresponding alphabetical string
+    following the mapping: 1 -> "A", 2 -> "B", ..., 27 -> "AA", 28 -> "AB", ...
+
+    Parameters
+    ----------
+    pos: int
+        A positive integer greater than 0.
+    case: str
+        Set whether to use upper or lower case. Default is "upper".
+
+    Returns
+    -------
+    alpha: str
+        The alphabetical equivalent
+    """
+
+    if case == "lower":
+        alphas = list(string.ascii_lowercase)
+    else:
+        alphas = list(string.ascii_uppercase)
+
+    if not isinstance(pos, int):
+        raise TypeError("Value must be an integer")
+
+    if pos < 1:
+        raise ValueError("Value must be greater than zero")
+
+    count = pos - 1
+    result = ""
+    while count >= 0:
+        result = alphas[int(count) % len(alphas)] + result
+        count /= len(alphas)
+        count -= 1
+
+    return result
