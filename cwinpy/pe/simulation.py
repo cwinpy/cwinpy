@@ -11,11 +11,11 @@ import numpy as np
 from astropy.coordinates import ICRS, Galactic, Galactocentric
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
-from ..utils import alphanum, is_par_file
+from ..utils import int_to_alpha, is_par_file
 from .pe import pe_dag
 
 
-class PEMassQuadrupoleSimulationDAG(object):
+class PEPulsarSimulationDAG(object):
     """
     This class will generate a HTCondor Dagman job to create a number of
     simulated gravitational-wave signals from pulsars. These signals will
@@ -379,6 +379,7 @@ class PEMassQuadrupoleSimulationDAG(object):
                         )
                     )
             else:
+                self._posdist_type = "equatorial"
                 if "dist" not in posdist:
                     raise KeyError("Position distribution must contain distance")
 
@@ -455,11 +456,11 @@ class PEMassQuadrupoleSimulationDAG(object):
                             y=skyloc["y"] * u.kpc,
                             z=skyloc["z"] * u.kpc,
                         )
-                        if self._posdist_type
+                        if self._posdist_type == "galactocentric"
                         else Galactic(
                             l=skyloc["l"] * u.rad,  # noqa: E741
                             b=skyloc["b"] * u.rad,
-                            distance=skyloc["distance"] * u.kpc,
+                            distance=skyloc["dist"] * u.kpc,
                         )
                     )
                     eqpos = gpos.transform_to(ICRS)
@@ -491,7 +492,7 @@ class PEMassQuadrupoleSimulationDAG(object):
                 pnameorig = str(pname)  # copy of original name
                 counter = 1
                 while pname in self.pulsars:
-                    anum = alphanum(counter)
+                    anum = int_to_alpha(counter)
                     pname = pnameorig + anum
                     counter += 1
 
@@ -510,7 +511,7 @@ class PEMassQuadrupoleSimulationDAG(object):
                 pfile = list(self.parfiles.values())[i]
                 pulsar = PulsarParametersPy(pfile)
                 pname = list(self.parfiles.keys())[i]
-                injfile = os.path.join(self.pulsar, "{}.par".format(pname))
+                injfile = os.path.join(self.pulsardir, "{}.par".format(pname))
 
                 if pulsar["DIST"] is None:
                     # add distance if not present in parameter file
@@ -543,7 +544,7 @@ class PEMassQuadrupoleSimulationDAG(object):
                     if isinstance(self.distance_err[pname], float):
                         dist = bilby.core.prior.TruncatedGaussian(
                             pulsar["DIST"],
-                            self.distance_err * pulsar["DIST"],
+                            self.distance_err[pname] * pulsar["DIST"],
                             0.0,
                             np.inf,
                             name="dist",
@@ -553,7 +554,7 @@ class PEMassQuadrupoleSimulationDAG(object):
 
                 if dist is not None and "dist" not in self.priors[pname]:
                     # only add distance if not already specified
-                    self.priors[pname]["DIST"] = dist
+                    self.priors[pname]["dist"] = dist
 
             # set amplitude value
             amp = self.ampdist.sample()
@@ -614,7 +615,7 @@ class PEMassQuadrupoleSimulationDAG(object):
         priordir = os.path.join(self.basedir, "priors")
         self.makedirs(priordir)
         for pname in self.priors:
-            self.prior.to_file(outdir=priordir, label=pname)
+            self.priors[pname].to_file(outdir=priordir, label=pname)
 
         self.config["pe"]["priors"] = priordir
         self.config["pe"]["sampler"] = self.sampler

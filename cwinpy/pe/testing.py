@@ -17,7 +17,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from bilby_pipe.pp_test import read_in_result_list
 
-from ..utils import alphanum
+from ..utils import int_to_alpha
 from .pe import pe_dag
 
 
@@ -391,7 +391,7 @@ class PEPPPlotsDAG(object):
             pnameorig = str(pname)  # copy of original name
             counter = 1
             while pname in self.pulsars:
-                anum = alphanum(counter)
+                anum = int_to_alpha(counter)
                 pname = pnameorig + anum
                 counter += 1
 

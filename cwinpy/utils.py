@@ -111,7 +111,7 @@ def is_par_file(parfile):
     return False
 
 
-def alphanum(pos, case="upper"):
+def int_to_alpha(pos, case="upper"):
     """
     For an integer number generate a corresponding alphabetical string
     following the mapping: 1 -> "A", 2 -> "B", ..., 27 -> "AA", 28 -> "AB", ...
