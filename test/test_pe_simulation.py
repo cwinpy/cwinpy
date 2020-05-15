@@ -446,3 +446,113 @@ class TestPESimulation(object):
             assert not np.isfinite(sim.priors[pname]["dist"].maximum)
 
         shutil.rmtree(testdir)
+
+        # now add distance errors with a single float and with individual distributions
+        disterrs = 0.3
+        sim = PEPulsarSimulationDAG(
+            ampprior,
+            prior=priors,
+            distance_err=disterrs,
+            oridist=oridist,
+            posdist=posdist,
+            parfiles=self.pardict,  # pass dictionary or par files this time
+            datafiles=self.hetfiles,
+            basedir=testdir,
+            fdist=fdist,
+        )
+
+        # check signal values are correct
+        for i, pname in enumerate(self.names):
+            # check fake pulsars contain the same values
+            psr = PulsarParametersPy(
+                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+            )
+
+            assert psr["PSRJ"] == pname
+            assert psr["RAJ"] == self.ras[i]
+            assert psr["DECJ"] == self.decs[i]
+            assert psr["F0"] == f0
+            assert psr["Q22"] == q22
+            assert psr["PSI"] == psi
+            assert psr["IOTA"] == iota
+            assert psr["PHI0"] == phi0
+
+            if self.dists[i] is None:
+                assert np.allclose(psr["DIST"], (dist * u.kpc).to("m").value)
+            else:
+                assert np.allclose(psr["DIST"], (self.dists[i] * u.kpc).to("m").value)
+
+            # check the priors
+            assert sim.priors[pname]["q22"] == priors[pname]["q22"]
+            assert "dist" in sim.priors[pname]
+            if self.dists[i] is None:
+                assert np.allclose(
+                    sim.priors[pname]["dist"].sigma,
+                    (dist * disterrs * u.kpc).to("m").value,
+                )
+                assert np.allclose(
+                    sim.priors[pname]["dist"].mu, (dist * u.kpc).to("m").value
+                )
+            else:
+                assert np.allclose(
+                    sim.priors[pname]["dist"].sigma,
+                    (self.dists[i] * disterrs * u.kpc).to("m").value,
+                )
+                assert np.allclose(
+                    sim.priors[pname]["dist"].mu, (self.dists[i] * u.kpc).to("m").value
+                )
+            assert sim.priors[pname]["dist"].minimum == 0.0
+            assert not np.isfinite(sim.priors[pname]["dist"].maximum)
+
+        shutil.rmtree(testdir)
+
+        disterrs = {
+            self.names[0]: bilby.core.prior.Uniform(
+                (self.dists[0] * 0.9 * u.kpc).to("m").value,
+                (self.dists[0] * 1.1 * u.kpc).to("m").value,
+                name="dist",
+            )
+        }
+        sim = PEPulsarSimulationDAG(
+            ampprior,
+            prior=priors,
+            distance_err=disterrs,
+            oridist=oridist,
+            posdist=posdist,
+            parfiles=self.pardict,  # pass dictionary or par files this time
+            datafiles=self.hetfiles,
+            basedir=testdir,
+            fdist=fdist,
+        )
+
+        # check signal values are correct
+        for i, pname in enumerate(self.names):
+            # check fake pulsars contain the same values
+            psr = PulsarParametersPy(
+                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+            )
+
+            assert psr["PSRJ"] == pname
+            assert psr["RAJ"] == self.ras[i]
+            assert psr["DECJ"] == self.decs[i]
+            assert psr["F0"] == f0
+            assert psr["Q22"] == q22
+            assert psr["PSI"] == psi
+            assert psr["IOTA"] == iota
+            assert psr["PHI0"] == phi0
+
+            if self.dists[i] is None:
+                assert np.allclose(psr["DIST"], (dist * u.kpc).to("m").value)
+            else:
+                assert np.allclose(psr["DIST"], (self.dists[i] * u.kpc).to("m").value)
+
+            # check the priors
+            assert sim.priors[pname]["q22"] == priors[pname]["q22"]
+
+            if self.dists[i] is not None:
+                assert "dist" in sim.priors[pname]
+                assert sim.priors[pname]["dist"] == disterrs[pname]
+            else:
+                assert "dist" not in sim.priors[pname]
+
+        shutil.rmtree(testdir)

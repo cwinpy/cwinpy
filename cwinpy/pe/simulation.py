@@ -303,14 +303,12 @@ class PEPulsarSimulationDAG(object):
 
         if parfiles is not None:
             if isinstance(parfiles, dict):
-                self._parfiles = parfiles
+                pfs = parfiles
 
-                for psr in self._parfiles:
-                    if not is_par_file(self._parfiles[psr]):
+                for psr in pfs:
+                    if not is_par_file(pfs[psr]):
                         raise IOError(
-                            "{} is not a pulsar parameter file".format(
-                                self._parfiles[psr]
-                            )
+                            "{} is not a pulsar parameter file".format(pfs[psr])
                         )
             elif os.path.isdir(parfiles):
                 for pf in os.listdir(parfiles):
