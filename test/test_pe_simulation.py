@@ -86,6 +86,10 @@ class TestPESimulation(object):
             # wrong type for parfile
             PEPulsarSimulationDAG(None, parfiles=1.0)
 
+        with pytest.raises(ValueError):
+            # wrong type for parfile
+            PEPulsarSimulationDAG(None, parfiles="blah_blah_blah")
+
         with pytest.raises(IOError):
             # non-existent par file
             PEPulsarSimulationDAG(None, parfiles={"J0000+0000": "no.par"})
@@ -93,6 +97,11 @@ class TestPESimulation(object):
         with pytest.raises(TypeError):
             # wrong type for amplitude prior
             PEPulsarSimulationDAG(None)
+
+        ampprior = bilby.core.prior.Uniform(0.0, 1e40, name="blah")
+        with pytest.raises(KeyError):
+            # wrong key for amplitude prior
+            PEPulsarSimulationDAG(ampprior)
 
         ampprior = bilby.core.prior.Uniform(0.0, 1e40, name="q22")
 
@@ -104,6 +113,14 @@ class TestPESimulation(object):
             # wrong type for prior
             PEPulsarSimulationDAG(ampprior, prior=1)
 
+        with pytest.raises(ValueError):
+            # empty dictionary for prior
+            PEPulsarSimulationDAG(ampprior, prior={})
+
+        with pytest.raises(FileNotFoundError):
+            # bad prior file name
+            PEPulsarSimulationDAG(ampprior, prior="ksdkfkhvsad")
+
         with pytest.raises(TypeError):
             # wrong type for number of pulsars
             PEPulsarSimulationDAG(ampprior, npulsars=2.3)
@@ -114,7 +131,7 @@ class TestPESimulation(object):
 
         with pytest.raises(TypeError):
             # wrong type for position distribution
-            PEPulsarSimulationDAG(ampprior, posdist=1)
+            PEPulsarSimulationDAG(ampprior, posdist=1, npulsars=1)
 
         with pytest.raises(KeyError):
             # wrong key for position distribution
@@ -523,6 +540,7 @@ class TestPESimulation(object):
             datafiles=self.hetfiles,
             basedir=testdir,
             fdist=fdist,
+            sampler_kwargs={"nlive": 2000},
         )
 
         # check signal values are correct
@@ -554,5 +572,84 @@ class TestPESimulation(object):
                 assert sim.priors[pname]["dist"] == disterrs[pname]
             else:
                 assert "dist" not in sim.priors[pname]
+
+        shutil.rmtree(testdir)
+
+        # use a single prior for every pulsar
+        priors = bilby.core.prior.PriorDict(
+            {"h0": bilby.core.prior.Uniform(0.0, 1e-22, name="h0")}
+        )
+
+        # use h0 to set amplitude
+        h0 = 1e-24
+        ampprior = bilby.core.prior.DeltaFunction(h0, name="h0")
+
+        # pass directory of par files and data files
+        sim = PEPulsarSimulationDAG(
+            ampprior,
+            prior=priors,
+            oridist={},  # set default orientation
+            posdist=posdist,
+            parfiles=self.pardir,
+            datafiles=self.hetfiles,
+            basedir=testdir,
+            fdist=fdist,
+        )
+
+        # check signal values are correct
+        for i, pname in enumerate(self.names):
+            # check fake pulsars contain the same values
+            psr = PulsarParametersPy(
+                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+            )
+
+            assert psr["H0"] == h0
+            assert 0.0 <= psr["PSI"] <= np.pi / 2.0
+            assert 0.0 <= psr["IOTA"] <= np.pi
+            assert 0.0 <= psr["PHI0"] <= np.pi
+
+            # check the priors
+            assert sim.priors[pname] == priors
+
+        shutil.rmtree(testdir)
+
+        # use a single prior file for each pulsar
+        os.makedirs(os.path.join(testdir, "test_prior"), exist_ok=True)
+        priors = bilby.core.prior.PriorDict(
+            {"q22": bilby.core.prior.Uniform(0.0, 1e40, name="q22")}
+        )
+        priors.to_file(outdir=os.path.join(testdir, "test_prior"), label="test")
+        priorfile = os.path.join(testdir, "test_prior", "test.prior")
+
+        # use ellipticity to set amplitude distribution
+        epsilon = 1e-7
+        ampprior = bilby.core.prior.DeltaFunction(epsilon, name="epsilon")
+
+        # pass directory of par files and data files
+        sim = PEPulsarSimulationDAG(
+            ampprior,
+            prior=priorfile,
+            oridist={},  # set default orientation
+            posdist=posdist,
+            parfiles=self.pardir,
+            datafiles=self.hetfiles,
+            basedir=testdir,
+            fdist=fdist,
+        )
+
+        # check signal values are correct
+        for i, pname in enumerate(self.names):
+            # check fake pulsars contain the same values
+            psr = PulsarParametersPy(
+                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+            )
+
+            assert psr["Q22"] == epsilon * 1e38 * np.sqrt(15 / (8 * np.pi))
+            assert 0.0 <= psr["PSI"] <= np.pi / 2.0
+            assert 0.0 <= psr["IOTA"] <= np.pi
+            assert 0.0 <= psr["PHI0"] <= np.pi
+
+            # check the priors
+            assert sim.priors[pname] == priors
 
         shutil.rmtree(testdir)

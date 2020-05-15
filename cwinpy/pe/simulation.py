@@ -214,7 +214,7 @@ class PEPulsarSimulationDAG(object):
         self.runner = pe_dag(config=self.config, build=False)
         self.runner.dag.build()
 
-        if self.submit:
+        if self.submit:  # pragma: no cover
             self.runner.dag.submit_dag()
 
     @property
@@ -257,8 +257,8 @@ class PEPulsarSimulationDAG(object):
         elif isinstance(prior, str):
             try:
                 self._prior = bilby.core.prior.PriorDict(filename=prior)
-            except Exception as e:
-                raise IOError("Couldn't parse prior file: {}".format(e))
+            except FileNotFoundError:
+                raise FileNotFoundError("Couldn't parse prior file")
         elif prior is None:
             # set default priors
             self._prior = bilby.core.prior.PriorDict(
@@ -310,19 +310,22 @@ class PEPulsarSimulationDAG(object):
                         raise IOError(
                             "{} is not a pulsar parameter file".format(pfs[psr])
                         )
-            elif os.path.isdir(parfiles):
-                for pf in os.listdir(parfiles):
-                    parfile = os.path.join(parfiles, pf)
-                    if is_par_file(parfile):
-                        psr = PulsarParametersPy(parfile)
+            elif isinstance(parfiles, str):
+                if os.path.isdir(parfiles):
+                    for pf in os.listdir(parfiles):
+                        parfile = os.path.join(parfiles, pf)
+                        if is_par_file(parfile):
+                            psr = PulsarParametersPy(parfile)
 
-                        # add parfile to dictionary
-                        for name in ["PSRJ", "PSRB", "PSR", "NAME"]:
-                            if psr[name] is not None:
-                                pfs[psr[name]] = parfile
+                            # add parfile to dictionary
+                            for name in ["PSRJ", "PSRB", "PSR", "NAME"]:
+                                if psr[name] is not None:
+                                    pfs[psr[name]] = parfile
+                else:
+                    raise ValueError("Path is not a valid directory")
             else:
                 raise TypeError(
-                    "Must give directory of dictionary of pulsar parameter files"
+                    "Must give directory or dictionary of pulsar parameter files"
                 )
             self._parfiles = pfs
             self.npulsars = len(self._parfiles)
@@ -400,7 +403,7 @@ class PEPulsarSimulationDAG(object):
             self._oridist = bilby.core.prior.PriorDict(
                 {"phi0": phase, "psi": psi, "iota": iota}
             )
-        elif isinstance(oridist, bilby.core.prior.PriorDict):
+        elif isinstance(oridist, dict):
             # check that distribution contains phi0, psi and iota
             # and add defaults for any not included
             self._oridist = bilby.core.prior.PriorDict(oridist)
@@ -416,11 +419,11 @@ class PEPulsarSimulationDAG(object):
                 )
 
             if "iota" not in oridist:
-                self._oridist["iota"] = bilby.core.prior.Sine(0.0, np.pi, name="iota")
+                self._oridist["iota"] = bilby.core.prior.Sine(name="iota")
         else:
             raise TypeError("Orientation distribution is not correct type")
 
-    def makedirs(self, dir):
+    def makedirs(self, dir):  # pragma: no cover
         """
         Make a directory tree recursively.
         """
@@ -586,9 +589,9 @@ class PEPulsarSimulationDAG(object):
         self.config["job"] = {}
         self.config["job"]["getenv"] = str(self.getenv)
 
-        if self.accountgroup is not None:
+        if self.accountgroup is not None:  # pragma: no cover
             self.config["job"]["accounting_group"] = self.accountgroup
-        if self.accountuser is not None:
+        if self.accountuser is not None:  # pragma: no cover
             self.config["job"]["accounting_group_user"] = self.accountuser
 
         self.config["pe"] = {}
