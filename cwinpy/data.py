@@ -968,7 +968,7 @@ class HeterodynedData(TimeSeriesBase):
         try:
             _ = new.dt
         except AttributeError:
-            # time do not get set in a TimeSeries if steps are irregular, so
+            # times do not get set in a TimeSeries if steps are irregular, so
             # manually set the time step to the minimum time difference
             if len(new) > 1:
                 new.dt = np.min(np.diff(new.times))
@@ -1717,7 +1717,9 @@ class HeterodynedData(TimeSeriesBase):
                 # set mapping of detector names to lalsimulation PSD functions
                 simmap = {
                     "AV": lalsim.SimNoisePSDAdvVirgo,  # advanced Virgo
-                    "AL": lalsim.SimNoisePSDaLIGOaLIGODesignSensitivityT1800044,  # aLIGO
+                    "AL": PSDwrapper(
+                        lalsim.SimNoisePSDaLIGOaLIGODesignSensitivityT1800044
+                    ),  # aLIGO
                     "IL": lalsim.SimNoisePSDiLIGOSRD,  # iLIGO
                     "IV": lalsim.SimNoisePSDVirgo,  # iVirgo
                     "IG": lalsim.SimNoisePSDGEO,  # GEO600
@@ -3031,3 +3033,36 @@ class HeterodynedData(TimeSeriesBase):
 
     def __len__(self):
         return len(self.data)
+
+
+class PSDwrapper(object):
+    """
+    Wrapper for LALSimulation PSD function that require a frequency series.
+
+    Parameters
+    ----------
+    psdfunc: callable
+        The function that generates the PSD.
+    f0: float
+        The frequency at which to extract the PSD.
+
+    Returns
+    -------
+    psd: float
+        The value to the PSD at ``f0``.
+    """
+
+    def __init__(self, psdfunc, f0=None):
+        self.psdfunc = psdfunc
+        self.f0 = f0
+
+    def psd(self, f0=None):
+        fval = f0 if f0 is not None else self.f0
+        if fval is None:
+            raise ValueError("No frequency has been supplied!")
+
+        fs = lal.CreateREAL8FrequencySeries("", None, fval, 1.0, None, 2)
+        _ = self.psdfunc(fs, fval)
+        return fs.data.data[0]
+
+    __call__ = psd

@@ -36,11 +36,11 @@ class PEMassQuadrupoleSimulationDAG(object):
     >>> from bilby.core.prior import PriorDict, Uniform, Sine
     >>> import numpy as np
     >>> prior = PriorDict({
-    >>>     "h0": Uniform(0.0, 1e-22, name="h0"),
-    >>>     "iota": Sine(name="iota"),
-    >>>     "phi0": Uniform(0.0, np.pi, name="phi0"),
-    >>>     "psi": Uniform(0.0, np.pi / 2, name="psi"),
-    >>> })
+    ...     "h0": Uniform(0.0, 1e-22, name="h0"),
+    ...     "iota": Sine(name="iota"),
+    ...     "phi0": Uniform(0.0, np.pi, name="phi0"),
+    ...     "psi": Uniform(0.0, np.pi / 2, name="psi"),
+    ... })
 
     Parameters
     ----------
@@ -172,6 +172,9 @@ class PEMassQuadrupoleSimulationDAG(object):
 
         # create pulsar parameter files if none are given
         if self.parfiles is None:
+            if not isinstance(npulsars, int):
+                raise TypeError("Number of pulsars must be an integer")
+
             if npulsars < 1:
                 raise ValueError("A positive number of injection must be given")
             self.npulsars = int(npulsars)
@@ -321,7 +324,7 @@ class PEMassQuadrupoleSimulationDAG(object):
                                 pfs[psr[name]] = parfile
             else:
                 raise TypeError(
-                    "Must give directory of dictionary of pulsar " "parameter files"
+                    "Must give directory of dictionary of pulsar parameter files"
                 )
             self._parfiles = pfs
             self.npulsars = len(self._parfiles)
@@ -377,7 +380,7 @@ class PEMassQuadrupoleSimulationDAG(object):
                     )
             else:
                 if "dist" not in posdist:
-                    raise ValueError("Position distribution must contain distance")
+                    raise KeyError("Position distribution must contain distance")
 
             self._posdist = posdist
         else:
@@ -483,6 +486,7 @@ class PEMassQuadrupoleSimulationDAG(object):
                 decstr = "".join(
                     pulsar.convert_to_tempo_units("DECJ", pulsar["DECJ"]).split(":")[:2]
                 )
+                decstr = decstr if decstr[0] == "-" else ("+" + decstr)
                 pname = "J{}{}".format(rastr, decstr)
                 pnameorig = str(pname)  # copy of original name
                 counter = 1

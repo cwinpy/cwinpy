@@ -1676,12 +1676,25 @@ class PEDAGRunner(object):
                             # get all prior files
                             allpriors.extend([pf for pf in glob.glob(priorfile)])
 
+                        # sort allpriors by base filename (to hopefully avoid clashes)
+                        allpriors = [
+                            pfs[1]
+                            for pfs in sorted(
+                                zip(
+                                    [os.path.basename(pf) for pf in allpriors],
+                                    allpriors,
+                                )
+                            )
+                        ]
+
                         priorfiles = {}
                         for pname in pulsardict.keys():
-                            for priorfile in allpriors:
+                            for i, priorfile in enumerate(list(allpriors)):
                                 if pname in priorfile:
                                     if pname not in priorfiles:
                                         priorfiles[pname] = priorfile
+                                        del allpriors[i]
+                                        break
                                     else:
                                         warnings.warn(
                                             "Duplicate prior '{}' data. Ignoring "
@@ -1698,12 +1711,25 @@ class PEDAGRunner(object):
                                 priorfile = priors
                             allpriors = [pf for pf in glob.glob(priorfile)]
 
+                            # sort allpriors by base filename (to hopefully avoid clashes)
+                            allpriors = [
+                                pfs[1]
+                                for pfs in sorted(
+                                    zip(
+                                        [os.path.basename(pf) for pf in allpriors],
+                                        allpriors,
+                                    )
+                                )
+                            ]
+
                             priorfiles = {}
                             for pname in pulsardict.keys():
-                                for priorfile in allpriors:
+                                for i, priorfile in enumerate(list(allpriors)):
                                     if pname in priorfile:
                                         if pname not in priorfiles:
                                             priorfiles[pname] = priorfile
+                                            del allpriors[i]
+                                            break
                                         else:
                                             warnings.warn(
                                                 "Duplicate prior '{}' data. Ignoring "
