@@ -7,6 +7,9 @@ branches:
 python:
   - "3.6"
   - "3.7"
+env:
+  # disable numba jit for code coverage (see https://stackoverflow.com/a/26894553/1862861)
+  - NUMBA_DISABLE_JIT=1
 before_install:
   # add a latex install for the matplotlib testing
   - sudo apt-get -qq update && sudo apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
