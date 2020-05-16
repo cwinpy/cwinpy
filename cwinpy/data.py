@@ -3062,7 +3062,10 @@ class PSDwrapper(object):
             raise ValueError("No frequency has been supplied!")
 
         fs = lal.CreateREAL8FrequencySeries("", None, fval, 1.0, None, 2)
-        _ = self.psdfunc(fs, fval)
+        try:
+            _ = self.psdfunc(fs, fval)
+        except Exception as e:
+            raise RuntimeError("PSD function failed: {}".format(e))
         return fs.data.data[0]
 
     __call__ = psd

@@ -8,6 +8,7 @@ import lal
 import numpy as np
 import pytest
 from cwinpy import HeterodynedData, MultiHeterodynedData
+from cwinpy.data import PSDwrapper
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from matplotlib.figure import Figure
 
@@ -973,3 +974,25 @@ H0      1.5e-22
 
         # remove the par file
         os.remove(parfile)
+
+
+def test_psd_wrapper():
+    """
+    Test PSDwrapper class.
+    """
+
+    import lalsimulation as lalsim
+
+    psd = PSDwrapper(lalsim.SimNoisePSDAdvVirgo)
+
+    with pytest.raises(ValueError):
+        # no frequency supplied
+        psd()
+
+    with pytest.raises(RuntimeError):
+        # PSD not the write format
+        psd(100.0)
+
+    psd = PSDwrapper(lalsim.SimNoisePSDaLIGOaLIGODesignSensitivityT1800044, f0=100.0)
+
+    assert psd() == psd(100.0)
