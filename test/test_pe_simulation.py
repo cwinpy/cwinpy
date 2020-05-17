@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from astropy import units as u
 from cwinpy.data import HeterodynedData
+from cwinpy.hierarchical import DeltaFunctionDistribution
 from cwinpy.pe.simulation import PEPulsarSimulationDAG
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
@@ -623,7 +624,7 @@ class TestPESimulation(object):
 
         # use ellipticity to set amplitude distribution
         epsilon = 1e-7
-        ampprior = bilby.core.prior.DeltaFunction(epsilon, name="epsilon")
+        ampprior = DeltaFunctionDistribution(name="epsilon", peak=epsilon)
 
         # pass directory of par files and data files
         sim = PEPulsarSimulationDAG(

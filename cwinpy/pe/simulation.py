@@ -11,6 +11,7 @@ import numpy as np
 from astropy.coordinates import ICRS, Galactic, Galactocentric
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
+from ..hierarchical import BaseDistribution
 from ..utils import int_to_alpha, is_par_file
 from .pe import pe_dag
 
@@ -44,7 +45,7 @@ class PEPulsarSimulationDAG(object):
 
     Parameters
     ----------
-    ampdist: ``bilby.core.prior.Prior``, dict
+    ampdist: ``bilby.core.prior.Prior``, :class:`~cwinpy.hierarchical.BaseDistribution`
         The distribution from which the signal amplitude values will be drawn
         for the simulated signals. This can contain the gravitational-wave
         strain amplitude keyed with ``"h0"``, the mass quadrupole keyed with
@@ -223,7 +224,7 @@ class PEPulsarSimulationDAG(object):
 
     @ampdist.setter
     def ampdist(self, ampdist):
-        if isinstance(ampdist, bilby.core.prior.Prior):
+        if isinstance(ampdist, (bilby.core.prior.Prior, BaseDistribution)):
             if ampdist.name not in ["h0", "q22", "epsilon"]:
                 raise KeyError(
                     "Amplitude distribution must contain 'h0', 'q22', or 'epsilon'"
