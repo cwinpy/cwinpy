@@ -80,68 +80,70 @@ class TestPESimulation(object):
 
     def test_failures(self):
         with pytest.raises(TypeError):
-            # no positional argument
-            PEPulsarSimulationDAG()
-
-        with pytest.raises(TypeError):
             # wrong type for parfile
-            PEPulsarSimulationDAG(None, parfiles=1.0)
+            PEPulsarSimulationDAG(ampdist=None, parfiles=1.0)
 
         with pytest.raises(ValueError):
             # wrong type for parfile
-            PEPulsarSimulationDAG(None, parfiles="blah_blah_blah")
+            PEPulsarSimulationDAG(ampdist=None, parfiles="blah_blah_blah")
 
         with pytest.raises(IOError):
             # non-existent par file
-            PEPulsarSimulationDAG(None, parfiles={"J0000+0000": "no.par"})
+            PEPulsarSimulationDAG(ampdist=None, parfiles={"J0000+0000": "no.par"})
+
+        with pytest.raises(ValueError):
+            # no amplitude distribution and no parameter files
+            PEPulsarSimulationDAG(ampdist=None, parfiles=None)
 
         with pytest.raises(ValueError):
             # directory clash for pulsar parameter files
-            PEPulsarSimulationDAG(None, parfiles=os.path.join(self.basedir, "pulsars"))
+            PEPulsarSimulationDAG(
+                ampdist=None, parfiles=os.path.join(self.basedir, "pulsars")
+            )
 
         with pytest.raises(TypeError):
             # wrong type for amplitude prior
-            PEPulsarSimulationDAG(None)
+            PEPulsarSimulationDAG(ampdist=1, parfiles=self.pardir)
 
         ampprior = bilby.core.prior.Uniform(0.0, 1e40, name="blah")
         with pytest.raises(KeyError):
             # wrong key for amplitude prior
-            PEPulsarSimulationDAG(ampprior)
+            PEPulsarSimulationDAG(ampdist=ampprior)
 
         ampprior = bilby.core.prior.Uniform(0.0, 1e40, name="q22")
 
         with pytest.raises(TypeError):
             # wrong type for distance error
-            PEPulsarSimulationDAG(ampprior, distance_err=1)
+            PEPulsarSimulationDAG(ampdist=ampprior, distance_err=1)
 
         with pytest.raises(TypeError):
             # wrong type for prior
-            PEPulsarSimulationDAG(ampprior, prior=1)
+            PEPulsarSimulationDAG(ampdist=ampprior, prior=1)
 
         with pytest.raises(ValueError):
             # empty dictionary for prior
-            PEPulsarSimulationDAG(ampprior, prior={})
+            PEPulsarSimulationDAG(ampdist=ampprior, prior={})
 
         with pytest.raises(FileNotFoundError):
             # bad prior file name
-            PEPulsarSimulationDAG(ampprior, prior="ksdkfkhvsad")
+            PEPulsarSimulationDAG(ampdist=ampprior, prior="ksdkfkhvsad")
 
         with pytest.raises(TypeError):
             # wrong type for number of pulsars
-            PEPulsarSimulationDAG(ampprior, npulsars=2.3)
+            PEPulsarSimulationDAG(ampdist=ampprior, npulsars=2.3)
 
         with pytest.raises(ValueError):
             # wrong number of pulsars
-            PEPulsarSimulationDAG(ampprior, npulsars=0)
+            PEPulsarSimulationDAG(ampdist=ampprior, npulsars=0)
 
         with pytest.raises(TypeError):
             # wrong type for position distribution
-            PEPulsarSimulationDAG(ampprior, posdist=1, npulsars=1)
+            PEPulsarSimulationDAG(ampdist=ampprior, posdist=1, npulsars=1)
 
         with pytest.raises(KeyError):
             # wrong key for position distribution
             PEPulsarSimulationDAG(
-                ampprior,
+                ampdist=ampprior,
                 parfiles=self.pardir,
                 posdist=bilby.core.prior.PriorDict(
                     {"blah": bilby.core.prior.Uniform(1, 2, name="blah")}
@@ -151,7 +153,7 @@ class TestPESimulation(object):
         with pytest.raises(ValueError):
             # position distribution with unknown values
             PEPulsarSimulationDAG(
-                ampprior,
+                ampdist=ampprior,
                 npulsars=1,
                 posdist=bilby.core.prior.PriorDict(
                     {"blah": bilby.core.prior.Uniform(1, 2, name="blah")}
@@ -160,24 +162,24 @@ class TestPESimulation(object):
 
         with pytest.raises(TypeError):
             # wrong type for frequency distribution
-            PEPulsarSimulationDAG(ampprior, fdist=1, npulsars=1)
+            PEPulsarSimulationDAG(ampdist=ampprior, fdist=1, npulsars=1)
 
         with pytest.raises(TypeError):
             # wrong type for frequency distribution
-            PEPulsarSimulationDAG(ampprior, fdist=1, npulsars=1)
+            PEPulsarSimulationDAG(ampdist=ampprior, fdist=1, npulsars=1)
 
         with pytest.raises(TypeError):
             # wrong type for orientation distribution
-            PEPulsarSimulationDAG(ampprior, oridist=1, npulsars=1)
+            PEPulsarSimulationDAG(ampdist=ampprior, oridist=1, npulsars=1)
 
         with pytest.raises(TypeError):
             # wrong type for detector
-            PEPulsarSimulationDAG(ampprior, npulsars=1, detector=1)
+            PEPulsarSimulationDAG(ampdist=ampprior, npulsars=1, detector=1)
 
         with pytest.raises(ValueError):
             # no detectors or data files
             PEPulsarSimulationDAG(
-                ampprior,
+                ampdist=ampprior,
                 npulsars=1,
                 basedir=os.path.join(self.basedir, "nodet"),
                 detector=None,
@@ -236,7 +238,7 @@ class TestPESimulation(object):
         detectors = "H1"
         testdir = os.path.join(self.basedir, "test_sim_pulsar")
         sim = PEPulsarSimulationDAG(
-            ampprior,
+            ampdist=ampprior,
             oridist=oridist,
             posdist=posdist,
             npulsars=npulsars,
@@ -294,7 +296,7 @@ class TestPESimulation(object):
         )
 
         sim = PEPulsarSimulationDAG(
-            ampprior,
+            ampdist=ampprior,
             oridist=oridist,
             posdist=posdist,
             npulsars=npulsars,
@@ -333,7 +335,7 @@ class TestPESimulation(object):
         )
 
         sim = PEPulsarSimulationDAG(
-            ampprior,
+            ampdist=ampprior,
             oridist=oridist,
             posdist=posdist,
             npulsars=npulsars,
@@ -398,7 +400,7 @@ class TestPESimulation(object):
 
         # pass directory of par files and data files
         sim = PEPulsarSimulationDAG(
-            ampprior,
+            ampdist=ampprior,
             prior=priors,
             distance_err=disterrs,
             oridist=oridist,
@@ -407,6 +409,7 @@ class TestPESimulation(object):
             datafiles=self.hetfiles,
             basedir=testdir,
             fdist=fdist,
+            overwrite_parameters=False,
         )
 
         for dir in glob.glob(os.path.join(testdir, "*")):
@@ -472,7 +475,7 @@ class TestPESimulation(object):
         # now add distance errors with a single float and with individual distributions
         disterrs = 0.3
         sim = PEPulsarSimulationDAG(
-            ampprior,
+            ampdist=ampprior,
             prior=priors,
             distance_err=disterrs,
             oridist=oridist,
@@ -481,6 +484,7 @@ class TestPESimulation(object):
             datafiles=self.hetfiles,
             basedir=testdir,
             fdist=fdist,
+            overwrite_parameters=True,
         )
 
         # check signal values are correct
@@ -499,30 +503,20 @@ class TestPESimulation(object):
             assert psr["IOTA"] == iota
             assert psr["PHI0"] == phi0
 
-            if self.dists[i] is None:
-                assert np.allclose(psr["DIST"], (dist * u.kpc).to("m").value)
-            else:
-                assert np.allclose(psr["DIST"], (self.dists[i] * u.kpc).to("m").value)
+            # both distances should be the same as ones in the par file will be
+            # overwritten
+            assert np.allclose(psr["DIST"], (dist * u.kpc).to("m").value)
 
             # check the priors
             assert sim.priors[pname]["q22"] == priors[pname]["q22"]
             assert "dist" in sim.priors[pname]
-            if self.dists[i] is None:
-                assert np.allclose(
-                    sim.priors[pname]["dist"].sigma,
-                    (dist * disterrs * u.kpc).to("m").value,
-                )
-                assert np.allclose(
-                    sim.priors[pname]["dist"].mu, (dist * u.kpc).to("m").value
-                )
-            else:
-                assert np.allclose(
-                    sim.priors[pname]["dist"].sigma,
-                    (self.dists[i] * disterrs * u.kpc).to("m").value,
-                )
-                assert np.allclose(
-                    sim.priors[pname]["dist"].mu, (self.dists[i] * u.kpc).to("m").value
-                )
+            assert np.allclose(
+                sim.priors[pname]["dist"].sigma,
+                (dist * disterrs * u.kpc).to("m").value,
+            )
+            assert np.allclose(
+                sim.priors[pname]["dist"].mu, (dist * u.kpc).to("m").value
+            )
             assert sim.priors[pname]["dist"].minimum == 0.0
             assert not np.isfinite(sim.priors[pname]["dist"].maximum)
 
@@ -536,7 +530,7 @@ class TestPESimulation(object):
             )
         }
         sim = PEPulsarSimulationDAG(
-            ampprior,
+            ampdist=ampprior,
             prior=priors,
             distance_err=disterrs,
             oridist=oridist,
@@ -546,6 +540,7 @@ class TestPESimulation(object):
             basedir=testdir,
             fdist=fdist,
             sampler_kwargs={"nlive": 2000},
+            overwrite_parameters=False,
         )
 
         # check signal values are correct
@@ -591,7 +586,7 @@ class TestPESimulation(object):
 
         # pass directory of par files and data files
         sim = PEPulsarSimulationDAG(
-            ampprior,
+            ampdist=ampprior,
             prior=priors,
             oridist={},  # set default orientation
             posdist=posdist,
@@ -632,7 +627,7 @@ class TestPESimulation(object):
 
         # pass directory of par files and data files
         sim = PEPulsarSimulationDAG(
-            ampprior,
+            ampdist=ampprior,
             prior=priorfile,
             oridist={},  # set default orientation
             posdist=posdist,

@@ -68,6 +68,11 @@ class PEPulsarSimulationDAG(object):
         If using real pulsar parameter files pass a dictionary of paths to
         individual files keyed to the pulsar name, or pass the path to a
         directory containing the parameter files.
+    overwrite_parameters: bool
+        If using real/pre-created pulsar parameter files set this to False if
+        you want any orientation or amplitude parameters that they contain to
+        not be overwritten by those drawn from the supplied distributions.
+        Default is True.
     datafiles: dict, str, :class:`cwinpy.data.MultiHeterodynedData`
         If using real data for each pulsar then pass a dictionary of paths to
         the data files keyed to the pulsar name (or detector then pulsar name),
@@ -140,10 +145,11 @@ class PEPulsarSimulationDAG(object):
 
     def __init__(
         self,
-        ampdist,
+        ampdist=None,
         prior=None,
         distance_err=None,
         parfiles=None,
+        overwrite_parameters=True,
         datafiles=None,
         npulsars=None,
         basedir=None,
@@ -167,6 +173,7 @@ class PEPulsarSimulationDAG(object):
             self.basedir = os.getcwd()
 
         self.parfiles = parfiles
+        self.overwrite = overwrite_parameters
         self.ampdist = ampdist
         self.distance_err = distance_err
         self.prior = prior
@@ -231,7 +238,15 @@ class PEPulsarSimulationDAG(object):
                 )
             self._ampdist = ampdist
         else:
-            raise TypeError("Amplitude distribution must be a bilby Prior")
+            if ampdist is None:
+                if self.parfiles is not None:
+                    self._ampdist = ampdist
+                else:
+                    raise ValueError(
+                        "An amplitude distribution must be set if not supplying parameter files"
+                    )
+            else:
+                raise TypeError("Amplitude distribution must be a bilby Prior")
 
     @property
     def prior(self):
@@ -523,13 +538,15 @@ class PEPulsarSimulationDAG(object):
                 pname = list(self.parfiles.keys())[i]
                 injfile = os.path.join(self.pulsardir, "{}.par".format(pname))
 
-                if pulsar["DIST"] is None:
+                if pulsar["DIST"] is None or (self.overwrite and "dist" in skyloc):
                     # add distance if not present in parameter file
                     pulsar["DIST"] = (skyloc["dist"] * u.kpc).to("m").value
 
                 for param in ["psi", "iota", "phi0"]:
                     # add orientation values if not present in parameter file
-                    if pulsar[param.upper()] is None:
+                    if pulsar[param.upper()] is None or (
+                        self.overwrite and param in orientation
+                    ):
                         pulsar[param.upper()] = orientation[param]
 
                 if isinstance(self.prior, dict) and pname in self.prior:
@@ -568,11 +585,13 @@ class PEPulsarSimulationDAG(object):
 
             # set amplitude value
             amp = self.ampdist.sample()
-            if self.ampdist.name == "q22":
+            if self.ampdist.name == "q22" and (pulsar["Q22"] is None or self.overwrite):
                 pulsar["Q22"] = amp
-            elif self.ampdist.name == "h0":
+            elif self.ampdist.name == "h0" and (pulsar["H0"] is None or self.overwrite):
                 pulsar["H0"] = amp
-            elif self.ampdist.name == "epsilon":
+            elif self.ampdist.name == "epsilon" and (
+                pulsar["Q22"] is None or self.overwrite
+            ):
                 # convert ellipticity to Q22 using fiducial moment of inertia
                 pulsar["Q22"] = 1e38 * amp * np.sqrt(15.0 / (8.0 * np.pi))
 
