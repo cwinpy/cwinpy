@@ -86,7 +86,7 @@ def is_par_file(parfile):
 
     if os.path.isfile(parfile):
         msg = subprocess.Popen(
-            ["file", "--mime", parfile], stdout=subprocess.PIPE
+            ["file", "--mime", "--dereference", parfile], stdout=subprocess.PIPE
         ).communicate()[0]
         if "text/plain" in msg.decode():
             psr = PulsarParametersPy(parfile)
