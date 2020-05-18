@@ -160,16 +160,16 @@ class PEPulsarSimulationDAG(object):
         outputsnr=True,
         numba=True,
     ):
-        self.parfiles = parfiles
-        self.ampdist = ampdist
-        self.distance_err = distance_err
-        self.prior = prior
-
         if basedir is not None:
             self.basedir = basedir
             self.makedirs(basedir)
         else:
             self.basedir = os.getcwd()
+
+        self.parfiles = parfiles
+        self.ampdist = ampdist
+        self.distance_err = distance_err
+        self.prior = prior
 
         # create pulsar parameter files if none are given
         if self.parfiles is None:
@@ -313,6 +313,14 @@ class PEPulsarSimulationDAG(object):
                         )
             elif isinstance(parfiles, str):
                 if os.path.isdir(parfiles):
+                    if parfiles == os.path.join(self.basedir, "pulsars"):
+                        raise ValueError(
+                            "Parameter files directory must be different from "
+                            "'{}', which is reserved for the output directories".format(
+                                parfiles
+                            )
+                        )
+
                     for pf in os.listdir(parfiles):
                         parfile = os.path.join(parfiles, pf)
                         if is_par_file(parfile):

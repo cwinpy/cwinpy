@@ -95,6 +95,10 @@ class TestPESimulation(object):
             # non-existent par file
             PEPulsarSimulationDAG(None, parfiles={"J0000+0000": "no.par"})
 
+        with pytest.raises(ValueError):
+            # directory clash for pulsar parameter files
+            PEPulsarSimulationDAG(None, parfiles=os.path.join(self.basedir, "pulsars"))
+
         with pytest.raises(TypeError):
             # wrong type for amplitude prior
             PEPulsarSimulationDAG(None)
