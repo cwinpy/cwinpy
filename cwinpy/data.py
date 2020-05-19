@@ -1077,6 +1077,22 @@ class HeterodynedData(TimeSeriesBase):
             raise TypeError("Window must be an integer")
 
     @property
+    def dt(self):
+        try:
+            return self.dx
+        except AttributeError:
+            return self._dt
+
+    @dt.setter
+    def dt(self, dt):
+        """
+        Overload the default setting of the time step in a TimeSeries, so that
+        it does not delete non-uniform time values.
+        """
+
+        self._dt = dt
+
+    @property
     def comments(self):
         """Any comments on the data"""
 
@@ -1694,7 +1710,7 @@ class HeterodynedData(TimeSeriesBase):
             else:
                 # check is str is a detector alias
                 aliases = {
-                    "AV": ["Virgo", "V1", "ADV", "ADVANCEDVIRGO", "AV"],
+                    "AV": ["VIRGO", "V1", "ADV", "ADVANCEDVIRGO", "AV"],
                     "AL": [
                         "H1",
                         "L1",
@@ -1706,7 +1722,7 @@ class HeterodynedData(TimeSeriesBase):
                         "AH1",
                         "AL1",
                     ],
-                    "IL": ["iH1", "IL1", "INITIALLIGO", "IL"],
+                    "IL": ["IH1", "IL1", "INITIALLIGO", "IL"],
                     "IV": ["iV1", "INITIALVIRGO", "IV"],
                     "G1": ["G1", "GEO", "GEOHF"],
                     "IG": ["IG", "GEO600", "INITIALGEO"],
@@ -1731,20 +1747,19 @@ class HeterodynedData(TimeSeriesBase):
                 # set detector if not already set
                 if self.channel is None:
                     namemap = {
-                        "H1": ["H1", "LHO", "iH1", "AH1"],
-                        "L1": ["L1", "LLO", "iL1", "AL1"],
+                        "H1": ["H1", "LHO", "IH1", "AH1"],
+                        "L1": ["L1", "LLO", "IL1", "AL1"],
                         "V1": [
                             "V1",
-                            "Virgo",
-                            "V1",
-                            "AdV",
-                            "AdvancedVirgo",
+                            "VIRGO",
+                            "ADV",
+                            "ADVANCEDVIRGO",
                             "AV",
-                            "iV1",
-                            "InitialVirgo",
+                            "IV1",
+                            "INITIALVIRGO",
                             "IV",
                         ],
-                        "G1": ["G1", "GEO", "GEOHF", "IG", "GEO600", "InitialGEO"],
+                        "G1": ["G1", "GEO", "GEOHF", "IG", "GEO600", "INITIALGEO"],
                         "T1": ["T1", "TAMA", "TAMA300"],
                         "K1": ["K1", "KAGRA", "LCGT"],
                     }
