@@ -2952,10 +2952,10 @@ class HeterodynedData(TimeSeriesBase):
 
         if self.outlier_mask is None and remove_outliers:
             idx = self._not_outliers(thresh=thresh)
-            times = self.times[idx]
+            times = self.times.value[idx]
             data = self.data[idx]
         else:
-            times = self.times
+            times = self.times.value
             data = self.data
 
         # check diff of times
@@ -2966,7 +2966,7 @@ class HeterodynedData(TimeSeriesBase):
             np.float32
         )  # convert to float32 due to precision errors
 
-        if np.all(dts == self.dt):
+        if np.all(dts == self.dt.value):
             # no zero padding required as data is evenly sampled
             return data
 
