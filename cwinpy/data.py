@@ -1036,6 +1036,22 @@ class HeterodynedData(TimeSeriesBase):
         return io_registry.write(self, target, *args, **kwargs)
 
     @property
+    def dt(self):
+        try:
+            return self.dx
+        except AttributeError:
+            return self._dt
+
+    @dt.setter
+    def dt(self, dt):
+        """
+        Overload the default setting of the time step in a TimeSeries, so that
+        it does not delete non-uniform time values.
+        """
+
+        self._dt = dt
+
+    @property
     def window(self):
         """The running median window length."""
 
@@ -2936,10 +2952,10 @@ class HeterodynedData(TimeSeriesBase):
 
         if self.outlier_mask is None and remove_outliers:
             idx = self._not_outliers(thresh=thresh)
-            times = self.times[idx]
+            times = self.times.value[idx]
             data = self.data[idx]
         else:
-            times = self.times
+            times = self.times.value
             data = self.data
 
         # check diff of times
@@ -2950,7 +2966,7 @@ class HeterodynedData(TimeSeriesBase):
             np.float32
         )  # convert to float32 due to precision errors
 
-        if np.all(dts == self.dt):
+        if np.all(dts == self.dt.value):
             # no zero padding required as data is evenly sampled
             return data
 
