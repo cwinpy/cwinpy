@@ -745,9 +745,9 @@ class HeterodynedData(TimeSeriesBase):
     Parameters
     ----------
     data: (str, array_like)
-        A file (plain ascii text, gzipped ascii text, gravitational-wave frame
-        ".gwf", or HDF5 file) containing a time series of heterodyned data, or
-        an array containing the complex heterodyned data.
+        A file (plain ascii text, gzipped ascii text, or HDF5 file) containing
+        a time series of heterodyned data, or an array containing the complex
+        heterodyned data.
     times: array_like
         If the data was passed using the `data` argument, then the associated
         time stamps should be passed using this argument.

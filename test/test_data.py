@@ -162,6 +162,25 @@ class TestHeterodynedData(object):
 
         os.remove(brokenfile)  # clean up file
 
+    def test_nonuniform_data(self):
+        """
+        Test that non-uniform data times stamps are correctly retained.
+        """
+
+        # create four datasets
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+
+        # remove some times to create non-uniform sampling
+        times = np.delete(times, [20, 897, 1200])
+
+        data = np.random.normal(0.0, 1e-25, size=(len(times), 2))
+        detector = "H1"
+
+        het = HeterodynedData(data=data, times=times, detector=detector)
+
+        assert times == het.times.value
+        assert het.dt.value == np.min(np.diff(times))
+
     def test_read_text_data(self):
         """
         Test that a valid input file is read in correctly.
