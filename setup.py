@@ -3,16 +3,15 @@
 """
 A Python module for Bayesian inferences with continuous gravitational wave
 sources.
+
+isort:skip_file
 """
+
+from setuptools import setup
 
 import os
 
 import versioneer
-
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
 
 
 def readfile(filename):
@@ -22,7 +21,7 @@ def readfile(filename):
 
 
 VERSION = versioneer.get_version()
-
+CMDCLASS = versioneer.get_cmdclass()
 
 setup(
     name="cwinpy",
@@ -45,6 +44,7 @@ setup(
             "cwinpy_pe_generate_pp_plots=cwinpy.pe.testing:generate_pp_plots",
         ]
     },
+    cmdclass=CMDCLASS,
     classifiers=[
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
