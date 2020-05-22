@@ -1540,7 +1540,7 @@ class HeterodynedData(TimeSeriesBase):
         return np.sqrt(
             ((self.injection_data.real / self.stds) ** 2).sum()
             + ((self.injection_data.imag / self.stds) ** 2).sum()
-        ).value
+        )
 
     def make_signal(self, signalpar=None):
         """
