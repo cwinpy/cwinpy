@@ -1856,8 +1856,15 @@ class PEDAGRunner(object):
             configdict["prior"] = priorfiles[pname]
             configdict["sampler"] = sampler
             configdict["numba"] = numba
+
+            # set to save result to hdf5 by default
             if samplerkwargs is not None:
-                configdict["sampler_kwargs"] = samplerkwargs
+                if "save" not in samplerkwargs:
+                    samplerkwargs["save"] = "hdf5"
+            else:
+                samplerkwargs = {"save": "hdf5"}
+
+            configdict["sampler_kwargs"] = samplerkwargs
 
             if outputsnr:
                 configdict["output_snr"] = "True"
