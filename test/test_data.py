@@ -178,7 +178,7 @@ class TestHeterodynedData(object):
 
         het = HeterodynedData(data=data, times=times, detector=detector)
 
-        assert times == het.times.value
+        assert np.all(times == het.times.value)
         assert het.dt.value == np.min(np.diff(times))
 
     def test_read_text_data(self):
