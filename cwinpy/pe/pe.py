@@ -977,6 +977,10 @@ class PERunner(object):
         if self.sampler == "dynesty" and "check_point_plot" not in self.sampler_kwargs:
             self.sampler_kwargs["check_point_plot"] = False
 
+        # set to save results to HDF5 by default
+        if "save" not in self.sampler_kwargs:
+            self.sampler_kwargs["save"] = "hdf5"
+
         # default restart time to 1000000 seconds if not running through CLI
         self.periodic_restart_time = kwargs.get("periodic_restart_time", 10000000)
 
@@ -1857,14 +1861,8 @@ class PEDAGRunner(object):
             configdict["sampler"] = sampler
             configdict["numba"] = numba
 
-            # set to save result to hdf5 by default
             if samplerkwargs is not None:
-                if "save" not in samplerkwargs:
-                    samplerkwargs["save"] = "hdf5"
-            else:
-                samplerkwargs = {"save": "hdf5"}
-
-            configdict["sampler_kwargs"] = samplerkwargs
+                configdict["sampler_kwargs"] = samplerkwargs
 
             if outputsnr:
                 configdict["output_snr"] = "True"
