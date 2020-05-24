@@ -2,9 +2,9 @@
    :widths: auto
    :header: "Method", ":math:`\\ln{(Z)}`", ":math:`\\ln{(Z)}` noise", ":math:`\\ln{}` Odds"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "870017.055", "869768.909", "248.147±0.113"
-   "``cwinpy_knope``", "870016.551", "869768.909", "247.642±0.166"
-   "``cwinpy_knope`` (grid)", "870016.689", "", "247.781"
+   "``lalapps_pulsar_parameter_estimation_nested``", "870017.143", "869768.909", "248.234±0.113"
+   "``cwinpy_pe``", "870016.421", "869768.909", "247.512±0.167"
+   "``cwinpy_pe`` (grid)", "870016.689", "", "247.781"
 
 .. csv-table:: Parameter table
    :widths: auto
@@ -12,18 +12,18 @@
 
    "``lalapps_pulsar_parameter_estimation_nested``", "1.14±0.05×10\ :sup:`-24`", "2.89±0.02", "0.17±0.02", "0.09±0.02"
    "90% credible intervals", "[1.06, 1.23]×10\ :sup:`-24`", "[2.85, 2.93]", "[0.14, 0.21]", "[0.06, 0.13]"
-   "``cwinpy_knope``", "1.14±0.05×10\ :sup:`-24`", "2.89±0.02", "0.17±0.02", "0.09±0.02"
+   "``cwinpy_pe``", "1.14±0.05×10\ :sup:`-24`", "2.89±0.02", "0.17±0.02", "0.09±0.02"
    "90% credible intervals", "[1.06, 1.23]×10\ :sup:`-24`", "[2.85, 2.93]", "[0.14, 0.21]", "[0.06, 0.13]"
 
 .. csv-table:: Maximum a-posteriori
    :widths: auto
    :header: "Method", ":math:`h_0`", ":math:`\\phi_0` (rad)", ":math:`\\psi` (rad)", ":math:`\\cos{\\iota}`", ":math:`\\ln{(L)}` max"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "1.15×10\ :sup:`-24`", "2.89", "0.17", "0.09", "870032.17"
-   "``cwinpy_knope``", "1.15×10\ :sup:`-24`", "2.89", "0.17", "0.09", "870032.17"
+   "``lalapps_pulsar_parameter_estimation_nested``", "1.15×10\ :sup:`-24`", "2.89", "0.18", "0.09", "870032.16"
+   "``cwinpy_pe``", "1.15×10\ :sup:`-24`", "2.89", "0.17", "0.10", "870032.17"
 
-| Combined K-S test p-value: 0.3899
-| Maximum Jensen-Shannon divergence: 0.0066
+| Combined K-S test p-value: 0.0000
+| Maximum Jensen-Shannon divergence: 0.0075
 
-| CWInPy version: 0+unknown
-| bilby version: 0.5.5: (UNCLEAN) f42628ce 2019-09-03 15:14:23 +0100
+| CWInPy version: 0.3.0+0.g66b4971.dirty
+| bilby version: 0.6.8:
