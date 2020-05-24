@@ -16,7 +16,15 @@ import bilby
 import cwinpy
 import numpy as np
 from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.utils import BilbyPipeError, convert_string_to_dict, parse_args
+from bilby_pipe.input import Input
+from bilby_pipe.main import Dag, Node
+from bilby_pipe.utils import (
+    BilbyPipeError,
+    check_directory_exists_and_if_not_mkdir,
+    convert_string_to_dict,
+    parse_args,
+)
+from configargparse import DefaultConfigFileParser
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 from ..data import HeterodynedData, MultiHeterodynedData
@@ -1275,9 +1283,9 @@ class PEDAGRunner(object):
           parameters.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, **kwargs):
         # create and build the dag
-        self.create_dag(config)
+        self.create_dag(config, **kwargs)
 
         if self.submitdag:
             if self.build:
@@ -1285,7 +1293,7 @@ class PEDAGRunner(object):
             else:
                 self.dag.submit_dag(self.submit_options)
 
-    def create_dag(self, config):
+    def create_dag(self, config, **kwargs):
         """
         Create the HTCondor DAG from the configuration parameters.
 
@@ -1299,29 +1307,14 @@ class PEDAGRunner(object):
         if not isinstance(config, configparser.ConfigParser):
             raise TypeError("'config' must be a ConfigParser object")
 
-        try:
-            from pycondor import Job, Dagman
-        except ImportError:
-            raise ImportError("To run 'cwinpy_pe_dag' you must install pycondor")
+        inputs = PEInput(config)
 
-        # get output directory base from the [run] section
-        basedir = config.get("run", "basedir", fallback=None)
-        if basedir is None:
-            raise IOError("No output directory set.")
+        if "dag" in kwargs:
+            # get a previously created DAG if given (for example for a full
+            # analysis pipeline)
+            self.dag = kwargs["dag"]
         else:
-            try:
-                os.makedirs(basedir, exist_ok=True)
-            except Exception as e:
-                raise IOError(
-                    "Could not create output directory " "location: '{}'".format(e)
-                )
-
-        # get DAG arguments
-        # submit directory location
-        submit = config.get("dag", "submit", fallback=os.path.join(basedir, "submit"))
-
-        # DAG name prefix
-        name = config.get("dag", "name", fallback="cwinpy_pe_dag")
+            self.dag = Dag(inputs)
 
         # get whether to build the dag
         self.build = config.getboolean("dag", "build", fallback=True)
@@ -1332,93 +1325,8 @@ class PEDAGRunner(object):
         # get any additional submission options
         self.submit_options = config.get("dag", "submit_options", fallback=None)
 
-        # create the Dagman
-        self.dag = Dagman(name=name, submit=submit)
-
-        # get the cwinpy_pe job arguments
-        # executable
-        from shutil import which
-
-        jobexec = which(config.get("job", "executable", fallback="cwinpy_pe"))
-
-        if jobexec is None:
-            raise ValueError("cwinpy_pe executable is not specified")
-        elif os.path.basename(jobexec) != "cwinpy_pe":
-            raise ValueError("Executable '{}' is not 'cwinpy_pe'!".format(jobexec))
-
-        # job name prefix
-        jobname = config.get("job", "name", fallback="cwinpy_pe")
-
-        # condor universe
-        self.universe = config.get("job", "universe", fallback="vanilla")
-
-        # stdout directory location
-        self.output = config.get("job", "out", fallback=os.path.join(basedir, "out"))
-
-        # stderr directory location
-        self.error = config.get("job", "error", fallback=os.path.join(basedir, "error"))
-
-        # log directory
-        self.log = config.get("job", "log", fallback=os.path.join(basedir, "log"))
-
-        # submit directory location
-        self.jobsubmit = config.get(
-            "job", "submit", fallback=os.path.join(basedir, "submit")
-        )
-
-        # get local environment variables
-        self.getenv = config.getboolean("job", "getenv", fallback=False)
-
-        # request memory
-        self.reqmem = config.get("job", "request_memory", fallback="4 GB")
-
-        # request CPUs
-        self.reqcpus = config.getint("job", "request_cpus", fallback=1)
-
-        # requirements
-        self.requirements = config.get("job", "requirements", fallback=None)
-
-        # retries of job on failure
-        self.retry = config.getint("job", "retry", fallback=0)
-
-        # accounting group and user
-        self.accgroup = config.get("job", "accounting_group", fallback=None)
-        self.accuser = config.get("job", "accounting_group_user", fallback=None)
-        extra_lines = []
-        if self.accgroup is not None:
-            extra_lines.append("accounting_group = {}".format(self.accgroup))
-        if self.accuser is not None:
-            extra_lines.append("accounting_group_user = {}".format(self.accuser))
-
-        if name == jobname:
-            raise ValueError("Dagman name and Job name must be different")
-
-        # create cwinpy_pe Job
-        self.job = Job(
-            jobname,
-            jobexec,
-            error=self.error,
-            log=self.log,
-            output=self.output,
-            submit=self.jobsubmit,
-            universe=self.universe,
-            request_memory=self.reqmem,
-            request_cpus=self.reqcpus,
-            getenv=self.getenv,
-            queue=1,
-            requirements=self.requirements,
-            retry=self.retry,
-            extra_lines=extra_lines,
-            dag=self.dag,
-        )
-
         # create configurations for each cwinpy_pe job
         if config.has_section("pe"):
-            # get the path to output the results to
-            resultsdir = config.get(
-                "pe", "results", fallback=os.path.join(basedir, "results")
-            )
-
             # get the paths to the pulsar parameter files
             parfiles = config.get("pe", "pulsars", fallback=None)
 
@@ -1747,7 +1655,7 @@ class PEDAGRunner(object):
                         raise TypeError("Prior type is no recognised")
             else:
                 # use default priors
-                priorfile = os.path.join(basedir, "prior.txt")
+                priorfile = os.path.join(inputs.outdir, "prior.txt")
 
                 with open(priorfile, "w") as fp:
                     if datafiles1f is not None and datafiles2f is not None:
@@ -1780,21 +1688,6 @@ class PEDAGRunner(object):
                     if pname in pulsardict:
                         pulsardict.pop(pname)
 
-            # check location to output 'cwinpy_pe' input configuration files.
-            configlocation = config.get(
-                "pe", "config", fallback=os.path.join(basedir, "configs")
-            )
-
-            if configlocation is not None:
-                # make directory
-                try:
-                    os.makedirs(configlocation, exist_ok=True)
-                except Exception as e:
-                    raise IOError(
-                        "Could not create configuration directory "
-                        "location: '{}'".format(e)
-                    )
-
             # output the SNRs (injected and recovered)
             outputsnr = config.getboolean("pe", "output_snr", fallback=False)
 
@@ -1818,16 +1711,6 @@ class PEDAGRunner(object):
 
         # create jobs (output and label set using pulsar name)
         for pname in pulsardict:
-            # create output directory
-            psrbase = os.path.join(resultsdir, pname)
-
-            try:
-                os.makedirs(psrbase, exist_ok=True)
-            except Exception as e:
-                raise IOError(
-                    "Could not created output directory '{}': {}".format(psrbase, e)
-                )
-
             # create dictionary of configuration outputs
             configdict = {}
 
@@ -1855,8 +1738,6 @@ class PEDAGRunner(object):
                 if pname in injdict:
                     configdict["inj_par"] = injdict[pname]
 
-            configdict["outdir"] = psrbase
-            configdict["label"] = pname
             configdict["prior"] = priorfiles[pname]
             configdict["sampler"] = sampler
             configdict["numba"] = numba
@@ -1881,16 +1762,13 @@ class PEDAGRunner(object):
                             "Ephemeris file for {} is not a string".format(pname)
                         )
 
-            # output the configuration file
-            configfile = os.path.join(configlocation, "{}.ini".format(pname))
-            from configargparse import DefaultConfigFileParser
+            parallel_node_list = []
+            for idx in range(inputs.n_parallel):
+                penode = PulsarPENode(inputs, configdict, pname, idx, self.dag)
+                parallel_node_list.append(penode)
 
-            parseobj = DefaultConfigFileParser()
-            with open(configfile, "w") as fp:
-                fp.write(parseobj.serialize(configdict))
-
-            # add arguments to a job
-            self.job.add_arg("--config {}".format(configfile))
+            if inputs.n_parallel > 1:
+                _ = MergeNode(inputs, parallel_node_list, self.dag)
 
         if self.build:
             self.dag.build()
@@ -1939,7 +1817,7 @@ def pe_dag(**kwargs):
     """
 
     if "config" in kwargs:
-        configfile = kwargs["config"]
+        configfile = kwargs.pop("config")
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
@@ -1965,7 +1843,7 @@ def pe_dag(**kwargs):
                 "Problem reading configuration file '{}'\n: {}".format(configfile, e)
             )
 
-    return PEDAGRunner(config)
+    return PEDAGRunner(config, **kwargs)
 
 
 def pe_dag_cli(**kwargs):  # pragma: no cover
@@ -1975,3 +1853,221 @@ def pe_dag_cli(**kwargs):  # pragma: no cover
     """
 
     _ = pe_dag(**kwargs)
+
+
+class PEInput(Input):
+    def __init__(self, cf):
+        """
+        Class that sets inputs for the DAG and analysis node generation.
+
+        Parameters
+        ----------
+        cf: :class:`configparser.ConfigParser`
+            The configuration file for the DAG set up.
+        """
+
+        self.config = cf
+        self.submit = cf.getboolean("dag", "submitdag", fallback=False)
+        self.transfer_files = cf.getboolean("dag", "transfer-files", fallback=True)
+        self.osg = cf.getboolean("dag", "osg", fallback=False)
+        self.label = cf.get("dag", "name", fallback="cwinpy_pe")
+        self.scheduler = cf.get("dag", "scheduler", fallback="condor")
+
+        self.outdir = cf.get("run", "basedir", fallback=os.getcwd())
+
+        self.universe = cf.get("job", "universe", fallback="vanilla")
+        self.getenv = cf.getboolean("job", "getenv", fallback=False)
+        self.pe_log_directory = cf.get(
+            "job", "log", fallback=os.path.join(self._outdir, "log")
+        )
+        self.request_memory = cf.get("job", "request_memory", fallback="4")
+        self.request_cpus = cf.getint("job", "request_cpus", fallback=1)
+        self.accounting = cf.get("job", "accounting_group", fallback=None)
+        self.accounting_user = cf.get("job", "accounting_group_user", fallback=None)
+        requirements = cf.get("job", "requirements", fallback=None)
+        self.requirements = [requirements] if requirements else []
+        self.retry = cf.getint("job", "retry", fallback=0)
+
+        # number of parallel runs for each job
+        self.n_parallel = cf.getint("pe", "n_parallel", fallback=1)
+        self.sampler_kwargs = ast.literal_eval(
+            str(cf.get("pe", "sampler_kwargs", fallback=None))
+        )
+
+        # needs to be set for the bilby_pipe Node initialisation, but is not a
+        # requirement for cwinpy_pe
+        self.online_pe = False
+        self.extra_lines = []
+        self.run_local = False
+
+    @property
+    def submit_directory(self):
+        subdir = self.config.get(
+            "dag", "submit", fallback=os.path.join(self._outdir, "submit")
+        )
+        check_directory_exists_and_if_not_mkdir(subdir)
+        return subdir
+
+    @property
+    def initialdir(self):
+        return os.getcwd()
+
+
+class PulsarPENode(Node):
+    def __init__(
+        self, inputs, configdict, psrname, parallel_idx, dag, generation_node=None
+    ):
+        super().__init__(inputs)
+        self.dag = dag
+
+        self.parallel_idx = parallel_idx
+        self.request_cpus = inputs.request_cpus
+        self.retry = inputs.retry
+        self.getenv = inputs.getenv
+        self._universe = inputs.universe
+
+        resdir = inputs.config.get("pe", "results", fallback="results")
+        psrbase = os.path.join(inputs.outdir, resdir, psrname)
+        if self.inputs.n_parallel > 1:
+            self.resdir = os.path.join(psrbase, "par{}".format(parallel_idx))
+        else:
+            self.resdir = psrbase
+
+        configdict["outdir"] = self.resdir
+
+        # job name prefix
+        jobname = inputs.config.get("job", "name", fallback="cwinpy_pe")
+
+        self.base_job_name = "{}_{}".format(jobname, psrname)
+        if inputs.n_parallel > 1:
+            self.job_name = "{}_{}".format(self.base_job_name, parallel_idx)
+        else:
+            self.job_name = self.base_job_name
+
+        self.label = self.job_name
+        configdict["label"] = self.label
+
+        # output the configuration file
+        configdir = inputs.config.get("pe", "config", fallback="configs")
+        configlocation = os.path.join(inputs.outdir, configdir)
+        check_directory_exists_and_if_not_mkdir(configlocation)
+        configfile = os.path.join(configlocation, "{}.ini".format(psrname))
+
+        parseobj = DefaultConfigFileParser()
+        with open(configfile, "w") as fp:
+            fp.write(parseobj.serialize(configdict))
+
+        self.setup_arguments(
+            add_ini=False, add_unknown_args=False, add_command_line_args=False
+        )
+
+        # add files for transfer
+        if self.inputs.transfer_files or self.inputs.osg:
+            input_files_to_transfer = [str(configfile), str(configdict["par_file"])]
+
+            if "inj_par" in configdict:
+                if configdict["inj_par"] != configdict["par_file"]:
+                    input_files_to_transfer.append(configdict["inj_par"])
+
+            for freqfactor in ["1f", "2f"]:
+                if "data_file_{}".format(freqfactor) in configdict:
+                    input_files_to_transfer.append(
+                        configdict["data_file_{}".format(freqfactor)]
+                    )
+
+            if os.path.isfile(configdict["prior"]):
+                input_files_to_transfer.append(configdict["prior"])
+
+            self.extra_lines.extend(
+                self._condor_file_transfer_lines(
+                    input_files_to_transfer,
+                    [self._relative_topdir(self.inputs.outdir, self.inputs.initialdir)],
+                )
+            )
+
+        self.arguments.add("config", configfile)
+
+        self.extra_lines.extend(self._checkpoint_submit_lines())
+
+        # add accounting user
+        if self.inputs.accounting_user is not None:
+            self.extra_lines.append(
+                "accounting_group_user = {}".format(self.inputs.accounting_user)
+            )
+
+        self.process_node()
+
+        if generation_node is not None:
+            # This is for the future when implementing a full pipeline
+            # the generation node will be, for example, a heterodyning job
+            self.job.add_parent(generation_node.job)
+
+    @property
+    def executable(self):
+        jobexec = self.inputs.config.get("job", "executable", fallback="cwinpy_pe")
+        return self._get_executable_path(jobexec)
+
+    @property
+    def request_memory(self):
+        return self.inputs.request_memory
+
+    @property
+    def log_directory(self):
+        return self.inputs.pe_log_directory
+
+    @property
+    def result_directory(self):
+        """ The path to the directory where result output will be stored """
+        check_directory_exists_and_if_not_mkdir(self.resdir)
+        return self.resdir
+
+    @property
+    def result_file(self):
+        if self.inputs.sampler_kwargs is not None:
+            if "hdf5" == self.inputs.sampler_kwargs.get("save", None):
+                return "{}/{}_result.hdf5".format(self.result_directory, self.label)
+        return "{}/{}_result.json".format(self.result_directory, self.label)
+
+
+class MergeNode(Node):
+    def __init__(self, inputs, parallel_node_list, dag):
+        super().__init__(inputs)
+        self.dag = dag
+
+        self.job_name = "{}_merge".format(parallel_node_list[0].base_job_name)
+        self.label = "{}_merge".format(parallel_node_list[0].base_job_name)
+        self.request_cpus = 1
+        self.setup_arguments(
+            add_ini=False, add_unknown_args=False, add_command_line_args=False
+        )
+        self.arguments.append("--result")
+        for pn in parallel_node_list:
+            self.arguments.append(pn.result_file)
+        self.arguments.add("outdir", parallel_node_list[0].result_directory)
+        self.arguments.add("label", self.label)
+        self.arguments.add_flag("merge")
+
+        self.process_node()
+        for pn in parallel_node_list:
+            self.job.add_parent(pn.job)
+
+    @property
+    def executable(self):
+        return self._get_executable_path("bilby_result")
+
+    @property
+    def request_memory(self):
+        return "16 GB"
+
+    @property
+    def log_directory(self):
+        return self.inputs.pe_log_directory
+
+    @property
+    def result_file(self):
+        if self.inputs.sampler_kwargs is not None:
+            if "hdf5" == self.inputs.sampler_kwargs.get("save", None):
+                return "{}/{}_result.hdf5".format(
+                    self.inputs.result_directory, self.label
+                )
+        return "{}/{}_result.json".format(self.inputs.result_directory, self.label)
