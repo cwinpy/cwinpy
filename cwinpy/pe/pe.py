@@ -2022,6 +2022,7 @@ class PulsarPENode(Node):
 
     @property
     def log_directory(self):
+        check_directory_exists_and_if_not_mkdir(self.inputs.pe_log_directory)
         return self.inputs.pe_log_directory
 
     @property
