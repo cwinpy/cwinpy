@@ -68,7 +68,7 @@ for harmonic, asd in zip(harmonics, asds):
     hetfile = os.path.join(
         outdir, "{}_{}_{}_data.txt".format(label, detector, harmonic)
     )
-    np.savetxt(hetfile, np.vstack((het.times.value, het.data.real, het.data.imag)).T)
+    het.write(hetfile)
     hetfiles.append(hetfile)
 
 # create priors
@@ -241,4 +241,4 @@ leg = axes[3].legend(
 for line in leg.get_lines():
     line.set_linewidth(1.0)
 
-fig.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=200)
+fig.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=150)

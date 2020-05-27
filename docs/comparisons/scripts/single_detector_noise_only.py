@@ -58,7 +58,7 @@ het = HeterodynedData(times=times, par=parfile, fakeasd=asd, detector=detector)
 
 # output the data
 hetfile = os.path.join(outdir, "{}_data.txt".format(label))
-np.savetxt(hetfile, np.vstack((het.times.value, het.data.real, het.data.imag)).T)
+het.write(hetfile)
 
 # create priors
 phi0range = [0.0, np.pi]
@@ -253,4 +253,4 @@ leg = axes[3].legend(
 for line in leg.get_lines():
     line.set_linewidth(1.0)
 
-fig.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=200)
+fig.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=150)

@@ -2,27 +2,27 @@
    :widths: auto
    :header: "Method", ":math:`\\ln{(Z)}`", ":math:`\\ln{(Z)}` noise", ":math:`\\ln{}` Odds"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "323895.589", "323801.041", "94.549±0.139"
-   "``cwinpy_pe``", "323895.340", "323801.041", "94.299±0.201"
+   "``lalapps_pulsar_parameter_estimation_nested``", "323895.636", "323801.041", "94.595±0.139"
+   "``cwinpy_pe``", "323895.328", "323801.041", "94.287±0.201"
 
 .. csv-table:: Parameter table
    :widths: auto
    :header: "Method", ":math:`C_{21}`", ":math:`C_{22}`", ":math:`\\Phi_{21}` (rad)", ":math:`\\Phi_{22}` (rad)", ":math:`\\psi` (rad)", ":math:`\\cos{\\iota}`"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "1.23±0.15×10\ :sup:`-25`", "1.56±0.14×10\ :sup:`-25`", "1.87±0.13", "3.62±0.11", "0.92±0.05", "-0.29±0.06"
-   "90% credible intervals", "[0.97, 1.48]×10\ :sup:`-25`", "[1.33, 1.78]×10\ :sup:`-25`", "[1.65, 2.09]", "[3.45, 3.80]", "[0.84, 1.00]", "[-0.39, -0.20]"
-   "``cwinpy_pe``", "1.22±0.16×10\ :sup:`-25`", "1.57±0.15×10\ :sup:`-25`", "1.87±0.14", "3.62±0.11", "0.92±0.05", "-0.29±0.06"
-   "90% credible intervals", "[0.96, 1.49]×10\ :sup:`-25`", "[1.33, 1.81]×10\ :sup:`-25`", "[1.64, 2.11]", "[3.45, 3.81]", "[0.84, 1.00]", "[-0.39, -0.20]"
+   "``lalapps_pulsar_parameter_estimation_nested``", "1.22±0.16×10\ :sup:`-25`", "1.56±0.14×10\ :sup:`-25`", "1.87±0.13", "3.62±0.11", "0.92±0.05", "-0.29±0.06"
+   "90% credible intervals", "[0.95, 1.48]×10\ :sup:`-25`", "[1.33, 1.80]×10\ :sup:`-25`", "[1.65, 2.09]", "[3.45, 3.80]", "[0.84, 1.00]", "[-0.39, -0.20]"
+   "``cwinpy_pe``", "1.22±0.16×10\ :sup:`-25`", "1.56±0.15×10\ :sup:`-25`", "1.87±0.14", "3.62±0.11", "0.92±0.05", "-0.29±0.06"
+   "90% credible intervals", "[0.96, 1.49]×10\ :sup:`-25`", "[1.31, 1.81]×10\ :sup:`-25`", "[1.64, 2.10]", "[3.44, 3.80]", "[0.84, 1.00]", "[-0.39, -0.19]"
 
 .. csv-table:: Maximum a-posteriori
    :widths: auto
    :header: "Method", ":math:`C_{21}`", ":math:`C_{22}`", ":math:`\\Phi_{21}` (rad)", ":math:`\\Phi_{22}` (rad)", ":math:`\\psi` (rad)", ":math:`\\cos{\\iota}`", ":math:`\\ln{(L)}` max"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "1.24×10\ :sup:`-25`", "1.64×10\ :sup:`-25`", "1.89", "3.63", "0.93", "-0.27", "323918.20"
-   "``cwinpy_pe``", "1.30×10\ :sup:`-25`", "1.56×10\ :sup:`-25`", "1.90", "3.62", "0.93", "-0.28", "323918.17"
+   "``lalapps_pulsar_parameter_estimation_nested``", "1.27×10\ :sup:`-25`", "1.58×10\ :sup:`-25`", "1.88", "3.59", "0.91", "-0.28", "323918.22"
+   "``cwinpy_pe``", "1.27×10\ :sup:`-25`", "1.63×10\ :sup:`-25`", "1.86", "3.64", "0.93", "-0.27", "323918.18"
 
 | Combined K-S test p-value: 0.0000
-| Maximum Jensen-Shannon divergence: 0.0064
+| Maximum Jensen-Shannon divergence: 0.0049
 
-| CWInPy version: 0.3.0+0.g66b4971.dirty
-| bilby version: 0.6.8:
+| CWInPy version: 0.3.0+4.g54304fc.dirty
+| bilby version: 0.6.9:
