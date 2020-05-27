@@ -1936,7 +1936,9 @@ class PulsarPENode(Node):
         # job name prefix
         jobname = inputs.config.get("job", "name", fallback="cwinpy_pe")
 
-        self.base_job_name = "{}_{}".format(jobname, psrname)
+        # replace any "+" in the pulsar name for the job name as Condor does
+        # not allow "+"s in the name
+        self.base_job_name = "{}_{}".format(jobname, psrname.replace("+", "plus"))
         if inputs.n_parallel > 1:
             self.job_name = "{}_{}".format(self.base_job_name, parallel_idx)
         else:
@@ -1975,6 +1977,12 @@ class PulsarPENode(Node):
 
             if os.path.isfile(configdict["prior"]):
                 input_files_to_transfer.append(configdict["prior"])
+
+            # make file paths relative paths
+            input_files_to_transfer = [
+                self._relative_topdir(path, self.inputs.initialdir)
+                for path in input_files_to_transfer
+            ]
 
             self.extra_lines.extend(
                 self._condor_file_transfer_lines(
@@ -2022,9 +2030,9 @@ class PulsarPENode(Node):
     @property
     def result_file(self):
         if self.inputs.sampler_kwargs is not None:
-            if "hdf5" == self.inputs.sampler_kwargs.get("save", None):
-                return "{}/{}_result.hdf5".format(self.result_directory, self.label)
-        return "{}/{}_result.json".format(self.result_directory, self.label)
+            if self.inputs.sampler_kwargs.get("save", None) is True:
+                return "{}/{}_result.json".format(self.result_directory, self.label)
+        return "{}/{}_result.hdf5".format(self.result_directory, self.label)
 
 
 class MergeNode(Node):
@@ -2033,7 +2041,7 @@ class MergeNode(Node):
         self.dag = dag
 
         self.job_name = "{}_merge".format(parallel_node_list[0].base_job_name)
-        self.label = "{}_merge".format(parallel_node_list[0].base_job_name)
+        self.label = "{}".format(parallel_node_list[0].base_job_name)
         self.request_cpus = 1
         self.setup_arguments(
             add_ini=False, add_unknown_args=False, add_command_line_args=False
@@ -2064,8 +2072,8 @@ class MergeNode(Node):
     @property
     def result_file(self):
         if self.inputs.sampler_kwargs is not None:
-            if "hdf5" == self.inputs.sampler_kwargs.get("save", None):
-                return "{}/{}_result.hdf5".format(
+            if self.inputs.sampler_kwargs.get("save", None) is True:
+                return "{}/{}_result.json".format(
                     self.inputs.result_directory, self.label
                 )
-        return "{}/{}_result.json".format(self.inputs.result_directory, self.label)
+        return "{}/{}_result.hdf5".format(self.inputs.result_directory, self.label)
