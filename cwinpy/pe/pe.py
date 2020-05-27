@@ -1938,13 +1938,14 @@ class PulsarPENode(Node):
 
         # replace any "+" in the pulsar name for the job name as Condor does
         # not allow "+"s in the name
+        self.label = "{}_{}".format(jobname, psrname)
         self.base_job_name = "{}_{}".format(jobname, psrname.replace("+", "plus"))
         if inputs.n_parallel > 1:
             self.job_name = "{}_{}".format(self.base_job_name, parallel_idx)
+            self.label = "{}_{}".format(self.label, parallel_idx)
         else:
             self.job_name = self.base_job_name
 
-        self.label = self.job_name
         configdict["label"] = self.label
 
         # output the configuration file
@@ -2049,7 +2050,7 @@ class MergeNode(Node):
         self.arguments.append("--result")
         for pn in parallel_node_list:
             self.arguments.append(pn.result_file)
-        self.arguments.add("outdir", parallel_node_list[0].result_directory)
+        self.arguments.add("outdir", parallel_node_list[0].resdir)
         self.arguments.add("label", self.label)
         self.arguments.add_flag("merge")
 
