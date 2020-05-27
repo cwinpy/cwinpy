@@ -1880,7 +1880,7 @@ class PEInput(Input):
         self.pe_log_directory = cf.get(
             "job", "log", fallback=os.path.join(self._outdir, "log")
         )
-        self.request_memory = cf.get("job", "request_memory", fallback="4")
+        self.request_memory = cf.get("job", "request_memory", fallback="4 GB")
         self.request_cpus = cf.getint("job", "request_cpus", fallback=1)
         self.accounting = cf.get("job", "accounting_group", fallback=None)
         self.accounting_user = cf.get("job", "accounting_group_user", fallback=None)
