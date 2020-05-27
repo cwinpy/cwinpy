@@ -134,6 +134,9 @@ class PEPulsarSimulationDAG(object):
     numba: bool
         Set whether or not to use the likelihood with numba enabled. Defaults
         to True.
+    n_parallel: int
+        Set the number of parallel sampler jobs to run for each pulsar, which
+        will be combined to form the final samplers. Defaults to 1.
 
     References
     ----------
@@ -165,6 +168,7 @@ class PEPulsarSimulationDAG(object):
         sampler_kwargs=None,
         outputsnr=True,
         numba=True,
+        n_parallel=1,
     ):
         if basedir is not None:
             self.basedir = basedir
@@ -216,6 +220,7 @@ class PEPulsarSimulationDAG(object):
         self.sampler_kwargs = sampler_kwargs
         self.outputsnr = outputsnr
         self.numba = numba
+        self.n_parallel = n_parallel
         self.create_config()
 
         # create the DAG for cwinpy_knope jobs
@@ -631,6 +636,7 @@ class PEPulsarSimulationDAG(object):
         )
         self.config["pe"]["results"] = self.resultsdir
         self.config["pe"]["numba"] = str(self.numba)
+        self.config["pe"]["n_parallel"] = str(self.n_parallel)
 
         # set fake data
         if self.datafiles is None and self.detector is not None:
