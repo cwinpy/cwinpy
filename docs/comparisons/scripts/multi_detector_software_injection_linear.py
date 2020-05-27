@@ -75,16 +75,7 @@ for detector in detectors:
 
     # output the data
     hetfile = os.path.join(outdir, "{}_{}_data.txt".format(label, detector))
-    np.savetxt(
-        hetfile,
-        np.vstack(
-            (
-                het[detector].times.value,
-                het[detector].data.real,
-                het[detector].data.imag,
-            )
-        ).T,
-    )
+    het[detector].write(hetfile)
     hetfiles.append(hetfile)
 
 # create priors
@@ -280,4 +271,4 @@ leg = axes[3].legend(
 for line in leg.get_lines():
     line.set_linewidth(1.0)
 
-fig.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=200)
+fig.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=150)

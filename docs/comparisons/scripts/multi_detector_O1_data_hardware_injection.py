@@ -238,4 +238,4 @@ leg = axes[3].legend(
 for line in leg.get_lines():
     line.set_linewidth(1.0)
 
-fig.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=200)
+fig.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=150)
