@@ -1924,12 +1924,14 @@ class PulsarPENode(Node):
         self.getenv = inputs.getenv
         self._universe = inputs.universe
 
+        self.psrname = psrname
+
         resdir = inputs.config.get("pe", "results", fallback="results")
-        psrbase = os.path.join(inputs.outdir, resdir, psrname)
+        self.psrbase = os.path.join(inputs.outdir, resdir, psrname)
         if self.inputs.n_parallel > 1:
-            self.resdir = os.path.join(psrbase, "par{}".format(parallel_idx))
+            self.resdir = os.path.join(self.psrbase, "par{}".format(parallel_idx))
         else:
-            self.resdir = psrbase
+            self.resdir = self.psrbase
 
         configdict["outdir"] = self.resdir
 
@@ -2042,7 +2044,9 @@ class MergeNode(Node):
         self.dag = dag
 
         self.job_name = "{}_merge".format(parallel_node_list[0].base_job_name)
-        self.label = "{}".format(parallel_node_list[0].base_job_name)
+
+        jobname = inputs.config.get("job", "name", fallback="cwinpy_pe")
+        self.label = "{}_{}".format(jobname, parallel_node_list[0].psrname)
         self.request_cpus = 1
         self.setup_arguments(
             add_ini=False, add_unknown_args=False, add_command_line_args=False
@@ -2050,7 +2054,7 @@ class MergeNode(Node):
         self.arguments.append("--result")
         for pn in parallel_node_list:
             self.arguments.append(pn.result_file)
-        self.arguments.add("outdir", parallel_node_list[0].resdir)
+        self.arguments.add("outdir", parallel_node_list[0].psrbase)
         self.arguments.add("label", self.label)
         self.arguments.add_flag("merge")
 
