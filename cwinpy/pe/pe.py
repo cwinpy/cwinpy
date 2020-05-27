@@ -1890,9 +1890,7 @@ class PEInput(Input):
 
         # number of parallel runs for each job
         self.n_parallel = cf.getint("pe", "n_parallel", fallback=1)
-        self.sampler_kwargs = ast.literal_eval(
-            str(cf.get("pe", "sampler_kwargs", fallback=None))
-        )
+        self.sampler_kwargs = cf.get("pe", "sampler_kwargs", fallback=None)
 
         # needs to be set for the bilby_pipe Node initialisation, but is not a
         # requirement for cwinpy_pe
