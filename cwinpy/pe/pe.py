@@ -1969,18 +1969,15 @@ class PulsarPENode(Node):
         else:
             configfile = os.path.join(configlocation, "{}.ini".format(psrname))
 
-        parseobj = DefaultConfigFileParser()
-        with open(configfile, "w") as fp:
-            fp.write(parseobj.serialize(configdict))
-
         self.setup_arguments(
             add_ini=False, add_unknown_args=False, add_command_line_args=False
         )
 
         # add files for transfer
         if self.inputs.transfer_files or self.inputs.osg:
-            configfile = self._relative_topdir(configfile, self.inputs.initialdir)
-            input_files_to_transfer = [configfile]
+            input_files_to_transfer = [
+                self._relative_topdir(configfile, self.inputs.initialdir)
+            ]
 
             # make paths relative
             for key in [
@@ -2017,6 +2014,10 @@ class PulsarPENode(Node):
             self.extra_lines.append(
                 "accounting_group_user = {}".format(self.inputs.accounting_user)
             )
+
+        parseobj = DefaultConfigFileParser()
+        with open(configfile, "w") as fp:
+            fp.write(parseobj.serialize(configdict))
 
         self.process_node()
 
