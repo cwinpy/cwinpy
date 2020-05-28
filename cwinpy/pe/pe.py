@@ -1761,6 +1761,10 @@ class PEDAGRunner(object):
                         raise TypeError(
                             "Ephemeris file for {} is not a string".format(pname)
                         )
+            if simdata and inputs.n_parallel > 1:
+                # set a fake seed, so all parallel runs produce the same data
+                seed = np.random.randint(1, 2 ** 32 - 1)
+                configdict["fake_seed"] = str(seed)
 
             parallel_node_list = []
             for idx in range(inputs.n_parallel):
@@ -1954,7 +1958,12 @@ class PulsarPENode(Node):
         configdir = inputs.config.get("pe", "config", fallback="configs")
         configlocation = os.path.join(inputs.outdir, configdir)
         check_directory_exists_and_if_not_mkdir(configlocation)
-        configfile = os.path.join(configlocation, "{}.ini".format(psrname))
+        if inputs.n_parallel > 1:
+            configfile = os.path.join(
+                configlocation, "{}_{}.ini".format(psrname, parallel_idx)
+            )
+        else:
+            configfile = os.path.join(configlocation, "{}.ini".format(psrname))
 
         parseobj = DefaultConfigFileParser()
         with open(configfile, "w") as fp:
@@ -1964,9 +1973,17 @@ class PulsarPENode(Node):
             add_ini=False, add_unknown_args=False, add_command_line_args=False
         )
 
+        # make paths relative
+        configfile = self._relative_topdir(configfile, self.inputs.initialdir)
+        for key in ["par_file", "inj_par", "data_file_1f", "data_file_2f", "prior"]:
+            if key in configdict:
+                configdict[key] = self._relative_topdir(
+                    configdict[key], self.inputs.initialdir
+                )
+
         # add files for transfer
         if self.inputs.transfer_files or self.inputs.osg:
-            input_files_to_transfer = [str(configfile), str(configdict["par_file"])]
+            input_files_to_transfer = [configfile, configdict["par_file"]]
 
             if "inj_par" in configdict:
                 if configdict["inj_par"] != configdict["par_file"]:
@@ -1981,16 +1998,10 @@ class PulsarPENode(Node):
             if os.path.isfile(configdict["prior"]):
                 input_files_to_transfer.append(configdict["prior"])
 
-            # make file paths relative paths
-            input_files_to_transfer = [
-                self._relative_topdir(path, self.inputs.initialdir)
-                for path in input_files_to_transfer
-            ]
-
             self.extra_lines.extend(
                 self._condor_file_transfer_lines(
                     input_files_to_transfer,
-                    [self._relative_topdir(self.inputs.outdir, self.inputs.initialdir)],
+                    [self._relative_topdir(self.resdir, self.inputs.initialdir)],
                 )
             )
 
