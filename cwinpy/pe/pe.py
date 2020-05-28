@@ -1969,20 +1969,6 @@ class PulsarPENode(Node):
         else:
             configfile = os.path.join(configlocation, "{}.ini".format(psrname))
 
-        # make paths relative
-        for key in [
-            "par_file",
-            "inj_par",
-            "data_file_1f",
-            "data_file_2f",
-            "prior",
-            "outdir",
-        ]:
-            if key in configdict:
-                configdict[key] = self._relative_topdir(
-                    configdict[key], self.inputs.initialdir
-                )
-
         parseobj = DefaultConfigFileParser()
         with open(configfile, "w") as fp:
             fp.write(parseobj.serialize(configdict))
@@ -1994,29 +1980,35 @@ class PulsarPENode(Node):
         # add files for transfer
         if self.inputs.transfer_files or self.inputs.osg:
             configfile = self._relative_topdir(configfile, self.inputs.initialdir)
-            input_files_to_transfer = [configfile, configdict["par_file"]]
+            input_files_to_transfer = [configfile]
 
-            if "inj_par" in configdict:
-                if configdict["inj_par"] != configdict["par_file"]:
-                    input_files_to_transfer.append(configdict["inj_par"])
-
-            for freqfactor in ["1f", "2f"]:
-                if "data_file_{}".format(freqfactor) in configdict:
+            # make paths relative
+            for key in [
+                "par_file",
+                "inj_par",
+                "data_file_1f",
+                "data_file_2f",
+                "prior",
+                "outdir",
+            ]:
+                if key in list(configdict.keys()):
                     input_files_to_transfer.append(
-                        configdict["data_file_{}".format(freqfactor)]
+                        self._relative_topdir(configdict[key], self.inputs.initialdir)
                     )
 
-            if os.path.isfile(configdict["prior"]):
-                input_files_to_transfer.append(configdict["prior"])
+                    # set to use only file as the transfer directory is flat
+                    configdict[key] = os.path.basename(configdict[key])
 
             self.extra_lines.extend(
                 self._condor_file_transfer_lines(
-                    input_files_to_transfer,
+                    list(set(input_files_to_transfer)),
                     [self._relative_topdir(self.resdir, self.inputs.initialdir)],
                 )
             )
 
-        self.arguments.add("config", configfile)
+            self.arguments.add("config", os.path.basename(configfile))
+        else:
+            self.arguments.add("config", configfile)
 
         self.extra_lines.extend(self._checkpoint_submit_lines())
 
