@@ -1999,6 +1999,9 @@ class PulsarPENode(Node):
                 self.resdir, self.inputs.initialdir
             )
 
+            # add output directory to inputs in case resume file exists
+            input_files_to_transfer.append(configdict["outdir"])
+
             self.extra_lines.extend(
                 self._condor_file_transfer_lines(
                     list(set(input_files_to_transfer)), [configdict["outdir"]],
