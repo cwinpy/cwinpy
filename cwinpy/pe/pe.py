@@ -1966,7 +1966,14 @@ class PulsarPENode(Node):
             configfile = os.path.join(configlocation, "{}.ini".format(psrname))
 
         # make paths relative
-        for key in ["par_file", "inj_par", "data_file_1f", "data_file_2f", "prior"]:
+        for key in [
+            "par_file",
+            "inj_par",
+            "data_file_1f",
+            "data_file_2f",
+            "prior",
+            "outdir",
+        ]:
             if key in configdict:
                 configdict[key] = self._relative_topdir(
                     configdict[key], self.inputs.initialdir
