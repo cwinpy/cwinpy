@@ -1772,7 +1772,7 @@ class PEDAGRunner(object):
 
             parallel_node_list = []
             for idx in range(inputs.n_parallel):
-                penode = PulsarPENode(inputs, configdict, pname, idx, self.dag)
+                penode = PulsarPENode(inputs, configdict.copy(), pname, idx, self.dag)
                 parallel_node_list.append(penode)
 
             if inputs.n_parallel > 1:
