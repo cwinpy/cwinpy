@@ -1227,7 +1227,10 @@ def pe(**kwargs):
         code will attempt to automatically find the appropriate file.
     """
 
-    if "cwinpy_pe" == os.path.split(sys.argv[0])[-1] or "config" in kwargs:
+    if "cli" in kwargs or "config" in kwargs:
+        if "cli" in kwargs:
+            kwargs.pop("cli")
+
         # get command line arguments
         parser = create_pe_parser()
 
@@ -1269,6 +1272,7 @@ def pe_cli(**kwargs):  # pragma: no cover
     but does not return any objects.
     """
 
+    kwargs["cli"] = True  # set to show use of CLI
     _ = pe(**kwargs)
 
 
