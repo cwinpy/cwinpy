@@ -1986,7 +1986,6 @@ class PulsarPENode(Node):
                 "data_file_1f",
                 "data_file_2f",
                 "prior",
-                "outdir",
             ]:
                 if key in list(configdict.keys()):
                     input_files_to_transfer.append(
@@ -1996,10 +1995,13 @@ class PulsarPENode(Node):
                     # set to use only file as the transfer directory is flat
                     configdict[key] = os.path.basename(configdict[key])
 
+            configdict["outdir"] = self._relative_topdir(
+                self.resdir, self.inputs.initialdir
+            )
+
             self.extra_lines.extend(
                 self._condor_file_transfer_lines(
-                    list(set(input_files_to_transfer)),
-                    [self._relative_topdir(self.resdir, self.inputs.initialdir)],
+                    list(set(input_files_to_transfer)), [configdict["outdir"]],
                 )
             )
 
