@@ -1916,7 +1916,20 @@ class PEInput(Input):
 
     @property
     def initialdir(self):
-        return os.getcwd()
+        if hasattr(self._initialdir):
+            if self._initialdir is not None:
+                return self._initialdir
+            else:
+                return os.getcwd()
+        else:
+            return os.getcwd()
+
+    @initialdir.setter
+    def initialdir(self, initialdir):
+        if isinstance(initialdir, str):
+            self._initialdir = initialdir
+        else:
+            self._initialdir = None
 
 
 class PulsarPENode(Node):
@@ -1975,6 +1988,10 @@ class PulsarPENode(Node):
 
         # add files for transfer
         if self.inputs.transfer_files or self.inputs.osg:
+            tmpinitialdir = self.inputs.initialdir
+
+            self.inputs.initialdir = self.resdir
+
             input_files_to_transfer = [
                 self._relative_topdir(configfile, self.inputs.initialdir)
             ]
@@ -2010,6 +2027,7 @@ class PulsarPENode(Node):
 
             self.arguments.add("config", os.path.basename(configfile))
         else:
+            tmpinitialdir = None
             self.arguments.add("config", configfile)
 
         self.extra_lines.extend(self._checkpoint_submit_lines())
@@ -2025,6 +2043,10 @@ class PulsarPENode(Node):
             fp.write(parseobj.serialize(configdict))
 
         self.process_node()
+
+        # reset initial directory
+        if tmpinitialdir is not None:
+            self.inputs.initialdir = tmpinitialdir
 
         if generation_node is not None:
             # This is for the future when implementing a full pipeline
