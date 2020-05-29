@@ -1886,7 +1886,7 @@ class PEInput(Input):
         self.universe = cf.get("job", "universe", fallback="vanilla")
         self.getenv = cf.getboolean("job", "getenv", fallback=False)
         self.pe_log_directory = cf.get(
-            "job", "log", fallback=os.path.join(self._outdir, "log")
+            "job", "log", fallback=os.path.join(os.path.abspath(self._outdir), "log")
         )
         self.request_memory = cf.get("job", "request_memory", fallback="4 GB")
         self.request_cpus = cf.getint("job", "request_cpus", fallback=1)
@@ -1916,7 +1916,7 @@ class PEInput(Input):
 
     @property
     def initialdir(self):
-        if hasattr(self._initialdir):
+        if hasattr(self, "_initialdir"):
             if self._initialdir is not None:
                 return self._initialdir
             else:
@@ -2012,12 +2012,10 @@ class PulsarPENode(Node):
                     # set to use only file as the transfer directory is flat
                     configdict[key] = os.path.basename(configdict[key])
 
-            configdict["outdir"] = self._relative_topdir(
-                self.resdir, self.inputs.initialdir
-            )
+            configdict["outdir"] = "results/"
 
             # add output directory to inputs in case resume file exists
-            input_files_to_transfer.append(configdict["outdir"])
+            input_files_to_transfer.append(".")
 
             self.extra_lines.extend(
                 self._condor_file_transfer_lines(
@@ -2079,6 +2077,17 @@ class PulsarPENode(Node):
             if self.inputs.sampler_kwargs.get("save", None) is True:
                 return "{}/{}_result.json".format(self.result_directory, self.label)
         return "{}/{}_result.hdf5".format(self.result_directory, self.label)
+
+    @staticmethod
+    def _relative_topdir(path, reference):
+        """Returns the top-level directory name of a path relative
+        to a reference
+        """
+        try:
+            return os.path.relpath(path, reference)
+        except ValueError as exc:
+            exc.args = ("cannot format {} relative to {}".format(path, reference),)
+            raise
 
 
 class MergeNode(Node):
