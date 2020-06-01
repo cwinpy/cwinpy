@@ -96,15 +96,16 @@ which should only take a few minutes, with information on the run output to the 
    cannot be found.
 
 This will create a directory called ``example1`` containing: the results as a bilby ``Results``
-object saved, by default, in a `HDF5 <https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5>`_
-format file called ``example1_result.hdf5`` (see `here
+object saved, by default, in a `JSON <https://www.json.org/>`_ format file called
+``example1_result.json`` (see `here
 <https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on reading
 this information within Python); and (due to the setting of ``'plot': True`` in the
 ``sampler_kwargs`` dictionary), a "`corner <https://corner.readthedocs.io/en/latest/>`_ plot" in the
 file ``example1_corner.png`` showing 1D and 2D marginalised posterior probability distributions for
-each parameter, and pair of parameters.  To instead save the results to a `JSON
-<https://www.json.org/>`_ format file you would include ``'save': True`` in the ``sampler_kwargs``
-dictionary)
+each parameter, and pair of parameters.  To instead save the results to a `HDF5
+<https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5>`_ format file you would include
+``"save": "hdf5"`` in the ``sampler_kwargs`` dictionary. To gzip the JSON file you would include
+``"gzip": True`` in the ``sampler_kwargs`` dictionary.
 
 .. thumbnail:: data/example1/example1_corner.png
    :width: 300px
@@ -172,8 +173,8 @@ The analysis can then be run using:
    cwinpy_pe --config example2_config.ini
 
 This will create a directory called ``example2`` containing: the results as a bilby ``Results``
-object saved, by default, in a `HDF5 <https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5>`_
-format file called ``example2_result.hdf5`` (see `here
+object saved, by default, in a `JSON <https://www.json.org/>`_
+format file called ``example2_result.json`` (see `here
 <https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on reading
 this information within Python); and (due to the setting of ``'plot': True`` in the
 ``sampler_kwargs`` dictionary), a "`corner <https://corner.readthedocs.io/en/latest/>`_ plot" in the

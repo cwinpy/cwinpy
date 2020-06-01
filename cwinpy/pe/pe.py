@@ -1532,7 +1532,6 @@ class PEDAGRunner(object):
                                         print(
                                             "Duplicate pulsar '{}' data. Ignoring "
                                             "duplicate.".format(pname),
-                                            file=sys.stdout,
                                         )
             elif fakeasd1f is not None or fakeasd2f is not None:
                 # set to use simulated data
@@ -1682,7 +1681,6 @@ class PEDAGRunner(object):
                     print(
                         "Removing pulsar '{}' as either no data, or no prior "
                         "is given".format(pname),
-                        file=sys.stdout,
                     )
                     if pname in datanames:
                         datadict.pop(pname)
@@ -2073,10 +2071,11 @@ class PulsarPENode(Node):
 
     @property
     def result_file(self):
-        if self.inputs.sampler_kwargs is not None:
-            if self.inputs.sampler_kwargs.get("save", None) is True:
-                return "{}/{}_result.json".format(self.result_directory, self.label)
-        return "{}/{}_result.hdf5".format(self.result_directory, self.label)
+        extension = self.inputs.sampler_kwargs.get("save", "json")
+        gzip = self.inputs.sampler_kwargs.get("gzip", False)
+        return bilby.core.result.result_file_name(
+            self.result_directory, self.label, extension=extension, gzip=gzip
+        )
 
     @staticmethod
     def _relative_topdir(path, reference):
@@ -2128,9 +2127,8 @@ class MergeNode(Node):
 
     @property
     def result_file(self):
-        if self.inputs.sampler_kwargs is not None:
-            if self.inputs.sampler_kwargs.get("save", None) is True:
-                return "{}/{}_result.json".format(
-                    self.inputs.result_directory, self.label
-                )
-        return "{}/{}_result.hdf5".format(self.inputs.result_directory, self.label)
+        extension = self.inputs.sampler_kwargs.get("save", "json")
+        gzip = self.inputs.sampler_kwargs.get("gzip", False)
+        return bilby.core.result.result_file_name(
+            self.inputs.result_directory, self.label, extension=extension, gzip=gzip
+        )
