@@ -1759,6 +1759,7 @@ class PEDAGRunner(object):
                         raise TypeError(
                             "Ephemeris file for {} is not a string".format(pname)
                         )
+
             if simdata and inputs.n_parallel > 1:
                 # set a fake seed, so all parallel runs produce the same data
                 seed = np.random.randint(1, 2 ** 32 - 1)
