@@ -369,15 +369,6 @@ continuous gravitational-wave signal from a known pulsar."""
             "the appropriate file."
         ),
     )
-    ephemparser.add(
-        "--time-corr",
-        type=str,
-        help=(
-            "The path to a file providing the time correction file. "
-            "If not supplied, the code will attempt to "
-            "automatically find the appropriate file."
-        ),
-    )
 
     return parser
 
@@ -442,7 +433,6 @@ class PERunner(object):
         # get solar system ephemeris information if provided
         self.datakwargs.setdefault("ephemearth", kwargs.get("ephem_earth", None))
         self.datakwargs.setdefault("ephemsun", kwargs.get("ephem_sun", None))
-        self.datakwargs.setdefault("timecorr", kwargs.get("time_corr", None))
 
         # data parameters
         if "detector" in kwargs:
@@ -1222,9 +1212,6 @@ def pe(**kwargs):
     ephem_sun: str, dict
         The path to a file providing the Sun ephemeris. If not supplied, the
         code will attempt to automatically find the appropriate file.
-    time_corr: str
-        The path to a file providing the time correction file. If not supplied,
-        the code will attempt to automatically find the appropriate file.
     """
 
     if "cwinpy_pe" == os.path.split(sys.argv[0])[-1] or "config" in kwargs:
@@ -1779,7 +1766,6 @@ class PEDAGRunner(object):
             # get ephemeris files if given
             earthephem = self.eval(config.get("pe", "ephem-earth", fallback=None))
             sunephem = self.eval(config.get("pe", "ephem-sun", fallback=None))
-            timecorr = self.eval(config.get("pe", "time-corr", fallback=None))
         else:
             raise IOError("Configuration file must have a [pe] section.")
 
@@ -1837,8 +1823,7 @@ class PEDAGRunner(object):
                 configdict["output_snr"] = "True"
 
             for ephem, ephemname in zip(
-                [earthephem, sunephem, timecorr],
-                ["ephem_earth", "ephem_sun", "time_corr"],
+                [earthephem, sunephem], ["ephem_earth", "ephem_sun"],
             ):
                 if ephem is not None:
                     if isinstance(ephem, dict):
