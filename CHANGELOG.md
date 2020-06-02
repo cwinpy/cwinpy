@@ -1,5 +1,11 @@
 # Notable changes between versions
 
+## [0.3.1] 2019-06-02
+
+Changes for this release:
+
+- Allow Earth and Sun ephemeris files, and time correction files, to be explicitly given to the `HeterodynedData` object. Additionally allow these files to be passed via the `cwinpy_pe` script and DAG generation (!20).
+
 ## [0.3.0] 2019-05-19
 
 Changes for this release:
