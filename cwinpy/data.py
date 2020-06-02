@@ -813,6 +813,13 @@ class HeterodynedData(TimeSeriesBase):
         :meth:`~cwinpy.data.HeterodynedData.find_outliers`)
     comments: str
         A string containing any comments about the data.
+    ephemearth: str, None
+        The path to the Earth ephemeris used for the signal phase model.
+    ephemsun: str, None
+        The path to the Sun ephemeris used for the signal phase model.
+    timecorr: str, None
+        The path to the time units look-up table file used for the signal phase
+        model.
     """
 
     # set some default detector color maps for plotting
@@ -865,6 +872,9 @@ class HeterodynedData(TimeSeriesBase):
         remove_outliers=False,
         thresh=3.5,
         comments="",
+        ephemearth=None,
+        ephemsun=None,
+        timecorr=None,
         **kwargs,
     ):
         stds = None  # initialise standard deviations
@@ -999,6 +1009,9 @@ class HeterodynedData(TimeSeriesBase):
         # add noise, or create data containing noise
         if fakeasd is not None:
             new.add_noise(fakeasd, issigma=issigma, seed=fakeseed)
+
+        # set solar system ephemeris files if provided
+        new.set_ephemeris(ephemearth, ephemsun, timecorr)
 
         # set and add a simulated signal
         new.injection = bool(inject)
@@ -1458,6 +1471,41 @@ class HeterodynedData(TimeSeriesBase):
 
         self._injtimes = timelist
 
+    def set_ephemeris(self, earth=None, sun=None, time=None):
+        """
+        Set the solar system ephemeris and time correction files.
+
+        Parameters
+        ----------
+        earth: str, None
+            The Earth ephemeris file used for the phase model. Defaults to
+            None, in which case the ephemeris files will be determined from the
+            pulsar parameter file information.
+        sun: str, None
+            The Sun ephemeris file used for the phase model. Defaults to
+            None, in which case the ephemeris files will be determined from the
+            pulsar parameter file information.
+        time: str, None
+            The time correction file used for the phase model. Defaults to
+            None, in which case the file will be determined from the pulsar
+            parameter file information.
+        """
+
+        efiles = [earth, sun, time]
+
+        for ef in efiles:
+            if ef is None:
+                continue
+            if isinstance(ef, str):
+                if not os.path.isfile(ef):
+                    raise IOError("Ephemeris file '{}' does not exist".format(ef))
+            else:
+                raise TypeError("Ephemeris file is not a string")
+
+        self.ephemearth = efiles[0]
+        self.ephemsun = efiles[1]
+        self.timecorr = efiles[2]
+
     @property
     def injection_data(self):
         """
@@ -1525,7 +1573,14 @@ class HeterodynedData(TimeSeriesBase):
         from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 
         # initialise the injection
-        het = HeterodynedCWSimulator(self.par, self.detector, times=self.times)
+        het = HeterodynedCWSimulator(
+            self.par,
+            self.detector,
+            times=self.timesm,
+            earth_ephem=self.ephemearth,
+            sun_ephem=self.ephemsun,
+            time_corr=self.timecorr,
+        )
 
         # get the injection
         if signalpar is None:
