@@ -255,9 +255,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     het.par,
                     het.detector,
                     het.times,
-                    ephem_earth=het.earthephem,
-                    ephem_sun=het.sunephem,
-                    time_corr=het.timecorr,
+                    earth_ephem=het.ephemearth,
+                    sun_ephem=het.ephemsun,
                 )
             )
             # copy of heterodyned parameters

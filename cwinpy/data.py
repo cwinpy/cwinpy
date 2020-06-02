@@ -1567,7 +1567,7 @@ class HeterodynedData(TimeSeriesBase):
         het = HeterodynedCWSimulator(
             self.par,
             self.detector,
-            times=self.timesm,
+            times=self.times,
             earth_ephem=self.ephemearth,
             sun_ephem=self.ephemsun,
         )
