@@ -52,7 +52,7 @@ for the parameter estimation that has a uniform distribution in :math:`Q_{22}` b
     >>> # generate the population
     >>> run = PEPulsarSimulationDAG(ampdist=ampdist, prior=prior, npulsars=1000, detector=detectors)
 
-As no ``basedir`` argument was supplied this would produce the following directories and files in
+As no ``basedir`` argument was supplied this will produce the following directories and files in
 your current working directory:
 
 .. code-block:: console
@@ -64,11 +64,25 @@ The ``pulsars`` directory will contain the 1000 pulsar parameter files with name
 generated right ascension and declination (clashing positions will have alphabetical identifiers
 appended). The ``priors`` directory will contain 1000 prior files named after each pulsar. The
 ``configs`` directory will contain the 1000 ``cwinpy_pe`` :ref:`configuration files <Running the
-analysis>`. The ``results`` directory will contain a directory for each pulsar into which the
-outputs will be placed. The ``submit`` directory will contain the files required for running the
-HTCondor DAG. There will be a Condor `submit
+analysis>`. The ``results`` directory will be where a directory for each pulsar's results outputs
+will be placed. The ``submit`` directory will contain the files required for running the HTCondor
+DAG. There will be a Condor `submit
 <https://htcondor.readthedocs.io/en/latest/man-pages/condor_submit.html#submit-description-file-commands>`_
-files for each pulsar, which by default will be labelled ``cwinpy_pe_PSRNAME.submit`, where ``PSRNAME`` will be the pulsar name (note that names based on a positive declination will have ``+`` replaced with ``plus`` to make them allowable Condor job names)
+files for each pulsar, which by default will be labelled ``cwinpy_pe_PSRNAME.submit`, where
+``PSRNAME`` will be the pulsar name (note that names based on a positive declination will have ``+``
+replaced with ``plus`` to make them allowable Condor job names). There will also be a
+``dag_cwinpy_pe.submit`` file containing the HTCondor DAG file. The ``log`` directory will contain
+the log files for each of the jobs. 
+
+.. note::
+
+    For each pulsar you can run multiple parallel independent runs that will be merged by using the
+    ``n_parallel`` option of :class:`~cwinpy.pe.simulation.PEPulsarSimulationDAG`. This will create
+    configuration files and submit files for each of the parallel runs. In the results directory for
+    each pulsar a ``par{NUM}`` directory will be created for each parallel run, where ``{NUM}`` runs
+    from 0 to one less than the number of parallel runs. The results of the parallel runs will be
+    merged as part of the DAG, so the submit directory will also contain submit files for the merge
+    jobs. 
 
 We can take a look at the distribution of parameters that gets produced with:
 
