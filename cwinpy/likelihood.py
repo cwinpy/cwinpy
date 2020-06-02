@@ -250,7 +250,15 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         self.models = []
         self.basepars = []
         for het in self.data:
-            self.models.append(HeterodynedCWSimulator(het.par, het.detector, het.times))
+            self.models.append(
+                HeterodynedCWSimulator(
+                    het.par,
+                    het.detector,
+                    het.times,
+                    earth_ephem=het.ephemearth,
+                    sun_ephem=het.ephemsun,
+                )
+            )
             # copy of heterodyned parameters
             newpar = PulsarParametersPy()
             for item in het.par.items():

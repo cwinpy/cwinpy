@@ -350,6 +350,26 @@ continuous gravitational-wave signal from a known pulsar."""
         ),
     )
 
+    ephemparser = parser.add_argument_group("Solar System Ephemeris inputs")
+    ephemparser.add(
+        "--ephem-earth",
+        type=str,
+        help=(
+            "The path to a file providing the Earth ephemeris. If "
+            "not supplied, the code will attempt to automatically "
+            "find the appropriate file."
+        ),
+    )
+    ephemparser.add(
+        "--ephem-sun",
+        type=str,
+        help=(
+            "The path to a file providing the Sun ephemeris. If not "
+            "supplied, the code will attempt to automatically find "
+            "the appropriate file."
+        ),
+    )
+
     return parser
 
 
@@ -409,6 +429,10 @@ class PERunner(object):
         if self.datakwargs["injtimes"] is not None:
             if not isinstance(self.datakwargs["injtimes"], (list, np.ndarray)):
                 raise TypeError("Injection times must be a list")
+
+        # get solar system ephemeris information if provided
+        self.datakwargs.setdefault("ephemearth", kwargs.get("ephem_earth", None))
+        self.datakwargs.setdefault("ephemsun", kwargs.get("ephem_sun", None))
 
         # data parameters
         if "detector" in kwargs:
@@ -1182,6 +1206,12 @@ def pe(**kwargs):
         10800 seconds (3 hours), at which point the job will be stopped (and
         then restarted if running under HTCondor). If running directly within
         Python this defaults to 10000000.
+    ephem_earth: str, dict
+        The path to a file providing the Earth ephemeris. If not supplied, the
+        code will attempt to automatically find the appropriate file.
+    ephem_sun: str, dict
+        The path to a file providing the Sun ephemeris. If not supplied, the
+        code will attempt to automatically find the appropriate file.
     """
 
     if "cwinpy_pe" == os.path.split(sys.argv[0])[-1] or "config" in kwargs:
@@ -1732,6 +1762,10 @@ class PEDAGRunner(object):
 
             # get whether to use numba
             numba = config.getboolean("pe", "numba", fallback=False)
+
+            # get ephemeris files if given
+            earthephem = self.eval(config.get("pe", "ephem-earth", fallback=None))
+            sunephem = self.eval(config.get("pe", "ephem-sun", fallback=None))
         else:
             raise IOError("Configuration file must have a [pe] section.")
 
@@ -1787,6 +1821,20 @@ class PEDAGRunner(object):
 
             if outputsnr:
                 configdict["output_snr"] = "True"
+
+            for ephem, ephemname in zip(
+                [earthephem, sunephem], ["ephem_earth", "ephem_sun"],
+            ):
+                if ephem is not None:
+                    if isinstance(ephem, dict):
+                        if pname in ephem:
+                            configdict[ephemname] = ephem[pname]
+                    elif isinstance(ephem, str):
+                        configdict[ephemname] = ephem
+                    else:
+                        raise TypeError(
+                            "Ephemeris file for {} is not a string".format(pname)
+                        )
 
             # output the configuration file
             configfile = os.path.join(configlocation, "{}.ini".format(pname))

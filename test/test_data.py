@@ -421,6 +421,26 @@ PHI0     2.4
         assert np.all(het.data.imag == data[:, 1])
         assert het.dt.value == (times[1] - times[0])
 
+    def test_bad_ephemeris_files(self):
+        """
+        Test passing bad solar system ephemeris files values.
+        """
+
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=(1440, 2))
+
+        with pytest.raises(IOError):
+            HeterodynedData(data, times=times, ephemearth="kagskdgd")
+
+        with pytest.raises(IOError):
+            HeterodynedData(data, times=times, ephemsun="kagskdgd")
+
+        with pytest.raises(TypeError):
+            HeterodynedData(data, times=times, ephemearth=1.2)
+
+        with pytest.raises(TypeError):
+            HeterodynedData(data, times=times, ephemsun=13)
+
     def test_noninteger_timestamps(self):
         """
         Test that an error is raise for non-integer time stamps.
