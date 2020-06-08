@@ -1949,6 +1949,7 @@ class PulsarPENode(Node):
         else:
             self.resdir = self.psrbase
 
+        check_directory_exists_and_if_not_mkdir(self.resdir)
         configdict["outdir"] = self.resdir
 
         # job name prefix

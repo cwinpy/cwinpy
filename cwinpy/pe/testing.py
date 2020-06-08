@@ -472,18 +472,18 @@ class PEPPPlotsDAG(object):
         job = Job(
             "cwinpy_pe_pp_plots",
             jobexec,
-            error=self.runner.error,
-            log=self.runner.log,
-            output=self.runner.output,
-            submit=self.runner.jobsubmit,
-            universe=self.runner.universe,
-            request_memory=self.runner.reqmem,
+            error=self.runner.dag.inputs.pe_log_directory,
+            log=self.runner.dag.inputs.pe_log_directory,
+            output=self.runner.dag.inputs.pe_log_directory,
+            submit=self.runner.dag.inputs.submit_directory,
+            universe="vanilla",
+            request_memory=self.runner.dag.inputs.request_memory,
             getenv=self.getenv,
             queue=1,
-            requirements=self.runner.requirements,
-            retry=self.runner.retry,
+            requirements=self.runner.dag.inputs.requirements,
+            retry=self.runner.dag.inputs.retry,
             extra_lines=extra_lines,
-            dag=self.runner.dag,
+            dag=self.runner.dag.pycondor_dag,
         )
 
         jobargs = "--path '{}' ".format(os.path.join(self.basedir, "results", "*", "*"))
@@ -493,6 +493,6 @@ class PEPPPlotsDAG(object):
         job.add_arg(jobargs)
 
         job.add_parents(
-            self.runner.dag.nodes[:-1]
+            self.runner.dag.pycondor_dag.nodes[:-1]
         )  # exclude cwinpy_pe_pp_plots job itself
         self.runner.dag.build()
