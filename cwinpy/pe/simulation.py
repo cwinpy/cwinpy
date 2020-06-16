@@ -657,3 +657,4 @@ class PEPulsarSimulationDAG(object):
         if isinstance(self.sampler_kwargs, dict):
             self.config["pe"]["sampler_kwargs"] = str(self.sampler_kwargs)
         self.config["pe"]["output_snr"] = str(self.outputsnr)
+

@@ -1405,7 +1405,7 @@ class PEDAGRunner(object):
                     )
 
                 injdict = {}
-                for inj in list(injections):
+                for inj in injections:
                     if is_par_file(inj):
                         psr = PulsarParametersPy(inj)
 
@@ -1718,9 +1718,9 @@ class PEDAGRunner(object):
             for freqfactor in ["1f", "2f"]:
                 if not simdata:
                     try:
-                        configdict["data_file_{}".format(freqfactor)] = str(
-                            datadict[pname][freqfactor]
-                        )
+                        configdict["data_file_{}".format(freqfactor)] = datadict[pname][
+                            freqfactor
+                        ]
                     except KeyError:
                         pass
                 else:
@@ -2001,12 +2001,27 @@ class PulsarPENode(Node):
                 "prior",
             ]:
                 if key in list(configdict.keys()):
-                    input_files_to_transfer.append(
-                        self._relative_topdir(configdict[key], self.inputs.initialdir)
-                    )
+                    if key in ["data_file_1f", "data_file_2f"]:
+                        for detkey in configdict[key]:
+                            input_files_to_transfer.append(
+                                self._relative_topdir(
+                                    configdict[key][detkey], self.inputs.initialdir
+                                )
+                            )
 
-                    # set to use only file as the transfer directory is flat
-                    configdict[key] = os.path.basename(configdict[key])
+                            # set to use only file as the transfer directory is flat
+                            configdict[key][detkey] = os.path.basename(
+                                configdict[key][detkey]
+                            )
+                    else:
+                        input_files_to_transfer.append(
+                            self._relative_topdir(
+                                configdict[key], self.inputs.initialdir
+                            )
+                        )
+
+                        # set to use only file as the transfer directory is flat
+                        configdict[key] = os.path.basename(configdict[key])
 
             configdict["outdir"] = "results/"
 
