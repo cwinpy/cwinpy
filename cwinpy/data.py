@@ -3052,7 +3052,7 @@ class HeterodynedData(TimeSeriesBase):
 
 class PSDwrapper(object):
     """
-    Wrapper for LALSimulation PSD function that require a frequency series.
+    Wrapper for LALSimulation PSD functions that require a frequency series.
 
     Parameters
     ----------

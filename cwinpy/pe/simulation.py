@@ -73,11 +73,10 @@ class PEPulsarSimulationDAG(object):
         you want any orientation or amplitude parameters that they contain to
         not be overwritten by those drawn from the supplied distributions.
         Default is True.
-    datafiles: dict, str, :class:`cwinpy.data.MultiHeterodynedData`
+    datafiles: dict, str
         If using real data for each pulsar then pass a dictionary of paths to
         the data files keyed to the pulsar name (or detector then pulsar name),
-        or a directory containing the heterodyned data files, or a
-        :class:`~cwinpy.data.MultiHeterodynedData` object containing the data.
+        or a directory containing the heterodyned data files.
     npulsars: int
         The number of pulsars to include in the simulation.
     posdist: ``bilby.core.prior.PriorDict``
@@ -589,7 +588,7 @@ class PEPulsarSimulationDAG(object):
                     self.priors[pname]["dist"] = dist
 
             # set amplitude value
-            amp = self.ampdist.sample()
+            amp = self.ampdist.sample() if self.ampdist is not None else None
             if self.ampdist.name == "q22" and (pulsar["Q22"] is None or self.overwrite):
                 pulsar["Q22"] = amp
             elif self.ampdist.name == "h0" and (pulsar["H0"] is None or self.overwrite):

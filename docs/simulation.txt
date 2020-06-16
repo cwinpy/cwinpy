@@ -218,11 +218,49 @@ to their default distributions.
 Distance uncertainty
 --------------------
 
+You may want to run parameter estimation on a simulation for which you include a prior on the
+distance for each pulsar. One way to do this when using a selection of pregenerated or real pulsars
+is to pass the ``prior`` argument a dictionary of prior files or bilby ``PriorDict``'s, keyed to
+each pulsar, which contain a ``"dist"`` value with the particular distance prior required. This can
+also be achieved by instead passing a dictionary of priors, or dictionary of distance standard
+deviations (in kpc), keyed to the pulsar names, to the ``distance_err`` argument, e.g.,:
+
+.. code-block:: python
+
+    >>> from bilby.core.prior import Gaussian, Uniform, Sine, PriorDict, Exponential
+    >>> # assume we have two pulsars (J0000+0000 and J0100+0100) with parameter
+    >>> # files in the directory "pardir" for which we will set Gaussian priors
+    >>> # with standard deviations of 0.3 and 0.2 kpc, respectively.
+    >>> dist_err = {"J0000+0000": 0.3, "J0100+0100": 0.2}
+    >>> prior = PriorDict({
+    ...     "q22": Uniform(0.0, 1e40, name="q22"),
+    ...     "iota": Sine(name="iota"),
+    ...     "phi0": Uniform(0.0, np.pi, name="phi0"),
+    ...     "psi": Uniform(0.0, np.pi / 2, name="psi"),
+    ... })
+    >>> ampdist = Exponential(name="q22", mu=1e33)
+    >>> run = PEPulsarSimulationDAG(
+    ...     ampdist=ampdist, parfiles="pardir", prior=prior, distance_err=dist_err, detector="H1"
+    ... )
+
+.. note::
+
+    In the latter case it will generate a Gaussian prior on the distance and assumes that the pulsar
+    distance is given as this is used as the mean of the distribution.
+
+If generating a population of pulsars, you can use the ``distance_err`` argument to set a Gaussian
+distance prior for all pulsars. If you pass a number it will be taken as the fractional distance
+uncertainty and used to set the standard deviation of a Gaussian distribution (truncated at zero),
+with a mean based on the distance that is drawn for that source. At the moment this can only be a
+single fractional error on the distance used for *all* pulsars.
+
 Simulation using real data
 ==========================
 
-Rather than the simulation running on simulated data and simulated pulsars it can be used to run on
-a set of real data and use pre-defined or real pulsar parameter files.
+Rather than the simulation running on simulated data and simulated pulsars the code can be used to
+add signals to a set of real data and use pre-defined or real pulsar parameter files.
+
+
 
 .. autoclass:: cwinpy.pe.simulation.PEPulsarSimulationDAG
    :members:
