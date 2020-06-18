@@ -15,6 +15,7 @@ DISTRIBUTION_REQUIREMENTS = {
     "exponential": ["mu"],
     "gaussian": ["mu", "sigma", "weight"],
     "deltafunction": ["peak"],
+    "powerlaw": ["alpha", "minimum", "maximum"],
 }
 
 
@@ -520,7 +521,7 @@ class ExponentialDistribution(BaseDistribution):
     ----------
     name: str
         See :class:`~cwinpy.hierarchical.BaseDistribution`
-    mu: array_like
+    mu: float, Prior
         The mean of the exponential distribution.
     """
 
@@ -603,6 +604,158 @@ class ExponentialDistribution(BaseDistribution):
                 samples[~idx] = sample
             else:
                 break
+
+        if size == 1:
+            sample = samples[0]
+        else:
+            sample = samples
+
+        return sample
+
+
+class PowerLawDistribution(BaseDistribution):
+    """
+    A distribution to define estimating the parameters of a power law distribution.
+
+    Parameters
+    ----------
+    name: str
+        See :class:`~cwinpy.hierarchical.BaseDistribution`
+    alpha: float, Prior
+        The power law index of the distribution.
+    minimum: float
+        A positive finite value giving the lower cutoff of the distribution.
+    maximum: float
+        A positive finite value giving the upper cutoff of the distribution.
+    """
+
+    def __init__(self, name, alpha, minimum, maximum):
+        if isinstance(minimum, float):
+            if minimum <= 0 or not np.isfinite(minimum):
+                raise ValueError(
+                    "Minimum of distribution must be positive finite value"
+                )
+
+            if isinstance(maximum, float):
+                if maximum < minimum:
+                    raise ValueError(
+                        "Maximum of distribution must be smaller than minimum!"
+                    )
+
+        if isinstance(maximum, float):
+            if maximum <= 0 or not np.isfinite(maximum):
+                raise ValueError(
+                    "Maximum of distribution must be positive finite value"
+                )
+
+        # initialise
+        super().__init__(
+            name,
+            "powerlaw",
+            hyperparameters=dict(alpha=alpha, minimum=minimum, maximum=maximum),
+        )
+
+    def log_pdf(self, value, hyperparameters={}):
+        """
+        The natural logarithm of the pdf of a power law distribution.
+
+        Parameters
+        ----------
+        value: float
+            The value at which the probability is to be evaluated.
+        hyperparameters: dict
+            A dictionary containing the current values of the hyperparameters
+            that need to be inferred.
+
+        Returns
+        -------
+        logpdf:
+            The natural logarithm of the probability at the given value.
+        """
+
+        alpha = self["alpha"]
+        if not self.fixed["alpha"]:
+            try:
+                alpha = hyperparameters["alpha"]
+            except KeyError:
+                raise KeyError(
+                    "Cannot evaluate the probability when alpha is not given"
+                )
+
+        minimum = self["minimum"]
+        if not self.fixed["minimum"]:
+            try:
+                minimum = hyperparameters["minimum"]
+            except KeyError:
+                raise KeyError(
+                    "Cannot evaluate the probability when minimum is not given"
+                )
+        elif np.any(value < minimum):
+            return -np.inf
+
+        maximum = self["maximum"]
+        if not self.fixed["maximum"]:
+            try:
+                maximum = hyperparameters["maximum"]
+            except KeyError:
+                raise KeyError(
+                    "Cannot evaluate the probability when maximum is not given"
+                )
+        elif np.any(value > maximum):
+            return -np.inf
+
+        # get log pdf
+        logpdf = bilby.core.prior.PowerLaw(alpha, minimum, maximum).ln_prob(value)
+
+        return logpdf
+
+    def sample(self, hyperparameters={}, size=1):
+        """
+        Draw a sample from the exponential distribution as defined by the
+        given hyperparameters.
+
+        Parameters
+        ----------
+        hyperparameters: dict
+            A dictionary of the hyperparameter values (``alpha``, ``minimum``
+            and ``maximum``) that define the current state of the distribution.
+        size: int
+            The number of samples to draw from the distribution.
+
+        Returns
+        -------
+        sample:
+            A sample, or set of samples, from the distribution.
+        """
+
+        alpha = self["alpha"]
+        if not self.fixed["alpha"]:
+            try:
+                alpha = hyperparameters["alpha"]
+            except KeyError:
+                raise KeyError(
+                    "Cannot evaluate the probability when alpha is not given"
+                )
+
+        minimum = self["minimum"]
+        if not self.fixed["minimum"]:
+            try:
+                minimum = hyperparameters["minimum"]
+            except KeyError:
+                raise KeyError(
+                    "Cannot evaluate the probability when minimum is not given"
+                )
+
+        maximum = self["maximum"]
+        if not self.fixed["maximum"]:
+            try:
+                maximum = hyperparameters["maximum"]
+            except KeyError:
+                raise KeyError(
+                    "Cannot evaluate the probability when maximum is not given"
+                )
+
+        samples = bilby.core.prior.PowerLaw(alpha, minimum, maximum).sample(size=size)
 
         if size == 1:
             sample = samples[0]
@@ -725,6 +878,8 @@ def create_distribution(name, distribution, distkwargs={}):
             return ExponentialDistribution(name, **distkwargs)
         elif distribution.lower() == "deltafunction":
             return DeltaFunctionDistribution(name, **distkwargs)
+        elif distribution.lower() == "powerlaw":
+            return PowerLawDistribution(name, **distkwargs)
     else:
         raise TypeError("Unknown distribution")
 
