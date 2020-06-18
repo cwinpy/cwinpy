@@ -254,7 +254,7 @@ class TestDistributionObjects(object):
         assert dist.fixed["alpha"] is True
         assert dist["minimum"] == 0.1
         assert dist.fixed["minimum"] is True
-        assert dist["maximum"] == 0.1
+        assert dist["maximum"] == 10.0
         assert dist.fixed["maximum"] is True
 
         # test out of bounds
