@@ -35,22 +35,26 @@ for the parameter estimation that has a uniform distribution in :math:`Q_{22}` b
 
 .. code-block:: python
 
-    >>> from cwinpy.pe.simulation import PEPulsarSimulationDAG
-    >>> from bilby.core.prior import PriorDict, Uniform, Exponential, Sine
-    >>> # set the Q22 distribution
-    >>> mean = 1e33
-    >>> ampdist = Exponential(name="q22", mu=mean)
-    >>> # set the prior distribution for use in parameter estimation
-    >>> prior = PriorDict({
-    ...     "q22": Uniform(0.0, 1e40, name="q22"),
-    ...     "iota": Sine(name="iota"),
-    ...     "phi0": Uniform(0.0, np.pi, name="phi0"),
-    ...     "psi": Uniform(0.0, np.pi / 2, name="psi"),
-    ... })
-    >>> # set the detectors to use (and generate fake data for)
-    >>> detectors = ["H1", "L1"]
-    >>> # generate the population
-    >>> run = PEPulsarSimulationDAG(ampdist=ampdist, prior=prior, npulsars=1000, detector=detectors)
+    from cwinpy.pe.simulation import PEPulsarSimulationDAG
+    from bilby.core.prior import PriorDict, Uniform, Exponential, Sine
+
+    # set the Q22 distribution
+    mean = 1e33
+    ampdist = Exponential(name="q22", mu=mean)
+
+    # set the prior distribution for use in parameter estimation
+    prior = PriorDict({
+        "q22": Uniform(0.0, 1e40, name="q22"),
+        "iota": Sine(name="iota"),
+        "phi0": Uniform(0.0, np.pi, name="phi0"),
+        "psi": Uniform(0.0, np.pi / 2, name="psi"),
+    })
+
+    # set the detectors to use (and generate fake data for)
+    detectors = ["H1", "L1"]
+
+    # generate the population
+    run = PEPulsarSimulationDAG(ampdist=ampdist, prior=prior, npulsars=1000, detector=detectors)
 
 As no ``basedir`` argument was supplied this will produce the following directories and files in
 your current working directory:
@@ -88,22 +92,25 @@ We can take a look at the distribution of parameters that gets produced with:
 
 .. code-block:: python
 
-    >>> import corner
-    >>> import glob
-    >>> import numpy as np
-    >>> from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-    >>> params = np.zeros((1000, 8))
-    >>> for i, parfile in enumerate(glob.glob("pulsars/*.par")):
-    ...    psr = PulsarParametersPy(parfile)
-    ...    params[i, :] = [psr["Q22"], psr["DIST"], psr["F0"], psr["RAJ"], psr["DECJ"], psr["IOTA"], psr["PHI0"], psr["PSI"]]
-    >>> # make a corner plot of the distributions
-    >>> labels = [r"$Q_{22}$ (kg m$^2$)", "distance (kpc)", r"$f_0$ (Hz)", r"$\alpha$ (rad)", r"$\delta$ (rad)", r"$\iota$ (rad)", r"$\phi_0$ (rad)", r"$\psi$ (rad)"]
-    >>> fig = corner.corner(params, labels=labels, hist_kwargs={"density": True})
-    >>> # overplot the Q22 distribution
-    >>> ax = fig.get_axes()
-    >>> lims = ax.get_xlim()
-    >>> q22s = np.linspace(lims[0], lims[1], 100)
-    >>> ax[0].plot(q22s, q22dist.prob(q22s))
+    import corner
+    import glob
+    import numpy as np
+    from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+
+    params = np.zeros((1000, 8))
+    for i, parfile in enumerate(glob.glob("pulsars/*.par")):
+        psr = PulsarParametersPy(parfile)
+        params[i, :] = [psr["Q22"], psr["DIST"], psr["F0"], psr["RAJ"], psr["DECJ"], psr["IOTA"], psr["PHI0"], psr["PSI"]]
+
+    # make a corner plot of the distributions
+    labels = [r"$Q_{22}$ (kg m$^2$)", "distance (kpc)", r"$f_0$ (Hz)", r"$\alpha$ (rad)", r"$\delta$ (rad)", r"$\iota$ (rad)", r"$\phi_0$ (rad)", r"$\psi$ (rad)"]
+    fig = corner.corner(params, labels=labels, hist_kwargs={"density": True})
+
+    # overplot the Q22 distribution
+    ax = fig.get_axes()
+    lims = ax.get_xlim()
+    q22s = np.linspace(lims[0], lims[1], 100)
+    ax[0].plot(q22s, q22dist.prob(q22s))
 
 .. thumbnail:: images/simulation_params.png
    :width: 600px
@@ -128,8 +135,8 @@ number of pulsars to be simulated. For example, if we had parameter files in the
 
 .. code-block:: python
 
-    >>> pardir = "my_pulsars"
-    >>> run = PEPulsarSimulationDAG(ampdist, prior=prior, parfiles=pardir, detector=detectors)
+    pardir = "my_pulsars"
+    run = PEPulsarSimulationDAG(ampdist, prior=prior, parfiles=pardir, detector=detectors)
 
 Note that you should not call the parameter file directory ``pulsars`` if it is in the same base
 directory that you are generating the simulation in. That directory is reserved for pulsar parameter
@@ -159,29 +166,32 @@ our pulsar population with:
 
 .. code-block:: python
 
-    >>> from bilby.core.prior import PriorDict, Gaussian
-    >>> posdist = PriorDict({
-    ...     "x": Gaussian(0.0, 9.0, name="x"),
-    ...     "y": Gaussian(0.0, 9.0, name="y"),
-    ...     "z": Gaussian(0.0, 0.15, name="z"),
-    ... })
-    >>> run = PEPulsarSimulationDAG(
-    ...     ampdist, npulsars=1000, detector=detectors, posdist=posdist,
-    ... )
-    >>> # let's plot the sky distribution in RA and dec
-    >>> from matplotlib import pyplot as pl
-    >>> import glob
-    >>> import numpy as np
-    >>> from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-    >>> params = np.zeros((1000, 2))
-    >>> for i, parfile in enumerate(glob.glob("pulsars/*.par")): 
-    ...     psr = PulsarParametersPy(parfile) 
-    ...     params[i, :] = [-psr["RAJ"] if psr["RAJ"] < np.pi else -(psr["RAJ"] - 2 * np.pi), psr["DECJ"]]
-    >>> fig, ax = pl.subplots(1, 1, subplot_kw={"projection": "mollweide"})
-    >>> ax.scatter(params[:,0], params[:,1], s=8)
-    >>> ax.set_xlabel("Right ascension")
-    >>> ax.set_ylabel("Declination")
-    >>> fig.savefig("mollweide.png", dpi=150, tight_layout=True)
+    from bilby.core.prior import PriorDict, Gaussian
+    posdist = PriorDict({
+        "x": Gaussian(0.0, 9.0, name="x"),
+        "y": Gaussian(0.0, 9.0, name="y"),
+        "z": Gaussian(0.0, 0.15, name="z"),
+    })
+
+    run = PEPulsarSimulationDAG(
+        ampdist, npulsars=1000, detector=detectors, posdist=posdist,
+    )
+
+    # let's plot the sky distribution in RA and dec
+    from matplotlib import pyplot as pl
+    import glob
+    import numpy as np
+    from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+
+    params = np.zeros((1000, 2))
+    for i, parfile in enumerate(glob.glob("pulsars/*.par")): 
+        psr = PulsarParametersPy(parfile) 
+        params[i, :] = [-psr["RAJ"] if psr["RAJ"] < np.pi else -(psr["RAJ"] - 2 * np.pi), psr["DECJ"]]
+    fig, ax = pl.subplots(1, 1, subplot_kw={"projection": "mollweide"})
+    ax.scatter(params[:,0], params[:,1], s=8)
+    ax.set_xlabel("Right ascension")
+    ax.set_ylabel("Declination")
+    fig.savefig("mollweide.png", dpi=150, tight_layout=True)
 
 .. thumbnail:: images/simulation_disk.png
    :width: 450px
@@ -192,25 +202,25 @@ that parameter, e.g.:
 
 .. code-block:: python
 
-    >>> from bilby.core.prior import PriorDict, DeltaFunction, Uniform, Cosine
-    >>> posdist = PriorDict({
-    ...     "ra": DeltaFunction(1.3, name="ra"),  # fix RA at 1.3 radians
-    ...     "dec": Cosine(name="dec"),
-    ...     "dist": Uniform(0.1, 10.0, name="dist"),
-    ... })
+    from bilby.core.prior import PriorDict, DeltaFunction, Uniform, Cosine
+    posdist = PriorDict({
+        "ra": DeltaFunction(1.3, name="ra"),  # fix RA at 1.3 radians
+        "dec": Cosine(name="dec"),
+        "dist": Uniform(0.1, 10.0, name="dist"),
+    })
 
 The source orientation parameter distribution can also be set to something other than the default.
 For example, to set the sources to all be linearly polarised you could use:
 
 .. code-block:: python
 
-    >>> from bilby.core.prior import PriorDict, DeltaFunction
-    >>> oridist = PriorDict({
-    ...     "iota": DeltaFunction(np.pi / 2., name="iota"),   
-    ... })
-    >>> run = PEPulsarSimulationDAG(
-    ...     ampdist, npulsars=100, detector=detectors, oridist=oridist,
-    ... )
+    from bilby.core.prior import PriorDict, DeltaFunction
+    oridist = PriorDict({
+        "iota": DeltaFunction(np.pi / 2., name="iota"),   
+    })
+    run = PEPulsarSimulationDAG(
+        ampdist, npulsars=100, detector=detectors, oridist=oridist,
+    )
 
 In this case, as the other orientation parameters are not supplied they will automatically get set
 to their default distributions.
@@ -227,21 +237,22 @@ deviations (in kpc), keyed to the pulsar names, to the ``distance_err`` argument
 
 .. code-block:: python
 
-    >>> from bilby.core.prior import Gaussian, Uniform, Sine, PriorDict, Exponential
-    >>> # assume we have two pulsars (J0000+0000 and J0100+0100) with parameter
-    >>> # files in the directory "pardir" for which we will set Gaussian priors
-    >>> # with standard deviations of 0.3 and 0.2 kpc, respectively.
-    >>> dist_err = {"J0000+0000": 0.3, "J0100+0100": 0.2}
-    >>> prior = PriorDict({
-    ...     "q22": Uniform(0.0, 1e40, name="q22"),
-    ...     "iota": Sine(name="iota"),
-    ...     "phi0": Uniform(0.0, np.pi, name="phi0"),
-    ...     "psi": Uniform(0.0, np.pi / 2, name="psi"),
-    ... })
-    >>> ampdist = Exponential(name="q22", mu=1e33)
-    >>> run = PEPulsarSimulationDAG(
-    ...     ampdist=ampdist, parfiles="pardir", prior=prior, distance_err=dist_err, detector="H1"
-    ... )
+    from bilby.core.prior import Gaussian, Uniform, Sine, PriorDict, Exponential
+
+    # assume we have two pulsars (J0000+0000 and J0100+0100) with parameter
+    # files in the directory "pardir" for which we will set Gaussian priors
+    # with standard deviations of 0.3 and 0.2 kpc, respectively.
+    dist_err = {"J0000+0000": 0.3, "J0100+0100": 0.2}
+    prior = PriorDict({
+        "q22": Uniform(0.0, 1e40, name="q22"),
+        "iota": Sine(name="iota"),
+        "phi0": Uniform(0.0, np.pi, name="phi0"),
+        "psi": Uniform(0.0, np.pi / 2, name="psi"),
+    })
+    ampdist = Exponential(name="q22", mu=1e33)
+    run = PEPulsarSimulationDAG(
+        ampdist=ampdist, parfiles="pardir", prior=prior, distance_err=dist_err, detector="H1"
+    )
 
 .. note::
 
@@ -260,7 +271,66 @@ Simulation using real data
 Rather than the simulation running on simulated data and simulated pulsars the code can be used to
 add signals to a set of real data and use pre-defined or real pulsar parameter files.
 
+We will assume the following example directory tree for which there are heterodyned data files for a
+selection of pulsars and for two detectors (H1 and L1):
 
+.. code-block:: bash
+
+   root
+    ├── data          # directory to contain the heterodyned data for all pulsars
+    |    ├── H1       # directory to contain the H1 data for all pulsars
+    |    |    ├── fine-H1-pulsar1.txt  # heterodyned data for pulsar1 (file must contain the pulsar name)
+    |    |    ├── fine-H1-pulsar2.txt  # heterodyned data for pulsar2
+    |    |    └── ...
+    |    └── L1       # directory to contain the L1 data for all pulsars
+    |         ├── fine-L1-pulsar1.txt  # heterodyned data for pulsar1 (file must contain the pulsar name)
+    |         ├── fine-L1-pulsar2.txt  # heterodyned data for pulsar2
+    |         └── ...
+    └── pulsars       # directory containing pulsar parameter files used for heterodyning
+
+We could run a simulation that adds signals to these with mass quadrupoles drawn from an exponential
+distribution using:
+
+.. code-block:: python
+
+    from bilby.core.prior import PriorDict, Uniform, Exponential, Sine
+    from cwinpy.pe.simulation import PEPulsarSimulationDAG
+    import numpy as np
+
+    prior = PriorDict({
+        "q22": Uniform(0.0, 1e36, name="q22"),
+        "iota": Sine(name="iota"),
+        "phi0": Uniform(0.0, np.pi, name="phi0"),
+        "psi": Uniform(0.0, np.pi / 2, name="psi"),
+    })
+
+    detectors = ["H1", "L1"]
+    mean = 1e32  # the mean of the exponential distribution
+    ampdist = Exponential(name="q22", mu=mean)
+    
+    # a dictionary of data file directories keyed to the detector
+    datafiles = {"L1": "/root/data/L1", "H1": "/root/data/H1"}
+
+    # the directory containing the pulsar parameter files
+    parfiles = "/root/pulsars"
+
+    run = PEPulsarSimulationDAG(
+        ampdist=ampdist,
+        prior=prior,
+        datafiles=datafiles,
+        parfiles=parfiles,
+        getenv=True,
+    )
+
+.. note::
+
+    The original data files are not changed by the simulation, so they will not contain the
+    simulated signals.
+
+By default, if the pulsar parameter files contain gravitational wave parameters (the amplitude or
+mass quadrupole, and orientation parameters) or the distance, then these will be overwritten (in new
+versions of the files) by any parameters generated in the simulation. If you want to keep those
+parameters then the ``overwrite_parameters`` argument can be set to ``False``.
 
 .. autoclass:: cwinpy.pe.simulation.PEPulsarSimulationDAG
    :members:
