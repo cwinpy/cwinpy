@@ -201,7 +201,7 @@ class BaseDistribution(object):
     @property
     def unknown_priors(self):
         """
-        A list of the :class:`~bilby.core.prior.Prior`s for the parameters
+        A list of the :class:`~bilby.core.prior.Prior` for the parameters
         that are to be inferred.
         """
 
@@ -279,28 +279,6 @@ class BoundedGaussianDistribution(BaseDistribution):
     A distribution to define estimating the parameters of a (potentially
     multi-modal) bounded Gaussian distribution.
 
-    Parameters
-    ----------
-    name: str
-        See :class:`~cwinpy.hierarchical.BaseDistribution`
-    mus: array_like
-        A list of values of the means of each mode of the Gaussian.
-    sigmas: array_like
-        A list of values of the standard deviations of each mode of the
-        Gaussian.
-    weights: array_like
-        A list of values of the weights (relative probabilities) of
-        each mode. This will default to equal weights if not given. If wanting
-        to estimate multiple weights a DirichletPriorDict should be used as in
-        the example below.
-    low: float
-        The lower bound of the distribution (defaults to 0, i.e., only positive
-        values are allowed)
-    high: float
-        The upper bound of the distribution (default to infinity)
-
-    :Example:
-
     An example of using this distribution for a two component Gaussian
     distribution bounded at zero and with unknown mean, standard deviations and
     weights would be:
@@ -314,6 +292,27 @@ class BoundedGaussianDistribution(BaseDistribution):
     >>> # set a Dirichlet prior on the weights (i.e., they must add up to 1)
     >>> weights = DirichletPriorDict(n_dim=2, label="weight")
     >>> dist = BoundedGaussianDistribution("x", mus=mus, sigmas=sigmas, weights=weights)
+
+    Parameters
+    ----------
+    name: str
+        See :class:`~cwinpy.hierarchical.BaseDistribution`
+    mus: array_like
+        A list of values of the means of each mode of the Gaussian.
+    sigmas: array_like
+        A list of values of the standard deviations of each mode of the
+        Gaussian.
+    weights: array_like
+        A list of values of the weights (relative probabilities) of
+        each mode. This will default to equal weights if not given. If wanting
+        to estimate multiple weights a DirichletPriorDict should be used as in
+        the example above.
+    low: float
+        The lower bound of the distribution (defaults to 0, i.e., only positive
+        values are allowed)
+    high: float
+        The upper bound of the distribution (default to infinity)
+
     """
 
     def __init__(self, name, mus=[], sigmas=[], weights=None, low=0.0, high=np.inf):
