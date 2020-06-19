@@ -1595,6 +1595,8 @@ class HeterodynedData(TimeSeriesBase):
                 signalpar,
                 updateSSB=True,
                 updateBSB=True,
+                updateglphase=True,
+                updatefitwaves=True,
                 usephase=True,
                 freqfactor=self.freq_factor,
             )
