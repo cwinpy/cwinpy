@@ -15,6 +15,7 @@ from cwinpy.hierarchical import (
     DeltaFunctionDistribution,
     ExponentialDistribution,
     MassQuadrupoleDistribution,
+    PowerLawDistribution,
     create_distribution,
 )
 
@@ -241,6 +242,61 @@ class TestDistributionObjects(object):
         with pytest.raises(KeyError):
             dist.log_pdf(value, hyper)
 
+    def test_powerlaw(self):
+        """
+        Test the PowerLawDistribution class.
+        """
+
+        name = "test"
+
+        dist = PowerLawDistribution(name, alpha=1.0, minimum=0.1, maximum=10.0)
+        assert dist["alpha"] == 1.0
+        assert dist.fixed["alpha"] is True
+        assert dist["minimum"] == 0.1
+        assert dist.fixed["minimum"] is True
+        assert dist["maximum"] == 10.0
+        assert dist.fixed["maximum"] is True
+
+        # test out of bounds
+        with pytest.raises(ValueError):
+            PowerLawDistribution(name, alpha=1.0, minimum=-1.0, maximum=10.0)
+
+        with pytest.raises(ValueError):
+            PowerLawDistribution(name, alpha=1.0, minimum=-np.inf, maximum=10.0)
+
+        with pytest.raises(ValueError):
+            PowerLawDistribution(name, alpha=1.0, minimum=1.0, maximum=0.5)
+
+        with pytest.raises(ValueError):
+            PowerLawDistribution(name, alpha=1.0, minimum=1.0, maximum=-np.inf)
+
+        minimum = 0.001
+        maximum = 10.0
+        dist = PowerLawDistribution(
+            name, alpha=Uniform(0.0, 1.0, "alpha"), minimum=minimum, maximum=maximum
+        )
+
+        value = -1.0
+        hyper = {"alpha": 0.5}
+        assert isinstance(dist["alpha"], Uniform)
+        assert dist.fixed["alpha"] is False
+        assert dist.log_pdf(value, hyper) == -np.inf
+        assert np.exp(dist.log_pdf(value, hyper)) == dist.pdf(value, hyper)
+
+        # check drawn sample is within bounds
+        assert minimum < dist.sample(hyper) < maximum
+
+        # draw multiple samples
+        N = 100
+        samples = dist.sample(hyper, size=N)
+        assert len(samples) == N
+        assert np.all((samples > minimum) & (samples < maximum))
+
+        value = 1.0
+        hyper = {"kgsdg": 0.5}
+        with pytest.raises(KeyError):
+            dist.log_pdf(value, hyper)
+
     def test_create_distribution(self):
         """
         Test the create_distribution() function.
@@ -280,6 +336,17 @@ class TestDistributionObjects(object):
         dist = create_distribution(name, "DeltaFunction", deltakwargs)
         assert isinstance(dist, DeltaFunctionDistribution)
         assert dist["peak"] == deltakwargs["peak"]
+
+        powerlawkwargs = {
+            "alpha": Uniform(-1, 1, name="alpha"),
+            "minimum": 0.00001,
+            "maximum": 1000.0,
+        }
+        dist = create_distribution(name, "PowerLaw", powerlawkwargs)
+        assert isinstance(dist, PowerLawDistribution)
+        assert dist["alpha"] == powerlawkwargs["alpha"]
+        assert dist["minimum"] == powerlawkwargs["minimum"]
+        assert dist["maximum"] == powerlawkwargs["maximum"]
 
 
 class TestMassQuadrupoleDistribution(object):
