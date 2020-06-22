@@ -20,6 +20,7 @@ API interface
    data
    likelihood
    hierarchical
+   simulation
 
 Code comparisons
 ================

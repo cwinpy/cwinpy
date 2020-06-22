@@ -17,7 +17,7 @@ from gwpy.types import Series
 from numba import jit
 
 # import utility functions
-from .utils import gcd_array, logfactorial
+from .utils import gcd_array, is_par_file, logfactorial
 
 
 class MultiHeterodynedData(object):
@@ -745,9 +745,9 @@ class HeterodynedData(TimeSeriesBase):
     Parameters
     ----------
     data: (str, array_like)
-        A file (plain ascii text, gzipped ascii text, gravitational-wave frame
-        ".gwf", or HDF5 file) containing a time series of heterodyned data, or
-        an array containing the complex heterodyned data.
+        A file (plain ascii text, gzipped ascii text, or HDF5 file) containing
+        a time series of heterodyned data, or an array containing the complex
+        heterodyned data.
     times: array_like
         If the data was passed using the `data` argument, then the associated
         time stamps should be passed using this argument.
@@ -968,7 +968,7 @@ class HeterodynedData(TimeSeriesBase):
         try:
             _ = new.dt
         except AttributeError:
-            # time do not get set in a TimeSeries if steps are irregular, so
+            # times do not get set in a TimeSeries if steps are irregular, so
             # manually set the time step to the minimum time difference
             if len(new) > 1:
                 new.dt = np.min(np.diff(new.times))
@@ -1077,6 +1077,22 @@ class HeterodynedData(TimeSeriesBase):
             raise TypeError("Window must be an integer")
 
     @property
+    def dt(self):
+        try:
+            return self.dx
+        except AttributeError:
+            return self._dt
+
+    @dt.setter
+    def dt(self, dt):
+        """
+        Overload the default setting of the time step in a TimeSeries, so that
+        it does not delete non-uniform time values.
+        """
+
+        self._dt = dt
+
+    @property
     def comments(self):
         """Any comments on the data"""
 
@@ -1154,12 +1170,10 @@ class HeterodynedData(TimeSeriesBase):
             if isinstance(par, PulsarParametersPy):
                 return par
             elif isinstance(par, str):
-                try:
+                if is_par_file(par):
                     newpar = PulsarParametersPy(par)
-                except Exception as e:
-                    raise IOError(
-                        "Could not read in pulsar parameter " "file: {}".format(e)
-                    )
+                else:
+                    raise IOError("Could not read in pulsar parameter file")
             else:
                 raise TypeError("'par' is not a recognised type")
         else:
@@ -1526,7 +1540,7 @@ class HeterodynedData(TimeSeriesBase):
         return np.sqrt(
             ((self.injection_data.real / self.stds) ** 2).sum()
             + ((self.injection_data.imag / self.stds) ** 2).sum()
-        ).value
+        )
 
     def make_signal(self, signalpar=None):
         """
@@ -1581,6 +1595,8 @@ class HeterodynedData(TimeSeriesBase):
                 signalpar,
                 updateSSB=True,
                 updateBSB=True,
+                updateglphase=True,
+                updatefitwaves=True,
                 usephase=True,
                 freqfactor=self.freq_factor,
             )
@@ -1696,7 +1712,7 @@ class HeterodynedData(TimeSeriesBase):
             else:
                 # check is str is a detector alias
                 aliases = {
-                    "AV": ["Virgo", "V1", "ADV", "ADVANCEDVIRGO", "AV"],
+                    "AV": ["VIRGO", "V1", "ADV", "ADVANCEDVIRGO", "AV"],
                     "AL": [
                         "H1",
                         "L1",
@@ -1708,7 +1724,7 @@ class HeterodynedData(TimeSeriesBase):
                         "AH1",
                         "AL1",
                     ],
-                    "IL": ["iH1", "IL1", "INITIALLIGO", "IL"],
+                    "IL": ["IH1", "IL1", "INITIALLIGO", "IL"],
                     "IV": ["iV1", "INITIALVIRGO", "IV"],
                     "G1": ["G1", "GEO", "GEOHF"],
                     "IG": ["IG", "GEO600", "INITIALGEO"],
@@ -1719,7 +1735,9 @@ class HeterodynedData(TimeSeriesBase):
                 # set mapping of detector names to lalsimulation PSD functions
                 simmap = {
                     "AV": lalsim.SimNoisePSDAdvVirgo,  # advanced Virgo
-                    "AL": lalsim.SimNoisePSDaLIGOaLIGODesignSensitivityT1800044,  # aLIGO
+                    "AL": PSDwrapper(
+                        lalsim.SimNoisePSDaLIGOaLIGODesignSensitivityT1800044
+                    ),  # aLIGO
                     "IL": lalsim.SimNoisePSDiLIGOSRD,  # iLIGO
                     "IV": lalsim.SimNoisePSDVirgo,  # iVirgo
                     "IG": lalsim.SimNoisePSDGEO,  # GEO600
@@ -1731,20 +1749,19 @@ class HeterodynedData(TimeSeriesBase):
                 # set detector if not already set
                 if self.channel is None:
                     namemap = {
-                        "H1": ["H1", "LHO", "iH1", "AH1"],
-                        "L1": ["L1", "LLO", "iL1", "AL1"],
+                        "H1": ["H1", "LHO", "IH1", "AH1"],
+                        "L1": ["L1", "LLO", "IL1", "AL1"],
                         "V1": [
                             "V1",
-                            "Virgo",
-                            "V1",
-                            "AdV",
-                            "AdvancedVirgo",
+                            "VIRGO",
+                            "ADV",
+                            "ADVANCEDVIRGO",
                             "AV",
-                            "iV1",
-                            "InitialVirgo",
+                            "IV1",
+                            "INITIALVIRGO",
                             "IV",
                         ],
-                        "G1": ["G1", "GEO", "GEOHF", "IG", "GEO600", "InitialGEO"],
+                        "G1": ["G1", "GEO", "GEOHF", "IG", "GEO600", "INITIALGEO"],
                         "T1": ["T1", "TAMA", "TAMA300"],
                         "K1": ["K1", "KAGRA", "LCGT"],
                     }
@@ -3033,3 +3050,39 @@ class HeterodynedData(TimeSeriesBase):
 
     def __len__(self):
         return len(self.data)
+
+
+class PSDwrapper(object):
+    """
+    Wrapper for LALSimulation PSD functions that require a frequency series.
+
+    Parameters
+    ----------
+    psdfunc: callable
+        The function that generates the PSD.
+    f0: float
+        The frequency at which to extract the PSD.
+
+    Returns
+    -------
+    psd: float
+        The value to the PSD at ``f0``.
+    """
+
+    def __init__(self, psdfunc, f0=None):
+        self.psdfunc = psdfunc
+        self.f0 = f0
+
+    def psd(self, f0=None):
+        fval = f0 if f0 is not None else self.f0
+        if fval is None:
+            raise ValueError("No frequency has been supplied!")
+
+        fs = lal.CreateREAL8FrequencySeries("", None, fval, 1.0, None, 2)
+        try:
+            _ = self.psdfunc(fs, fval)
+        except Exception as e:
+            raise RuntimeError("PSD function failed: {}".format(e))
+        return fs.data.data[0]
+
+    __call__ = psd

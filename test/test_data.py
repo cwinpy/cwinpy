@@ -8,6 +8,7 @@ import lal
 import numpy as np
 import pytest
 from cwinpy import HeterodynedData, MultiHeterodynedData
+from cwinpy.data import PSDwrapper
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from matplotlib.figure import Figure
 
@@ -160,6 +161,25 @@ class TestHeterodynedData(object):
             HeterodynedData(brokenfile)
 
         os.remove(brokenfile)  # clean up file
+
+    def test_nonuniform_data(self):
+        """
+        Test that non-uniform data times stamps are correctly retained.
+        """
+
+        # create four datasets
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+
+        # remove some times to create non-uniform sampling
+        times = np.delete(times, [20, 897, 1200])
+
+        data = np.random.normal(0.0, 1e-25, size=(len(times), 2))
+        detector = "H1"
+
+        het = HeterodynedData(data=data, times=times, detector=detector)
+
+        assert np.all(times == het.times.value)
+        assert het.dt.value == np.min(np.diff(times))
 
     def test_read_text_data(self):
         """
@@ -973,3 +993,25 @@ H0      1.5e-22
 
         # remove the par file
         os.remove(parfile)
+
+
+def test_psd_wrapper():
+    """
+    Test PSDwrapper class.
+    """
+
+    import lalsimulation as lalsim
+
+    psd = PSDwrapper(lalsim.SimNoisePSDAdvVirgo)
+
+    with pytest.raises(ValueError):
+        # no frequency supplied
+        psd()
+
+    with pytest.raises(RuntimeError):
+        # PSD not the write format
+        psd(100.0)
+
+    psd = PSDwrapper(lalsim.SimNoisePSDaLIGOaLIGODesignSensitivityT1800044, f0=100.0)
+
+    assert psd() == psd(100.0)

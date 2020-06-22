@@ -17,6 +17,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from bilby_pipe.pp_test import read_in_result_list
 
+from ..utils import int_to_alpha
 from .pe import pe_dag
 
 
@@ -195,7 +196,7 @@ class PEPPPlotsDAG(object):
     ninj: int
         The number of simulated signals to create. Defaults to 100.
     maxamp: float
-        A maxmimum on the amplitude parameter(s) to use when drawing the
+        A maximum on the amplitude parameter(s) to use when drawing the
         injection parameters. If none is given then this will be taken
         from the prior if using an amplitude parameter.
     basedir: str
@@ -354,7 +355,13 @@ class PEPPPlotsDAG(object):
             pulsar = {}
 
             for param in self.prior:
-                pulsar[param.upper()] = self.prior[param].sample()
+                if self.maxamp is not None and param in amppars:
+                    # set maximum amplitude if given
+                    pulsar[param.upper()] = bilby.core.prior.Uniform(
+                        name=param, minimum=0.0, maximum=self.maxamp
+                    ).sample()
+                else:
+                    pulsar[param.upper()] = self.prior[param].sample()
 
             # draw sky position uniformly from the sky if no prior is given
             if "ra" not in self.prior:
@@ -371,14 +378,6 @@ class PEPPPlotsDAG(object):
             pulsar["RAJ"] = skypos.ra.to_string(u.hour, fields=3, sep=":", pad=True)
             pulsar["DECJ"] = skypos.dec.to_string(u.deg, fields=3, sep=":", pad=True)
 
-            # set maximum amplitude if given
-            if self.maxamp is not None:
-                for amp in amppars:
-                    if amp in self.prior:
-                        pulsar[amp.upper()] = bilby.core.prior.Uniform(
-                            name=amp, minimum=0.0, maximum=self.maxamp
-                        ).sample()
-
             # set (rotation) frequency upper and lower bounds
             if "f0" not in self.prior:
                 pulsar["F0"] = np.random.uniform(freqrange[0], freqrange[1])
@@ -390,12 +389,10 @@ class PEPPPlotsDAG(object):
             )
             pname = "J{}{}".format(rastr, decstr)
             pnameorig = str(pname)  # copy of original name
-            counter = 0
-            alphas = ["A", "B", "C", "D", "E", "F", "G"]
+            counter = 1
             while pname in self.pulsars:
-                if counter == len(alphas):
-                    raise RuntimeError("Too many pulsars in the same sky position!")
-                pname = pnameorig + alphas[counter]
+                anum = int_to_alpha(counter)
+                pname = pnameorig + anum
                 counter += 1
 
             pulsar["PSRJ"] = pname
@@ -475,18 +472,18 @@ class PEPPPlotsDAG(object):
         job = Job(
             "cwinpy_pe_pp_plots",
             jobexec,
-            error=self.runner.error,
-            log=self.runner.log,
-            output=self.runner.output,
-            submit=self.runner.jobsubmit,
-            universe=self.runner.universe,
-            request_memory=self.runner.reqmem,
+            error=self.runner.dag.inputs.pe_log_directory,
+            log=self.runner.dag.inputs.pe_log_directory,
+            output=self.runner.dag.inputs.pe_log_directory,
+            submit=self.runner.dag.inputs.submit_directory,
+            universe="vanilla",
+            request_memory=self.runner.dag.inputs.request_memory,
             getenv=self.getenv,
             queue=1,
-            requirements=self.runner.requirements,
-            retry=self.runner.retry,
+            requirements=self.runner.dag.inputs.requirements,
+            retry=self.runner.dag.inputs.retry,
             extra_lines=extra_lines,
-            dag=self.runner.dag,
+            dag=self.runner.dag.pycondor_dag,
         )
 
         jobargs = "--path '{}' ".format(os.path.join(self.basedir, "results", "*", "*"))
@@ -496,6 +493,6 @@ class PEPPPlotsDAG(object):
         job.add_arg(jobargs)
 
         job.add_parents(
-            self.runner.dag.nodes[:-1]
+            self.runner.dag.pycondor_dag.nodes[:-1]
         )  # exclude cwinpy_pe_pp_plots job itself
         self.runner.dag.build()
