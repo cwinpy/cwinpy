@@ -150,12 +150,14 @@ class BaseDistribution(object):
         self._fixed = dict()
 
         for param, value in hyperparameters.items():
-            if isinstance(value, bilby.core.prior.Prior):
+            if isinstance(value, (bilby.core.prior.Prior, bilby.core.prior.PriorDict)):
                 self._fixed[param] = False
             elif isinstance(value, (list, np.ndarray)):
                 self._fixed[param] = []
                 for i in range(len(value)):
-                    if isinstance(value[i], bilby.core.prior.Prior):
+                    if isinstance(
+                        value[i], (bilby.core.prior.Prior, bilby.core.prior.PriorDict)
+                    ):
                         self._fixed[param].append(False)
                     elif isinstance(value[i], (int, float)):
                         self._fixed[param].append(True)
@@ -176,7 +178,7 @@ class BaseDistribution(object):
         fixed = dict()
 
         for param, value in zip(self.unpacked_parameters, self.unpacked_values):
-            if isinstance(value, bilby.core.prior.Prior):
+            if isinstance(value, (bilby.core.prior.Prior, bilby.core.prior.PriorDict)):
                 fixed[param] = False
             elif isinstance(value, (int, float)):
                 fixed[param] = True
@@ -200,7 +202,7 @@ class BaseDistribution(object):
     @property
     def unknown_priors(self):
         """
-        A list of the :class:`~bilby.core.prior.Prior`s for the parameters
+        A list of the :class:`~bilby.core.prior.Prior` for the parameters
         that are to be inferred.
         """
 
@@ -278,6 +280,20 @@ class BoundedGaussianDistribution(BaseDistribution):
     A distribution to define estimating the parameters of a (potentially
     multi-modal) bounded Gaussian distribution.
 
+    An example of using this distribution for a two component Gaussian
+    distribution bounded at zero and with unknown mean, standard deviations and
+    weights would be:
+
+    >>> from bilby.core.prior import HalfNormal, LogUniform, DirichletPriorDict
+    >>> # set priors for means (half-Normal distributions with mode at 0)
+    >>> mus = [HalfNormal(10.0, name="mu0"), HalfNormal(10.0, name="mu1")]
+    >>> # set priors for standard deviations (log uniform distributions)
+    >>> sigmas = [LogUniform(name="sigma0", minimum=0.0001, maximum=100.0),
+                  LogUniform(name="sigma1", minimum=0.0001, maximum=100.0)]
+    >>> # set a Dirichlet prior on the weights (i.e., they must add up to 1)
+    >>> weights = DirichletPriorDict(n_dim=2, label="weight")
+    >>> dist = BoundedGaussianDistribution("x", mus=mus, sigmas=sigmas, weights=weights)
+
     Parameters
     ----------
     name: str
@@ -289,14 +305,15 @@ class BoundedGaussianDistribution(BaseDistribution):
         Gaussian.
     weights: array_like
         A list of values of the weights (relative probabilities) of
-        each mode. This will default to equal weights if not given. Note that
-        for truncated distributions equal weight does not necessarily mean
-        equal "height" of the mode.
+        each mode. This will default to equal weights if not given. If wanting
+        to estimate multiple weights a DirichletPriorDict should be used as in
+        the example above.
     low: float
         The lower bound of the distribution (defaults to 0, i.e., only positive
         values are allowed)
     high: float
         The upper bound of the distribution (default to infinity)
+
     """
 
     def __init__(self, name, mus=[], sigmas=[], weights=None, low=0.0, high=np.inf):
@@ -314,17 +331,23 @@ class BoundedGaussianDistribution(BaseDistribution):
 
         if weights is None:
             weights = [1] * len(mus)
+        elif not isinstance(
+            weights, (list, np.ndarray, bilby.core.prior.DirichletPriorDict)
+        ):
+            raise TypeError("Unknown type for 'weights'")
+
+        if isinstance(weights, bilby.core.prior.DirichletPriorDict):
+            # DirichletPriorDict has length one less than the number of weights
+            nweights = len(weights) + 1
+            gaussianparameters["weight"] = weights
         else:
-            if isinstance(weights, (int, float, bilby.core.prior.Prior)):
-                weights = [weights]
-            elif not isinstance(weights, (list, np.ndarray)):
-                raise TypeError("Unknown type for 'weights'")
+            nweights = len(weights)
 
         # set the number of modes
         self.nmodes = len(mus)
 
-        if len(mus) != len(sigmas) or len(weights) != len(mus):
-            raise ValueError("'mus', 'sigmas' and 'weights' must be the same " "length")
+        if len(mus) != len(sigmas) or nweights != len(mus):
+            raise ValueError("'mus', 'sigmas' and 'weights' must be the same length")
 
         if self.nmodes < 1:
             raise ValueError("Gaussian must have at least one mode")
@@ -332,7 +355,9 @@ class BoundedGaussianDistribution(BaseDistribution):
         for i in range(self.nmodes):
             gaussianparameters["mu"].append(mus[i])
             gaussianparameters["sigma"].append(sigmas[i])
-            gaussianparameters["weight"].append(weights[i])
+
+            if isinstance(weights, (list, np.ndarray)):
+                gaussianparameters["weight"].append(weights[i])
 
         # initialise
         super().__init__(
@@ -350,7 +375,9 @@ class BoundedGaussianDistribution(BaseDistribution):
             The value at which the probability is to be evaluated.
         hyperparameters: dict
             A dictionary containing the current values of the hyperparameters
-            that need to be inferred.
+            that need to be inferred. If there are multiple modes and weights
+            are not fixed then the hyperparameters should include ``n-1``
+            weights values, where ``n`` is the number of modes.
 
         Returns
         -------
@@ -364,7 +391,11 @@ class BoundedGaussianDistribution(BaseDistribution):
 
         mus = self["mu"]
         sigmas = self["sigma"]
-        weights = self["weight"]
+
+        if isinstance(self.fixed["weight"], (list, np.ndarray)):
+            weights = self["weight"]
+        else:
+            weights = np.zeros(self.nmodes)
 
         # get current mus and sigmas from values
         for i in range(self.nmodes):
@@ -388,15 +419,19 @@ class BoundedGaussianDistribution(BaseDistribution):
                         "value '{}' is not given".format(param)
                     )
 
-            if not self.fixed["weight"][i]:
+            if not isinstance(self.fixed["weight"], (list, np.ndarray)):
                 param = "weight{}".format(i)
-                try:
-                    weights[i] = hyperparameters[param]
-                except KeyError:
-                    raise KeyError(
-                        "Cannot calculate log probability when "
-                        "value '{}' is not given".format(param)
-                    )
+                if i < (self.nmodes - 1):
+                    try:
+                        weights[i] = hyperparameters[param]
+                    except KeyError:
+                        raise KeyError(
+                            "Cannot calculate log probability when "
+                            "value '{}' is not given".format(param)
+                        )
+                else:
+                    # set final weight
+                    weights[i] = 1.0 - np.sum(weights[:-1])
 
         if np.any(np.asarray(sigmas) <= 0.0):
             return -np.inf
@@ -436,7 +471,9 @@ class BoundedGaussianDistribution(BaseDistribution):
         ----------
         hyperparameters: dict
             A dictionary of the hyperparameter values that define the current
-            state of the distribution.
+            state of the distribution. If there are multiple modes and weights
+            are not fixed then the hyperparameters should include ``n-1``
+            weights values, where ``n`` is the number of modes.
         size: int
             The number of samples to draw. Default is 1.
 
@@ -448,7 +485,11 @@ class BoundedGaussianDistribution(BaseDistribution):
 
         mus = self["mu"]
         sigmas = self["sigma"]
-        weights = self["weight"]
+
+        if isinstance(self.fixed["weight"], (list, np.ndarray)):
+            weights = self["weight"]
+        else:
+            weights = np.zeros(self.nmodes)
 
         # get current mus and sigmas from values
         for i in range(self.nmodes):
@@ -472,15 +513,19 @@ class BoundedGaussianDistribution(BaseDistribution):
                         "value '{}' is not given".format(param)
                     )
 
-            if not self.fixed["weight"][i]:
+            if not isinstance(self.fixed["weight"], (list, np.ndarray)):
                 param = "weight{}".format(i)
-                try:
-                    weights[i] = hyperparameters[param]
-                except KeyError:
-                    raise KeyError(
-                        "Cannot calculate log probability when "
-                        "value '{}' is not given".format(param)
-                    )
+                if i < (self.nmodes - 1):
+                    try:
+                        weights[i] = hyperparameters[param]
+                    except KeyError:
+                        raise KeyError(
+                            "Cannot calculate log probability when "
+                            "value '{}' is not given".format(param)
+                        )
+                else:
+                    # set final weight
+                    weights[i] = 1.0 - np.sum(weights[:-1])
 
         # cumulative normalised weights
         cweights = np.cumsum(np.asarray(weights) / np.sum(weights))
@@ -1204,12 +1249,15 @@ class MassQuadrupoleDistribution(object):
             raise ValueError("Distribution has no parameters to infer")
 
         # add priors as PriorDict
-        self._prior = {
-            param: prior
-            for param, prior in zip(
-                self._distribution.unknown_parameters, self._distribution.unknown_priors
-            )
-        }
+        self._prior = bilby.core.prior.ConditionalPriorDict()
+
+        for param, prior in zip(
+            self._distribution.unknown_parameters, self._distribution.unknown_priors
+        ):
+            if isinstance(prior, bilby.core.prior.PriorDict):
+                self._prior.update(prior)
+            else:
+                self._prior[param] = prior
 
     def _set_likelihood(self):
         """

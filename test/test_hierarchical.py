@@ -7,7 +7,7 @@ import os
 import numpy as np
 import pytest
 from bilby.core.grid import Grid
-from bilby.core.prior import Uniform
+from bilby.core.prior import DirichletPriorDict, Uniform
 from bilby.core.result import Result, ResultList
 from cwinpy.hierarchical import (
     BaseDistribution,
@@ -98,6 +98,9 @@ class TestDistributionObjects(object):
         with pytest.raises(TypeError):
             BoundedGaussianDistribution(name, mus=[1], sigmas=[1], weights="blah")
 
+        with pytest.raises(TypeError):
+            BoundedGaussianDistribution(name, mus=[1], sigmas=[1], weights=23.4)
+
         with pytest.raises(ValueError):
             BoundedGaussianDistribution(name, mus=[1.0], sigmas=[1.0, 2.0])
 
@@ -120,7 +123,7 @@ class TestDistributionObjects(object):
             name,
             mus=[Uniform(0.0, 1.0, "mu0"), 2.0],
             sigmas=[Uniform(0.0, 1.0, "sigma0"), 2.0],
-            weights=[Uniform(0.0, 1.0, "weight0"), 2.0],
+            weights=DirichletPriorDict(n_dim=2, label="weight"),
         )
 
         value = 1.0
