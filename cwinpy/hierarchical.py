@@ -886,7 +886,7 @@ def create_distribution(name, distribution, distkwargs={}):
 
 class MassQuadrupoleDistribution(object):
     """
-    A class infer the hyperparameters of the :math:`l=m=2` mass quadrupole
+    A class to infer the hyperparameters of the :math:`l=m=2` mass quadrupole
     distribution for a given selection of known pulsars (see, for example,
     [1]_).
 
@@ -894,8 +894,10 @@ class MassQuadrupoleDistribution(object):
     following distributions:
 
     * a :math:`n`-mode bounded Gaussian distribution defined by either fixed or
-      unknown means and standard deviations;
+      unknown means, standard deviations and weights;
     * an exponential distribution defined by an unknown mean.
+    * a power law distribution defined by an unknown power law index and fixed
+      or unknown bounds.
 
     All distributions do not allow the quadrupole value to become negative.
 
@@ -950,9 +952,6 @@ class MassQuadrupoleDistribution(object):
 
     Distributions that could be added include:
 
-    * a power law distribution with an unknown spectral index, or a (single)
-      broken power law with two unknown indices and a known or unknown break
-      point;
     * a Student's t-distributions with unknown mean and number of degrees of
       freedom.
 
