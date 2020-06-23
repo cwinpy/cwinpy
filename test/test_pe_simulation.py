@@ -247,6 +247,31 @@ class TestPESimulation(object):
             fdist=fdist,
         )
 
+        # test error for start/end time setting
+        with pytest.raises(ValueError):
+            PEPulsarSimulationDAG(
+                ampdist=ampprior,
+                oridist=oridist,
+                posdist=posdist,
+                npulsars=npulsars,
+                detector=detectors,
+                basedir=testdir,
+                fdist=fdist,
+                starttime=1020304050,
+            )
+
+        shutil.rmtree(testdir)
+
+        sim = PEPulsarSimulationDAG(
+            ampdist=ampprior,
+            oridist=oridist,
+            posdist=posdist,
+            npulsars=npulsars,
+            detector=detectors,
+            basedir=testdir,
+            fdist=fdist,
+        )
+
         # check directories
         for dir in glob.glob(os.path.join(testdir, "*")):
             assert os.path.basename(dir) in [
