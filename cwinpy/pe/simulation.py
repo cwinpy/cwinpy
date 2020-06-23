@@ -112,6 +112,17 @@ class PEPulsarSimulationDAG(object):
         simulated data. This defaults to a single detector - the LIGO Hanford
         Observatory - from which the simulated noise will be drawn from the
         advanced detector design sensitivity curve (e.g., [1]_).
+    starttime: int, float, dict
+        A GPS time, or dictionary of GPS times keyed to detectors, giving the
+        start time for any simulated data being generated. If not given the
+        start time defaults to 1000000000.
+    endtime: int, float, dict
+        A GPS time, or dictionary of GPS times keyed to detectors, giving the
+        end time for any simulated data being generated. If not given the end
+        time defaults to 1000086400.
+    timestep: int, float
+        The time step, in seconds, between data points for simulated data. If
+        not given this defaults to 60.
     submit: bool
         Set whether to submit the Condor DAG or not.
     accountuser: str
@@ -156,6 +167,9 @@ class PEPulsarSimulationDAG(object):
         npulsars=None,
         basedir=None,
         detector="H1",
+        starttime=None,
+        endtime=None,
+        timestep=None,
         posdist=None,
         oridist=None,
         fdist=None,
@@ -205,6 +219,9 @@ class PEPulsarSimulationDAG(object):
             if not isinstance(self.detector, list):
                 raise TypeError("Detector must be a string or list of strings")
         self.datafiles = datafiles
+        self.starttime = starttime
+        self.endtime = endtime
+        self.timestep = timestep
 
         # posterior sample results directory
         self.resultsdir = os.path.join(self.basedir, "results")
@@ -644,6 +661,13 @@ class PEPulsarSimulationDAG(object):
             self.config["pe"]["data-file-2f"] = str(self.datafiles)
         else:
             raise ValueError("No data files of fake detectors are given!")
+
+        if self.starttime is not None:
+            self.config["pe"]["fake-start"] = str(self.starttime)
+        if self.endtime is not None:
+            self.config["pe"]["fake-end"] = str(self.endtime)
+        if self.timestep is not None:
+            self.config["pe"]["fake-dt"] = str(self.timestep)
 
         # set the prior files
         priordir = os.path.join(self.basedir, "priors")

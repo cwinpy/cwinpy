@@ -1539,6 +1539,12 @@ class PEDAGRunner(object):
             else:
                 raise IOError("No data set for use")
 
+            if simdata:
+                # get the start time, end time and time step if given
+                fakestart = config.get("pe", "fake-start", fallback=None)
+                fakeend = config.get("pe", "fake-end", fallback=None)
+                fakedt = config.get("pe", "fake-dt", fallback=None)
+
             # set some default bilby-style priors
             DEFAULTPRIORS2F = (
                 "h0 = Uniform(minimum=0.0, maximum=1.0e-22, name='h0', latex_label='$h_0$')\n"
@@ -1764,6 +1770,14 @@ class PEDAGRunner(object):
                 # set a fake seed, so all parallel runs produce the same data
                 seed = np.random.randint(1, 2 ** 32 - 1)
                 configdict["fake_seed"] = str(seed)
+
+            if simdata:
+                if fakestart is not None:
+                    configdict["fake_start"] = fakestart
+                if fakeend is not None:
+                    configdict["fake_end"] = fakeend
+                if fakedt is not None:
+                    configdict["fake_dt"] = fakedt
 
             parallel_node_list = []
             for idx in range(inputs.n_parallel):
