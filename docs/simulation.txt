@@ -37,6 +37,7 @@ for the parameter estimation that has a uniform distribution in :math:`Q_{22}` b
 
     from cwinpy.pe.simulation import PEPulsarSimulationDAG
     from bilby.core.prior import PriorDict, Uniform, Exponential, Sine
+    import numpy as np
 
     # set the Q22 distribution
     mean = 1e33

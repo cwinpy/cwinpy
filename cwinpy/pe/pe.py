@@ -1772,9 +1772,12 @@ class PEDAGRunner(object):
                 configdict["fake_seed"] = str(seed)
 
             if simdata:
-                if fakestart is not None:
+                if (fakestart is None and fakeend is not None) or (
+                    fakestart is not None and fakeend is None
+                ):
+                    raise ValueError("'fake-start' and 'fake-end' must both be set")
+                else:
                     configdict["fake_start"] = fakestart
-                if fakeend is not None:
                     configdict["fake_end"] = fakeend
                 if fakedt is not None:
                     configdict["fake_dt"] = fakedt
