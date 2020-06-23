@@ -4,7 +4,15 @@ Test script for utils.py function.
 
 import numpy as np
 import pytest
-from cwinpy.utils import gcd_array, int_to_alpha, is_par_file, logfactorial
+from astropy import units as u
+from cwinpy.utils import (
+    ellipticity_to_q22,
+    gcd_array,
+    int_to_alpha,
+    is_par_file,
+    logfactorial,
+    q22_to_ellipticity,
+)
 
 
 def test_logfactorial():
@@ -65,3 +73,51 @@ def test_is_par_file():
     """
 
     assert is_par_file("blah_blah_blah") is False
+
+
+def test_ellipticity_to_q22():
+    """
+    Test ellipticity conversion to mass quadrupole.
+    """
+
+    epsilon = [1e-9, 1e-8]
+    expected_q22 = np.array([1e29, 1e30]) * np.sqrt(15.0 / (8.0 * np.pi))
+    q22 = ellipticity_to_q22(epsilon[0])
+
+    assert np.isclose(q22, expected_q22[0])
+
+    # test units
+    q22units = ellipticity_to_q22(epsilon[0], units=True)
+
+    assert np.isclose(q22units.value, expected_q22[0])
+    assert q22units.unit == u.Unit("kg m2")
+
+    # test array like
+    q22 = ellipticity_to_q22(epsilon)
+
+    assert len(q22) == len(epsilon)
+    assert np.allclose(q22, expected_q22)
+
+
+def test_q22_to_ellipticity_to_q22():
+    """
+    Test mass quadrupole conversion to ellipticity.
+    """
+
+    q22 = [1e29, 1e30]
+    expected_epsilon = np.array([1e-9, 1e-8]) / np.sqrt(15.0 / (8.0 * np.pi))
+    epsilon = q22_to_ellipticity(q22[0])
+
+    assert np.isclose(epsilon, expected_epsilon[0])
+
+    # test array like
+    epsilon = q22_to_ellipticity(q22)
+
+    assert len(q22) == len(epsilon)
+    assert np.allclose(epsilon, expected_epsilon)
+
+    # test no unit
+    epsilon = q22_to_ellipticity(q22[0] * u.kg * u.m ** 2)
+
+    assert np.isclose(epsilon, expected_epsilon[0])
+    assert not hasattr(epsilon, "unit")

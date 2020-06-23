@@ -370,13 +370,13 @@ class TestMassQuadrupoleDistribution(object):
             "hierarchical_test_set_1_result.json",
         )
 
-        # test invalid q22range (lower bounds is less than upper bound)
+        # test invalid gridrange (lower bounds is less than upper bound)
         with pytest.raises(ValueError):
-            MassQuadrupoleDistribution(q22range=[100.0, 1.0])
+            MassQuadrupoleDistribution(gridrange=[100.0, 1.0])
 
-        # test invalid q22range (only one value passed)
+        # test invalid gridrange (only one value passed)
         with pytest.raises(ValueError):
-            MassQuadrupoleDistribution(q22range=[100.0])
+            MassQuadrupoleDistribution(gridrange=[100.0])
 
         # test invalid data type
         with pytest.raises(TypeError):
@@ -417,16 +417,17 @@ class TestMassQuadrupoleDistribution(object):
         q22grid = "lsgdgkavbc"
         with pytest.raises(TypeError):
             MassQuadrupoleDistribution(
-                data=[testdata1, testdata2], distribution=pdist, q22grid=q22grid
+                data=[testdata1, testdata2], distribution=pdist, grid=q22grid
             )
 
         # test sampler
         mdist = MassQuadrupoleDistribution(
             data=[testdata1, testdata2], distribution=pdist
         )
-        res = mdist.sample(**{"Nlive": 100, "save": False})
+        res = mdist.sample(**{"Nlive": 100, "save": False, "label": "test1"})
 
         assert isinstance(res, Result)
+        assert np.all((res.posterior["mu"] > 0.0) & (res.posterior["mu"] < 1e32))
 
         del res
         del mdist
@@ -445,3 +446,27 @@ class TestMassQuadrupoleDistribution(object):
 
         res = mdist.sample()
         assert isinstance(res, Grid)
+
+        del res
+        del mdist
+
+        # test using ellipticity
+        pdist = ExponentialDistribution("Q22", mu=Uniform(0.0, 1e-5, "mu"))
+        with pytest.raises(ValueError):
+            # pdist does not contain ELL
+            MassQuadrupoleDistribution(
+                data=[testdata1, testdata2], distribution=pdist, use_ellipticity=True
+            )
+
+        pdist = ExponentialDistribution("ELL", mu=Uniform(0.0, 1e-5, "mu"))
+        mdist = MassQuadrupoleDistribution(
+            data=[testdata1, testdata2], distribution=pdist, use_ellipticity=True,
+        )
+        res = mdist.sample(**{"Nlive": 100, "save": False, "label": "test2"})
+
+        assert isinstance(res, Result)
+        assert "mu" in res.posterior.columns
+        assert np.all((res.posterior["mu"] > 0.0) & (res.posterior["mu"] < 1e-5))
+
+        del res
+        del mdist
