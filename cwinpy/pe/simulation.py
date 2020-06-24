@@ -12,7 +12,7 @@ from astropy.coordinates import ICRS, Galactic, Galactocentric
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 from ..hierarchical import BaseDistribution
-from ..utils import int_to_alpha, is_par_file
+from ..utils import ellipticity_to_q22, int_to_alpha, is_par_file
 from .pe import pe_dag
 
 
@@ -49,7 +49,8 @@ class PEPulsarSimulationDAG(object):
         The distribution from which the signal amplitude values will be drawn
         for the simulated signals. This can contain the gravitational-wave
         strain amplitude keyed with ``"h0"``, the mass quadrupole keyed with
-        ``"q22"``, or the fiducial ellipticity keyed with ``"epsilon"``.
+        ``"q22"``, or the fiducial ellipticity keyed with ``"epsilon"``
+        (``"ell"``, or ``"ellipticity"``).
     prior: str, dict
         This can be a single bilby-style prior dictionary, or a path to a file,
         giving a prior distribution to use for signal parameter estimation for
@@ -253,7 +254,7 @@ class PEPulsarSimulationDAG(object):
     @ampdist.setter
     def ampdist(self, ampdist):
         if isinstance(ampdist, (bilby.core.prior.Prior, BaseDistribution)):
-            if ampdist.name not in ["h0", "q22", "epsilon"]:
+            if ampdist.name.lower not in ["h0", "q22", "epsilon", "ell", "ellipticity"]:
                 raise KeyError(
                     "Amplitude distribution must contain 'h0', 'q22', or 'epsilon'"
                 )
@@ -610,11 +611,11 @@ class PEPulsarSimulationDAG(object):
                 pulsar["Q22"] = amp
             elif self.ampdist.name == "h0" and (pulsar["H0"] is None or self.overwrite):
                 pulsar["H0"] = amp
-            elif self.ampdist.name == "epsilon" and (
+            elif (self.ampdist.name.lower() in ["epsilon", "ell", "ellipticity"]) and (
                 pulsar["Q22"] is None or self.overwrite
             ):
                 # convert ellipticity to Q22 using fiducial moment of inertia
-                pulsar["Q22"] = 1e38 * amp * np.sqrt(15.0 / (8.0 * np.pi))
+                pulsar["Q22"] = ellipticity_to_q22(amp)
 
             with open(injfile, "w") as fp:
                 fp.write(str(pulsar))
