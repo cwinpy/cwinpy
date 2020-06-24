@@ -254,7 +254,13 @@ class PEPulsarSimulationDAG(object):
     @ampdist.setter
     def ampdist(self, ampdist):
         if isinstance(ampdist, (bilby.core.prior.Prior, BaseDistribution)):
-            if ampdist.name.lower not in ["h0", "q22", "epsilon", "ell", "ellipticity"]:
+            if ampdist.name.lower() not in [
+                "h0",
+                "q22",
+                "epsilon",
+                "ell",
+                "ellipticity",
+            ]:
                 raise KeyError(
                     "Amplitude distribution must contain 'h0', 'q22', or 'epsilon'"
                 )
