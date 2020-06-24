@@ -21,6 +21,7 @@ API interface
    likelihood
    hierarchical
    simulation
+   utils
 
 Code comparisons
 ================

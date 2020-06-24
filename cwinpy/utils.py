@@ -1,5 +1,5 @@
 """
-General utility functions.
+A selection of general utility functions.
 """
 
 import ctypes
@@ -10,6 +10,7 @@ from functools import reduce
 from math import gcd
 
 import numpy as np
+from astropy import units as u
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from numba import jit, njit
 from numba.extending import get_cython_function_address
@@ -148,3 +149,88 @@ def int_to_alpha(pos, case="upper"):
         count -= 1
 
     return result
+
+
+def ellipticity_to_q22(epsilon, units=False):
+    """
+    Convert the fiducial ellipticity :math:`\\varepsilon` to the mass
+    quadrupole :math:`Q_{22}` (in units of kg m\ :sup:`2`) via (see, e.g.,
+    Equation A3 of [1]_):
+
+    .. math::
+
+        Q_{22} = \\varepsilon I_{38} \\sqrt{\\frac{15}{8\\pi}},
+
+    where :math:`I_{38} = 10^{38}` kg m\ :sup:`2` is the canonical moment of
+    inertia of the star.
+
+    References
+    ----------
+
+    .. [1] B. Abbott, et al., Ap. J., 879, 10, 2019
+       (`arXiv:1902.08507 <https://arxiv.org/abs/1902.08507>`_)
+
+    Parameters
+    ----------
+    epsilon: float, array_like
+        A value, or array of values, of the mass quadrupole.
+    units: bool
+        If True add units to the output.
+
+    Returns
+    -------
+    q22: float, array_like
+        A value, or array of values, of the mass quadrupole.
+    """
+
+    if isinstance(epsilon, float):
+        q22 = epsilon * 1e38 * np.sqrt(15.0 / (8.0 * np.pi))
+    else:
+        q22 = np.array(epsilon) * 1e38 * np.sqrt(15.0 / (8.0 * np.pi))
+
+    if units:
+        # add units
+        return q22 * u.kg * u.m ** 2
+    else:
+        return q22
+
+
+def q22_to_ellipticity(q22):
+    """
+    Convert mass quadrupole :math:`Q_{22}` (in units of kg m\ :sup:`2`) to
+    fidicual ellipticity via (see, e.g., Equation A3 of [1]_):
+
+    .. math::
+
+        \\varepsilon = \\frac{Q_{22}}{I_{38}}\\sqrt{\\frac{8\\pi}{15}},
+
+    where :math:`I_{38} = 10^{38}` kg m\ :sup:`2` is the canonical moment of
+    inertia of the star.
+
+    References
+    ----------
+
+    .. [1] B. Abbott, et al., Ap. J., 879, 10, 2019
+       (`arXiv:1902.08507 <https://arxiv.org/abs/1902.08507>`_)
+
+    Parameters
+    ----------
+    q22: float, array_like
+        A value, or array of values, of the mass quadrupole.
+
+    Returns
+    -------
+    ellipticity: float, array_like
+        A value, or array of values, of the fiducial ellipticity.
+    """
+
+    if isinstance(q22, list):
+        ellipticity = (np.array(q22) / 1e38) * np.sqrt(8.0 * np.pi / 15.0)
+    else:
+        ellipticity = (q22 / 1e38) * np.sqrt(8.0 * np.pi / 15.0)
+
+    if hasattr(q22, "value"):
+        # remove units if value/array has astropy units
+        return ellipticity.value
+    else:
+        return ellipticity
