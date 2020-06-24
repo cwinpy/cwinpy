@@ -333,5 +333,10 @@ mass quadrupole, and orientation parameters) or the distance, then these will be
 versions of the files) by any parameters generated in the simulation. If you want to keep those
 parameters then the ``overwrite_parameters`` argument can be set to ``False``.
 
+Simulation class API
+====================
+
+The API for the :class:`~cwinpy.pe.simulation.PEPulsarSimulationDAG` class is described below:
+
 .. autoclass:: cwinpy.pe.simulation.PEPulsarSimulationDAG
    :members:
