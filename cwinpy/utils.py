@@ -153,9 +153,9 @@ def int_to_alpha(pos, case="upper"):
 
 def ellipticity_to_q22(epsilon, units=False):
     """
-    Convert the fiducial ellipticity :math:`\varepsilon` to the mass quadrupole
-    :math:`Q_{22}` (in units of kg m\ :sup:`2`) via (see, e.g., Equation A3 of
-    [1]_):
+    Convert the fiducial ellipticity :math:`\\varepsilon` to the mass
+    quadrupole :math:`Q_{22}` (in units of kg m\ :sup:`2`) via (see, e.g.,
+    Equation A3 of [1]_):
 
     .. math::
 
