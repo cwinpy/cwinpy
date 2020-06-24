@@ -226,6 +226,104 @@ For example, to set the sources to all be linearly polarised you could use:
 In this case, as the other orientation parameters are not supplied they will automatically get set
 to their default distributions.
 
+Simulating a realistic distribution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Rather than guessing at a pulsar distribution we could try and use the true distribution of pulsars.
+To do this we can make use of the `psrqpy <https://psrqpy.readthedocs.io/en/latest/>`_ package to
+get the currently known pulsars from the `ATNF pulsar catalogue
+<https://www.atnf.csiro.au/research/pulsar/psrcat/>`_, and, for example, the `astroML
+<https://www.astroml.org>`_ package [1]_ to fit the distribution using a `Gaussian Mixture Model
+<https://www.astroml.org/user_guide/density_estimation.html#extreme-deconvolution>`_ via extreme
+deconvolution [2]_ (other packages can be used for this).
+
+.. code-block:: python
+
+    from psrqpy import QueryATNF
+    from astroML.density_estimation import XDGMM
+    from matplotlib import pyplot as pl
+    import glob
+    import numpy as np
+    from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+
+    from cwinpy.pe.simulation import PEPulsarSimulationDAG
+    from bilby.core.prior import PriorDict, Uniform, Exponential, Sine
+
+    # get the Galactic X, Y, Z coordinates for all pulsars (excluding Globular Clusters)
+    query = QueryATNF(params=["XX", "ZZ", "YY", "RAJD", "DECJD"], condition="~assoc(GC)")
+
+    # extract the position values and put them into an array
+    t = query.table
+    mask = ~t["XX"].data.mask  # values that are not masked (e.g., NaNs)
+    positions = np.vstack(
+        (t["XX"].data.data[mask], t["YY"].data.data[mask], t["ZZ"].data.data[mask])
+    ).T
+
+    # initialise the extreme deconvolution (try 15 components)
+    gmm = XDGMM(n_components=15, max_iter=500, tol=5e-2, verbose=True)
+
+    # set some errors on the positions (required for XDGMM), say 5% on all values
+    dx = positions[:,0] * 0.05
+    dy = positions[:,1] * 0.05
+    dz = positions[:,1] * 0.05
+    poserr = np.zeros(positions.shape + positions.shape[-1:])
+    diag = np.arange(positions.shape[-1])
+    poserr[:, diag, diag] = np.vstack([dx ** 2, dy ** 2, dz ** 2]).T
+
+    # fit the positions (this may take some time!)
+    gmm.fit(positions, Xerr=poserr)
+
+    # set a Multivariate Gaussian distribution
+    names = ["x", "y", "z"]
+    mvg = bilby.core.prior.MultivariateGaussianDist(
+        names,
+        nmodes=15,
+        mus=gmm.mu.tolist(),
+        covs=gmm.V.tolist(),
+        weights=gmm.alpha.tolist(),
+    )
+
+    # set the position distribution as a bilby Prior
+    posdist = PriorDict()
+    for name in names:
+        posdist[name] = bilby.core.prior.MultivariateGaussian(mvg, name)
+
+    # create a simulated population of pulsars
+    detectors = "H1"
+    mean = 1e33
+    ampdist = Exponential(name="q22", mu=mean)
+    run = PEPulsarSimulationDAG(
+        ampdist, npulsars=1000, detector=detectors, posdist=posdist,
+    )
+
+    # plot the distribution (c)
+    params = np.zeros((1000, 2))
+    for i, parfile in enumerate(glob.glob("pulsars/*.par")): 
+        psr = PulsarParametersPy(parfile) 
+        params[i, :] = [-psr["RAJ"] if psr["RAJ"] < np.pi else -(psr["RAJ"] - 2 * np.pi), psr["DECJ"]]
+    pparams = np.zeros((len(t), 2)) 
+    for i, rasdecs in enumerate(zip(np.deg2rad(t["RAJD"]), np.deg2rad(t["DECJD"]))):
+        pparams[i, :] = [-rasdecs[0] if rasdecs[0] < np.pi else -(rasdecs[0] - 2 * np.pi), rasdecs[1]]
+    fig, ax = pl.subplots(1, 1, subplot_kw={"projection": "mollweide"})
+    ax.scatter(params[:,0], params[:,1], s=8, color="b", alpha=0.5, label="Simulation") 
+    ax.scatter(pparams[:,0], pparams[:,1], s=5, color="none", edgecolor="r", alpha=0.25, label="Pulsars") 
+    ax.set_xlabel("Right ascension")
+    ax.set_ylabel("Declination")
+    ax.legend()
+    fig.savefig("distribution.png", dpi=150, tight_layout=True)
+
+.. thumbnail:: images/pulsar_distribution.png
+   :width: 450px
+   :align: center
+
+.. note::
+
+    This Gaussian Mixture model is a good fit for the bulk of the distribution, but does not well
+    model the more extended distribution and (in this case) has been purposely chosen to not
+    attempt to include globular cluster pulsars.
+
+A similar thing could be done to generate the distribution of pulsar frequencies.
+
 Distance uncertainty
 --------------------
 
@@ -340,3 +438,12 @@ The API for the :class:`~cwinpy.pe.simulation.PEPulsarSimulationDAG` class is de
 
 .. autoclass:: cwinpy.pe.simulation.PEPulsarSimulationDAG
    :members:
+
+
+References
+----------
+
+.. [1] J. van der Plas et al, *Introduction to astroML: Machine learning for astrophysics*,
+       Proceedings of CIDU, 47-54 (2012) DOI: `10.1109/CIDU.2012.6382200 <https://doi.org/10.1109/CIDU.2012.6382200>`_
+
+.. [2] J. Bovy, D. W. Hogg, S. T. Roweis, Ann. Appl. Stat., 5, 2B, 1657-1677 `arXiv:0905.2979 <https://arxiv.org/abs/0905.2979>`_ (2011)
