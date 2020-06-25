@@ -259,8 +259,8 @@ deconvolution [2]_ (other packages can be used for this).
         (t["XX"].data.data[mask], t["YY"].data.data[mask], t["ZZ"].data.data[mask])
     ).T
 
-    # initialise the extreme deconvolution (try 15 components)
-    gmm = XDGMM(n_components=15, max_iter=500, tol=5e-2, verbose=True)
+    # initialise the extreme deconvolution (try 20 components)
+    gmm = XDGMM(n_components=20, max_iter=500, tol=1e-2, verbose=True)
 
     # set some errors on the positions (required for XDGMM), say 5% on all values
     dx = positions[:,0] * 0.05
@@ -277,7 +277,7 @@ deconvolution [2]_ (other packages can be used for this).
     names = ["x", "y", "z"]
     mvg = bilby.core.prior.MultivariateGaussianDist(
         names,
-        nmodes=15,
+        nmodes=20,
         mus=gmm.mu.tolist(),
         covs=gmm.V.tolist(),
         weights=gmm.alpha.tolist(),
@@ -315,12 +315,6 @@ deconvolution [2]_ (other packages can be used for this).
 .. thumbnail:: images/pulsar_distribution.png
    :width: 450px
    :align: center
-
-.. note::
-
-    This Gaussian Mixture model is a good fit for the bulk of the distribution, but does not well
-    model the more extended distribution and (in this case) has been purposely chosen to not
-    attempt to include globular cluster pulsars.
 
 A similar thing could be done to generate the distribution of pulsar frequencies.
 
