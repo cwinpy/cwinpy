@@ -265,7 +265,7 @@ deconvolution [2]_ (other packages can be used for this).
     # set some errors on the positions (required for XDGMM), say 5% on all values
     dx = positions[:,0] * 0.05
     dy = positions[:,1] * 0.05
-    dz = positions[:,1] * 0.05
+    dz = positions[:,2] * 0.05
     poserr = np.zeros(positions.shape + positions.shape[-1:])
     diag = np.arange(positions.shape[-1])
     poserr[:, diag, diag] = np.vstack([dx ** 2, dy ** 2, dz ** 2]).T
