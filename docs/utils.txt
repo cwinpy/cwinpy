@@ -1,7 +1,5 @@
 Utility functions
 =================
 
-A selection of useful function using within CWInPy:
-
 .. automodule:: cwinpy.utils
    :members:
