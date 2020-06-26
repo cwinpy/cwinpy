@@ -220,9 +220,9 @@ class PEPulsarSimulationDAG(object):
             if not isinstance(self.detector, list):
                 raise TypeError("Detector must be a string or list of strings")
         self.datafiles = datafiles
-        self.starttime = int(starttime)
-        self.endtime = int(endtime)
-        self.timestep = int(timestep)
+        self.starttime = starttime
+        self.endtime = endtime
+        self.timestep = timestep
 
         # posterior sample results directory
         self.resultsdir = os.path.join(self.basedir, "results")
@@ -670,11 +670,11 @@ class PEPulsarSimulationDAG(object):
             raise ValueError("No data files of fake detectors are given!")
 
         if self.starttime is not None:
-            self.config["pe"]["fake-start"] = str(self.starttime)
+            self.config["pe"]["fake-start"] = str(int(self.starttime))
         if self.endtime is not None:
-            self.config["pe"]["fake-end"] = str(self.endtime)
+            self.config["pe"]["fake-end"] = str(int(self.endtime))
         if self.timestep is not None:
-            self.config["pe"]["fake-dt"] = str(self.timestep)
+            self.config["pe"]["fake-dt"] = str(int(self.timestep))
 
         # set the prior files
         priordir = os.path.join(self.basedir, "priors")
