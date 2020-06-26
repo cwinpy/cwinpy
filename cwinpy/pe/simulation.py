@@ -220,9 +220,9 @@ class PEPulsarSimulationDAG(object):
             if not isinstance(self.detector, list):
                 raise TypeError("Detector must be a string or list of strings")
         self.datafiles = datafiles
-        self.starttime = starttime
-        self.endtime = endtime
-        self.timestep = timestep
+        self.starttime = int(starttime)
+        self.endtime = int(endtime)
+        self.timestep = int(timestep)
 
         # posterior sample results directory
         self.resultsdir = os.path.join(self.basedir, "results")
