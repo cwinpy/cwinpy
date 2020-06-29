@@ -2,6 +2,8 @@
 Classes for heterodyning strain data.
 """
 
+import os
+
 import lal
 import lalpulsar
 
@@ -24,6 +26,9 @@ class Heterodyne(object):
         The integer start time of the data to be heterodyned in GPS seconds.
     endtime: int, float
         The integer end time of the data to be heterodyned in GPS seconds.
+    stride: int
+        The number of seconds to stride through the data, i.e., loop through
+        the data reading in ``stride`` seconds each time. Defaults to 3600
     detector: str
         A string given the name of the detector for which the data is being
         heterodyned.
@@ -64,6 +69,7 @@ class Heterodyne(object):
         self,
         starttime=None,
         endtime=None,
+        stride=3600,
         detector=None,
         frtype=None,
         channel=None,
@@ -80,18 +86,25 @@ class Heterodyne(object):
         basedir=None,
         filterknee=0.25,
         resamplerate=1.0,
+        include_ssb=True,
+        include_bsb=True,
+        include_glitch=True,
+        include_fitwaves=True,
     ):
         # set analysis times
         self.starttime = starttime
         self.endtime = endtime
+        self.stride = stride
 
         # set detector
         self.detector = detector
 
         # set frame type and channel
+        self.channel = channel
         if frcache is None:
             self.frtype = frtype
-        self.channel = channel
+        else:
+            self.frcache = frcache
 
     @property
     def starttime(self):
@@ -142,6 +155,28 @@ class Heterodyne(object):
             self._endtime = int(gpsend)
         else:
             self._endtime = None
+
+    @property
+    def stride(self):
+        """
+        The stride length to loop through the data.
+        """
+
+        return self._stride
+
+    @stride.setter
+    def stride(self, stride):
+        if not isinstance(stride, (int, float)):
+            raise TypeError("Stride must be an integer")
+        else:
+            if isinstance(stride, float):
+                if not stride.is_integer():
+                    raise TypeError("Stride must be an integer")
+
+            if stride <= 0:
+                raise ValueError("Stride must be a positive number")
+
+            self._stride = int(stride)
 
     @property
     def detector(self):
@@ -240,3 +275,46 @@ class Heterodyne(object):
                     self.detector = det
         else:
             raise TypeError("Channel must be a string")
+
+    @property
+    def frcache(self):
+        """
+        A file name, or list of files, containing gravitational-wave strain
+        data.
+        """
+
+        if hasattr(self, "_frcache"):
+            return self._frcache
+        else:
+            return None
+
+    @frcache.setter
+    def frcache(self, frcache):
+        if frcache is None:
+            self._frcache = None
+        elif isinstance(frcache, (str, list)):
+            if isinstance(frcache, str):
+                if not os.path.isfile(frcache):
+                    raise ValueError(
+                        "Frame cache file '{}' does not exist".format(frcache)
+                    )
+            if isinstance(frcache, list):
+                # check files exist
+                for fr in frcache:
+                    if not isinstance(fr, str):
+                        raise TypeError("Frame cache list must contain strings")
+                    if not os.path.isfile(fr):
+                        raise ValueError(
+                            "Frame cache file '{}' does not exist".format(fr)
+                        )
+            self._frcache = frcache
+        else:
+            raise TypeError("Frame cache must be a string or list")
+
+    def heterodyne(self, type="coarse"):
+        if type == "coarse":
+            self._coarse_heterodyne()
+        elif type == "fine":
+            self._fine_heterodyne()
+        else:
+            raise ValueError("Heterodyne type must be 'coarse' or 'fine'")

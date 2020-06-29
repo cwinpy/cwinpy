@@ -2,6 +2,9 @@
 Test code for Heterodyne class.
 """
 
+import os
+import shutil
+
 import lal
 import pytest
 from cwinpy import Heterodyne
@@ -11,6 +14,28 @@ class TestHeterodyne(object):
     """
     Test the Heterodyne object.
     """
+
+    @classmethod
+    def setup_class(cls):
+        # create dummy frame cache files
+        cls.dummydir = "testing_frame_cache"
+        os.makedirs(cls.dummydir, exist_ok=True)
+        cls.dummy_cache_files = []
+        for i in range(0, 5):
+            dummyfile = os.path.join(
+                cls.dummydir, "frame_cache_{0:01d}.cache".format(i)
+            )
+            cls.dummy_cache_files.append(dummyfile)
+            with open(dummyfile, "w") as fp:
+                fp.write("")
+
+    @classmethod
+    def teardown_class(cls):
+        """
+        Remove test simulation directory.
+        """
+
+        shutil.rmtree(cls.dummydir)
 
     def test_start_end(self):
         """
@@ -50,6 +75,22 @@ class TestHeterodyne(object):
         # try setter
         het.endtime = 1000000002.1
         assert het.endtime == int(1000000002.1)
+
+        # test the stride (default value)
+        assert het.stride == 3600
+
+        with pytest.raises(TypeError):
+            het.stride = "kgsdg"
+
+        with pytest.raises(TypeError):
+            het.stride = 1.5
+
+        with pytest.raises(ValueError):
+            het.stride = 0
+
+        stride = 1
+        het.stride = stride
+        assert het.stride == stride
 
     def test_detector(self):
         """
@@ -123,3 +164,25 @@ class TestHeterodyne(object):
 
         assert het.channel == channel
         assert het.detector == detector
+
+    def test_frcache(self):
+        """
+        Test frame cache file setting.
+        """
+
+        with pytest.raises(TypeError):
+            Heterodyne(frcache=1.2)
+
+        with pytest.raises(ValueError):
+            Heterodyne(frcache="lsgdfklg")
+
+        with pytest.raises(TypeError):
+            Heterodyne(frcache=[1, 2])
+
+        het = Heterodyne(frcache=self.dummy_cache_files[0])
+        assert het.frcache == self.dummy_cache_files[0]
+
+        het.frcache = self.dummy_cache_files
+        assert len(het.frcache) == len(self.dummy_cache_files)
+        for i, df in enumerate(self.dummy_cache_files):
+            assert df == het.frcache[i]
