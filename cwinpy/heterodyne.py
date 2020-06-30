@@ -6,6 +6,8 @@ import os
 
 import lal
 import lalpulsar
+from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
+from gwpy.timeseries import TimeSeries
 
 # Things that this class should be able to do:
 #  - find requested gravitational-wave data
@@ -46,7 +48,9 @@ class Heterodyne(object):
         ``L1:GWOSC-4KHZ_R1_STRAIN``.
     host: str
         The server name for finding the gravitational-wave data files. Use
-        ``datafind.ligo.org:443`` for open data available via CVMFS. See also
+        ``datafind.ligo.org:443`` for open data available via CVMFS. To use
+        open data available from the `GWOSC <https://www.gw-openscience.org>`_
+        use ``https://www.gw-openscience.org``. See also
         :func:`gwpy.timeseries.TimeSeries.get`.
     outputfrcache: str
         If a string is given it should give a file path to which a list of
@@ -103,6 +107,7 @@ class Heterodyne(object):
         self.channel = channel
         if frcache is None:
             self.frtype = frtype
+            self.host = host
         else:
             self.frcache = frcache
 
@@ -310,6 +315,112 @@ class Heterodyne(object):
             self._frcache = frcache
         else:
             raise TypeError("Frame cache must be a string or list")
+
+    @property
+    def host(self):
+        """
+        The data server hostname URL.
+        """
+
+        if hasattr(self, "_host"):
+            return self._host
+        else:
+            return None
+
+    @host.setter
+    def host(self, host):
+        if not isinstance(host, str) and host is not None:
+            raise TypeError("Hostname server must be string")
+        else:
+            self._host = host
+
+            if self.host is not None:
+                # check for valid and exitsing URL
+                import requests
+
+                if "http" != self.host[0:4]:
+                    for schema in ["http", "https"]:
+                        try:
+                            url = requests.get("{}://{}".format(schema, self.host))
+                        except Exception:
+                            url = None
+                else:
+                    try:
+                        url = requests.get(self.host)
+                    except Exception as e:
+                        raise RuntimeError("Host URL was not valid: {}".format(e))
+
+                if url is None:
+                    raise RuntimeError("Host URL was not valid")
+                else:
+                    if url.status_code != 200:
+                        raise RuntimeError("Host URL was not valid")
+
+    def get_frame_data(self, starttime=None, endtime=None, **gwosc_data_kwargs):
+        """
+        Get gravitational-wave frame/hdf5 data between a given start and end
+        time in GPS seconds.
+
+        Parameters
+        ----------
+        starttime: int, float
+            The start time of the data to extract in GPS seconds.
+        endtime: int, float
+            The end time of the data to extract in GPS seconds.
+        **gwosc_data_kwargs:
+            A set of keyword arguments to be passed to
+            :class:`gwpy.timeseries.TimeSeries.fetch_open_data`.
+
+        Returns
+        -------
+        data: TimeSeries
+            A :class:`gwpy.timeseries.TimeSeries` containing the data.
+        """
+
+        starttime = starttime if starttime is not None else self.starttime
+        endtime = endtime if endtime is not None else self.endtime
+
+        if starttime is None:
+            raise ValueError("A start time is not set")
+
+        if endtime is None:
+            raise ValueError("An end time is not set")
+
+        if self.channel is None and self.host != GWOSC_DEFAULT_HOST:
+            raise ValueError("No channel name has been set")
+
+        if self.frcache is not None:
+            # read data from cache
+            try:
+                data = TimeSeries.read(
+                    self.frcache, self.channel, start=starttime, end=endtime
+                )
+            except Exception as e:
+                raise IOError("Could not read in frame data from cache: {}".format(e))
+        else:
+            # download data
+            try:
+                if self.host == GWOSC_DEFAULT_HOST:
+                    # get GWOSC data
+                    data = TimeSeries.fetch_open_data(
+                        self.detector,
+                        starttime,
+                        endtime,
+                        host=self.host,
+                        **gwosc_data_kwargs,
+                    )
+                else:
+                    data = TimeSeries.get(
+                        self.channel,
+                        starttime,
+                        endtime,
+                        host=self.host,
+                        frametype=self.frtype,
+                    )
+            except Exception as e:
+                raise IOError("Could not download frame data: {}".format(e))
+
+        return data
 
     def heterodyne(self, type="coarse"):
         if type == "coarse":

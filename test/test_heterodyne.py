@@ -186,3 +186,27 @@ class TestHeterodyne(object):
         assert len(het.frcache) == len(self.dummy_cache_files)
         for i, df in enumerate(self.dummy_cache_files):
             assert df == het.frcache[i]
+
+    def test_host(self):
+        """
+        Test host name.
+        """
+
+        with pytest.raises(TypeError):
+            Heterodyne(host=1.2)
+
+        with pytest.raises(RuntimeError):
+            Heterodyne(host="+0--23oiyds")
+
+        het = Heterodyne()
+
+        assert het.host is None
+
+        host = "https://www.google.com"
+        het.host = host
+
+        assert het.host == host
+
+        host = "www.google.com"
+        het.host = host
+        assert het.host == host
