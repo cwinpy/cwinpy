@@ -4,10 +4,14 @@ Test code for Heterodyne class.
 
 import os
 import shutil
+import subprocess as sp
 
 import lal
 import pytest
+from astropy.utils.data import download_file
 from cwinpy import Heterodyne
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+from lalpulsar.simulateHeterodynedCW import DOWNLOAD_URL
 
 
 class TestHeterodyne(object):
@@ -29,6 +33,79 @@ class TestHeterodyne(object):
             with open(dummyfile, "w") as fp:
                 fp.write("")
 
+        # create some fake data frames using lalapps_Makefakedata_v5
+        mfd = shutil.which("lalapps_Makefakedata_v5")
+
+        cls.fakedatadir = "testing_fake_frame_cache"
+        cls.fakedatadetectors = ["H1", "L1"]
+        cls.fakedatachannels = [
+            "{}:FAKE_DATA".format(det) for det in cls.fakedatadetectors
+        ]
+        cls.fakedatastarts = [1000000000, 1000000000 + 86400]
+        cls.fakedataduration = 86400
+
+        os.makedirs(cls.fakedatadir, exist_ok=True)
+
+        cls.fakedatabandwidth = 2  # Hz
+        sqrtSn = 1e-24  # noise amplitude spectral density
+        cls.fakedataname = "FAKEGLITCH"
+
+        f0 = 1.23456 / 2.0  # source rotation frequency (Hz)
+        f1 = 9.87654e-11 / 2.0  # source rotational frequency derivative (Hz/s)
+        alpha = 0.0  # source right ascension (rads)
+        delta = 0.5  # source declination (rads)
+        pepoch = 1000000000  # frequency epoch (GPS)
+
+        # GW parameters
+        h0 = 3.0e-24  # GW amplitude
+        phi0 = 1.0  # GW initial phase (rads)
+        cosiota = 0.1  # cosine of inclination angle
+        psi = 0.5  # GW polarisation angle (rads)
+
+        inj = "{{Alpha={}; Delta={}; Freq={}; f1dot={}; refTime={}; h0={}; cosi={}; psi={}; phi0={};}}".format(
+            alpha, delta, f0 * 2, f1 * 2, pepoch, h0, cosiota, psi, phi0
+        )
+
+        cls.fakepulsarpar = PulsarParametersPy()
+        cls.fakepulsarpar["H0"] = h0
+        cls.fakepulsarpar["PHI0"] = phi0 / 2.0
+        cls.fakepulsarpar["PSI"] = psi
+        cls.fakepulsarpar["COSIOTA"] = cosiota
+        cls.fakepulsarpar["F"] = [f0, f1]
+        cls.fakepulsarpar["RAJ"] = alpha
+        cls.fakepulsarpar["DECJ"] = delta
+        cls.fakepulsarpar["PEPOCH"] = pepoch
+
+        # set ephemeris files
+        efile = download_file(
+            DOWNLOAD_URL.format("earth00-40-DE405.dat.gz"), cache=True
+        )
+        sfile = download_file(DOWNLOAD_URL.format("sun00-40-DE405.dat.gz"), cache=True)
+
+        for datastart in cls.fakedatastarts:
+            for i in range(len(cls.fakedatachannels)):
+                cmds = [
+                    "-F",
+                    cls.fakedatadir,
+                    "--outFrChannels={}".format(cls.fakedatachannels[i]),
+                    "-I",
+                    cls.fakedatadetectors[i],
+                    "--sqrtSX={0:.1e}".format(sqrtSn),
+                    "-G",
+                    str(datastart),
+                    "--duration={}".format(cls.fakedataduration),
+                    "--Band={}".format(cls.fakedatabandwidth),
+                    "--fmin",
+                    "0",
+                    '--injectionSources="{}"'.format(inj),
+                    "--outLabel={}".format(cls.fakedataname),
+                    '--ephemEarth="{}"'.format(efile),
+                    '--ephemSun="{}"'.format(sfile),
+                ]
+
+                # run makefakedata
+                sp.run([mfd] + cmds)
+
     @classmethod
     def teardown_class(cls):
         """
@@ -36,6 +113,7 @@ class TestHeterodyne(object):
         """
 
         shutil.rmtree(cls.dummydir)
+        shutil.rmtree(cls.fakedatadir)
 
     def test_start_end(self):
         """
@@ -118,21 +196,21 @@ class TestHeterodyne(object):
         assert type(het.laldetector) is lal.Detector
         assert het.laldetector.frDetector.prefix == detector
 
-    def test_frtype(self):
+    def test_frametype(self):
         """
         Test for valid frame type.
         """
 
-        frtype = 1.0
+        frametype = 1.0
         with pytest.raises(TypeError):
-            Heterodyne(frtype=frtype)
+            Heterodyne(frametype=frametype)
 
         het = Heterodyne()
-        assert het.frtype is None
+        assert het.frametype is None
 
-        frtype = "H1_R"
-        het.frtype = frtype
-        assert het.frtype == frtype
+        frametype = "H1_R"
+        het.frametype = frametype
+        assert het.frametype == frametype
 
     def test_channel(self):
         """
@@ -165,27 +243,27 @@ class TestHeterodyne(object):
         assert het.channel == channel
         assert het.detector == detector
 
-    def test_frcache(self):
+    def test_framecache(self):
         """
         Test frame cache file setting.
         """
 
         with pytest.raises(TypeError):
-            Heterodyne(frcache=1.2)
+            Heterodyne(framecache=1.2)
 
         with pytest.raises(ValueError):
-            Heterodyne(frcache="lsgdfklg")
+            Heterodyne(framecache="lsgdfklg")
 
         with pytest.raises(TypeError):
-            Heterodyne(frcache=[1, 2])
+            Heterodyne(framecache=[1, 2])
 
-        het = Heterodyne(frcache=self.dummy_cache_files[0])
-        assert het.frcache == self.dummy_cache_files[0]
+        het = Heterodyne(framecache=self.dummy_cache_files[0])
+        assert het.framecache == self.dummy_cache_files[0]
 
-        het.frcache = self.dummy_cache_files
-        assert len(het.frcache) == len(self.dummy_cache_files)
+        het.framecache = self.dummy_cache_files
+        assert len(het.framecache) == len(self.dummy_cache_files)
         for i, df in enumerate(self.dummy_cache_files):
-            assert df == het.frcache[i]
+            assert df == het.framecache[i]
 
     def test_host(self):
         """
@@ -210,3 +288,49 @@ class TestHeterodyne(object):
         host = "www.google.com"
         het.host = host
         assert het.host == host
+
+    def test_get_frame_data(self):
+        """
+        Test reading of local frame data.
+        """
+
+        het = Heterodyne()
+
+        with pytest.raises(ValueError):
+            # no start or end time set
+            het.get_frame_data()
+
+        with pytest.raises(ValueError):
+            # no start time set
+            het.get_frame_data(endtime=1000000000)
+
+        with pytest.raises(ValueError):
+            # no channel set
+            het.get_frame_data(starttime=1000000000, endtime=1000084600)
+
+        # test generating a local cache list (all files)
+        cachefile = os.path.join(self.fakedatadir, "frcache.txt")
+        data = het.get_frame_data(
+            starttime=1000000000,
+            endtime=1000000000 + 2 * 86400,
+            framecache=self.fakedatadir,
+            site="H1",
+            outputframecache=cachefile,
+            channel=self.fakedatachannels[0],
+        )
+
+        assert int(data.t0.value) == self.fakedatastarts[0]
+        assert data.dt.value == 1 / (2 * (self.fakedatabandwidth))
+
+        with open(cachefile, "r") as fp:
+            cachedata = [fl.strip() for fl in fp.readlines()]
+
+        assert len(cachedata) == 2
+        for i in range(len(cachedata)):
+            assert "{}-{}_{}-{}-{}.gwf".format(
+                self.fakedatadetectors[0][0],
+                self.fakedatadetectors[0],
+                self.fakedataname,
+                self.fakedatastarts[i],
+                self.fakedataduration,
+            ) == os.path.basename(cachedata[i])
