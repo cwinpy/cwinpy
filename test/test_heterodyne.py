@@ -10,6 +10,7 @@ import lal
 import pytest
 from astropy.utils.data import download_file
 from cwinpy import Heterodyne
+from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from lalpulsar.simulateHeterodynedCW import DOWNLOAD_URL
 
@@ -31,7 +32,7 @@ class TestHeterodyne(object):
             )
             cls.dummy_cache_files.append(dummyfile)
             with open(dummyfile, "w") as fp:
-                fp.write("")
+                fp.write("blah\n")
 
         # create some fake data frames using lalapps_Makefakedata_v5
         mfd = shutil.which("lalapps_Makefakedata_v5")
@@ -308,7 +309,26 @@ class TestHeterodyne(object):
             # no channel set
             het.get_frame_data(starttime=1000000000, endtime=1000084600)
 
-        # test generating a local cache list (all files)
+        with pytest.raises(IOError):
+            # invalid file name
+            het.get_frame_data(
+                starttime=1000000000,
+                endtime=1000084600,
+                channel=self.fakedatachannels[0],
+                framecache="jhsdklgdks.txt",
+            )
+
+        with pytest.raises(IOError):
+            # cache file contains invalid frames
+            het.get_frame_data(
+                starttime=1000000000,
+                endtime=1000000000 + 2 * 86400,
+                framecache=self.dummy_cache_files[0],
+                site="H1",
+                channel=self.fakedatachannels[0],
+            )
+
+        # test reading files/generating a local cache list (all files)
         cachefile = os.path.join(self.fakedatadir, "frcache.txt")
         data = het.get_frame_data(
             starttime=1000000000,
@@ -334,3 +354,63 @@ class TestHeterodyne(object):
                 self.fakedatastarts[i],
                 self.fakedataduration,
             ) == os.path.basename(cachedata[i])
+
+        # test reading files from cache file
+        data = het.get_frame_data(
+            starttime=1000000000,
+            endtime=1000000000 + 2 * 86400,
+            framecache=cachefile,
+            site="H1",
+            channel=self.fakedatachannels[0],
+        )
+
+        assert int(data.t0.value) == self.fakedatastarts[0]
+        assert data.dt.value == 1 / (2 * (self.fakedatabandwidth))
+
+        with pytest.raises(IOError):
+            # try reading data outside of range
+            het.get_frame_data(
+                starttime=900000000,
+                endtime=900000000 + 2 * 86400,
+                framecache=cachefile,
+                site="H1",
+                channel=self.fakedatachannels[0],
+            )
+
+        with pytest.raises(IOError):
+            # try reading data from the wrong channel
+            het.get_frame_data(
+                starttime=1000000000,
+                endtime=1000000000 + 2 * 86400,
+                framecache=cachefile,
+                site="H1",
+                channel=self.fakedatachannels[1],
+            )
+
+        del het
+        del data
+
+        # test reading from GWOSC
+        het = Heterodyne()
+        data = het.get_frame_data(
+            starttime=1126259460,
+            endtime=1126259464,
+            host=GWOSC_DEFAULT_HOST,
+            site="H1",
+        )
+
+        assert int(data.t0.value) == 1126259460
+        assert data.dt.value == 1 / 4096
+        assert len(data) == 16384
+
+    @pytest.mark.disable_socket
+    def test_get_frame_data_no_internet(self):
+        # test exception if not able to access GWOSC data
+        het = Heterodyne()
+        with pytest.raises(IOError):
+            het.get_frame_data(
+                site="H1",
+                starttime=1126259460,
+                endtime=1126259464,
+                host=GWOSC_DEFAULT_HOST,
+            )

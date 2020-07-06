@@ -553,7 +553,7 @@ class Heterodyne(object):
                 if host == GWOSC_DEFAULT_HOST:
                     # get GWOSC data
                     data = TimeSeries.fetch_open_data(
-                        self.detector, starttime, endtime, host=host
+                        kwargs.get("site", self.detector), starttime, endtime, host=host
                     )
                 else:  # pragma: no cover
                     if self.outputframecache:
