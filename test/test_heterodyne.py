@@ -107,6 +107,13 @@ class TestHeterodyne(object):
                 # run makefakedata
                 sp.run([mfd] + cmds)
 
+        # create dummy segment file
+        cls.dummysegments = [(1000000000, 1000000600), (1000000800, 1000000900)]
+        cls.dummysegmentfile = os.path.join(cls.fakedatadir, "fakesegments.txt")
+        with open(cls.dummysegmentfile, "w") as fp:
+            for segs in cls.dummysegments:
+                fp.write("{} {}\n".format(segs[0], segs[1]))
+
     @classmethod
     def teardown_class(cls):
         """
@@ -393,10 +400,7 @@ class TestHeterodyne(object):
         # test reading from GWOSC
         het = Heterodyne()
         data = het.get_frame_data(
-            starttime=1126259460,
-            endtime=1126259464,
-            host=GWOSC_DEFAULT_HOST,
-            site="H1",
+            starttime=1126259460, endtime=1126259464, host=GWOSC_DEFAULT_HOST, site="H1"
         )
 
         assert int(data.t0.value) == 1126259460
@@ -414,3 +418,65 @@ class TestHeterodyne(object):
                 endtime=1126259464,
                 host=GWOSC_DEFAULT_HOST,
             )
+
+    def test_get_segments(self):
+        """
+        Test reading segment list file.
+        """
+
+        het = Heterodyne()
+
+        segments = het.get_segment_list(segmentfile=self.dummysegmentfile)
+
+        assert len(segments) == len(self.dummysegments)
+        for sega, segb in zip(segments, self.dummysegments):
+            for sa, sb in zip(sega, segb):
+                assert sa == sb
+
+        het = Heterodyne(segmentlist=self.dummysegments)
+
+        assert len(segments) == len(self.dummysegments)
+        for sega, segb in zip(segments, self.dummysegments):
+            for sa, sb in zip(sega, segb):
+                assert sa == sb
+
+        with pytest.raises(IOError):
+            # no existent segment file
+            Heterodyne(segmentlist="klsghdfkdgskd")
+
+        with pytest.raises(TypeError):
+            Heterodyne(outputsegmentlist=1)
+
+        with pytest.raises(TypeError):
+            Heterodyne(appendsegmentlist=1.1)
+
+        with pytest.raises(TypeError):
+            Heterodyne(includeflags=1)
+
+        with pytest.raises(TypeError):
+            Heterodyne(excludeflags=1)
+
+        with pytest.raises(TypeError):
+            Heterodyne(segmentserver=1)
+
+        het = Heterodyne(
+            starttime=900000000, endtime=910000000, segmentlist=self.dummysegmentfile
+        )
+
+        assert len(het.segments) == 0
+
+        het = Heterodyne(
+            starttime=1000000850, endtime=1000001000, segmentlist=self.dummysegmentfile
+        )
+
+        assert len(het.segments) == 1
+        assert het.segments[0][0] == 1000000850
+        assert het.segments[0][1] == 1000000900
+
+        het = Heterodyne(
+            starttime=1000000100, endtime=1000000700, segmentlist=self.dummysegmentfile
+        )
+
+        assert len(het.segments) == 1
+        assert het.segments[0][0] == 1000000100
+        assert het.segments[0][1] == 1000000600

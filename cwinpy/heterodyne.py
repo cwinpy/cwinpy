@@ -11,9 +11,8 @@ import lalpulsar
 import numpy as np
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from gwpy.io.cache import is_cache, read_cache
+from gwpy.segments import DataQualityFlag
 from gwpy.timeseries import TimeSeries, TimeSeriesDict
-
-# from gwpy.segments import DataQualityFlag
 
 # Things that this class should be able to do:
 #  - find requested gravitational-wave data
@@ -68,15 +67,28 @@ class Heterodyne(object):
     framecache: str, list
         If you have a pregenerated cache of gravitational-wave file paths
         (either in a file or as a list of files) you can use them.
-    segments: str, list
-        A list or data segment start and end times (stored a tuple pairs) in
+    segmentlist: str, list
+        A list of data segment start and end times (stored a tuple pairs) in
         the list. Or, an ascii text file containing segment start and end times
-        in two columns. Or, a list of data DQ flags to use to generate a
-        segment list. See, e.g., the GWPy documentation
-        `here <https://gwpy.github.io/docs/stable/segments/index.html>`_.
-    excludesegments: str, list
-        A string, or list of strings, giving DQ flags to exclude from the
-        segment list.
+        in two columns.
+    includeflags: str, list
+        A string, or list of string giving data DQ flags to use to generate a
+        segment list if not provided in ``segmentlist``. See, e.g., the GWPy
+        documentation
+        `here <https://gwpy.github.io/docs/stable/segments/index.html>`_ and
+        the :func:`cwinpy.heterodyne.generate_segments` function.
+    excludeflags: str, list
+        A string, or list of string giving data DQ flags to exclude when
+        generating a segment list if not provided in ``segmentlist``. See
+        the :func:`cwinpy.heterodyne.generate_segments` function.
+    outputsegmentlist: str
+        If generating a segment list it will be output to a file specified by
+        this argument if given.
+    appendsegmentlist: bool
+        If generating a segment list it will be appended to the file given with
+        ``outputsegmentlist`` if supplied.
+    segmentserver: str
+        If querying the segment database a URL of the database can be supplied.
     """
 
     def __init__(
@@ -91,9 +103,12 @@ class Heterodyne(object):
         outputframecache=None,
         appendframecache=False,
         framecache=None,
-        segments=None,
-        excludesegments=None,
-        outputsegments=None,
+        segmentlist=None,
+        includeflags=None,
+        excludeflags=None,
+        outputsegmentlist=None,
+        appendsegmentlist=False,
+        segmentserver=None,
         heterodyne="coarse",
         heterodyneddata=None,
         pulsars=None,
@@ -123,16 +138,23 @@ class Heterodyne(object):
         else:
             self.framecache = framecache
 
+        # set segment list information
+        self.outputsegmentlist = outputsegmentlist
+        self.appendsegmentlist = appendsegmentlist
+        self.segments = segmentlist
+
+        if segmentlist is None:
+            self.includeflags = includeflags
+            self.excludeflags = excludeflags
+            self.segmentserver = segmentserver
+
     @property
     def starttime(self):
         """
         The start time of the heterodyned data in GPS seconds.
         """
 
-        if hasattr(self, "_starttime"):
-            return self._starttime
-        else:
-            return None
+        return self._starttime
 
     @starttime.setter
     def starttime(self, gpsstart):
@@ -201,10 +223,7 @@ class Heterodyne(object):
         The gravitational-wave detector name prefix.
         """
 
-        if hasattr(self, "_detector"):
-            return self._detector
-        else:
-            return None
+        return self._detector
 
     @detector.setter
     def detector(self, detector):
@@ -263,10 +282,7 @@ class Heterodyne(object):
         The data channel within a gravitational-wave data frame to use.
         """
 
-        if hasattr(self, "_channel"):
-            return self._channel
-        else:
-            return None
+        return self._channel
 
     @channel.setter
     def channel(self, channel):
@@ -549,13 +565,18 @@ class Heterodyne(object):
                 raise IOError("Could not read in frame data from cache: {}".format(e))
         else:
             # download data
-            try:
-                if host == GWOSC_DEFAULT_HOST:
+            if host == GWOSC_DEFAULT_HOST:
+                try:
                     # get GWOSC data
                     data = TimeSeries.fetch_open_data(
                         kwargs.get("site", self.detector), starttime, endtime, host=host
                     )
-                else:  # pragma: no cover
+                except Exception as e:
+                    # return None if no data could be obtained
+                    print("Warning: {}".format(e.args[0]))
+                    data = None
+            else:  # pragma: no cover
+                try:
                     if self.outputframecache:
                         # output cache list
                         cache = remote_frame_cache(
@@ -582,10 +603,159 @@ class Heterodyne(object):
                             frametype=frametype,
                             pad=kwargs.get("pad", 0.0),  # fill gaps with zeros
                         )
-            except Exception as e:
-                raise IOError("Could not download frame data: {}".format(e))
+                except Exception as e:
+                    raise IOError("Could not download frame data: {}".format(e))
 
         return data
+
+    def get_segment_list(
+        self, **kwargs,
+    ):
+        """
+        Generate and return a list of time segments of data to analyse. See
+        :func:`~cwinpy.heterodyne.generate_segments` for the arguments. Unless
+        reading from a pre-generated segments file this requires access to the
+        GW segment database, which is reserved for members of the
+        LIGO-Virgo-KAGRA collaborations.
+
+        For parameters that are not provided the values set in the object's
+        attributes will be used if available.
+        """
+
+        kwargs.setdefault("starttime", self.starttime)
+        kwargs.setdefault("endtime", self.endtime)
+
+        if "segmentfile" not in kwargs:
+            kwargs.setdefault("includeflags", self.includeflags)
+            kwargs.setdefault("excludeflags", self.excludeflags)
+            kwargs.setdefault("server", self.segmentserver)
+            kwargs.setdefault("write", self.outputsegmentlist)
+            kwargs.setdefault("append", self.appendsegmentlist)
+
+        segments = generate_segments(**kwargs)
+        self._segments = segments
+
+        return segments
+
+    @property
+    def segments(self):
+        """
+        The list of data segments to analyse.
+        """
+
+        return self._segments
+
+    @segments.setter
+    def segments(self, segments):
+        if segments is None:
+            self._segments = None
+        elif isinstance(segments, list):
+            self._segments = segments
+        elif isinstance(segments, str):
+            # try reading segments
+            self.get_segment_list(segmentfile=segments)
+        else:
+            raise TypeError("segment must be a list or a string")
+
+    @property
+    def outputsegmentlist(self):
+        """
+        The path to a file into which to output a file containing a list of
+        data segments.
+        """
+
+        return self._outputsegmentlist
+
+    @outputsegmentlist.setter
+    def outputsegmentlist(self, outputsegmentlist):
+        if isinstance(outputsegmentlist, str) or outputsegmentlist is None:
+            self._outputsegmentlist = outputsegmentlist
+        else:
+            raise TypeError("outputsegmentlist must be a string")
+
+    @property
+    def appendsegmentlist(self):
+        """
+        A boolean stating whether to append a list of frame files to an
+        existing file specified by ``outputsegmentlist``.
+        """
+
+        return self._appendsegmentlist
+
+    @appendsegmentlist.setter
+    def appendsegmentlist(self, appendsegmentlist):
+        if isinstance(appendsegmentlist, (bool, int)) or appendsegmentlist is None:
+            self._appendsegmentlist = bool(appendsegmentlist)
+        else:
+            raise TypeError("appendsegmentlist must be a boolean")
+
+    @property
+    def includeflags(self):
+        """
+        The data quality segment flags to use to generate times of data to
+        analyse.
+        """
+
+        if hasattr(self, "_includeflags"):
+            return self._includeflags
+        else:
+            return None
+
+    @includeflags.setter
+    def includeflags(self, includeflags):
+        if isinstance(includeflags, str):
+            self._includeflags = includeflags.split(",")
+        elif isinstance(includeflags, list):
+            self._includeflags = [
+                flag for incfl in includeflags for flag in incfl.split(",")
+            ]
+        elif includeflags is None:
+            self._includeflags = None
+        else:
+            raise TypeError("includeflags must be a list or a string")
+
+    @property
+    def excludeflags(self):
+        """
+        The data quality segment flags to use to exclude times of data to
+        analyse.
+        """
+
+        if hasattr(self, "_excludeflags"):
+            return self._excludeflags
+        else:
+            return None
+
+    @excludeflags.setter
+    def excludeflags(self, excludeflags):
+        if isinstance(excludeflags, str):
+            self._excludeflags = excludeflags.split(",")
+        elif isinstance(excludeflags, list):
+            self._excludeflags = [
+                flag for incfl in excludeflags for flag in incfl.split(",")
+            ]
+        elif excludeflags is None:
+            self._excludeflags = None
+        else:
+            raise TypeError("excludeflags must be a list or a string")
+
+    @property
+    def segmentserver(self):
+        """
+        The server URL for a data quality segment database.
+        """
+
+        if hasattr(self, "_segmentserver"):
+            return self._segmentserver
+        else:
+            return None
+
+    @segmentserver.setter
+    def segmentserver(self, server):
+        if isinstance(server, str) or server is None:
+            self._segmentserver = server
+        else:
+            raise TypeError("segmentserver must be a string")
 
     def heterodyne(self, type="coarse"):
         if type == "coarse":
@@ -919,4 +1089,153 @@ def frame_time_duration(framefile):
     return int(frt0), frdur
 
 
-# def generate_segments():
+def generate_segments(
+    starttime=None,
+    endtime=None,
+    includeflags=None,
+    excludeflags=None,
+    segmentfile=None,
+    server=None,
+    write=None,
+    append=False,
+):
+    """
+    Generate a list of times to analysis based on data quality (DQ) segments.
+    As mentioned in the `GWPy documentation
+    <https://gwpy.github.io/docs/stable/segments/dqsegdb.html>`_ this requires
+    access to the GW segment database, which is reserved for members of the
+    LIGO-Virgo-KAGRA collaborations.
+
+    Parameters
+    ----------
+    starttime: int
+        A GPS time giving the start time of the data required. If not set the
+        earliest frame files found will be returned.
+    endtime: int
+        A GPS time giving the end time of the data required. If not set the
+        latest frame files found will be returned.
+    includeflags: str, list
+        A string, or list, containing the DQ flags of segments to include.
+        If this is a string it can be a single DQ flags, or a set of comma
+        separated flags. Or, it can list each flag separately. The intersection
+        of all included flags (logical AND) will be returned.
+    excludeflags: str, list
+        A string, or list, containing DQ flags of segments to exclude. If this
+        is a string it can be a single DQ flags, or a set of comma separated
+        flags. The intersection of times that are not excluded with those that
+        are included flags will be returned.
+    segmentfile: str
+        If a file is given, containing two columns of segment start and end
+        times, this will be read in and returned (using the start and end times
+        to restrict the results).
+    server: str
+        The URL of the segment database server to use. If not given then the
+        default server URL is used (see
+        :func:`gwpy.segments.DataQualityFlag.query`).
+    write: str
+        A string giving a file to output the segments to.
+    append: bool
+        If writing to a file set this to append to a pre-exiting file. Default
+        is False.
+
+    Returns
+    -------
+    segments: list
+        A list of tuples pairs containing the start and end GPS times of the
+        requested segments.
+    """
+
+    if not isinstance(starttime, (int, float)):
+        if starttime is None and isinstance(segmentfile, str):
+            starttime = -np.inf
+        else:
+            raise TypeError("starttime must be an integer or float")
+
+    if not isinstance(endtime, (int, float)):
+        if endtime is None and isinstance(segmentfile, str):
+            endtime = np.inf
+        else:
+            raise TypeError("endtime must be an integer or float")
+
+    if endtime <= starttime:
+        raise ValueError("starttime must be before endtime")
+
+    if isinstance(segmentfile, str):
+        try:
+            segmentsarray = np.loadtxt(segmentfile, comments=["#", "%"], dtype=float)
+            segments = []
+            for segment in segmentsarray:
+                if segment[1] < starttime or segment[0] > endtime:
+                    continue
+
+                start = segment[0] if segment[0] > starttime else starttime
+                end = segment[1] if segment[1] < endtime else endtime
+
+                if start >= end:
+                    continue
+
+                segments.append((start, end))
+        except Exception as e:
+            raise IOError("Could not load segment file '{}': {}".format(segmentfile, e))
+
+        return segments
+    else:  # pragma: no cover
+        if not isinstance(includeflags, (str, list)):
+            raise TypeError("includeflags must be a string or list")
+        else:
+            if isinstance(includeflags, str):
+                includeflags = [includeflags]
+
+            includetypes = [flag for flags in includeflags for flag in flags.split(",")]
+
+        if excludeflags is not None:
+            if not isinstance(excludeflags, (str, list)):
+                raise TypeError("excludeflags must be a string or list")
+            else:
+                if isinstance(excludeflags, str):
+                    excludeflags = [excludeflags]
+
+            excludetypes = [flag for flags in excludeflags for flag in flags.split(",")]
+
+        segs = None
+        serverkwargs = {}
+        if isinstance(server, str):
+            serverkwargs["url"] = server
+        # get included segments
+        for dqflag in includetypes:
+            # create query
+            query = DataQualityFlag.query(dqflag, starttime, endtime, **serverkwargs)
+
+            if segs is None:
+                segs = query.copy()
+            else:
+                segs = segs & query
+
+        # remove excluded segments
+        if excludeflags is not None and segs is not None:
+            for dqflag in excludetypes:
+                query = DataQualityFlag.query(
+                    dqflag, starttime, endtime, **serverkwargs
+                )
+
+                segs = segs & ~query
+
+        # convert to list of tuples and output if required
+        if isinstance(write, str):
+            format = "w" if not append else "a"
+
+            try:
+                fp = open(write, format)
+            except Exception as e:
+                raise IOError("Could not open output file '{}': {}".format(write, e))
+
+        # write out segment list
+        segments = []
+        if segs is not None:
+            for thisseg in segs.active:
+                segments.append((float(thisseg[0]), float(thisseg[1])))
+
+                if isinstance(write, str):
+                    fp.write("{} {}\n".format(float(thisseg[0]), float(thisseg[1])))
+
+        return segments
