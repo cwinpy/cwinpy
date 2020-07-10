@@ -13,6 +13,9 @@ from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from gwpy.io.cache import is_cache, read_cache
 from gwpy.segments import DataQualityFlag
 from gwpy.timeseries import TimeSeries, TimeSeriesDict
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+
+from .utils import is_par_file
 
 # Things that this class should be able to do:
 #  - find requested gravitational-wave data
@@ -89,6 +92,33 @@ class Heterodyne(object):
         ``outputsegmentlist`` if supplied.
     segmentserver: str
         If querying the segment database a URL of the database can be supplied.
+    basedir: str, dict
+        The base directory into which the heterodyned results will be output.
+        To specify explicit directory paths for individual pulsars this can be
+        a dictionary of directory paths keyed to the pulsar name (in which
+        case the ``label`` argument will be used to set the file name), or full
+        file paths, which will be used in place of the ``label`` argument.
+    label: str
+        The output format for the heterdyned data files. These can be format
+        strings containing the keywords ``psr`` for the pulsar name, ``det``
+        for the detector, ``freqfactor`` for the rotation frequency scale
+        factor used, ``gpsstart`` for the GPS start time, and ``gpsend`` for
+        the GPS end time. The extension should be given as ".hdf", ".h5", or
+        ".hdf5". E.g., the default is
+        ``"heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf"``.
+    pulsarfiles: str, dict
+        This specifies the pulsars for which to heterodyne the data. It can be
+        either i) a string giving the path to an individual pulsar
+        TEMPO(2)-style parameter file, ii) a string giving the path to a
+        directory containing multiple TEMPO(2)-style parameter files (the path
+        with be recursively searched for any file with the extension ".par"),
+        iii) a list of paths to individual pulsar parameter files, iv) a
+        dictionary containing paths to individual pulsars parameter files keyed
+        to their names.
+    pulsars: str, list
+        You can analyse only particular pulsars from those specified by
+        parameter files found through the ``pulsars`` argument by passing a
+        string, or list of strings, with particular pulsars names to use.
     """
 
     def __init__(
@@ -109,16 +139,18 @@ class Heterodyne(object):
         outputsegmentlist=None,
         appendsegmentlist=False,
         segmentserver=None,
-        heterodyne="coarse",
         heterodyneddata=None,
+        pulsarfiles=None,
         pulsars=None,
         basedir=None,
+        label=None,
         filterknee=0.25,
         resamplerate=1.0,
-        include_ssb=True,
-        include_bsb=True,
-        include_glitch=True,
-        include_fitwaves=True,
+        freqfactor=2,
+        include_ssb=False,
+        include_bsb=False,
+        include_glitch=False,
+        include_fitwaves=False,
     ):
         # set analysis times
         self.starttime = starttime
@@ -147,6 +179,15 @@ class Heterodyne(object):
             self.includeflags = includeflags
             self.excludeflags = excludeflags
             self.segmentserver = segmentserver
+
+        # set the pulsars
+        self.pulsarfiles = pulsarfiles
+        if pulsars is not None:
+            self.pulsars = pulsars
+
+        # set the output directory
+        self.label = label
+        self.outputfiles = basedir
 
     @property
     def starttime(self):
@@ -608,9 +649,7 @@ class Heterodyne(object):
 
         return data
 
-    def get_segment_list(
-        self, **kwargs,
-    ):
+    def get_segment_list(self, **kwargs):
         """
         Generate and return a list of time segments of data to analyse. See
         :func:`~cwinpy.heterodyne.generate_segments` for the arguments. Unless
@@ -757,13 +796,307 @@ class Heterodyne(object):
         else:
             raise TypeError("segmentserver must be a string")
 
-    def heterodyne(self, type="coarse"):
-        if type == "coarse":
-            self._coarse_heterodyne()
-        elif type == "fine":
-            self._fine_heterodyne()
+    @property
+    def pulsarfiles(self):
+        """
+        Parameter files containing pulsars timing ephemeris.
+        """
+
+        return list(self._pulsars.values())
+
+    @pulsarfiles.setter
+    def pulsarfiles(self, pfiles):
+        self._pulsars = {}
+        if isinstance(pfiles, (str, list, dict)):
+            pfilelist = pfiles
+            pnames = None
+            if isinstance(pfiles, str):
+                if os.path.isdir(pfiles):
+                    pfilelist = [
+                        os.path.realpath(pf)
+                        for pf in glob.glob(
+                            os.path.join(pfiles, "*.par"), recursive=True
+                        )
+                    ]
+                else:
+                    pfilelist = [pfiles]
+            elif isinstance(pfiles, dict):
+                pfilelist = list(pfiles.values())
+                pnames = list(pfiles.keys())
+
+            for i, pf in enumerate(pfilelist):
+                if is_par_file(pf):
+                    # read parameters
+                    par = PulsarParametersPy(pf)
+
+                    # get pulsar name
+                    for name in ["PSRJ", "PSRB", "PSR", "NAME"]:
+                        if par[name] is not None:
+                            self._pulsars[par[name]] = pf
+                            if pnames is None:
+                                break
+                            else:
+                                if pnames[i] == par[name]:
+                                    break
+
+                    if pnames is not None:
+                        # check for naming consistency
+                        if pnames[i] != par[name]:
+                            print(
+                                "Inconsistent naming in pulsarfile dictionary. "
+                                "Using pulsar name '{}' from parameter file".format(
+                                    par[name]
+                                )
+                            )
+                else:
+                    print(
+                        "Pulsar file '{}' could not be read. This pulsar will be ignored.".format(
+                            pf
+                        )
+                    )
+                    continue
+        elif pfiles is not None:
+            raise TypeError("pulsarfiles must be a string, list or dict")
+
+    @property
+    def pulsars(self):
+        """
+        A list of pulsar names to be analysed.
+        """
+
+        return list(self._pulsars.keys())
+
+    @pulsars.setter
+    def pulsars(self, pulsars):
+        if isinstance(pulsars, (str, list)):
+            pulsarlist = [pulsars] if isinstance(pulsars, str) else pulsars
+
+            for pulsar in self.pulsars:
+                if pulsar not in list(pulsarlist):
+                    del self._pulsars[pulsar]
+                else:
+                    pulsarlist.remove(pulsar)
+
+            if len(pulsarlist) != 0:
+                print(
+                    "Pulsars '{}' not included as no parameter files have been given for them".format(
+                        pulsarlist
+                    )
+                )
         else:
-            raise ValueError("Heterodyne type must be 'coarse' or 'fine'")
+            raise TypeError("pulsars must be a list or string")
+
+    @property
+    def label(self):
+        """
+        File name label formatter.
+        """
+
+        if self._label is None:
+            # return default formatter
+            return "heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf"
+        else:
+            return self._label
+
+    @label.setter
+    def label(self, label):
+        if isinstance(label, str) or label is None:
+            self._label = label
+        else:
+            raise TypeError("label must be a string")
+
+    @property
+    def outputfiles(self):
+        """
+        A dictionary of output file names for each pulsar.
+        """
+
+        return self._outputfiles
+
+    @outputfiles.setter
+    def outputfiles(self, outputfiles):
+        self._outputfiles = {}
+
+        if isinstance(outputfiles, str):
+            if not os.path.isdir(outputfiles):
+                try:
+                    os.makedirs(outputfiles, exist_ok=True)
+                except Exception as e:
+                    raise IOError(
+                        "Couldn't create output directory '{}': {}".format(
+                            outputfiles, e
+                        )
+                    )
+
+            for pulsar in self.pulsars:
+                self._outputfiles[pulsar] = os.path.join(outputfiles, self.label)
+        elif isinstance(outputfiles, dict):
+            self._outputfiles = outputfiles
+
+            for pulsar in outputfiles:
+                if pulsar not in self.pulsars:
+                    raise KeyError(
+                        "Trying to set output file for pulsar that does not exist"
+                    )
+
+                # check if a file (by testing for a hdf5-type or txt extension)
+                if os.path.splitext(outputfiles[pulsar])[1] in [
+                    ".h5",
+                    ".hdf",
+                    ".hdf5",
+                    ".txt",
+                ]:
+                    # try making directory
+                    if not os.path.isdir(os.path.split(outputfiles[pulsar])[0]):
+                        try:
+                            os.makedirs(
+                                os.path.split(outputfiles[pulsar])[0], exist_ok=True
+                            )
+                        except Exception as e:
+                            raise IOError(
+                                "Couldn't create output directory '{}': {}".format(
+                                    outputfiles[pulsar], e
+                                )
+                            )
+                else:
+                    # a directory has been given
+                    if not os.path.isdir(outputfiles[pulsar]):
+                        try:
+                            os.makedirs(outputfiles[pulsar], exist_ok=True)
+                        except Exception as e:
+                            raise IOError(
+                                "Couldn't create output directory '{}':{}".format(
+                                    outputfiles[pulsar], e,
+                                )
+                            )
+
+                    self._outputfiles[pulsar] = os.path.join(
+                        outputfiles[pulsar], self.label
+                    )
+
+    def heterodyne(
+        self,
+        starttime=None,
+        endtime=None,
+        stride=None,
+        pulsars=None,
+        pulsarfiles=None,
+        outputfiles=None,
+        label=None,
+        filterknee=None,
+        freqfactor=None,
+        heterodyneddata=None,
+        includessb=None,
+        includebsb=None,
+        includeglitch=None,
+        includefitwaves=None,
+        legacyfilter=None,
+    ):
+        """
+        Heterodyne the data.
+        """
+
+        # update pulsars if given
+
+        # update outputfiles if given
+
+        # heterodyne data
+
+        # set up the filters
+        # if filterknee is not None:
+        #    self._setup_filters(filterknee, 1.0 / data.dt)
+
+        # for pulsar in self.pulsars:
+        #    data = self._filter_data(pulsar, data)
+
+        # return het
+
+    def _setup_filters(self, filterknee, samplerate):
+        """
+        Set up the 9th order low-pass Butterworth filters to apply to the data
+        for each pulsars. This is performed by applying a 3rd order filter
+        three times.
+
+        Parameters
+        ----------
+        filterknee: float
+            The filter knee frequency in Hz.
+        samplerate: float
+            The data sample rate in Hz
+        """
+
+        self._filters = {}
+        wc = np.tan(np.pi * filterknee / samplerate)
+
+        for pulsar in self.pulsars:
+            # set zero pole gain values
+            zpg = lal.CreateCOMPLEX16ZPGFilter(0, 3)
+            zpg.poles.data[0] = (wc * np.sqrt(3.0) / 2.0) + 1j * (wc * 0.5)
+            zpg.poles.data[1] = 1j * wc
+            zpg.poles.data[2] = -(wc * np.sqrt(3.0) / 2.0) + 1j * (wc * 0.5)
+            zpg.gain = 1j * wc * wc * wc
+            lal.WToZCOMPLEX16ZPGFilter(zpg)
+
+            self._filters[pulsar] = []
+
+            # create IIR filters
+            for i in range(3):
+                filterRe = lal.CreateREAL8IIRFilter(zpg)
+                filterIm = lal.CreateREAL8IIRFilter(zpg)
+                self._filters[pulsar].append((filterRe, filterIm))
+
+    def _filter_data(self, pulsar, data, forwardsonly=False):
+        """
+        Apply the low pass filters to the data for a particular pulsar.
+
+        Parameters
+        ----------
+        pulsar: str
+            The name of the pulsar who's data is being filtered.
+        data: array_like
+            The array of complex heterodyned data to be filtered.
+        forwardswonly: bool
+            Set to True to only filter the data in the forwards direction. This
+            means that the filter phase lag will still be present.
+        """
+
+        if pulsar not in self._filters:
+            raise KeyError("No filter set for pulsar '{}'".format(pulsar))
+
+        filters = self._filters[pulsar]
+
+        # filter data in the forward direction
+        for i in range(len(data)):
+            for idx in range(3):
+                data[i] = lal.IIRFilterREAL8(
+                    data[i].real, filters[idx][0]
+                ) + 1j * lal.IIRFilterREAL8(data[i].imag, filters[idx][1])
+
+        if not forwardsonly:
+            history = []
+
+            # save filter history from the forward pass
+            for idx in range(3):
+                history.append(
+                    (
+                        filters[idx][0].history.data.copy(),
+                        filters[idx][1].history.data.copy(),
+                    )
+                )
+
+            # filter the data in the backwards direction
+            for i in range(len(data) - 1, -1, -1):
+                for i in range(3):
+                    data[i] = lal.IIRFilterREAL8(
+                        data[i].real, filters[idx][0]
+                    ) + 1j * lal.IIRFilterREAL8(data[i].imag, filters[idx][1])
+
+            # restore the history to that from the forward pass
+            for idx in range(3):
+                filters[idx][0].history.data = history[idx][0]
+                filters[idx][1].history.data = history[idx][1]
+
+        return data
 
 
 def remote_frame_cache(

@@ -68,6 +68,7 @@ class TestHeterodyne(object):
         )
 
         cls.fakepulsarpar = PulsarParametersPy()
+        cls.fakepulsarpar["PSRJ"] = "J0000+0000"
         cls.fakepulsarpar["H0"] = h0
         cls.fakepulsarpar["PHI0"] = phi0 / 2.0
         cls.fakepulsarpar["PSI"] = psi
@@ -76,6 +77,11 @@ class TestHeterodyne(object):
         cls.fakepulsarpar["RAJ"] = alpha
         cls.fakepulsarpar["DECJ"] = delta
         cls.fakepulsarpar["PEPOCH"] = pepoch
+
+        cls.fakepardir = "testing_fake_par_dir"
+        os.makedirs(cls.fakepardir, exist_ok=True)
+        cls.fakeparfile = os.path.join(cls.fakepardir, "J0000+0000.par")
+        cls.fakepulsarpar.pp_to_par(cls.fakeparfile)
 
         # set ephemeris files
         efile = download_file(
@@ -480,3 +486,41 @@ class TestHeterodyne(object):
         assert len(het.segments) == 1
         assert het.segments[0][0] == 1000000100
         assert het.segments[0][1] == 1000000600
+
+    def test_set_pulsars(self):
+        """
+        Test setting of pulsar parameter files.
+        """
+
+        with pytest.raises(TypeError):
+            Heterodyne(pulsarfiles=1.2)
+
+        het = Heterodyne(pulsarfiles=self.fakepardir)
+
+        assert het.pulsarfiles == [os.path.realpath(self.fakeparfile)]
+        assert het.pulsars == ["J0000+0000"]
+
+        het = Heterodyne(pulsarfiles=self.fakeparfile)
+
+        assert het.pulsarfiles == [self.fakeparfile]
+        assert het.pulsars == ["J0000+0000"]
+
+        het = Heterodyne(pulsarfiles=[self.fakeparfile])
+
+        assert het.pulsarfiles == [self.fakeparfile]
+        assert het.pulsars == ["J0000+0000"]
+
+        with pytest.raises(TypeError):
+            Heterodyne(pulsarfiles=[self.fakeparfile], pulsars=3.4)
+
+        het = Heterodyne(pulsarfiles=[self.fakeparfile], pulsars="J0328+5323")
+
+        assert len(het.pulsars) == 0
+
+        het = Heterodyne(pulsarfiles=[self.fakeparfile], pulsars=["J0000+0000"])
+
+        assert het.pulsarfiles == [self.fakeparfile]
+        assert het.pulsars == ["J0000+0000"]
+
+        with pytest.raises(TypeError):
+            het.pulsars = 453
