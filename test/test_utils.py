@@ -8,6 +8,7 @@ from astropy import units as u
 from cwinpy.utils import (
     ellipticity_to_q22,
     gcd_array,
+    initialise_ephemeris,
     int_to_alpha,
     is_par_file,
     logfactorial,
@@ -121,3 +122,36 @@ def test_q22_to_ellipticity_to_q22():
 
     assert np.isclose(epsilon, expected_epsilon[0])
     assert not hasattr(epsilon, "unit")
+
+
+def test_initialise_ephemeris():
+    """
+    Test reading of ephemeris files.
+    """
+
+    with pytest.raises(ValueError):
+        initialise_ephemeris(units="lhfld")
+
+    with pytest.raises(IOError):
+        initialise_ephemeris(
+            earthfile="jksgdksg", sunfile="lhlbca", timefile="lshdldgls"
+        )
+
+    with pytest.raises(IOError):
+        initialise_ephemeris(
+            earthfile="jksgdksg", sunfile="lhlbca", timefile="lshdldgls"
+        )
+
+    with pytest.raises(IOError):
+        initialise_ephemeris(timefile="lshdldgls")
+
+    edat, tdat = initialise_ephemeris()
+
+    assert edat.nentriesE == 175322
+    assert edat.nentriesS == 17534
+    assert edat.dtEtable == 7200.0
+    assert edat.dtStable == 72000.0
+    assert edat.etype == 2
+
+    assert tdat.nentriesT == 87660
+    assert tdat.dtTtable == 14400.0

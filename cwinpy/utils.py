@@ -9,6 +9,7 @@ import subprocess
 from functools import reduce
 from math import gcd
 
+import lalpulsar
 import numpy as np
 from astropy import units as u
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
@@ -98,18 +99,36 @@ def is_par_file(parfile):
                 psr["F"] is None
                 or (psr["RAJ"] is None and psr["RA"] is None)
                 or (psr["DECJ"] is None and psr["DEC"] is None)
-                or (
-                    psr["PSRJ"] is None
-                    and psr["PSRB"] is None
-                    and psr["PSR"] is None
-                    and psr["NAME"] is None
-                )
+                or get_psr_name(psr) is None
             ):
                 return False
 
             return True
 
     return False
+
+
+def get_psr_name(psr):
+    """
+    Get the pulsar name from the TEMPO(2)-style parameter files by trying the
+    keys "PSRJ", "PSRB", "PSR", and "NAME" in that order of precedence.
+
+    Parameters
+    ----------
+    psr: PulsarParameterPy
+        A PulsarParameterPy object
+
+    Returns
+    -------
+    name: str
+        The string containing the name or None if not found.
+    """
+
+    for name in ["PSRJ", "PSRB", "PSR", "NAME"]:
+        if psr[name] is not None:
+            return psr[name]
+
+    return None
 
 
 def int_to_alpha(pos, case="upper"):
@@ -234,3 +253,75 @@ def q22_to_ellipticity(q22):
         return ellipticity.value
     else:
         return ellipticity
+
+
+def initialise_ephemeris(
+    ephem="DE405", units="TCB", earthfile=None, sunfile=None, timefile=None
+):
+    """
+    Download/read and return solar system ephemeris and time coordinate data.
+    If files are provided these will be used and read. If not provided then,
+    using supplied ``ephem`` and ``units`` values, it will first attempt to
+    find files locally (either in your current path or in a path supplied by
+    a ``LAL_DATA_PATH`` environment variable), and if not present will then
+    attempt to download the files from a repository.
+
+    To do
+    -----
+
+    Add the ability to create ephemeris files using astropy.
+
+    Parameters
+    ----------
+    earthfile: str
+        A file containing the Earth's position/velocity ephemeris
+    sunfile: str
+        A file containing the Sun's position/velocity ephemeris
+    timefile: str
+        A file containing time corrections for the TCB or TDB time coordinates.
+    ephem: str
+        The JPL ephemeris name, e.g., DE405
+    units: str
+        The time coordinate system, which can be either "TDB" or "TCB" (TCB is
+        the default).
+    """
+
+    DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
+
+    unit = None
+    if timefile is None:
+        if units.upper() in ["TCB", "TDB"]:
+            unit = dict(TCB="te405", TDB="tdb")[units.upper()]
+        else:
+            raise ValueError("units must be TCB or TDB")
+
+    earth = "earth00-40-{}.dat.gz".format(ephem) if earthfile is None else earthfile
+    sun = "sun00-40-{}.dat.gz".format(ephem) if sunfile is None else sunfile
+    time = "{}_2000-2040.dat.gz".format(unit) if timefile is None else timefile
+
+    try:
+        edat = lalpulsar.InitBarycenter(earth, sun)
+    except RuntimeError:
+        # try downloading the ephemeris files
+        try:
+            from astropy.utils.data import download_file
+
+            efile = download_file(DOWNLOAD_URL.format(earth), cache=True)
+            sfile = download_file(DOWNLOAD_URL.format(sun), cache=True)
+            edat = lalpulsar.InitBarycenter(efile, sfile)
+        except Exception as e:
+            raise IOError("Could not read in ephemeris files: {}".format(e))
+
+    try:
+        tdat = lalpulsar.InitTimeCorrections(time)
+    except RuntimeError:
+        try:
+            # try downloading the time coordinate file
+            from astropy.utils.data import download_file
+
+            tfile = download_file(DOWNLOAD_URL.format(time), cache=True)
+            tdat = lalpulsar.InitTimeCorrections(tfile)
+        except Exception as e:
+            raise IOError("Could not read in time correction file: {}".format(e))
+
+    return edat, tdat
