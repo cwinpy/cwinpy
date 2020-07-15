@@ -48,7 +48,7 @@ class TestHeterodyne(object):
         os.makedirs(cls.fakedatadir, exist_ok=True)
 
         cls.fakedatabandwidth = 2  # Hz
-        sqrtSn = 1e-24  # noise amplitude spectral density
+        sqrtSn = 1e-29  # noise amplitude spectral density
         cls.fakedataname = "FAKEGLITCH"
 
         f0 = 1.23456 / 2.0  # source rotation frequency (Hz)
@@ -488,7 +488,7 @@ class TestHeterodyne(object):
         assert het.segments[0][0] == 1000000100
         assert het.segments[0][1] == 1000000600
 
-    def test_set_pulsars(self):
+    def test_set_pulsars(self, capsys):
         """
         Test setting of pulsar parameter files.
         """
@@ -515,8 +515,13 @@ class TestHeterodyne(object):
             Heterodyne(pulsarfiles=[self.fakeparfile], pulsars=3.4)
 
         het = Heterodyne(pulsarfiles=[self.fakeparfile], pulsars="J0328+5323")
+        captured = capsys.readouterr()
 
         assert len(het.pulsars) == 0
+        assert (
+            captured.out
+            == "Pulsars '['J0328+5323']' not included as no parameter files have been given for them\n"
+        )
 
         het = Heterodyne(pulsarfiles=[self.fakeparfile], pulsars=["J0000+0000"])
 
@@ -525,3 +530,83 @@ class TestHeterodyne(object):
 
         with pytest.raises(TypeError):
             het.pulsars = 453
+
+        pulsarfiles = {}
+        pulsarfiles["J0000+0000"] = "kgsdkgf"
+        het = Heterodyne(pulsarfiles=pulsarfiles)
+        captured = capsys.readouterr()
+        assert len(het.pulsarfiles) == 0
+        assert (
+            captured.out
+            == "Pulsar file 'kgsdkgf' could not be read. This pulsar will be ignored.\n"
+        )
+
+        pulsarfiles = {}
+        pulsarfiles["J0000+0001"] = os.path.realpath(self.fakeparfile)
+        het = Heterodyne(pulsarfiles=pulsarfiles)
+        captured = capsys.readouterr()
+        assert len(het.pulsarfiles) == 1
+        assert (
+            captured.out
+            == "Inconsistent naming in pulsarfile dictionary. Using pulsar name 'J0000+0000' from parameter file\n"
+        )
+
+        pulsarfiles = {}
+        pulsarfiles["J0000+0000"] = os.path.realpath(self.fakeparfile)
+        het = Heterodyne(pulsarfiles=pulsarfiles)
+        assert het.pulsarfiles == [os.path.realpath(self.fakeparfile)]
+        assert het.pulsars == ["J0000+0000"]
+
+    def test_crop(self):
+        """
+        Test setting of crop.
+        """
+
+        with pytest.raises(ValueError):
+            Heterodyne(crop=-1)
+
+        with pytest.raises(TypeError):
+            Heterodyne(crop=0.5)
+
+        crop = 50
+        het = Heterodyne(crop=crop)
+
+        assert het.crop == crop
+
+    def test_heterodyne(self):
+        """
+        Test heterodyning on fake data.
+        """
+
+        segments = [
+            (time, time + self.fakedataduration) for time in self.fakedatastarts
+        ]
+
+        het = Heterodyne(
+            pulsarfiles=[self.fakeparfile],
+            pulsars=["J0000+0000"],
+            segmentlist=segments,
+            framecache=self.fakedatadir,
+            channel=self.fakedatachannels[0],
+        )
+
+        with pytest.raises(TypeError):
+            het.stride = "ksgdk"
+
+        with pytest.raises(TypeError):
+            het.stride = 4.5
+
+        with pytest.raises(ValueError):
+            het.stride = -1
+
+        with pytest.raises(TypeError):
+            het.filterknee = "lshdl"
+
+        with pytest.raises(ValueError):
+            het.filterknee = 0
+
+        with pytest.raises(TypeError):
+            het.freqfactor = "ldkme"
+
+        with pytest.raises(ValueError):
+            het.freqfactor = -2.3
