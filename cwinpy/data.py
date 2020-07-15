@@ -847,6 +847,10 @@ class HeterodynedData(TimeSeriesBase):
         "inj_data",
         "input_stds",
         "outlier_mask",
+        "include_ssb",
+        "include_bsb",
+        "include_glitch",
+        "include_fitwaves",
     )
 
     def __new__(
@@ -976,12 +980,7 @@ class HeterodynedData(TimeSeriesBase):
                 warnings.warn("Your data is only one data point long!")
                 new.dt = None
 
-        # for the moment there is the assumption that time stamps are integers,
-        # so check this
-        if not new.tottime.value.is_integer() or not new.dt.value.is_integer():
-            raise ValueError("Time stamps must be integers")
-
-        # don't recomute values on data that has been read in
+        # don't recompute values on data that has been read in
         if not isinstance(data, str) or remove_outliers:
             # initialise the running median
             _ = new.compute_running_median(N=new.window)
@@ -3047,6 +3046,70 @@ class HeterodynedData(TimeSeriesBase):
         padded[tidxs] = data
 
         return padded
+
+    @property
+    def include_ssb(self):
+        """
+        A boolean stating whether the heterodyne included Solar System
+        barycentring.
+        """
+
+        try:
+            return self._include_ssb
+        except AttributeError:
+            return False
+
+    @include_ssb.setter
+    def include_ssb(self, incl):
+        self._include_ssb = bool(incl)
+
+    @property
+    def include_bsb(self):
+        """
+        A boolean stating whether the heterodyne included Binary System
+        barycentring.
+        """
+
+        try:
+            return self._include_bsb
+        except AttributeError:
+            return False
+
+    @include_bsb.setter
+    def include_bsb(self, incl):
+        self._include_bsb = bool(incl)
+
+    @property
+    def include_glitch(self):
+        """
+        A boolean stating whether the heterodyne included corrections for any
+        glitch phase evolution.
+        """
+
+        try:
+            return self._include_glitch
+        except AttributeError:
+            return False
+
+    @include_glitch.setter
+    def include_glitch(self, incl):
+        self._include_glitch = bool(incl)
+
+    @property
+    def include_fitwaves(self):
+        """
+        A boolean stating whether the heterodyne included corrections for any
+        red noise FITWAVES parameters.
+        """
+
+        try:
+            return self._include_fitwaves
+        except AttributeError:
+            return False
+
+    @include_fitwaves.setter
+    def include_fitwaves(self, incl):
+        self._include_fitwaves = bool(incl)
 
     def __len__(self):
         return len(self.data)

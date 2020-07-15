@@ -12,10 +12,11 @@ import numpy as np
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from gwpy.io.cache import is_cache, read_cache
 from gwpy.segments import DataQualityFlag
-from gwpy.timeseries import TimeSeries, TimeSeriesDict
+from gwpy.timeseries import TimeSeries, TimeSeriesDict, TimeSeriesList
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
-from .utils import is_par_file
+from .data import HeterodynedData
+from .utils import get_psr_name, initialise_ephemeris, is_par_file
 
 # Things that this class should be able to do:
 #  - find requested gravitational-wave data
@@ -119,7 +120,23 @@ class Heterodyne(object):
         You can analyse only particular pulsars from those specified by
         parameter files found through the ``pulsars`` argument by passing a
         string, or list of strings, with particular pulsars names to use.
+    filterknee: float
+        The knee frequency (Hz) of the low-pass filter applied after
+        heterodyning the data. This should only be given when heterodying raw
+        strain and not if re-heterodyning processed data. Default is 0.5 Hz.
+    resamplerate: float
+        The rate in Hz at which to resample the data (via averaging) after
+        application of the heterodyne (and filter if applied).
+    freqfactor: float
+        The factor applied to the pulsars rotational parameters when defining
+        the gravitational-wave phase evolution. For example, the default value
+        of 2, multiplies the phase evolution by 2 under the assumption of a
+        signal emitted from the l=m=2 quadrupole mode of a rigidly rotating
+        triaxial neutron star.
     """
+
+    # allowed file extension
+    extensions = [".hdf", ".h5", ".hdf5", ".txt"]
 
     def __init__(
         self,
@@ -144,13 +161,13 @@ class Heterodyne(object):
         pulsars=None,
         basedir=None,
         label=None,
-        filterknee=0.25,
+        filterknee=0.5,
         resamplerate=1.0,
         freqfactor=2,
-        include_ssb=False,
-        include_bsb=False,
-        include_glitch=False,
-        include_fitwaves=False,
+        includessb=False,
+        includebsb=False,
+        includeglitch=False,
+        includefitwaves=False,
     ):
         # set analysis times
         self.starttime = starttime
@@ -188,6 +205,18 @@ class Heterodyne(object):
         # set the output directory
         self.label = label
         self.outputfiles = basedir
+
+        # set previously heterodyned data
+        self.heterodyneddata = heterodyneddata
+
+        # set heterodyne parameters
+        self.resamplerate = resamplerate
+        self.filterknee = filterknee
+        self.freqfactor = freqfactor
+        self.includessb = includessb
+        self.includebsb = includebsb
+        self.includeglitch = includeglitch
+        self.includefitwaves = includefitwaves
 
     @property
     def starttime(self):
@@ -668,8 +697,8 @@ class Heterodyne(object):
             kwargs.setdefault("includeflags", self.includeflags)
             kwargs.setdefault("excludeflags", self.excludeflags)
             kwargs.setdefault("server", self.segmentserver)
-            kwargs.setdefault("write", self.outputsegmentlist)
-            kwargs.setdefault("append", self.appendsegmentlist)
+            kwargs.setdefault("writesegments", self.outputsegmentlist)
+            kwargs.setdefault("appendsegments", self.appendsegmentlist)
 
         segments = generate_segments(**kwargs)
         self._segments = segments
@@ -830,24 +859,15 @@ class Heterodyne(object):
                     par = PulsarParametersPy(pf)
 
                     # get pulsar name
-                    for name in ["PSRJ", "PSRB", "PSR", "NAME"]:
-                        if par[name] is not None:
-                            self._pulsars[par[name]] = pf
-                            if pnames is None:
-                                break
-                            else:
-                                if pnames[i] == par[name]:
-                                    break
+                    pname = get_psr_name(par)
+                    self._pulsars[pname] = pf
 
-                    if pnames is not None:
-                        # check for naming consistency
-                        if pnames[i] != par[name]:
-                            print(
-                                "Inconsistent naming in pulsarfile dictionary. "
-                                "Using pulsar name '{}' from parameter file".format(
-                                    par[name]
-                                )
-                            )
+                    # check for naming consistency
+                    if pnames[i] != pname:
+                        print(
+                            "Inconsistent naming in pulsarfile dictionary. "
+                            "Using pulsar name '{}' from parameter file".format(pname)
+                        )
                 else:
                     print(
                         "Pulsar file '{}' could not be read. This pulsar will be ignored.".format(
@@ -868,8 +888,12 @@ class Heterodyne(object):
 
     @pulsars.setter
     def pulsars(self, pulsars):
-        if isinstance(pulsars, (str, list)):
-            pulsarlist = [pulsars] if isinstance(pulsars, str) else pulsars
+        if isinstance(pulsars, (str, list, lalpulsar.PulsarParametersPy)):
+            pulsarlist = (
+                [pulsars]
+                if isinstance(pulsars, (str, lalpulsar.PulsarParametersPy))
+                else pulsars
+            )
 
             for pulsar in self.pulsars:
                 if pulsar not in list(pulsarlist):
@@ -940,12 +964,7 @@ class Heterodyne(object):
                     )
 
                 # check if a file (by testing for a hdf5-type or txt extension)
-                if os.path.splitext(outputfiles[pulsar])[1] in [
-                    ".h5",
-                    ".hdf",
-                    ".hdf5",
-                    ".txt",
-                ]:
+                if os.path.splitext(outputfiles[pulsar])[1] in self.extensions:
                     # try making directory
                     if not os.path.isdir(os.path.split(outputfiles[pulsar])[0]):
                         try:
@@ -966,7 +985,7 @@ class Heterodyne(object):
                         except Exception as e:
                             raise IOError(
                                 "Couldn't create output directory '{}':{}".format(
-                                    outputfiles[pulsar], e,
+                                    outputfiles[pulsar], e
                                 )
                             )
 
@@ -974,42 +993,557 @@ class Heterodyne(object):
                         outputfiles[pulsar], self.label
                     )
 
-    def heterodyne(
-        self,
-        starttime=None,
-        endtime=None,
-        stride=None,
-        pulsars=None,
-        pulsarfiles=None,
-        outputfiles=None,
-        label=None,
-        filterknee=None,
-        freqfactor=None,
-        heterodyneddata=None,
-        includessb=None,
-        includebsb=None,
-        includeglitch=None,
-        includefitwaves=None,
-        legacyfilter=None,
-    ):
+    @property
+    def resamplerate(self):
+        """
+        The rate at which to resample (by averaging) the data after heteroydne.
+        """
+
+        return self._resamplerate
+
+    @resamplerate.setter
+    def resamplerate(self, rs):
+        if isinstance(rs, (float, int)):
+            if rs > 0:
+                self._resamplerate = float(rs)
+            else:
+                raise ValueError("Resample rate must be positive")
+        else:
+            raise TypeError("resample rate must be a positive number")
+
+    @property
+    def filterknee(self):
+        """
+        The knee frequency for the low-pass filtering of the heterodyned data
+        in Hz.
+        """
+
+        return self._filterknee
+
+    @filterknee.setter
+    def filterknee(self, fk):
+        if isinstance(fk, (float, int)):
+            if fk > 0:
+                self._filterknee = float(fk)
+            else:
+                raise ValueError("Filter knee frequency rate must be positive")
+        elif fk is None:
+            self._filterknee = None
+        else:
+            raise TypeError("Filter knee must be a positive number")
+
+    @property
+    def freqfactor(self):
+        """
+        The mutiplicative factor applied to the pulsar rotational phase
+        evolution to give the corresponding gravitational-wave phase evolution.
+        """
+
+        return self._freqfactor
+
+    @freqfactor.setter
+    def freqfactor(self, ff):
+        if isinstance(ff, (float, int)):
+            if ff > 0:
+                self._freqfactor = float(ff)
+            else:
+                raise ValueError("Frequency factor must be positive")
+        else:
+            raise TypeError("freqfactor must be a positive number")
+
+    def heterodyne(self, **kwargs):
         """
         Heterodyne the data.
         """
 
+        # time information
+        self.starttime = kwargs.get("starttime", self.starttime)
+        self.endtime = kwargs.get("endtime", self.endtime)
+        self.stride = kwargs.get("stride", self.stride)
+
+        # heterodyne information
+        self.filterknee = kwargs.get("filterknee", self.filterknee)
+        self.resamplerate = kwargs.get("resamplerate", self.resamplerate)
+        self.freqfactor = kwargs.get("freqfactor", self.freqfactor)
+        self.includessb = kwargs.get("includessb", self.includessb)
+        self.includebsb = kwargs.get("includebsb", self.includebsb)
+        self.includeglitch = kwargs.get("includeglitch", self.includeglitch)
+        self.includefitwaves = kwargs.get("includefitwaves", self.includefitwaves)
+
+        # update heterodyned data
+        if kwargs.get("heterodyneddata", None) is not None:
+            self.heterodyneddata = kwargs.get("heterodyneddata")
+
         # update pulsars if given
+        if kwargs.get("pulsarfiles", None) is not None:
+            self.pulsarfiles = kwargs.get("pulsarfiles")
+        if kwargs.get("pulsars", None) is not None:
+            self.pulsars = kwargs.get("pulsars")
 
         # update outputfiles if given
+        if kwargs.get("label", None) is not None:
+            self.label = kwargs.get("label")
+        if kwargs.get("outputfiles", None) is not None:
+            self.outputfiles = kwargs.get("outputfiles")
+
+        # get segment list
+        if self.segments is None:
+            self.get_segment_list(**kwargs)
+
+        # amount of time to crop at the start of segments (default to 60 s) to
+        # remove filter response
+        crop = kwargs.get("crop", 60.0)
+
+        self._ephemerides = {}
+        self._timecorr = {}
+        ttype = {
+            "TDB": lalpulsar.TIMECORRECTION_TDB,
+            "TCB": lalpulsar.TIMECORRECTION_TCB,
+        }
 
         # heterodyne data
+        if self.heterodyneddata:
+            # re-heterodyne data
 
-        # set up the filters
-        # if filterknee is not None:
-        #    self._setup_filters(filterknee, 1.0 / data.dt)
+            # loop over pulsars
+            for pulsar in self.pulsars:
+                hetdata = TimeSeriesList()
 
-        # for pulsar in self.pulsars:
-        #    data = self._filter_data(pulsar, data)
+                for hetfile in self.heterodyneddata[pulsar]:
+                    # read in data
+                    thishet = HeterodynedData.read(hetfile)
 
-        # return het
+                    # check for consistent freqfactor
+                    if thishet.freq_factor != self.freqfactor:
+                        raise ValueError(
+                            "Inconsistent frequency factor between heterodyned data and input"
+                        )
+
+                    origparams = thishet.par
+                    psr = PulsarParametersPy(self.pulsars[pulsar])
+
+                    for ephem, unit in zip(
+                        [origparams["EPHEM"], psr["EPHEM"]],
+                        [origparams["UNITS"], psr["UNITS"]],
+                    ):
+                        if ephem not in self._ephemerides or unit not in self._timecorr:
+                            edat, tdat = initialise_ephemeris(ephem=ephem, units=unit)
+
+                            if ephem not in self._ephemerides:
+                                self._ephemerides[ephem] = edat
+
+                            if unit not in self._timecorr:
+                                self._timecorr[unit] = tdat
+
+                    # convert times to GPS time vector
+                    gpstimes = lalpulsar.CreateTimestampVector(thishet.size)
+                    for i, time in enumerate(thishet.times.value):
+                        gpstimes.data[i] = lal.LIGOTimeGPS(time)
+
+                    if thishet.include_ssb:
+                        ephem = origparams["EPHEM"]
+                        units = (
+                            origparams["UNITS"]
+                            if origparams["UNITS"] is not None
+                            else "TCB"
+                        )
+
+                        # get original barycentring time delay
+                        ssb = lalpulsar.HeterodynedPulsarGetSSBDelay(
+                            origparams.PulsarParameters(),
+                            gpstimes,
+                            self.laldetector,
+                            self._ephemerides[ephem],
+                            self._timecorr[units],
+                            ttype[units],
+                        )
+
+                        if thishet.include_bsb:
+                            bsb = lalpulsar.HeterodynedPulsarGetBSBDelay(
+                                origparams.PulsarParameters(),
+                                gpstimes,
+                                ssb,
+                                self._ephemerides[ephem],
+                            )
+                        else:
+                            bsb = lal.CreateREAL8Vector(thishet.size)
+                            for i in range(thishet.size):
+                                bsb.data[i] = 0.0
+                    else:
+                        ssb = lal.CreateREAL8Vector(thishet.size)
+                        for i in range(thishet.size):
+                            ssb.data[i] = 0.0
+
+                    # get the heterodyne glitch phase (which should be zero)
+                    if thishet.include_glitch:
+                        glphase = lalpulsar.HeterodynedPulsarGetGlitchPhase(
+                            origparams.PulsarParameters(), gpstimes, ssb, bsb,
+                        )
+                    else:
+                        glphase = lal.CreateREAL8Vector(thishet.size)
+                        for i in range(thishet.size):
+                            glphase.data[i] = 0.0
+
+                    # get fitwaves phase
+                    if thishet.include_fitwaves:
+                        fwphase = lalpulsar.HeterodynedPulsarGetFITWAVESPhase(
+                            origparams.PulsarParameters(),
+                            gpstimes,
+                            ssb,
+                            origparams["F0"],
+                        )
+                    else:
+                        fwphase = lal.CreateREAL8Vector(thishet.size)
+                        for i in range(thishet.size):
+                            fwphase.data[i] = 0.0
+
+                    ephem = psr["EPHEM"]
+                    units = psr["UNITS"] if psr["UNITS"] is not None else "TCB"
+
+                    # perform heterodyne and resample
+                    fullphase = lalpulsar.HeterodynedPulsarPhaseDifference(
+                        origparams.PulsarParameters(),
+                        psr.PulsarParameters(),
+                        gpstimes,
+                        self.freqfactor,
+                        ssb,
+                        int(
+                            self.includessb
+                        ),  # the SSB delay should be updated compared to hetSSBdelay
+                        bsb,
+                        int(
+                            self.includebsb
+                        ),  # the BSB delay should be updated compared to hetBSBdelay
+                        glphase,
+                        int(
+                            self.includeglitch
+                        ),  # the glitch phase should be updated compared to glphase
+                        fwphase,
+                        int(
+                            self.includefitwaves
+                        ),  # the FITWAVES phase should be updated compare to fwphase
+                        self.laldetector,
+                        self._ephemerides[ephem],
+                        self._timecorr[units],
+                        ttype[units],
+                    )
+
+                    hetdata.append(
+                        thishet.heterodyne(
+                            2.0 * np.pi * fullphase.data, stride=(1 / self.resamplerate)
+                        )
+                    )
+
+                # output the data
+                times = np.array([d.times.value for d in hetdata]).flatten()
+                data = hetdata.join(gap="ignore")
+                data.times = times  # preserve uneven time stamps
+
+                # convert to HeterodynedData
+                het = HeterodynedData(
+                    data=data,
+                    detector=self.detector,
+                    par=self.pulsars[pulsar],
+                    freqfactor=self.freqfactor,
+                )
+                het.include_ssb = self.includessb
+                het.include_bsb = self.includebsb
+                het.include_glitch = self.includeglitch
+                het.include_fitwaves = self.includefitwaves
+
+                labeldict = {
+                    "det": self.detector,
+                    "gpsstart": self.starttime,
+                    "gpsend": self.endtime,
+                    "freqfactor": self.freqfactor,
+                    "psr": pulsar,
+                }
+                het.write(self.outputfiles[pulsar].format(**labeldict))
+        else:
+            datadict = {}
+
+            # loop over segments
+            for segment in self.segments:
+                # loop within segment in steps of "stride"
+                curendtime = segment[0]
+                counter = 0
+                while curendtime < segment[1]:
+                    curstarttime = segment[0] + counter * self.stride
+                    curendtime = segment[0] + (counter + 1) * self.stride
+                    if curendtime >= segment[1]:
+                        curendtime = segment[1]
+
+                    # download/read data
+                    datakwargs = kwargs.copy().update(
+                        dict(starttime=curstarttime, endtime=curendtime)
+                    )
+                    data = self.get_frame_data(**datakwargs)
+
+                    if counter == 0:
+                        if crop > 0:
+                            if data.size < crop * data.sample_rate.value:
+                                # skip data as length is too short
+                                continue
+
+                    # set up the filters (this will only happen on first pass)
+                    if self.filterknee is not None:
+                        self._setup_filters(self.filterknee, data.sample_rate.value)
+
+                    # convert times to GPS time vector
+                    gpstimes = lalpulsar.CreateTimestampVector(data.size)
+                    for i, time in enumerate(data.times.value):
+                        gpstimes.data[i] = lal.LIGOTimeGPS(time)
+
+                    # loop over pulsars
+                    for pulsar in self.pulsars:
+                        if pulsar not in datadict:
+                            datadict[pulsar] = TimeSeriesList()
+
+                        # read pulsar parameter file
+                        psr = PulsarParametersPy(self.pulsars[pulsar])
+
+                        # initialise ephemerides if required
+                        edat = lalpulsar.EphemerisData()
+                        tdat = None
+                        if self.includessb:
+                            ephem = psr["EPHEM"]
+                            units = psr["UNITS"] if psr["UNITS"] is not None else "TCB"
+
+                            if ephem is None:
+                                raise ValueError(
+                                    "Pulsar '{}' has no 'EPHEM' value set".format(
+                                        pulsar
+                                    )
+                                )
+
+                            if (
+                                ephem not in self._ephemerides
+                                or units not in self._timecorr
+                            ):
+                                edat, tdat = initialise_ephemeris(
+                                    ephem=ephem, units=units
+                                )
+
+                                if ephem not in self._ephemerides:
+                                    self._ephemerides[ephem] = edat
+
+                                if units not in self._timecorr:
+                                    self._timecorr[units] = tdat
+
+                        # get phase evolution
+                        phase = lalpulsar.HeterodynedPulsarPhaseDifference(
+                            psr.PulsarParameters(),
+                            None,
+                            gpstimes,
+                            self.freqfactor,
+                            None,
+                            int(self.includessb),
+                            None,
+                            int(self.includebsb),
+                            None,
+                            int(self.includeglitch),
+                            None,
+                            int(self.includefitwaves),
+                            self.laldetector,
+                            edat,
+                            tdat,
+                            ttype[units],
+                        )
+
+                        # heterodyne data
+                        datahet = data.heterodyne(
+                            -2.0 * np.pi * phase.data.data, stride=data.dt
+                        )
+
+                        # filter data
+                        datahet = self._filter_data(pulsar, datahet)
+
+                        # crop filter response
+                        if counter == 0:
+                            if crop > 0:
+                                datahet = datahet.crop(data.t0.value + crop)
+
+                        # downsample data
+                        stridesamp = int(
+                            (1 / self.resamplerate) * datahet.sample_rate.value
+                        )
+                        nsteps = int(datahet.size // stridesamp)
+                        datadown = TimeSeries(np.zeros(nsteps, dtype=complex))
+                        datadown.__array_finalize__(datahet)
+                        datadown.t0 = datahet.t0.value + 0.5 / self.resamplerate
+                        datadown.sample_rate = self.resamplerate
+                        for step in range(nsteps):
+                            istart = int(stridesamp * step)
+                            idx = np.arange(istart, istart + stridesamp)
+                            datadown.value[step] = datahet.value[idx].mean()
+
+                        # store the data
+                        datadict[pulsar].append(datadown)
+
+                    counter += 1
+
+            # convert the data to HeterodynedData objects and output
+            for pulsar in self.pulsars:
+                # get time stamps
+                times = np.array([d.times.value for d in datadict[pulsar]]).flatten()
+                data = datadict[pulsar].join(gap="ignore")
+                data.times = times  # preserve uneven time stamps
+
+                # convert to HeterodynedData
+                het = HeterodynedData(
+                    data=data,
+                    detector=self.detector,
+                    par=self.pulsars[pulsar],
+                    freqfactor=self.freqfactor,
+                    bbminlength=data.size,
+                )
+                het.include_ssb = self.includessb
+                het.include_bsb = self.includebsb
+                het.include_glitch = self.includeglitch
+                het.include_fitwaves = self.includefitwaves
+
+                labeldict = {
+                    "det": self.detector,
+                    "gpsstart": self.starttime,
+                    "gpsend": self.endtime,
+                    "freqfactor": self.freqfactor,
+                    "psr": pulsar,
+                }
+                het.write(self.outputfiles[pulsar].format(**labeldict))
+
+    @property
+    def heterodyneddata(self):
+        """
+        A dictionary of file paths (in lists) to heterodyned data files, keyed
+        to pulsar names.
+        """
+
+        return self._heterodyneddata
+
+    @heterodyneddata.setter
+    def heterodyneddata(self, hetdata):
+        self._heterodyneddata = {}
+
+        if isinstance(hetdata, str):
+            # check for single file or directory
+            filelist, isfile = self._heterodyned_data_file_check(hetdata)
+
+            if isfile:
+                # try reading the data
+                het = HeterodynedData.read(filelist[0])
+                pname = get_psr_name(het.par)
+                self._heterodyneddata[pname] = filelist
+                if pname not in self.pulsars:
+                    # set pulsars parameters from file
+                    self._pulsars[pname] = het.par
+            else:
+                # return a reverse sorted list so, for example, J0000+0000AA comes
+                # before J0000+0000A
+                for pulsar in sorted(self.pulsars, reverse=True):
+                    # get any files for each pulsar (assuming they contain the pulsar name)
+                    pulsarfiles = [
+                        f for f in filelist if (pulsar in f) and (os.path.isfile(f))
+                    ]
+
+                    if len(pulsarfiles) > 0:
+                        self._heterodyneddata[pulsar] = pulsarfiles
+                    else:
+                        raise RuntimeError(
+                            "No files found for pulsar '{}'".format(pulsar)
+                        )
+        elif isinstance(hetdata, dict):
+            # get dictionary
+            for key in hetdata:
+                filelist, isfile = self._heterodyned_data_file_check(hetdata[key])
+
+                if not isfile:
+                    # get files for specific pulsar (assuming they contain the pulsar name)
+                    pulsarfiles = [
+                        f for f in filelist if (key in f) and (os.path.isfile(f))
+                    ]
+
+                    if len(pulsarfiles) == 0:
+                        raise RuntimeError(
+                            "No files found for pulsar '{}'".format(pulsar)
+                        )
+                else:
+                    pulsarfiles = filelist
+
+                if key not in self.pulsars:
+                    # get pulsar information from first file
+                    het = HeterodynedData.read(pulsarfiles[0])
+
+                    if key == get_psr_name(het.par):
+                        self._pulsars[key] = het.par
+                    else:
+                        raise KeyError("Inconsistent pulsar keys")
+
+                self._heterodyneddata[key] = pulsarfiles
+        elif hetdata is not None:
+            raise TypeError("Heterodyned data must be a string or dictionary")
+
+    def _heterodyned_data_file_check(self, hetdata):
+        """
+        Check if heterodyned data has been passed as a file or directory.
+        Return list of files (by recursively globbing the directory, if a
+        directory is given).
+
+        Parameters
+        ----------
+        hetdata: str
+            A string with a single file path or a directory path.
+
+        Returns
+        -------
+        hetfiles: list
+            A list of heterodyned data files
+        isfile: bool
+            A boolean stating whether the input ``hetdata`` was a file or not.
+        """
+
+        if not isinstance(hetdata, str):
+            raise TypeError(
+                "Heterodyneddata must be a string giving a file or directory path"
+            )
+
+        # check if a file by testing for a hdf5-type or txt extension
+        if os.path.splitext(hetdata)[1] in self.extensions:
+            # try reading the data
+            try:
+                het = HeterodynedData.read(hetdata)
+            except Exception as e:
+                raise IOError(e.args[0])
+
+            if het.par is None:
+                raise AttributeError(
+                    "Heterodyned data '{}' contains no pulsar parameter file".format(
+                        hetdata
+                    )
+                )
+            else:
+                return [hetdata], True
+        elif os.path.isdir(hetdata):
+            # glob for file types
+            hetfiles = [
+                f
+                for ext in self.extensions
+                for f in glob.glob(
+                    os.path.join(hetdata, "*{}".format(ext)), recursive=True
+                )
+            ]
+
+            if len(hetfiles) > 0:
+                # try reading first file
+                try:
+                    het = HeterodynedData.read(hetfiles[0])
+                except Exception as e:
+                    raise IOError(e.args[0])
+
+                return hetfiles, False
+            else:
+                raise RuntimeError("No files found in directory '{}'".format(hetdata))
+        else:
+            raise ValueError("hetdata must be a file or directory path")
 
     def _setup_filters(self, filterknee, samplerate):
         """
@@ -1025,18 +1559,20 @@ class Heterodyne(object):
             The data sample rate in Hz
         """
 
-        self._filters = {}
+        if not hasattr("_filters", self):
+            self._filters = {}
+
         wc = np.tan(np.pi * filterknee / samplerate)
 
-        for pulsar in self.pulsars:
-            # set zero pole gain values
-            zpg = lal.CreateCOMPLEX16ZPGFilter(0, 3)
-            zpg.poles.data[0] = (wc * np.sqrt(3.0) / 2.0) + 1j * (wc * 0.5)
-            zpg.poles.data[1] = 1j * wc
-            zpg.poles.data[2] = -(wc * np.sqrt(3.0) / 2.0) + 1j * (wc * 0.5)
-            zpg.gain = 1j * wc * wc * wc
-            lal.WToZCOMPLEX16ZPGFilter(zpg)
+        # set zero pole gain values
+        zpg = lal.CreateCOMPLEX16ZPGFilter(0, 3)
+        zpg.poles.data[0] = (wc * np.sqrt(3.0) / 2.0) + 1j * (wc * 0.5)
+        zpg.poles.data[1] = 1j * wc
+        zpg.poles.data[2] = -(wc * np.sqrt(3.0) / 2.0) + 1j * (wc * 0.5)
+        zpg.gain = 1j * wc * wc * wc
+        lal.WToZCOMPLEX16ZPGFilter(zpg)
 
+        for pulsar in self.pulsars:
             self._filters[pulsar] = []
 
             # create IIR filters
@@ -1097,6 +1633,73 @@ class Heterodyne(object):
                 filters[idx][1].history.data = history[idx][1]
 
         return data
+
+    @property
+    def includessb(self):
+        """
+        A boolean stating whether the heterodyne includes Solar System
+        barycentring.
+        """
+
+        try:
+            return self._includessb
+        except AttributeError:
+            return False
+
+    @includessb.setter
+    def includessb(self, incl):
+        self._includessb = bool(incl)
+
+    @property
+    def includebsb(self):
+        """
+        A boolean stating whether the heterodyne includes Binary System
+        barycentring.
+        """
+
+        try:
+            return self._includebsb
+        except AttributeError:
+            return False
+
+    @includebsb.setter
+    def includebsb(self, incl):
+        self._includebsb = bool(incl)
+
+    @property
+    def includeglitch(self):
+        """
+        A boolean stating whether the heterodyne includes corrections for any
+        glitch phase evolution.
+        """
+
+        try:
+            return self._includeglitch
+        except AttributeError:
+            return False
+
+    @includeglitch.setter
+    def includeglitch(self, incl):
+        self._includeglitch = bool(incl)
+
+    @property
+    def includefitwaves(self):
+        """
+        A boolean stating whether the heterodyne includes corrections for any
+        red noise FITWAVES parameters.
+        """
+
+        try:
+            return self._includefitwaves
+        except AttributeError:
+            return False
+
+    @includefitwaves.setter
+    def includefitwaves(self, incl):
+        self._includefitwaves = bool(incl)
+
+    def __len__(self):
+        return len(self.data)
 
 
 def remote_frame_cache(
@@ -1429,8 +2032,8 @@ def generate_segments(
     excludeflags=None,
     segmentfile=None,
     server=None,
-    write=None,
-    append=False,
+    writesegments=None,
+    appendsegments=False,
 ):
     """
     Generate a list of times to analysis based on data quality (DQ) segments.
@@ -1465,9 +2068,9 @@ def generate_segments(
         The URL of the segment database server to use. If not given then the
         default server URL is used (see
         :func:`gwpy.segments.DataQualityFlag.query`).
-    write: str
+    writesegments: str
         A string giving a file to output the segments to.
-    append: bool
+    appendsegments: bool
         If writing to a file set this to append to a pre-exiting file. Default
         is False.
 
@@ -1554,13 +2157,15 @@ def generate_segments(
                 segs = segs & ~query
 
         # convert to list of tuples and output if required
-        if isinstance(write, str):
-            format = "w" if not append else "a"
+        if isinstance(writesegments, str):
+            format = "w" if not appendsegments else "a"
 
             try:
-                fp = open(write, format)
+                fp = open(writesegments, format)
             except Exception as e:
-                raise IOError("Could not open output file '{}': {}".format(write, e))
+                raise IOError(
+                    "Could not open output file '{}': {}".format(writesegments, e)
+                )
 
         # write out segment list
         segments = []
@@ -1568,7 +2173,7 @@ def generate_segments(
             for thisseg in segs.active:
                 segments.append((float(thisseg[0]), float(thisseg[1])))
 
-                if isinstance(write, str):
+                if isinstance(writesegments, str):
                     fp.write("{} {}\n".format(float(thisseg[0]), float(thisseg[1])))
 
         return segments

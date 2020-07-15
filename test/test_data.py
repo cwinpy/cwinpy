@@ -461,17 +461,6 @@ PHI0     2.4
         with pytest.raises(TypeError):
             HeterodynedData(data, times=times, ephemsun=13)
 
-    def test_noninteger_timestamps(self):
-        """
-        Test that an error is raise for non-integer time stamps.
-        """
-
-        times = np.linspace(1000000000.0, 1000086342.0, 1440)
-        data = np.random.normal(0.0, 1e-25, size=(1440, 2))
-
-        with pytest.raises(ValueError):
-            HeterodynedData(data, times=times)
-
     def test_array_data_complex(self):
         """
         Test passing the data as arrays containing times and complex data.
