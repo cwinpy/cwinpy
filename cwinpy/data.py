@@ -942,6 +942,9 @@ class HeterodynedData(TimeSeriesBase):
                 else:
                     raise ValueError("Supplied data array is the wrong shape")
 
+            if len(hettimes) != dataarray.shape[0]:
+                raise ValueError("Supplied times is not that same length as the data")
+
             if hettimes is not None and times is not None:
                 if not np.array_equal(hettimes, times):
                     raise ValueError(

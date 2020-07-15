@@ -639,7 +639,11 @@ class Heterodyne(object):
                 try:
                     # get GWOSC data
                     data = TimeSeries.fetch_open_data(
-                        kwargs.get("site", self.detector), starttime, endtime, host=host
+                        kwargs.get("site", self.detector),
+                        starttime,
+                        endtime,
+                        host=host,
+                        cache=kwargs.get("cache", False),
                     )
                 except Exception as e:
                     # return None if no data could be obtained
@@ -863,11 +867,14 @@ class Heterodyne(object):
                     self._pulsars[pname] = pf
 
                     # check for naming consistency
-                    if pnames[i] != pname:
-                        print(
-                            "Inconsistent naming in pulsarfile dictionary. "
-                            "Using pulsar name '{}' from parameter file".format(pname)
-                        )
+                    if pnames is not None:
+                        if pnames[i] != pname:
+                            print(
+                                "Inconsistent naming in pulsarfile dictionary. "
+                                "Using pulsar name '{}' from parameter file".format(
+                                    pname
+                                )
+                            )
                 else:
                     print(
                         "Pulsar file '{}' could not be read. This pulsar will be ignored.".format(
@@ -888,11 +895,9 @@ class Heterodyne(object):
 
     @pulsars.setter
     def pulsars(self, pulsars):
-        if isinstance(pulsars, (str, list, lalpulsar.PulsarParametersPy)):
+        if isinstance(pulsars, (str, list, PulsarParametersPy)):
             pulsarlist = (
-                [pulsars]
-                if isinstance(pulsars, (str, lalpulsar.PulsarParametersPy))
-                else pulsars
+                [pulsars] if isinstance(pulsars, (str, PulsarParametersPy)) else pulsars
             )
 
             for pulsar in self.pulsars:

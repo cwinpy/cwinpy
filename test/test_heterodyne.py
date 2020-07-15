@@ -415,15 +415,16 @@ class TestHeterodyne(object):
 
     @pytest.mark.disable_socket
     def test_get_frame_data_no_internet(self):
-        # test exception if not able to access GWOSC data
+        # test None if not able to access GWOSC data
         het = Heterodyne()
-        with pytest.raises(IOError):
-            het.get_frame_data(
-                site="H1",
-                starttime=1126259460,
-                endtime=1126259464,
-                host=GWOSC_DEFAULT_HOST,
-            )
+        data = het.get_frame_data(
+            site="H1",
+            starttime=1126259460,
+            endtime=1126259464,
+            host=GWOSC_DEFAULT_HOST,
+        )
+
+        assert data is None
 
     def test_get_segments(self):
         """
