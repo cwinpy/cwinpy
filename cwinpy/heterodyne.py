@@ -4,6 +4,7 @@ Classes for heterodyning strain data.
 
 import glob
 import os
+import signal
 
 import lal
 import lalframe
@@ -124,6 +125,17 @@ class Heterodyne(object):
         The knee frequency (Hz) of the low-pass filter applied after
         heterodyning the data. This should only be given when heterodying raw
         strain and not if re-heterodyning processed data. Default is 0.5 Hz.
+    heterodyneddata: str, dict
+        A string or dictionary of strings containing the full file path, or
+        directory path, pointing the the location of pre-heterodyned data. For
+        a single pulsar a file path can be given. For multiple pulsars a
+        directory containing heterodyned files (in HDF5 or txt format) can be
+        given provided that within it the file names contain the pulsar names
+        as supplied in the file input with ``pulsarfiles``. Alternatively, a
+        dictionary can be supplied, keyed on the pulsar name, containing a
+        single file path or a directory path as above. If supplying a
+        directory, it can contain multiple heterodyned files for a each pulsar
+        and all will be used.
     resamplerate: float
         The rate in Hz at which to resample the data (via averaging) after
         application of the heterodyne (and filter if applied).
@@ -133,6 +145,31 @@ class Heterodyne(object):
         of 2, multiplies the phase evolution by 2 under the assumption of a
         signal emitted from the l=m=2 quadrupole mode of a rigidly rotating
         triaxial neutron star.
+    crop: int
+        The number of seconds to crop from the start and end of data segments
+        to remove filter impulse effects and issues prior to lock-loss.
+        Default is 60 seconds.
+    includessb: bool
+        Set this to True to include the modulation of the signal due to Solar
+        System motion and relativistic effects (e.g., Roemer, Einstein,
+        Shapiro delay). Default is False.
+    includebsb: bool
+        Set this to True to include the modulation of the signal due to binary
+        system motion and relativisitic effects. To use this ``includessb``
+        must also be True. Default is False.
+    includeglitch: bool
+        Set this to True to include in the phase evolution the effects of any
+        modelled pulsar glitches. Default is True.
+    includefitwaves: bool
+        Set this to True to include in the phase evolution of a series of
+        sinusoids designed to model low-frequency timing noise in the pulsar
+        signal. Default is True.
+    resume: bool
+        Set to True to resume heterodyning in case not all pulsars completed.
+        This checks whether output files (as set using ``basedir`` and
+        ``label`` arguments) already exist and does not repeat the analysis
+        if that is the case. If wanting to overwrite existing files make sure
+        this is False. Defaults to False.
     """
 
     # allowed file extension
@@ -164,10 +201,12 @@ class Heterodyne(object):
         filterknee=0.5,
         resamplerate=1.0,
         freqfactor=2,
+        crop=60,
         includessb=False,
         includebsb=False,
-        includeglitch=False,
-        includefitwaves=False,
+        includeglitch=True,
+        includefitwaves=True,
+        resume=False,
     ):
         # set analysis times
         self.starttime = starttime
@@ -205,6 +244,7 @@ class Heterodyne(object):
         # set the output directory
         self.label = label
         self.outputfiles = basedir
+        self.resume = resume
 
         # set previously heterodyned data
         self.heterodyneddata = heterodyneddata
@@ -213,10 +253,17 @@ class Heterodyne(object):
         self.resamplerate = resamplerate
         self.filterknee = filterknee
         self.freqfactor = freqfactor
+        self.crop = crop
         self.includessb = includessb
         self.includebsb = includebsb
         self.includeglitch = includeglitch
         self.includefitwaves = includefitwaves
+
+        # set signal in case of termination of job
+        signal.signal(signal.SIGTERM, self._write_current_pulsars_and_exit)
+        signal.signal(signal.SIGINT, self._write_current_pulsars_and_exit)
+        signal.signal(signal.SIGALRM, self._write_current_pulsars_and_exit)
+        self.exit_code = 130  # exit code expected by HTCondor from eviction
 
     @property
     def starttime(self):
@@ -916,6 +963,21 @@ class Heterodyne(object):
             raise TypeError("pulsars must be a list or string")
 
     @property
+    def resume(self):
+        """
+        Resume an analysis that has failed part way through.
+        """
+
+        return self._resume
+
+    @resume.setter
+    def resume(self, resume):
+        if isinstance(resume, (bool, int)):
+            self._resume = bool(resume)
+        else:
+            raise TypeError("resume must be a boolean")
+
+    @property
     def label(self):
         """
         File name label formatter.
@@ -1056,9 +1118,48 @@ class Heterodyne(object):
         else:
             raise TypeError("freqfactor must be a positive number")
 
+    @property
+    def crop(self):
+        """
+        The number of seconds to crop from the data at the start and end of
+        data segments.
+        """
+
+        return self._crop
+
+    @crop.setter
+    def crop(self, crop):
+        if isinstance(crop, int):
+            if crop >= 0:
+                self._crop = crop
+            else:
+                raise ValueError("crop must be a positive integer or zero")
+        else:
+            raise TypeError("crop must be an integer")
+
     def heterodyne(self, **kwargs):
         """
-        Heterodyne the data.
+        Heterodyne the data. This can be used to heterodyne raw
+        gravitational-wave strain data, or re-heterodyne data that has been
+        previously heterodyned. The heterodyning will be performed on all
+        supplied pulsars.
+
+        It performs the following main steps:
+
+        * obtain a set of data segment to analyse (if not already supplied);
+        * read in the data;
+        * perform the heterodyne;
+        * (if using raw data) low-pass filter the heterodyned data;
+        * downsample the data (via averaging)
+        * convert to a :class:`~cwinpy.data.HeterodynedData` object and write
+          out to a file.
+
+        It is recommended to use this function with no arguments and instead
+        rely on the arguments supplied when initialising the
+        :class:`~cwinpy.heterodyne.Heterodyne` object. However, any of the
+        class keywords can be used and will overwrite those from
+        initialisation. The function does not return any output as results are
+        instead written to disk.
         """
 
         # time information
@@ -1069,6 +1170,7 @@ class Heterodyne(object):
         # heterodyne information
         self.filterknee = kwargs.get("filterknee", self.filterknee)
         self.resamplerate = kwargs.get("resamplerate", self.resamplerate)
+        self.crop = kwargs.get("crop", self.crop)
         self.freqfactor = kwargs.get("freqfactor", self.freqfactor)
         self.includessb = kwargs.get("includessb", self.includessb)
         self.includebsb = kwargs.get("includebsb", self.includebsb)
@@ -1095,10 +1197,6 @@ class Heterodyne(object):
         if self.segments is None:
             self.get_segment_list(**kwargs)
 
-        # amount of time to crop at the start of segments (default to 60 s) to
-        # remove filter response
-        crop = kwargs.get("crop", 60.0)
-
         self._ephemerides = {}
         self._timecorr = {}
         ttype = {
@@ -1106,12 +1204,27 @@ class Heterodyne(object):
             "TCB": lalpulsar.TIMECORRECTION_TCB,
         }
 
+        pulsarlist = self.pulsars
+        self.resume = kwargs.get("resume", self.resume)
+        if self.resume:
+            # don't re-run on pulsars with heterodyned files that already exist
+            for pulsar in list(pulsarlist):
+                labeldict = {
+                    "det": self.detector,
+                    "gpsstart": self.starttime,
+                    "gpsend": self.endtime,
+                    "freqfactor": self.freqfactor,
+                    "psr": pulsar,
+                }
+                if os.path.isfile(self.outputfiles[pulsar].format(**labeldict)):
+                    pulsarlist.remove(pulsar)
+
         # heterodyne data
         if self.heterodyneddata:
             # re-heterodyne data
 
             # loop over pulsars
-            for pulsar in self.pulsars:
+            for pulsar in pulsarlist:
                 hetdata = TimeSeriesList()
 
                 for hetfile in self.heterodyneddata[pulsar]:
@@ -1263,9 +1376,9 @@ class Heterodyne(object):
                     "freqfactor": self.freqfactor,
                     "psr": pulsar,
                 }
-                het.write(self.outputfiles[pulsar].format(**labeldict))
+                het.write(self.outputfiles[pulsar].format(**labeldict), overwrite=True)
         else:
-            datadict = {}
+            self._datadict = {}
 
             # loop over segments
             for segment in self.segments:
@@ -1285,8 +1398,8 @@ class Heterodyne(object):
                     data = self.get_frame_data(**datakwargs)
 
                     if counter == 0:
-                        if crop > 0:
-                            if data.size < crop * data.sample_rate.value:
+                        if self.crop > 0:
+                            if data.size < 2 * self.crop * data.sample_rate.value:
                                 # skip data as length is too short
                                 continue
 
@@ -1300,9 +1413,9 @@ class Heterodyne(object):
                         gpstimes.data[i] = lal.LIGOTimeGPS(time)
 
                     # loop over pulsars
-                    for pulsar in self.pulsars:
-                        if pulsar not in datadict:
-                            datadict[pulsar] = TimeSeriesList()
+                    for pulsar in pulsarlist:
+                        if pulsar not in self._datadict:
+                            self._datadict[pulsar] = TimeSeriesList()
 
                         # read pulsar parameter file
                         psr = PulsarParametersPy(self.pulsars[pulsar])
@@ -1363,10 +1476,18 @@ class Heterodyne(object):
                         # filter data
                         datahet = self._filter_data(pulsar, datahet)
 
-                        # crop filter response
                         if counter == 0:
-                            if crop > 0:
-                                datahet = datahet.crop(data.t0.value + crop)
+                            # crop filter response
+                            if self.crop > 0:
+                                datahet = datahet.crop(
+                                    data.t0.value + self.crop, copy=True
+                                )
+                        elif curendtime == segment[1]:
+                            # crop potentially bad data prior to lock-loss
+                            if self.crop > 0:
+                                datahet = datahet.crop(
+                                    end=data.times[-1].value - self.crop, copy=True
+                                )
 
                         # downsample data
                         stridesamp = int(
@@ -1383,38 +1504,51 @@ class Heterodyne(object):
                             datadown.value[step] = datahet.value[idx].mean()
 
                         # store the data
-                        datadict[pulsar].append(datadown)
+                        self._datadict[pulsar].append(datadown)
 
                     counter += 1
 
-            # convert the data to HeterodynedData objects and output
-            for pulsar in self.pulsars:
-                # get time stamps
-                times = np.array([d.times.value for d in datadict[pulsar]]).flatten()
-                data = datadict[pulsar].join(gap="ignore")
-                data.times = times  # preserve uneven time stamps
+            # output data
+            self._write_current_pulsars()
 
-                # convert to HeterodynedData
-                het = HeterodynedData(
-                    data=data,
-                    detector=self.detector,
-                    par=self.pulsars[pulsar],
-                    freqfactor=self.freqfactor,
-                    bbminlength=data.size,
-                )
-                het.include_ssb = self.includessb
-                het.include_bsb = self.includebsb
-                het.include_glitch = self.includeglitch
-                het.include_fitwaves = self.includefitwaves
+    def _write_current_pulsars(self):
+        # output heterodyned data
+        for pulsar in self._datadict:
+            # get time stamps
+            times = np.array([d.times.value for d in self._datadict[pulsar]]).flatten()
+            data = self._datadict[pulsar].join(gap="ignore")
+            data.times = times  # preserve uneven time stamps
 
-                labeldict = {
-                    "det": self.detector,
-                    "gpsstart": self.starttime,
-                    "gpsend": self.endtime,
-                    "freqfactor": self.freqfactor,
-                    "psr": pulsar,
-                }
-                het.write(self.outputfiles[pulsar].format(**labeldict))
+            # convert to HeterodynedData
+            het = HeterodynedData(
+                data=data,
+                detector=self.detector,
+                par=self.pulsars[pulsar],
+                freqfactor=self.freqfactor,
+                bbminlength=data.size,
+            )
+            het.include_ssb = self.includessb
+            het.include_bsb = self.includebsb
+            het.include_glitch = self.includeglitch
+            het.include_fitwaves = self.includefitwaves
+
+            labeldict = {
+                "det": self.detector,
+                "gpsstart": self.starttime,
+                "gpsend": self.endtime,
+                "freqfactor": self.freqfactor,
+                "psr": pulsar,
+            }
+            het.write(self.outputfiles[pulsar].format(**labeldict), overwrite=True)
+
+    def _write_current_pulsars_and_exit(self, signum=None, frame=None):
+        """
+        Output current heterodyned data and exit in case of unexpected
+        termination.
+        """
+
+        self._write_current_pulsars()
+        os._exit(self.exit_code)
 
     @property
     def heterodyneddata(self):
@@ -1702,9 +1836,6 @@ class Heterodyne(object):
     @includefitwaves.setter
     def includefitwaves(self, incl):
         self._includefitwaves = bool(incl)
-
-    def __len__(self):
-        return len(self.data)
 
 
 def remote_frame_cache(
