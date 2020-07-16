@@ -49,7 +49,7 @@ class TestHeterodyne(object):
 
         cls.fakedatabandwidth = 2  # Hz
         sqrtSn = 1e-29  # noise amplitude spectral density
-        cls.fakedataname = "FAKEGLITCH"
+        cls.fakedataname = "FAKEDATA"
 
         f0 = 1.23456 / 2.0  # source rotation frequency (Hz)
         f1 = 9.87654e-11 / 2.0  # source rotational frequency derivative (Hz/s)
@@ -610,3 +610,19 @@ class TestHeterodyne(object):
 
         with pytest.raises(ValueError):
             het.freqfactor = -2.3
+
+        with pytest.raises(ValueError):
+            # test that not setting an output gives a error
+            het.heterodyne()
+
+        # test setting an output directory
+        outdir = os.path.join(self.fakedatadir, "heterodyne_output")
+        het.outputfiles = outdir
+
+        assert len(het.outputfiles) == 1
+        assert list(het.outputfiles.keys()) == ["J0000+0000"]
+        assert list(het.outputfiles.values()) == [os.path.join(outdir, het.label)]
+
+        with pytest.raises(ValueError):
+            # attempt to include glitch evolution without setting includessb to True
+            het.heterodyne(includeglitch=True)
