@@ -12,7 +12,7 @@ from astropy.io import registry as io_registry
 from gwpy.detector import Channel
 from gwpy.io.mp import read_multi
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
-from gwpy.timeseries import TimeSeriesBase
+from gwpy.timeseries import TimeSeries, TimeSeriesBase, TimeSeriesBaseList
 from gwpy.types import Series
 from numba import jit
 
@@ -759,7 +759,8 @@ class HeterodynedData(TimeSeriesBase):
         the data was generated.
     window: int, 30
         The length of a window used for calculating a running median over the
-        data.
+        data. If set to zero the running median will just be initialised with
+        zero values.
     inject: bool, False
         Set to ``True`` to add a simulated signal to the data based on the
         parameters supplied in `injpar`, or `par` if `injpar` is not given.
@@ -831,6 +832,7 @@ class HeterodynedData(TimeSeriesBase):
     }
 
     _metadata_slots = Series._metadata_slots + (
+        "dt",
         "comments",
         "par",
         "injpar",
@@ -1071,7 +1073,7 @@ class HeterodynedData(TimeSeriesBase):
     @window.setter
     def window(self, window):
         if isinstance(window, int):
-            if window < 2:
+            if window < 2 and window != 0:
                 raise ValueError("Window length must be greater than 2")
             else:
                 self._window = window
@@ -1233,7 +1235,9 @@ class HeterodynedData(TimeSeriesBase):
         Parameters
         ----------
         N: int, 30
-            The window length of the running median. Defaults to 30 points.
+            The window length of the running median. Defaults to 30 points. If
+            set to 0 the running median will be initialised as an array of
+            zeros.
 
         Returns
         -------
@@ -1242,26 +1246,27 @@ class HeterodynedData(TimeSeriesBase):
             running median subtracted.
         """
 
-        if N < 2:
+        if N < 2 and N != 0:
             raise ValueError("The running median window must be greater than 1")
 
         self._running_median = TimeSeriesBase(
             np.zeros(len(self), dtype=np.complex), times=self.times
         )
-        for i in range(len(self)):
-            if i < N // 2:
-                startidx = 0
-                endidx = i + (N // 2) + 1
-            elif i > len(self) - N:
-                startidx = i - (N // 2) + 1
-                endidx = len(self)
-            else:
-                startidx = i - (N // 2) + 1
-                endidx = i + (N // 2) + 1
+        if N > 0:
+            for i in range(len(self)):
+                if i < N // 2:
+                    startidx = 0
+                    endidx = i + (N // 2) + 1
+                elif i > len(self) - N:
+                    startidx = i - (N // 2) + 1
+                    endidx = len(self)
+                else:
+                    startidx = i - (N // 2) + 1
+                    endidx = i + (N // 2) + 1
 
-            self._running_median[i] = np.median(
-                self.data.real[startidx:endidx]
-            ) + 1j * np.median(self.data.imag[startidx:endidx])
+                self._running_median[i] = np.median(
+                    self.data.real[startidx:endidx]
+                ) + 1j * np.median(self.data.imag[startidx:endidx])
 
         return self.running_median
 
@@ -3114,8 +3119,21 @@ class HeterodynedData(TimeSeriesBase):
     def include_fitwaves(self, incl):
         self._include_fitwaves = bool(incl)
 
+    def as_timeseries(self):
+        """
+        Return the data as a :class:`gwpy.timeseries.TimeSeries`.
+        """
+
+        return TimeSeries(self.data, times=self.times, channel=self.channel)
+
     def __len__(self):
         return len(self.data)
+
+
+class HeterodynedDataList(TimeSeriesBaseList):  # pylint: disable=missing-docstring
+    __doc__ = TimeSeriesBaseList.__doc__.replace("TimeSeriesBase", "HeterodynedData")
+
+    EntryClass = HeterodynedData
 
 
 class PSDwrapper(object):
