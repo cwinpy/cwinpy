@@ -7,9 +7,10 @@ import shutil
 import subprocess as sp
 
 import lal
+import numpy as np
 import pytest
 from astropy.utils.data import download_file
-from cwinpy import Heterodyne
+from cwinpy import Heterodyne, HeterodynedData
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from lalpulsar.simulateHeterodynedCW import DOWNLOAD_URL
@@ -498,17 +499,17 @@ class TestHeterodyne(object):
 
         het = Heterodyne(pulsarfiles=self.fakepardir)
 
-        assert het.pulsarfiles == [os.path.realpath(self.fakeparfile)]
+        assert het.pulsarfiles == {"J0000+0000": os.path.realpath(self.fakeparfile)}
         assert het.pulsars == ["J0000+0000"]
 
         het = Heterodyne(pulsarfiles=self.fakeparfile)
 
-        assert het.pulsarfiles == [self.fakeparfile]
+        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile}
         assert het.pulsars == ["J0000+0000"]
 
         het = Heterodyne(pulsarfiles=[self.fakeparfile])
 
-        assert het.pulsarfiles == [self.fakeparfile]
+        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile}
         assert het.pulsars == ["J0000+0000"]
 
         with pytest.raises(TypeError):
@@ -525,7 +526,7 @@ class TestHeterodyne(object):
 
         het = Heterodyne(pulsarfiles=[self.fakeparfile], pulsars=["J0000+0000"])
 
-        assert het.pulsarfiles == [self.fakeparfile]
+        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile}
         assert het.pulsars == ["J0000+0000"]
 
         with pytest.raises(TypeError):
@@ -554,7 +555,7 @@ class TestHeterodyne(object):
         pulsarfiles = {}
         pulsarfiles["J0000+0000"] = os.path.realpath(self.fakeparfile)
         het = Heterodyne(pulsarfiles=pulsarfiles)
-        assert het.pulsarfiles == [os.path.realpath(self.fakeparfile)]
+        assert het.pulsarfiles == {"J0000+0000": os.path.realpath(self.fakeparfile)}
         assert het.pulsars == ["J0000+0000"]
 
     def test_crop(self):
@@ -626,3 +627,42 @@ class TestHeterodyne(object):
         with pytest.raises(ValueError):
             # attempt to include glitch evolution without setting includessb to True
             het.heterodyne(includeglitch=True)
+
+        # perform first stage heterodyne
+        het = Heterodyne(
+            starttime=segments[0][0],
+            endtime=segments[-1][-1],
+            pulsarfiles=[self.fakeparfile],
+            pulsars=["J0000+0000"],
+            segmentlist=segments,
+            framecache=self.fakedatadir,
+            channel=self.fakedatachannels[0],
+            freqfactor=2,
+            stride=86400 // 2,
+            output=outdir,
+            resamplerate=1,
+        )
+
+        het.heterodyne()
+
+        # check output
+        assert os.path.isfile(het.outputfiles["J0000+0000"])
+
+        hetdata = HeterodynedData.read(het.outputfiles["J0000+0000"])
+
+        # expected length (after cropping)
+        length = (
+            het.resamplerate * np.diff(segments).sum() - 2 * len(segments) * het.crop
+        )
+
+        # expected start time (after cropping)
+        t0 = segments[0][0] + het.crop + 0.5 / het.resamplerate
+
+        # expected end time (after croppping)
+        tend = segments[-1][-1] - het.crop - 0.5 / het.resamplerate
+
+        assert len(hetdata) == length
+        assert het.resamplerate == hetdata.dt.value
+        assert t0 == hetdata.times.value[0]
+        assert tend == hetdata.times.value[-1]
+        assert het.detector == hetdata.detector

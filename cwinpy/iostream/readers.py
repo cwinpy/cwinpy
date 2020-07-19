@@ -105,6 +105,8 @@ def read_hdf5_series(
     else:
         kwargs["times"] = np.arange(kwargs["x0"], kwargs["x0"] + len(data) * dt, dt)
 
+    filter_history = kwargs.pop("filter_history", None)
+
     # extract data variances if contained in the file
     vars = kwargs.pop("vars", None)
     if vars is None:
@@ -121,6 +123,10 @@ def read_hdf5_series(
         )
         array.injection = True
         array.injpar = parfiles["injpar"]
+
+    # add filter history
+    if filter_history is not None:
+        array.filter_history = filter_history
 
     for par in ["par", "injpar"]:
         if par in parfiles:
@@ -199,7 +205,7 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
             # hold pulsar parameter data as a string
             attrs[par] = str(series.par)
 
-    # save times as starts and ends time of contiguous chunks (cannot save
+    # save times as start and end times of contiguous chunks (cannot save
     # full set of times for long datasets due to HDF5 header size
     # restrictions)
     dt = series.dt.value

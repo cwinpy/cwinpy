@@ -845,6 +845,7 @@ class HeterodynedData(TimeSeriesBase):
         "outlier_thresh",
         "injtimes",
         "freq_factor",
+        "filter_history",
         "running_median",
         "inj_data",
         "input_stds",
@@ -3125,6 +3126,22 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         return TimeSeries(self.data, times=self.times, channel=self.channel)
+
+    @property
+    def filter_history(self):
+        """
+        An array with the "history" of any filters used during the
+        heterodyning.
+        """
+
+        try:
+            return self._filter_history
+        except AttributeError:
+            return None
+
+    @filter_history.setter
+    def filter_history(self, history):
+        self._filter_history = history
 
     def __len__(self):
         return len(self.data)

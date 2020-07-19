@@ -908,10 +908,11 @@ class Heterodyne(object):
     @property
     def pulsarfiles(self):
         """
-        Parameter files containing pulsars timing ephemeris.
+        A dictionary of parameter files containing pulsars timing ephemeris
+        keyed to the pulsar name.
         """
 
-        return list(self._pulsars.values())
+        return self._pulsars
 
     @pulsarfiles.setter
     def pulsarfiles(self, pfiles):
@@ -1413,6 +1414,7 @@ class Heterodyne(object):
                 # check for existence of previous files and find where they got
                 # up to, so we can resume at that point
                 minend = np.inf
+                self._filter_history = {}
                 for pulsar in list(pulsarlist):
                     labeldict = {
                         "det": self.detector,
@@ -1422,21 +1424,22 @@ class Heterodyne(object):
                         "psr": pulsar,
                     }
                     pfile = self.outputfiles[pulsar].format(**labeldict)
-                    print(pfile)
                     if os.path.isfile(pfile):
-                        data = HeterodynedData.read(pfile).as_timeseries()
-                        endtime = data.times.value[-1]
+                        prevdata = HeterodynedData.read(pfile)
+                        endtime = prevdata.times.value[-1]
 
                         if endtime >= self.endtime - self.resamplerate / 2 - self.crop:
                             # pulsar already completed, so can be skipped
                             pulsarlist.remove(pulsar)
                         else:
                             self._datadict[pulsar] = TimeSeriesList()
-                            self._datadict[pulsar].append(data)
+                            self._datadict[pulsar].append(prevdata.as_timeseries())
 
                             # get the time at which to resume
                             if endtime < minend:
-                                minend = endtime + self.resamplerate / 2 + self.crop
+                                minend = endtime + self.resamplerate / 2
+
+                            self._filter_history[pulsar] = prevdata.filter_history
                     else:
                         minend = self.starttime
 
@@ -1445,7 +1448,17 @@ class Heterodyne(object):
                     print("Heterodyne for all pulsars is complete")
                     return
 
-                # reset starttime
+                # crop any in case some pulsars run past minend
+                for pulsar in list(pulsarlist):
+                    if pulsar in self._datadict:
+                        cropped = self._datadict[pulsar][0].crop(
+                            end=minend + self.resamplerate / 2, copy=True,
+                        )
+                        self._datadict[pulsar][0] = cropped
+
+                # reset starttime (and store original)
+                self._origstart = self.starttime
+                self._origstarts = [seg[0] for seg in self.segments]
                 self.starttime = minend
 
             # loop over segments
@@ -1483,11 +1496,6 @@ class Heterodyne(object):
                     for pulsar in pulsarlist:
                         if pulsar not in self._datadict:
                             self._datadict[pulsar] = TimeSeriesList()
-                        elif self.resume and counter == 0:
-                            # crop any overlapping data from resumption
-                            self._datadict[pulsar][0] = self._datadict[pulsar][0].crop(
-                                end=minend, copy=True
-                            )
 
                         # read pulsar parameter file
                         psr = PulsarParametersPy(self._pulsars[pulsar])
@@ -1549,22 +1557,6 @@ class Heterodyne(object):
                         # filter data
                         self._filter_data(pulsar, datahet)
 
-                        if counter == 0:
-                            # crop filter response
-                            if self.crop > 0:
-                                datahet = datahet.crop(
-                                    start=data.t0.value + self.crop, copy=True
-                                )
-                        elif curendtime == segment[1]:
-                            # crop potentially bad data prior to lock-loss
-                            if self.crop > 0:
-                                datahet = datahet.crop(
-                                    end=data.times.value[-1]
-                                    - self.crop
-                                    + data.dt.value,
-                                    copy=True,
-                                )
-
                         # downsample data
                         stridesamp = int(
                             (1 / self.resamplerate) * datahet.sample_rate.value
@@ -1572,13 +1564,38 @@ class Heterodyne(object):
                         nsteps = int(datahet.size // stridesamp)
                         datadown = TimeSeries(np.zeros(nsteps, dtype=complex))
                         datadown.__array_finalize__(datahet)
-                        # centre the time stamps to the average window
-                        datadown.t0 = datahet.t0.value + 0.5 / self.resamplerate
+
                         datadown.sample_rate = self.resamplerate
                         for step in range(nsteps):
                             istart = int(stridesamp * step)
                             idx = np.arange(istart, istart + stridesamp)
                             datadown.value[step] = datahet.value[idx].mean()
+
+                        # crop the data
+                        if counter == 0:
+                            docrop = True
+                            if hasattr(self, "_origstarts"):
+                                # don't crop if resuming within a segment
+                                if data.t0.value not in self._origstarts:
+                                    docrop = False
+                            # crop filter response
+                            if self.crop > 0 and docrop:
+                                datadown = datadown.crop(
+                                    start=data.t0.value + self.crop, copy=True
+                                )
+
+                        if curendtime == segment[1]:
+                            # crop potentially bad data prior to lock-loss
+                            if self.crop > 0:
+                                datadown = datadown.crop(
+                                    end=data.times.value[-1]
+                                    - self.crop
+                                    + data.dt.value,
+                                    copy=True,
+                                )
+
+                        # centre the time stamps to the average window
+                        datadown.t0 = datadown.t0.value + 0.5 / self.resamplerate
 
                         # store the data
                         self._datadict[pulsar].append(datadown)
@@ -1592,9 +1609,12 @@ class Heterodyne(object):
         # output heterodyned data
         for pulsar in self._datadict:
             # get time stamps
-            times = np.array(
-                [v for d in self._datadict[pulsar] for v in d.times.value], dtype=float
-            )
+            times = []
+            for d in self._datadict[pulsar]:
+                for t in d.times.value:
+                    times.append(t)
+                del d.xindex  # delete times (otherwise join has issues!)
+
             data = self._datadict[pulsar].join(gap="ignore")
 
             # convert to HeterodynedData
@@ -1612,9 +1632,23 @@ class Heterodyne(object):
             het.include_glitch = self.includeglitch
             het.include_fitwaves = self.includefitwaves
 
+            # save filter history from the forward pass
+            filter = self._filters[pulsar]
+            history = []
+            for idx in range(len(filter)):
+                history.append(
+                    (
+                        filter[idx][0].history.data.copy(),
+                        filter[idx][1].history.data.copy(),
+                    )
+                )
+            het.filter_history = history
+
             labeldict = {
                 "det": self.detector,
-                "gpsstart": int(self.starttime),
+                "gpsstart": int(self.starttime)
+                if not hasattr(self, "_origstart")
+                else int(self._origstart),
                 "gpsend": int(self.endtime),
                 "freqfactor": int(self.freqfactor),
                 "psr": pulsar,
@@ -1798,6 +1832,13 @@ class Heterodyne(object):
             for i in range(3):
                 filterRe = lal.CreateREAL8IIRFilter(zpg)
                 filterIm = lal.CreateREAL8IIRFilter(zpg)
+
+                if hasattr(self, "_filter_history"):
+                    if pulsar in self._filter_history:
+                        # set previous history
+                        filterRe.history.data = self._filter_history[pulsar][i][0]
+                        filterIm.history.data = self._filter_history[pulsar][i][1]
+
                 self._filters[pulsar].append((filterRe, filterIm))
 
     def _filter_data(self, pulsar, data, forwardsonly=False):
