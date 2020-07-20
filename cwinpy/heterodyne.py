@@ -19,14 +19,6 @@ from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from .data import HeterodynedData, HeterodynedDataList
 from .utils import get_psr_name, initialise_ephemeris, is_par_file
 
-# Things that this class should be able to do:
-#  - find requested gravitational-wave data
-#  - find requested segment lists
-#  - coarse heterodyne a chunk of data for multiple pulsars
-#  - fine heterodyne data (potentially reading in, sorting, and combining multiple coarse data chunks)
-# Things that a pipeline should be able to do
-#  - find missing data, i.e., if an analysis chunk has failed notice this
-
 
 class Heterodyne(object):
     """
@@ -1410,6 +1402,9 @@ class Heterodyne(object):
                         "includessb must be True if trying to include binary evolution, glitches or FITWAVES parameters"
                     )
 
+            if self.crop > self.stride:
+                raise ValueError("Stride length must be longer than cropping size")
+
             if self.resume:
                 # check for existence of previous files and find where they got
                 # up to, so we can resume at that point
@@ -1462,26 +1457,39 @@ class Heterodyne(object):
                 self.starttime = minend
 
             # loop over segments
+            samplerates = []
             for segment in self.segments:
+                # skip any segments that are too short
+                if not hasattr(self, "_origstarts"):
+                    if segment[1] - segment[0] < 2 * self.crop:
+                        continue
+                else:
+                    if segment[0] not in self._origstarts:
+                        # we are part way through a segment (having resumed),
+                        # so would only be cropping the end of the data
+                        if segment[1] - segment[0] < self.crop:
+                            continue
+
                 # loop within segment in steps of "stride"
                 curendtime = segment[0]
                 counter = 0
-                while curendtime < segment[1]:
+                while curendtime < (segment[1] - self.crop):
                     curstarttime = segment[0] + counter * self.stride
                     curendtime = segment[0] + (counter + 1) * self.stride
-                    if curendtime >= segment[1]:
-                        curendtime = segment[1]
+
+                    if curendtime >= (segment[1] - self.crop):
+                        # last part of segment
+                        curendtime = segment[1] - self.crop
 
                     # download/read data
                     datakwargs = kwargs.copy()
                     datakwargs.update(dict(starttime=curstarttime, endtime=curendtime))
                     data = self.get_frame_data(**datakwargs)
 
-                    if counter == 0:
-                        if self.crop > 0:
-                            if data.size < 2 * self.crop * data.sample_rate.value:
-                                # skip data as length is too short
-                                continue
+                    # check for consistent sample rate
+                    samplerates.append(data.sample_rate.value)
+                    if samplerates[0] != samplerates[-1]:
+                        raise ValueError("Inconsistent sample rates in data!")
 
                     # set up the filters (this will only happen on first pass)
                     if self.filterknee is not None:
@@ -1571,33 +1579,23 @@ class Heterodyne(object):
                             idx = np.arange(istart, istart + stridesamp)
                             datadown.value[step] = datahet.value[idx].mean()
 
-                        # crop the data
+                        # crop filter response from data
                         if counter == 0:
                             docrop = True
                             if hasattr(self, "_origstarts"):
                                 # don't crop if resuming within a segment
                                 if data.t0.value not in self._origstarts:
                                     docrop = False
-                            # crop filter response
+
                             if self.crop > 0 and docrop:
                                 datadown = datadown.crop(
                                     start=data.t0.value + self.crop, copy=True
                                 )
 
-                        if curendtime == segment[1]:
-                            # crop potentially bad data prior to lock-loss
-                            if self.crop > 0:
-                                datadown = datadown.crop(
-                                    end=data.times.value[-1]
-                                    - self.crop
-                                    + data.dt.value,
-                                    copy=True,
-                                )
-
                         # centre the time stamps to the average window
                         datadown.t0 = datadown.t0.value + 0.5 / self.resamplerate
 
-                        # store the data
+                        # store the heterodyned and downsampled data
                         self._datadict[pulsar].append(datadown)
 
                     counter += 1
@@ -1633,13 +1631,12 @@ class Heterodyne(object):
             het.include_fitwaves = self.includefitwaves
 
             # save filter history from the forward pass
-            filter = self._filters[pulsar]
             history = []
-            for idx in range(len(filter)):
+            for idx in range(len(self._filters[pulsar])):
                 history.append(
                     (
-                        filter[idx][0].history.data.copy(),
-                        filter[idx][1].history.data.copy(),
+                        self._filters[pulsar][idx][0].history.data,
+                        self._filters[pulsar][idx][1].history.data,
                     )
                 )
             het.filter_history = history
@@ -1661,7 +1658,11 @@ class Heterodyne(object):
         termination.
         """
 
-        self._write_current_pulsars()
+        # use try statement in case exit happens during function call
+        try:
+            self._write_current_pulsars()
+        except Exception:
+            pass
         os._exit(self.exit_code)
 
     @property
@@ -1814,6 +1815,8 @@ class Heterodyne(object):
 
         if not hasattr(self, "_filters"):
             self._filters = {}
+        else:
+            return
 
         wc = np.tan(np.pi * filterknee / samplerate)
 
@@ -1859,14 +1862,14 @@ class Heterodyne(object):
         if pulsar not in self._filters:
             raise KeyError("No filter set for pulsar '{}'".format(pulsar))
 
-        filters = self._filters[pulsar]
-
         # filter data in the forward direction
         for i in range(len(data)):
             for idx in range(3):
                 data.value[i] = lal.IIRFilterREAL8(
-                    data.value[i].real, filters[idx][0]
-                ) + 1j * lal.IIRFilterREAL8(data.value[i].imag, filters[idx][1])
+                    data.value[i].real, self._filters[pulsar][idx][0]
+                ) + 1j * lal.IIRFilterREAL8(
+                    data.value[i].imag, self._filters[pulsar][idx][1]
+                )
 
         if not forwardsonly:
             history = []
@@ -1875,22 +1878,24 @@ class Heterodyne(object):
             for idx in range(3):
                 history.append(
                     (
-                        filters[idx][0].history.data.copy(),
-                        filters[idx][1].history.data.copy(),
+                        self._filters[pulsar][idx][0].history.data.copy(),
+                        self._filters[pulsar][idx][1].history.data.copy(),
                     )
                 )
 
             # filter the data in the backwards direction
             for i in range(len(data) - 1, -1, -1):
-                for i in range(3):
+                for idx in range(3):
                     data.value[i] = lal.IIRFilterREAL8(
-                        data.value[i].real, filters[idx][0]
-                    ) + 1j * lal.IIRFilterREAL8(data.value[i].imag, filters[idx][1])
+                        data.value[i].real, self._filters[pulsar][idx][0]
+                    ) + 1j * lal.IIRFilterREAL8(
+                        data.value[i].imag, self._filters[pulsar][idx][1]
+                    )
 
             # restore the history to that from the forward pass
             for idx in range(3):
-                filters[idx][0].history.data = history[idx][0]
-                filters[idx][1].history.data = history[idx][1]
+                self._filters[pulsar][idx][0].history.data = history[idx][0]
+                self._filters[pulsar][idx][1].history.data = history[idx][1]
 
     @property
     def includessb(self):

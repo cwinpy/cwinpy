@@ -3141,7 +3141,7 @@ class HeterodynedData(TimeSeriesBase):
 
     @filter_history.setter
     def filter_history(self, history):
-        self._filter_history = history
+        self._filter_history = np.array(history)
 
     def __len__(self):
         return len(self.data)
