@@ -12,7 +12,8 @@ from astropy.io import registry as io_registry
 from gwpy.detector import Channel
 from gwpy.io.mp import read_multi
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
-from gwpy.timeseries import TimeSeries, TimeSeriesBase, TimeSeriesBaseList
+from gwpy.segments import SegmentList
+from gwpy.timeseries import TimeSeries, TimeSeriesBase
 from gwpy.types import Series
 from numba import jit
 
@@ -3143,14 +3144,98 @@ class HeterodynedData(TimeSeriesBase):
     def filter_history(self, history):
         self._filter_history = np.array(history)
 
+    def heterodyne(self, phase, stride=1, singlesided=False, datasegments=None):
+        """
+        Heterodyne the data (see :meth:`gwpy.timeseries.TimeSeries.heterodyne`)
+        for details). Unlike :meth:`gwpy.timeseries.TimeSeries.heterodyne` this
+        will heterodyne unevenly sampled data, although contiguous segments of
+        data will be truncated if they do not contain an integer number of
+        strides. Additional parameters are given below:
+
+        Parameters
+        ----------
+        datasegments: list
+            A list of pairs of times within which to include data. Data outside
+            these times will be removed.
+        """
+
+        try:
+            phaselen = len(phase)
+        except Exception as exc:
+            raise TypeError("Phase is not array_like: {}".format(exc))
+        if phaselen != len(self):
+            raise ValueError(
+                "Phase array must be the same length as the HeterodynedData"
+            )
+
+        samplerate = 1.0 / self.dt.value
+        stridesamp = int(stride * samplerate)
+
+        # find contiguous stretches of data
+        if not np.allclose(
+            np.diff(self.times.value), self.dt.value * np.ones(len(self) - 1)
+        ):
+            breaks = np.argwhere(np.diff(self.times.value) != self.dt.value)[0].tolist()
+            segments = SegmentList()
+            breaks = [-1] + breaks + [len(self) - 1]
+            for i in range(len(breaks) - 1):
+                segments.append(
+                    (self.times.value[breaks[i] + 1], self.times.value[breaks[i + 1]])
+                )
+        else:
+            segments = SegmentList([(self.times.value[0], self.times.value[-1])])
+
+        if datasegments is not None:
+            # get times within segments and data time span
+            segments = (segments & SegmentList(datasegments)) & SegmentList(
+                [self.times.value[0], self.times.value[-1]]
+            )
+
+        # check that some data is within the segments
+        if len(segments) == 0:
+            return None
+
+        # heterodyne the data
+        hetdata = np.exp(-1j * np.asarray(phase)) * self.data
+
+        times = []
+        # downsample the data
+        counter = 0
+        for seg in segments:
+            segsize = seg[1] - seg[0]
+            nsteps = int(segsize // stride)  # number of steps within segment
+
+            idx = np.argwhere(
+                (self.times.value >= seg[0]) & (self.times.value < seg[1])
+            ).flatten()
+
+            if len(idx) == 0:
+                continue
+
+            for step in range(nsteps):
+                istart = int(stridesamp * step)
+                iend = istart + stridesamp
+                stepidx = idx[istart:iend]
+                hetdata[counter] = (
+                    2 * hetdata[stepidx].mean()
+                    if singlesided
+                    else hetdata[stepidx].mean()
+                )
+                times.append(self.times.value[stepidx].mean())
+                counter += 1
+
+        # resize
+        hetdata.resize((counter,))
+
+        # create new object (will not contain, e.g., par file, injection info,
+        # etc)
+        out = type(self)(hetdata, times=times, window=0, bbminlength=len(self))
+        out.__array_finalize__(self)
+
+        return out
+
     def __len__(self):
         return len(self.data)
-
-
-class HeterodynedDataList(TimeSeriesBaseList):  # pylint: disable=missing-docstring
-    __doc__ = TimeSeriesBaseList.__doc__.replace("TimeSeriesBase", "HeterodynedData")
-
-    EntryClass = HeterodynedData
 
 
 class PSDwrapper(object):
