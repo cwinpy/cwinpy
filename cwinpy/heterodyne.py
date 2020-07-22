@@ -16,7 +16,7 @@ from gwpy.segments import DataQualityFlag
 from gwpy.timeseries import TimeSeries, TimeSeriesDict, TimeSeriesList
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
-from .data import HeterodynedData, HeterodynedDataList
+from .data import HeterodynedData
 from .utils import get_psr_name, initialise_ephemeris, is_par_file
 
 
@@ -1218,7 +1218,7 @@ class Heterodyne(object):
             raise ValueError("No output destination has been set!")
 
         # get segment list
-        if self.segments is None:
+        if self.segments is None and not self.heterodyneddata:
             self.get_segment_list(**kwargs)
 
         self._ephemerides = {}
@@ -1237,7 +1237,20 @@ class Heterodyne(object):
 
             # loop over pulsars
             for pulsar in pulsarlist:
-                hetdata = HeterodynedDataList()
+                labeldict = {
+                    "det": self.detector,
+                    "gpsstart": int(self.starttime),
+                    "gpsend": int(self.endtime),
+                    "freqfactor": int(self.freqfactor),
+                    "psr": pulsar,
+                }
+
+                if self.resume:
+                    if os.path.isfile(self.outputfiles[pulsar].format(**labeldict)):
+                        # skip this pulsar as heterodyne has already been performed
+                        continue
+
+                hetdata = TimeSeriesList()
 
                 for hetfile in self.heterodyneddata[pulsar]:
                     # read in data
@@ -1252,10 +1265,21 @@ class Heterodyne(object):
                     origparams = thishet.par
                     psr = PulsarParametersPy(self._pulsars[pulsar])
 
-                    for ephem, unit in zip(
-                        [origparams["EPHEM"], psr["EPHEM"]],
-                        [origparams["UNITS"], psr["UNITS"]],
-                    ):
+                    units = [
+                        u for u in [origparams["UNITS"], psr["UNITS"]] if u is not None
+                    ]
+                    if len(units) == 0:
+                        # default to TCB
+                        units = ["TCB"]
+
+                    ephems = [
+                        e for e in [origparams["EPHEM"], psr["EPHEM"]] if e is not None
+                    ]
+                    if len(ephems) == 0:
+                        # default to DE405
+                        ephems = ["DE405"]
+
+                    for ephem, unit in zip(ephems, units):
                         if ephem not in self._ephemerides or unit not in self._timecorr:
                             edat, tdat = initialise_ephemeris(ephem=ephem, units=unit)
 
@@ -1300,19 +1324,20 @@ class Heterodyne(object):
                             for i in range(thishet.size):
                                 bsb.data[i] = 0.0
                     else:
+                        # set delays to zero
                         ssb = lal.CreateREAL8Vector(thishet.size)
+                        bsb = lal.CreateREAL8Vector(thishet.size)
                         for i in range(thishet.size):
                             ssb.data[i] = 0.0
+                            bsb.data[i] = 0.0
 
                     # get the heterodyne glitch phase (which should be zero)
                     if thishet.include_glitch:
                         glphase = lalpulsar.HeterodynedPulsarGetGlitchPhase(
-                            origparams.PulsarParameters(), gpstimes, ssb, bsb,
+                            origparams.PulsarParameters(), gpstimes, ssb, bsb
                         )
                     else:
-                        glphase = lal.CreateREAL8Vector(thishet.size)
-                        for i in range(thishet.size):
-                            glphase.data[i] = 0.0
+                        glphase = None
 
                     # get fitwaves phase
                     if thishet.include_fitwaves:
@@ -1323,17 +1348,15 @@ class Heterodyne(object):
                             origparams["F0"],
                         )
                     else:
-                        fwphase = lal.CreateREAL8Vector(thishet.size)
-                        for i in range(thishet.size):
-                            fwphase.data[i] = 0.0
+                        fwphase = None
 
-                    ephem = psr["EPHEM"]
+                    ephem = psr["EPHEM"] if psr["EPHEM"] is not None else "DE405"
                     units = psr["UNITS"] if psr["UNITS"] is not None else "TCB"
 
-                    # perform heterodyne and resample
+                    # calculate phase
                     fullphase = lalpulsar.HeterodynedPulsarPhaseDifference(
-                        origparams.PulsarParameters(),
                         psr.PulsarParameters(),
+                        origparams.PulsarParameters(),
                         gpstimes,
                         self.freqfactor,
                         ssb,
@@ -1358,20 +1381,22 @@ class Heterodyne(object):
                         ttype[units],
                     )
 
-                    hetdata.append(
-                        thishet.heterodyne(
-                            2.0 * np.pi * fullphase.data, stride=(1 / self.resamplerate)
-                        )
+                    # perform heterodyne and resample
+                    hetts = thishet.heterodyne(
+                        2.0 * np.pi * fullphase.data,
+                        stride=(1 / self.resamplerate),
+                        datasegments=self.segments,
                     )
+
+                    if hetts is not None:
+                        hetdata.append(hetts.as_timeseries())
 
                 # output the data
                 times = np.array(
                     [v for d in hetdata for v in d.times.value], dtype=float
                 )
                 data = hetdata.join(gap="ignore")
-                data.times = (
-                    times + 0.5 / self.resamplerate
-                )  # preserve uneven time stamps
+                data.times = times  # preserve uneven time stamps
 
                 # convert to HeterodynedData
                 het = HeterodynedData(
@@ -1385,13 +1410,6 @@ class Heterodyne(object):
                 het.include_glitch = self.includeglitch
                 het.include_fitwaves = self.includefitwaves
 
-                labeldict = {
-                    "det": self.detector,
-                    "gpsstart": int(self.starttime),
-                    "gpsend": int(self.endtime),
-                    "freqfactor": int(self.freqfactor),
-                    "psr": pulsar,
-                }
                 het.write(self.outputfiles[pulsar].format(**labeldict), overwrite=True)
         else:
             self._datadict = {}
@@ -1447,7 +1465,7 @@ class Heterodyne(object):
                 for pulsar in list(pulsarlist):
                     if pulsar in self._datadict:
                         cropped = self._datadict[pulsar][0].crop(
-                            end=minend + self.resamplerate / 2, copy=True,
+                            end=minend + self.resamplerate / 2, copy=True
                         )
                         self._datadict[pulsar][0] = cropped
 
@@ -1513,7 +1531,9 @@ class Heterodyne(object):
                         tdat = None
                         units = "TCB"
                         if self.includessb:
-                            ephem = psr["EPHEM"]
+                            ephem = (
+                                psr["EPHEM"] if psr["EPHEM"] is not None else "DE405"
+                            )
                             units = psr["UNITS"] if psr["UNITS"] is not None else "TCB"
 
                             if ephem is None:
