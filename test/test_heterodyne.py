@@ -43,17 +43,44 @@ class TestHeterodyne(object):
         cls.fakedatachannels = [
             "{}:FAKE_DATA".format(det) for det in cls.fakedatadetectors
         ]
-        cls.fakedatastarts = [1000000000, 1000000000 + 86400]
+        cls.fakedatastarts = [1000000000, 1000000000 + 86400 * 2]
         cls.fakedataduration = 86400
 
         os.makedirs(cls.fakedatadir, exist_ok=True)
 
-        cls.fakedatabandwidth = 2  # Hz
+        cls.fakedatabandwidth = 16  # Hz
         sqrtSn = 1e-29  # noise amplitude spectral density
         cls.fakedataname = "FAKEDATA"
 
-        f0 = 1.23456 / 2.0  # source rotation frequency (Hz)
-        f1 = 9.87654e-11 / 2.0  # source rotational frequency derivative (Hz/s)
+        # Create two pulsars to inject: one isolated and one binary
+        cls.fakepulsarpar = []
+
+        # requirements for Makefakedata pulsar input files
+        isolatedstr = """\
+Alpha = {alpha}
+Delta = {delta}
+Freq = {f0}
+f1dot = {f1}
+f2dot = {f2}
+refTime = {pepoch}
+h0 = {h0}
+cosi = {cosi}
+psi = {psi}
+phi0 = {phi0}
+"""
+
+        binarystr = """\
+orbitasini = {asini}
+orbitPeriod = {period}
+orbitTp = {Tp}
+orbitArgp = {argp}
+orbitEcc = {ecc}
+"""
+
+        # FIRST PULSAR (ISOLATED)
+        f0 = 12.3456 / 2.0  # source rotation frequency (Hz)
+        f1 = -9.87654e-11 / 2.0  # source rotational frequency derivative (Hz/s)
+        f2 = 2.34134e-18 / 2.0  # second frequency derivative (Hz/s^2)
         alpha = 0.0  # source right ascension (rads)
         delta = 0.5  # source declination (rads)
         pepoch = 1000000000  # frequency epoch (GPS)
@@ -64,25 +91,112 @@ class TestHeterodyne(object):
         cosiota = 0.1  # cosine of inclination angle
         psi = 0.5  # GW polarisation angle (rads)
 
-        inj = "{{Alpha={}; Delta={}; Freq={}; f1dot={}; refTime={}; h0={}; cosi={}; psi={}; phi0={};}}".format(
-            alpha, delta, f0 * 2, f1 * 2, pepoch, h0, cosiota, psi, phi0
-        )
+        mfddic = {
+            "alpha": alpha,
+            "delta": delta,
+            "f0": 2 * f0,
+            "f1": 2 * f1,
+            "f2": 2 * f2,
+            "pepoch": pepoch,
+            "h0": h0,
+            "cosi": cosiota,
+            "psi": psi,
+            "phi0": phi0,
+        }
 
-        cls.fakepulsarpar = PulsarParametersPy()
-        cls.fakepulsarpar["PSRJ"] = "J0000+0000"
-        cls.fakepulsarpar["H0"] = h0
-        cls.fakepulsarpar["PHI0"] = phi0 / 2.0
-        cls.fakepulsarpar["PSI"] = psi
-        cls.fakepulsarpar["COSIOTA"] = cosiota
-        cls.fakepulsarpar["F"] = [f0, f1]
-        cls.fakepulsarpar["RAJ"] = alpha
-        cls.fakepulsarpar["DECJ"] = delta
-        cls.fakepulsarpar["PEPOCH"] = pepoch
+        cls.fakepulsarpar.append(PulsarParametersPy())
+        cls.fakepulsarpar[0]["PSRJ"] = "J0000+0000"
+        cls.fakepulsarpar[0]["H0"] = h0
+        cls.fakepulsarpar[0]["PHI0"] = phi0 / 2.0
+        cls.fakepulsarpar[0]["PSI"] = psi
+        cls.fakepulsarpar[0]["COSIOTA"] = cosiota
+        cls.fakepulsarpar[0]["F"] = [f0, f1]
+        cls.fakepulsarpar[0]["RAJ"] = alpha
+        cls.fakepulsarpar[0]["DECJ"] = delta
+        cls.fakepulsarpar[0]["PEPOCH"] = pepoch
+        cls.fakepulsarpar[0]["EPHEM"] = "DE405"
+        cls.fakepulsarpar[0]["UNITS"] = "TDB"
 
         cls.fakepardir = "testing_fake_par_dir"
         os.makedirs(cls.fakepardir, exist_ok=True)
-        cls.fakeparfile = os.path.join(cls.fakepardir, "J0000+0000.par")
-        cls.fakepulsarpar.pp_to_par(cls.fakeparfile)
+        cls.fakeparfile = []
+        cls.fakeparfile.append(os.path.join(cls.fakepardir, "J0000+0000.par"))
+        cls.fakepulsarpar[0].pp_to_par(cls.fakeparfile[-1])
+
+        injfile = os.path.join(cls.fakepardir, "inj.dat")
+        with open(injfile, "w") as fp:
+            fp.write("[Pulsar 1]\n")
+            fp.write(isolatedstr.format(**mfddic))
+            fp.write("\n")
+
+        # SECOND PULSAR (BINARY SYSTEM)
+        f0 = 8.7654321 / 2.0  # source rotation frequency (Hz)
+        f1 = 9.87654e-13 / 2.0  # source rotational frequency derivative (Hz/s)
+        f2 = -1.34134e-20 / 2.0  # second frequency derivative (Hz/s^2)
+        alpha = 1.3  # source right ascension (rads)
+        delta = -0.4  # source declination (rads)
+        pepoch = 1000086400  # frequency epoch (GPS)
+
+        # GW parameters
+        h0 = 7.5e-25  # GW amplitude
+        phi0 = 0.7  # GW initial phase (rads)
+        cosiota = 0.6  # cosine of inclination angle
+        psi = 1.1  # GW polarisation angle (rads)
+
+        # binary parameters
+        asini = 1.4  # projected semi-major axis (ls)
+        period = 0.1 * 86400  # orbital period (s)
+        Tp = 999992083  # time of periastron (GPS)
+        argp = 0.0  # argument of perisatron (rad)
+        ecc = 0.09  # the orbital eccentricity
+
+        mfddic = {
+            "alpha": alpha,
+            "delta": delta,
+            "f0": 2 * f0,
+            "f1": 2 * f1,
+            "f2": 2 * f2,
+            "pepoch": pepoch,
+            "h0": h0,
+            "cosi": cosiota,
+            "psi": psi,
+            "phi0": phi0,
+        }
+
+        mfdbindic = {
+            "asini": asini,
+            "Tp": Tp,
+            "period": period,
+            "argp": argp,
+            "ecc": ecc,
+        }
+
+        cls.fakepulsarpar.append(PulsarParametersPy())
+        cls.fakepulsarpar[1]["PSRJ"] = "J1111+1111"
+        cls.fakepulsarpar[1]["H0"] = h0
+        cls.fakepulsarpar[1]["PHI0"] = phi0 / 2.0
+        cls.fakepulsarpar[1]["PSI"] = psi
+        cls.fakepulsarpar[1]["COSIOTA"] = cosiota
+        cls.fakepulsarpar[1]["F"] = [f0, f1]
+        cls.fakepulsarpar[1]["RAJ"] = alpha
+        cls.fakepulsarpar[1]["DECJ"] = delta
+        cls.fakepulsarpar[1]["PEPOCH"] = pepoch
+        cls.fakepulsarpar[1]["BINARY"] = "BT"
+        cls.fakepulsarpar[1]["E"] = ecc
+        cls.fakepulsarpar[1]["A1"] = asini
+        cls.fakepulsarpar[1]["T0"] = Tp
+        cls.fakepulsarpar[1]["OM"] = argp
+        cls.fakepulsarpar[1]["PB"] = period
+        cls.fakepulsarpar[1]["EPHEM"] = "DE405"
+        cls.fakepulsarpar[1]["UNITS"] = "TDB"
+
+        cls.fakeparfile.append(os.path.join(cls.fakepardir, "J1111+1111.par"))
+        cls.fakepulsarpar[1].pp_to_par(cls.fakeparfile[-1])
+
+        with open(injfile, "a") as fp:
+            fp.write("[Pulsar 2]\n")
+            fp.write(isolatedstr.format(**mfddic))
+            fp.write(binarystr.format(**mfdbindic))
 
         # set ephemeris files
         efile = download_file(
@@ -105,7 +219,7 @@ class TestHeterodyne(object):
                     "--Band={}".format(cls.fakedatabandwidth),
                     "--fmin",
                     "0",
-                    '--injectionSources="{}"'.format(inj),
+                    '--injectionSources="{}"'.format(injfile),
                     "--outLabel={}".format(cls.fakedataname),
                     '--ephemEarth="{}"'.format(efile),
                     '--ephemSun="{}"'.format(sfile),
@@ -499,23 +613,39 @@ class TestHeterodyne(object):
 
         het = Heterodyne(pulsarfiles=self.fakepardir)
 
-        assert het.pulsarfiles == {"J0000+0000": os.path.realpath(self.fakeparfile)}
+        assert list(het.pulsarfiles.keys()) == ["J0000+0000", "J1111+1111"]
+        assert list(het.pulsarfiles.values()) == [
+            os.path.realpath(self.fakeparfile[0]),
+            os.path.realpath(self.fakeparfile[1]),
+        ]
+        assert het.pulsars == ["J0000+0000", "J1111+1111"]
+
+        het = Heterodyne(pulsarfiles=self.fakeparfile[0])
+        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile}
+        assert het.pulsars == ["J0000+0000"]
+
+        het = Heterodyne(pulsarfiles=self.fakeparfile[1])
+        assert het.pulsarfiles == {"J1111+1111": self.fakeparfile}
+        assert het.pulsars == ["J1111+1111"]
+
+        het = Heterodyne(pulsarfiles=[self.fakeparfile[0]])
+
+        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile}
         assert het.pulsars == ["J0000+0000"]
 
         het = Heterodyne(pulsarfiles=self.fakeparfile)
 
-        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile}
-        assert het.pulsars == ["J0000+0000"]
-
-        het = Heterodyne(pulsarfiles=[self.fakeparfile])
-
-        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile}
-        assert het.pulsars == ["J0000+0000"]
+        assert list(het.pulsarfiles.keys()) == ["J0000+0000", "J1111+1111"]
+        assert list(het.pulsarfiles.values()) == [
+            self.fakeparfile[0],
+            self.fakeparfile[1],
+        ]
+        assert het.pulsars == ["J0000+0000", "J1111+1111"]
 
         with pytest.raises(TypeError):
-            Heterodyne(pulsarfiles=[self.fakeparfile], pulsars=3.4)
+            Heterodyne(pulsarfiles=self.fakeparfile, pulsars=3.4)
 
-        het = Heterodyne(pulsarfiles=[self.fakeparfile], pulsars="J0328+5323")
+        het = Heterodyne(pulsarfiles=self.fakeparfile, pulsars="J0328+5323")
         captured = capsys.readouterr()
 
         assert len(het.pulsars) == 0
@@ -524,7 +654,7 @@ class TestHeterodyne(object):
             == "Pulsars '['J0328+5323']' not included as no parameter files have been given for them\n"
         )
 
-        het = Heterodyne(pulsarfiles=[self.fakeparfile], pulsars=["J0000+0000"])
+        het = Heterodyne(pulsarfiles=[self.fakeparfile[0]], pulsars=["J0000+0000"])
 
         assert het.pulsarfiles == {"J0000+0000": self.fakeparfile}
         assert het.pulsars == ["J0000+0000"]
@@ -553,9 +683,9 @@ class TestHeterodyne(object):
         )
 
         pulsarfiles = {}
-        pulsarfiles["J0000+0000"] = os.path.realpath(self.fakeparfile)
+        pulsarfiles["J0000+0000"] = os.path.realpath(self.fakeparfile[0])
         het = Heterodyne(pulsarfiles=pulsarfiles)
-        assert het.pulsarfiles == {"J0000+0000": os.path.realpath(self.fakeparfile)}
+        assert het.pulsarfiles == {"J0000+0000": os.path.realpath(self.fakeparfile[0])}
         assert het.pulsars == ["J0000+0000"]
 
     def test_crop(self):
