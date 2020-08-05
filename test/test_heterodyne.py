@@ -450,7 +450,7 @@ orbitEcc = {ecc}
             # cache file contains invalid frames
             het.get_frame_data(
                 starttime=1000000000,
-                endtime=1000000000 + 2 * 86400,
+                endtime=1000000000 + 3 * 86400,
                 framecache=self.dummy_cache_files[0],
                 site="H1",
                 channel=self.fakedatachannels[0],
@@ -460,7 +460,7 @@ orbitEcc = {ecc}
         cachefile = os.path.join(self.fakedatadir, "frcache.txt")
         data = het.get_frame_data(
             starttime=1000000000,
-            endtime=1000000000 + 2 * 86400,
+            endtime=1000000000 + 86400,
             framecache=self.fakedatadir,
             site="H1",
             outputframecache=cachefile,
@@ -473,7 +473,7 @@ orbitEcc = {ecc}
         with open(cachefile, "r") as fp:
             cachedata = [fl.strip() for fl in fp.readlines()]
 
-        assert len(cachedata) == 2
+        assert len(cachedata) == 1
         for i in range(len(cachedata)):
             assert "{}-{}_{}-{}-{}.gwf".format(
                 self.fakedatadetectors[0][0],
@@ -486,7 +486,7 @@ orbitEcc = {ecc}
         # test reading files from cache file
         data = het.get_frame_data(
             starttime=1000000000,
-            endtime=1000000000 + 2 * 86400,
+            endtime=1000000000 + 86400,
             framecache=cachefile,
             site="H1",
             channel=self.fakedatachannels[0],
@@ -509,7 +509,7 @@ orbitEcc = {ecc}
             # try reading data from the wrong channel
             het.get_frame_data(
                 starttime=1000000000,
-                endtime=1000000000 + 2 * 86400,
+                endtime=1000000000 + 86400,
                 framecache=cachefile,
                 site="H1",
                 channel=self.fakedatachannels[1],
@@ -613,34 +613,36 @@ orbitEcc = {ecc}
 
         het = Heterodyne(pulsarfiles=self.fakepardir)
 
-        assert list(het.pulsarfiles.keys()) == ["J0000+0000", "J1111+1111"]
-        assert list(het.pulsarfiles.values()) == [
-            os.path.realpath(self.fakeparfile[0]),
-            os.path.realpath(self.fakeparfile[1]),
-        ]
-        assert het.pulsars == ["J0000+0000", "J1111+1111"]
+        assert sorted(list(het.pulsarfiles.keys())) == ["J0000+0000", "J1111+1111"]
+        assert sorted(list(het.pulsarfiles.values())) == sorted(
+            [
+                os.path.realpath(self.fakeparfile[0]),
+                os.path.realpath(self.fakeparfile[1]),
+            ]
+        )
+        assert sorted(het.pulsars) == ["J0000+0000", "J1111+1111"]
 
         het = Heterodyne(pulsarfiles=self.fakeparfile[0])
-        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile}
+        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile[0]}
         assert het.pulsars == ["J0000+0000"]
 
         het = Heterodyne(pulsarfiles=self.fakeparfile[1])
-        assert het.pulsarfiles == {"J1111+1111": self.fakeparfile}
+        assert het.pulsarfiles == {"J1111+1111": self.fakeparfile[1]}
         assert het.pulsars == ["J1111+1111"]
 
         het = Heterodyne(pulsarfiles=[self.fakeparfile[0]])
 
-        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile}
+        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile[0]}
         assert het.pulsars == ["J0000+0000"]
 
         het = Heterodyne(pulsarfiles=self.fakeparfile)
 
-        assert list(het.pulsarfiles.keys()) == ["J0000+0000", "J1111+1111"]
+        assert sorted(list(het.pulsarfiles.keys())) == ["J0000+0000", "J1111+1111"]
         assert list(het.pulsarfiles.values()) == [
             self.fakeparfile[0],
             self.fakeparfile[1],
         ]
-        assert het.pulsars == ["J0000+0000", "J1111+1111"]
+        assert sorted(het.pulsars) == ["J0000+0000", "J1111+1111"]
 
         with pytest.raises(TypeError):
             Heterodyne(pulsarfiles=self.fakeparfile, pulsars=3.4)
@@ -656,7 +658,7 @@ orbitEcc = {ecc}
 
         het = Heterodyne(pulsarfiles=[self.fakeparfile[0]], pulsars=["J0000+0000"])
 
-        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile}
+        assert het.pulsarfiles == {"J0000+0000": self.fakeparfile[0]}
         assert het.pulsars == ["J0000+0000"]
 
         with pytest.raises(TypeError):
@@ -673,7 +675,7 @@ orbitEcc = {ecc}
         )
 
         pulsarfiles = {}
-        pulsarfiles["J0000+0001"] = os.path.realpath(self.fakeparfile)
+        pulsarfiles["J0000+0001"] = os.path.realpath(self.fakeparfile[0])
         het = Heterodyne(pulsarfiles=pulsarfiles)
         captured = capsys.readouterr()
         assert len(het.pulsarfiles) == 1
@@ -714,7 +716,7 @@ orbitEcc = {ecc}
         ]
 
         het = Heterodyne(
-            pulsarfiles=[self.fakeparfile],
+            pulsarfiles=self.fakeparfile,
             pulsars=["J0000+0000"],
             segmentlist=segments,
             framecache=self.fakedatadir,
@@ -762,7 +764,7 @@ orbitEcc = {ecc}
         het = Heterodyne(
             starttime=segments[0][0],
             endtime=segments[-1][-1],
-            pulsarfiles=[self.fakeparfile],
+            pulsarfiles=self.fakeparfile,
             pulsars=["J0000+0000"],
             segmentlist=segments,
             framecache=self.fakedatadir,
@@ -775,10 +777,20 @@ orbitEcc = {ecc}
 
         het.heterodyne()
 
-        # check output
-        assert os.path.isfile(het.outputfiles["J0000+0000"])
+        labeldict = {
+            "det": het.detector,
+            "gpsstart": int(het.starttime),
+            "gpsend": int(het.endtime),
+            "freqfactor": int(het.freqfactor),
+            "psr": "J0000+0000",
+        }
 
-        hetdata = HeterodynedData.read(het.outputfiles["J0000+0000"])
+        # check output
+        assert os.path.isfile(het.outputfiles["J0000+0000"].format(**labeldict))
+
+        hetdata = HeterodynedData.read(
+            het.outputfiles["J0000+0000"].format(**labeldict)
+        )
 
         # expected length (after cropping)
         length = (
@@ -796,3 +808,5 @@ orbitEcc = {ecc}
         assert t0 == hetdata.times.value[0]
         assert tend == hetdata.times.value[-1]
         assert het.detector == hetdata.detector
+
+        # perform second stage of heterodyne

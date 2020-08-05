@@ -767,8 +767,10 @@ class Heterodyne(object):
         else:
             et = self.endtime
 
-        if self._segments[0][0] >= st and self._segments[-1][-1] <= et:
-            return self._segments
+        if len(np.shape(self._segments)) > 1:
+            if np.shape(self._segments)[1] == 2:
+                if self._segments[0][0] >= st and self._segments[-1][-1] <= et:
+                    return self._segments
 
         segments = []
         for segment in self._segments:
@@ -909,6 +911,7 @@ class Heterodyne(object):
     @pulsarfiles.setter
     def pulsarfiles(self, pfiles):
         self._pulsars = {}
+
         if isinstance(pfiles, (str, list, dict)):
             pfilelist = pfiles
             pnames = None
