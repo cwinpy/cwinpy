@@ -2140,12 +2140,11 @@ class MergeNode(Node):
         self.arguments.add("label", self.label)
         self.arguments.add_flag("merge")
 
-        # changes to add if/when https://git.ligo.org/lscsoft/bilby/-/merge_requests/802 is accepted
-        # extension = self.inputs.sampler_kwargs.get("save", "json")
-        # gzip = self.inputs.sampler_kwargs.get("gzip", False)
-        # self.arguments.add("extension", extension)
-        # if gzip:
-        #    self.arguments.add_flag("gzip")
+        extension = self.inputs.sampler_kwargs.get("save", "json")
+        gzip = self.inputs.sampler_kwargs.get("gzip", False)
+        self.arguments.add("extension", extension)
+        if gzip:
+            self.arguments.add_flag("gzip")
 
         self.process_node()
         for pn in parallel_node_list:
