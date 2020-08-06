@@ -1242,8 +1242,10 @@ class Heterodyne(object):
             for pulsar in pulsarlist:
                 labeldict = {
                     "det": self.detector,
-                    "gpsstart": int(self.starttime),
-                    "gpsend": int(self.endtime),
+                    "gpsstart": int(self.starttime)
+                    if self.starttime is not None
+                    else None,
+                    "gpsend": int(self.endtime) if self.endtime is not None else None,
                     "freqfactor": int(self.freqfactor),
                     "psr": pulsar,
                 }

@@ -3168,7 +3168,8 @@ class HeterodynedData(TimeSeriesBase):
                 "Phase array must be the same length as the HeterodynedData"
             )
 
-        samplerate = 1.0 / self.dt.value
+        dt = self.dt.value
+        samplerate = 1.0 / dt
         stridesamp = int(stride * samplerate)
 
         # find contiguous stretches of data
@@ -3180,15 +3181,20 @@ class HeterodynedData(TimeSeriesBase):
             breaks = [-1] + breaks + [len(self) - 1]
             for i in range(len(breaks) - 1):
                 segments.append(
-                    (self.times.value[breaks[i] + 1], self.times.value[breaks[i + 1]])
+                    (
+                        self.times.value[breaks[i] + 1] - dt / 2,
+                        self.times.value[breaks[i + 1]] + dt / 2,
+                    )
                 )
         else:
-            segments = SegmentList([(self.times.value[0], self.times.value[-1])])
+            segments = SegmentList(
+                [(self.times.value[0] - dt / 2, self.times.value[-1] + dt / 2)]
+            )
 
         if datasegments is not None:
             # get times within segments and data time span
             segments = (segments & SegmentList(datasegments)) & SegmentList(
-                [self.times.value[0], self.times.value[-1]]
+                [self.times.value[0] - dt / 2, self.times.value[-1] + dt / 2]
             )
 
         # check that some data is within the segments

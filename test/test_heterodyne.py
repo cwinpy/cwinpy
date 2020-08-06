@@ -13,7 +13,7 @@ from astropy.utils.data import download_file
 from cwinpy import Heterodyne, HeterodynedData
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-from lalpulsar.simulateHeterodynedCW import DOWNLOAD_URL
+from lalpulsar.simulateHeterodynedCW import DOWNLOAD_URL, HeterodynedCWSimulator
 
 
 class TestHeterodyne(object):
@@ -765,7 +765,6 @@ orbitEcc = {ecc}
             starttime=segments[0][0],
             endtime=segments[-1][-1],
             pulsarfiles=self.fakeparfile,
-            pulsars=["J0000+0000"],
             segmentlist=segments,
             framecache=self.fakedatadir,
             channel=self.fakedatachannels[0],
@@ -782,15 +781,7 @@ orbitEcc = {ecc}
             "gpsstart": int(het.starttime),
             "gpsend": int(het.endtime),
             "freqfactor": int(het.freqfactor),
-            "psr": "J0000+0000",
         }
-
-        # check output
-        assert os.path.isfile(het.outputfiles["J0000+0000"].format(**labeldict))
-
-        hetdata = HeterodynedData.read(
-            het.outputfiles["J0000+0000"].format(**labeldict)
-        )
 
         # expected length (after cropping)
         length = (
@@ -803,10 +794,87 @@ orbitEcc = {ecc}
         # expected end time (after croppping)
         tend = segments[-1][-1] - het.crop - 0.5 / het.resamplerate
 
-        assert len(hetdata) == length
-        assert het.resamplerate == hetdata.dt.value
-        assert t0 == hetdata.times.value[0]
-        assert tend == hetdata.times.value[-1]
-        assert het.detector == hetdata.detector
+        # check output
+        for psr in ["J0000+0000", "J1111+1111"]:
+            assert os.path.isfile(het.outputfiles[psr].format(**labeldict, psr=psr))
+
+            hetdata = HeterodynedData.read(
+                het.outputfiles[psr].format(**labeldict, psr=psr)
+            )
+
+            assert len(hetdata) == length
+            assert het.resamplerate == hetdata.dt.value
+            assert t0 == hetdata.times.value[0]
+            assert tend == hetdata.times.value[-1]
+            assert het.detector == hetdata.detector
 
         # perform second stage of heterodyne
+        with pytest.raises(TypeError):
+            Heterodyne(heterodyneddata=0)
+
+        fineoutdir = os.path.join(self.fakedatadir, "fine_heterodyne_output")
+
+        # first heterodyne without SSB
+        het2 = Heterodyne(
+            detector=self.fakedatadetectors[0],
+            heterodyneddata=outdir,  # pass previous output directory
+            pulsarfiles=self.fakeparfile,
+            freqfactor=2,
+            resamplerate=1 / 60,
+            includessb=False,
+            output=fineoutdir,
+            label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+        )
+        het2.heterodyne()
+
+        models = []
+        for i, psr in enumerate(["J0000+0000", "J1111+1111"]):
+            # load data
+            hetdata = HeterodynedData.read(
+                het2.outputfiles[psr].format(**labeldict, psr=psr)
+            )
+
+            assert het2.resamplerate == 1 / hetdata.dt.value
+            assert len(hetdata) == int(length * het2.resamplerate)
+
+            # set expected model
+            sim = HeterodynedCWSimulator(
+                self.fakepulsarpar[i],
+                self.fakedatadetectors[0],
+                hetdata.times,
+                earth_ephem=hetdata.ephemearth,
+                sun_ephem=hetdata.ephemsun,
+            )
+
+            models.append(
+                sim.model(
+                    self.fakepulsarpar[i], usephase=True, freqfactor=hetdata.freqfactor
+                )
+            )
+
+            # without inclusion of SSB model should not match
+            assert np.any(np.fabs(hetdata.data - models[i]) > 1e-28)
+
+        # now heterodyne with SSB
+        del het2
+        het2 = Heterodyne(
+            detector=self.fakedatadetectors[0],
+            heterodyneddata=outdir,  # pass previous output directory
+            pulsarfiles=self.fakeparfile,
+            freqfactor=2,
+            resamplerate=1 / 60,
+            includessb=True,
+            output=fineoutdir,
+            label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+        )
+        het2.heterodyne()
+
+        for i, psr in enumerate(["J0000+0000", "J1111+1111"]):
+            # load data
+            hetdata = HeterodynedData.read(
+                het2.outputfiles[psr].format(**labeldict, psr=psr)
+            )
+
+            assert het2.resamplerate == 1 / hetdata.dt.value
+            assert len(hetdata) == int(length * het2.resamplerate)
+            assert np.all(np.fabs(hetdata.data - models[i]) < 1e-28)
