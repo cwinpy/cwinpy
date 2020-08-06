@@ -17,7 +17,8 @@ import cwinpy
 import numpy as np
 from bilby_pipe.bilbyargparser import BilbyArgParser
 from bilby_pipe.input import Input
-from bilby_pipe.main import Dag, Node
+from bilby_pipe.job_creation.dag import Dag
+from bilby_pipe.job_creation.node import Node
 from bilby_pipe.utils import (
     BilbyPipeError,
     check_directory_exists_and_if_not_mkdir,
