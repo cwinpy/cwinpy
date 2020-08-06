@@ -1,11 +1,7 @@
 astropy
 numpy>=1.15
 bilby>=1.0.0
-<<<<<<< HEAD
 bilby_pipe>=1.0.0
-=======
-bilby_pipe>=0.2.0
->>>>>>> Update requirements for GWPy and gwosc packages
 matplotlib
 scipy
 lintegrate>=0.1.0
