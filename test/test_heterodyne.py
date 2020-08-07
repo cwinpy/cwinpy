@@ -77,6 +77,12 @@ orbitArgp = {argp}
 orbitEcc = {ecc}
 """
 
+        transientstr = """\
+transientWindowType = {wintype}
+transientStartTime = {tstart}
+transientTau = {tau}
+"""
+
         # FIRST PULSAR (ISOLATED)
         f0 = 12.3456 / 2.0  # source rotation frequency (Hz)
         f1 = -9.87654e-11 / 2.0  # source rotational frequency derivative (Hz/s)
@@ -110,7 +116,7 @@ orbitEcc = {ecc}
         cls.fakepulsarpar[0]["PHI0"] = phi0 / 2.0
         cls.fakepulsarpar[0]["PSI"] = psi
         cls.fakepulsarpar[0]["COSIOTA"] = cosiota
-        cls.fakepulsarpar[0]["F"] = [f0, f1]
+        cls.fakepulsarpar[0]["F"] = [f0, f1, f2]
         cls.fakepulsarpar[0]["RAJ"] = alpha
         cls.fakepulsarpar[0]["DECJ"] = delta
         cls.fakepulsarpar[0]["PEPOCH"] = pepoch
@@ -177,7 +183,7 @@ orbitEcc = {ecc}
         cls.fakepulsarpar[1]["PHI0"] = phi0 / 2.0
         cls.fakepulsarpar[1]["PSI"] = psi
         cls.fakepulsarpar[1]["COSIOTA"] = cosiota
-        cls.fakepulsarpar[1]["F"] = [f0, f1]
+        cls.fakepulsarpar[1]["F"] = [f0, f1, f2]
         cls.fakepulsarpar[1]["RAJ"] = alpha
         cls.fakepulsarpar[1]["DECJ"] = delta
         cls.fakepulsarpar[1]["PEPOCH"] = pepoch
@@ -197,6 +203,113 @@ orbitEcc = {ecc}
             fp.write("[Pulsar 2]\n")
             fp.write(isolatedstr.format(**mfddic))
             fp.write(binarystr.format(**mfdbindic))
+            fp.write("\n")
+
+        # THIRD PULSAR (GLITCHING PULSAR)
+        f0 = 10.1654321 / 2.0  # source rotation frequency (Hz)
+        f1 = -4.57654e-10 / 2.0  # source rotational frequency derivative (Hz/s)
+        f2 = 1.34134e-18 / 2.0  # second frequency derivative (Hz/s^2)
+        alpha = 4.6  # source right ascension (rads)
+        delta = -0.9  # source declination (rads)
+        pepoch = 1000086400 + 1.5 * 86400  # frequency epoch (GPS)
+
+        # glitch parameters
+        df0 = 0.0001  # EM glitch frequency jump
+        df1 = 1.2e-11  # EM glitch frequency derivative jump
+        df2 = -4.5e-19  # EM glitch frequency second derivative jump
+        dphi = 1.1  # EM glitch phase offset
+        glepoch = pepoch  # glitch epoch
+
+        # GW parameters
+        h0 = 8.7e-25  # GW amplitude
+        phi0 = 0.142  # GW initial phase (rads)
+        cosiota = -0.3  # cosine of inclination angle
+        psi = 0.52  # GW polarisation angle (rads)
+
+        # binary parameters
+        asini = 2.9  # projected semi-major axis (ls)
+        period = 0.3 * 86400  # orbital period (s)
+        Tp = 999995083  # time of periastron (GPS)
+        argp = 0.5  # argument of perisatron (rad)
+        ecc = 0.09  # the orbital eccentricity
+
+        # for MFD I need to create this as two transient pulsars using a
+        # rectangular window cutting before and after the glitch
+        mfddic = {
+            "alpha": alpha,
+            "delta": delta,
+            "f0": 2 * f0,
+            "f1": 2 * f1,
+            "f2": 2 * f2,
+            "pepoch": pepoch,
+            "h0": h0,
+            "cosi": cosiota,
+            "psi": psi,
+            "phi0": phi0,
+        }
+
+        mfdbindic = {
+            "asini": asini,
+            "Tp": Tp,
+            "period": period,
+            "argp": argp,
+            "ecc": ecc,
+        }
+
+        mfdtransientdic = {
+            "wintype": "rect",
+            "tstart": cls.fakedatastarts[0],
+            "tau": 86400,
+        }
+
+        # signal before the glitch
+        with open(injfile, "a") as fp:
+            fp.write("[Pulsar 3]\n")
+            fp.write(isolatedstr.format(**mfddic))
+            fp.write(binarystr.format(**mfdbindic))
+            fp.write(transientstr.format(**mfdtransientdic))
+            fp.write("\n")
+
+        mfddic["f0"] = 2 * (f0 + df0)
+        mfddic["f1"] = 2 * (f1 + df1)
+        mfddic["f2"] = 2 * (f2 + df2)
+        mfddic["phi0"] = phi0 + 2 * dphi
+
+        mfdtransientdic["tstart"] = cls.fakedatastarts[1]
+
+        # signal after the glitch
+        with open(injfile, "a") as fp:
+            fp.write("[Pulsar 4]\n")
+            fp.write(isolatedstr.format(**mfddic))
+            fp.write(binarystr.format(**mfdbindic))
+            fp.write(transientstr.format(**mfdtransientdic))
+
+        cls.fakepulsarpar.append(PulsarParametersPy())
+        cls.fakepulsarpar[2]["PSRJ"] = "J2222+2222"
+        cls.fakepulsarpar[2]["H0"] = h0
+        cls.fakepulsarpar[2]["PHI0"] = phi0 / 2.0
+        cls.fakepulsarpar[2]["PSI"] = psi
+        cls.fakepulsarpar[2]["COSIOTA"] = cosiota
+        cls.fakepulsarpar[2]["F"] = [f0, f1, f2]
+        cls.fakepulsarpar[2]["RAJ"] = alpha
+        cls.fakepulsarpar[2]["DECJ"] = delta
+        cls.fakepulsarpar[2]["PEPOCH"] = pepoch
+        cls.fakepulsarpar[2]["BINARY"] = "BT"
+        cls.fakepulsarpar[2]["E"] = ecc
+        cls.fakepulsarpar[2]["A1"] = asini
+        cls.fakepulsarpar[2]["T0"] = Tp
+        cls.fakepulsarpar[2]["OM"] = argp
+        cls.fakepulsarpar[2]["PB"] = period
+        cls.fakepulsarpar[2]["EPHEM"] = "DE405"
+        cls.fakepulsarpar[2]["UNITS"] = "TDB"
+        cls.fakepulsarpar[2]["GLEP"] = [glepoch]
+        cls.fakepulsarpar[2]["GLF0"] = [df0]
+        cls.fakepulsarpar[2]["GLF1"] = [df1]
+        cls.fakepulsarpar[2]["GLF2"] = [df2]
+        cls.fakepulsarpar[2]["GLPH"] = [dphi / (2 * np.pi)]
+
+        cls.fakeparfile.append(os.path.join(cls.fakepardir, "J2222+2222.par"))
+        cls.fakepulsarpar[2].pp_to_par(cls.fakeparfile[-1])
 
         # set ephemeris files
         efile = download_file(
@@ -242,7 +355,8 @@ orbitEcc = {ecc}
         """
 
         shutil.rmtree(cls.dummydir)
-        shutil.rmtree(cls.fakedatadir)
+        # shutil.rmtree(cls.fakepardir)
+        # shutil.rmtree(cls.fakedatadir)
 
     def test_start_end(self):
         """
@@ -613,14 +727,19 @@ orbitEcc = {ecc}
 
         het = Heterodyne(pulsarfiles=self.fakepardir)
 
-        assert sorted(list(het.pulsarfiles.keys())) == ["J0000+0000", "J1111+1111"]
+        assert sorted(list(het.pulsarfiles.keys())) == [
+            "J0000+0000",
+            "J1111+1111",
+            "J2222+2222",
+        ]
         assert sorted(list(het.pulsarfiles.values())) == sorted(
             [
                 os.path.realpath(self.fakeparfile[0]),
                 os.path.realpath(self.fakeparfile[1]),
+                os.path.realpath(self.fakeparfile[2]),
             ]
         )
-        assert sorted(het.pulsars) == ["J0000+0000", "J1111+1111"]
+        assert sorted(het.pulsars) == ["J0000+0000", "J1111+1111", "J2222+2222"]
 
         het = Heterodyne(pulsarfiles=self.fakeparfile[0])
         assert het.pulsarfiles == {"J0000+0000": self.fakeparfile[0]}
@@ -630,6 +749,10 @@ orbitEcc = {ecc}
         assert het.pulsarfiles == {"J1111+1111": self.fakeparfile[1]}
         assert het.pulsars == ["J1111+1111"]
 
+        het = Heterodyne(pulsarfiles=self.fakeparfile[2])
+        assert het.pulsarfiles == {"J2222+2222": self.fakeparfile[2]}
+        assert het.pulsars == ["J2222+2222"]
+
         het = Heterodyne(pulsarfiles=[self.fakeparfile[0]])
 
         assert het.pulsarfiles == {"J0000+0000": self.fakeparfile[0]}
@@ -637,12 +760,17 @@ orbitEcc = {ecc}
 
         het = Heterodyne(pulsarfiles=self.fakeparfile)
 
-        assert sorted(list(het.pulsarfiles.keys())) == ["J0000+0000", "J1111+1111"]
+        assert sorted(list(het.pulsarfiles.keys())) == [
+            "J0000+0000",
+            "J1111+1111",
+            "J2222+2222",
+        ]
         assert list(het.pulsarfiles.values()) == [
             self.fakeparfile[0],
             self.fakeparfile[1],
+            self.fakeparfile[2],
         ]
-        assert sorted(het.pulsars) == ["J0000+0000", "J1111+1111"]
+        assert sorted(het.pulsars) == ["J0000+0000", "J1111+1111", "J2222+2222"]
 
         with pytest.raises(TypeError):
             Heterodyne(pulsarfiles=self.fakeparfile, pulsars=3.4)
@@ -795,7 +923,7 @@ orbitEcc = {ecc}
         tend = segments[-1][-1] - het.crop - 0.5 / het.resamplerate
 
         # check output
-        for psr in ["J0000+0000", "J1111+1111"]:
+        for psr in ["J0000+0000", "J1111+1111", "J2222+2222"]:
             assert os.path.isfile(het.outputfiles[psr].format(**labeldict, psr=psr))
 
             hetdata = HeterodynedData.read(
@@ -828,7 +956,7 @@ orbitEcc = {ecc}
         het2.heterodyne()
 
         models = []
-        for i, psr in enumerate(["J0000+0000", "J1111+1111"]):
+        for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
             hetdata = HeterodynedData.read(
                 het2.outputfiles[psr].format(**labeldict, psr=psr)
@@ -839,21 +967,17 @@ orbitEcc = {ecc}
 
             # set expected model
             sim = HeterodynedCWSimulator(
-                self.fakepulsarpar[i],
-                self.fakedatadetectors[0],
-                hetdata.times,
+                hetdata.par,
+                hetdata.detector,
+                times=hetdata.times.value,
                 earth_ephem=hetdata.ephemearth,
                 sun_ephem=hetdata.ephemsun,
             )
 
-            models.append(
-                sim.model(
-                    self.fakepulsarpar[i], usephase=True, freqfactor=hetdata.freqfactor
-                )
-            )
+            models.append(sim.model(usephase=True, freqfactor=hetdata.freq_factor))
 
             # without inclusion of SSB model should not match
-            assert np.any(np.fabs(hetdata.data - models[i]) > 1e-28)
+            assert np.any(np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 5e-3)
 
         # now heterodyne with SSB
         del het2
@@ -869,7 +993,7 @@ orbitEcc = {ecc}
         )
         het2.heterodyne()
 
-        for i, psr in enumerate(["J0000+0000", "J1111+1111"]):
+        for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
             hetdata = HeterodynedData.read(
                 het2.outputfiles[psr].format(**labeldict, psr=psr)
@@ -877,4 +1001,81 @@ orbitEcc = {ecc}
 
             assert het2.resamplerate == 1 / hetdata.dt.value
             assert len(hetdata) == int(length * het2.resamplerate)
-            assert np.all(np.fabs(hetdata.data - models[i]) < 1e-28)
+
+            if psr == "J0000+0000":  # isolated pulsar
+                assert np.all(
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 5e-3
+                )
+            else:
+                # without inclusion of BSB/glitch phase model should not match
+                assert np.any(
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 5e-3
+                )
+
+        # now heterodyne with SSB and BSB
+        del het2
+        het2 = Heterodyne(
+            detector=self.fakedatadetectors[0],
+            heterodyneddata={
+                psr: het.outputfiles[psr].format(**labeldict, psr=psr)
+                for psr in ["J0000+0000", "J1111+1111", "J2222+2222"]
+            },  # test using dictionary
+            pulsarfiles=self.fakeparfile,
+            freqfactor=2,
+            resamplerate=1 / 60,
+            includessb=True,
+            includebsb=True,
+            output=fineoutdir,
+            label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+        )
+        het2.heterodyne()
+
+        for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
+            # load data
+            hetdata = HeterodynedData.read(
+                het2.outputfiles[psr].format(**labeldict, psr=psr)
+            )
+
+            assert het2.resamplerate == 1 / hetdata.dt.value
+            assert len(hetdata) == int(length * het2.resamplerate)
+
+            if psr in [
+                "J0000+0000",
+                "J1111+1111",
+            ]:  # isolated and binary pulsar (non-glitching)
+                assert np.all(
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 5e-3
+                )
+            else:
+                # without inclusion glitch phase model should not match
+                assert np.any(
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 5e-3
+                )
+
+        # now heterodyne with SSB, BSB and glitch phase
+        del het2
+        het2 = Heterodyne(
+            detector=self.fakedatadetectors[0],
+            heterodyneddata={
+                psr: het.outputfiles[psr].format(**labeldict, psr=psr)
+                for psr in ["J0000+0000", "J1111+1111", "J2222+2222"]
+            },  # test using dictionary
+            pulsarfiles=self.fakeparfile,
+            freqfactor=2,
+            resamplerate=1 / 60,
+            includessb=True,
+            includebsb=True,
+            output=fineoutdir,
+            label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+        )
+        het2.heterodyne()
+
+        for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
+            # load data
+            hetdata = HeterodynedData.read(
+                het2.outputfiles[psr].format(**labeldict, psr=psr)
+            )
+
+            assert het2.resamplerate == 1 / hetdata.dt.value
+            assert len(hetdata) == int(length * het2.resamplerate)
+            assert np.any(np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 5e-3)
