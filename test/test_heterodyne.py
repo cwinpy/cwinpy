@@ -211,7 +211,7 @@ transientTau = {tau}
         f2 = 1.34134e-18 / 2.0  # second frequency derivative (Hz/s^2)
         alpha = 4.6  # source right ascension (rads)
         delta = -0.9  # source declination (rads)
-        pepoch = 1000086400 + 1.5 * 86400  # frequency epoch (GPS)
+        pepoch = 1000000000 + 1.5 * 86400  # frequency epoch (GPS)
 
         # glitch parameters
         df0 = 0.0001  # EM glitch frequency jump
@@ -355,8 +355,8 @@ transientTau = {tau}
         """
 
         shutil.rmtree(cls.dummydir)
-        # shutil.rmtree(cls.fakepardir)
-        # shutil.rmtree(cls.fakedatadir)
+        shutil.rmtree(cls.fakepardir)
+        shutil.rmtree(cls.fakedatadir)
 
     def test_start_end(self):
         """
@@ -647,10 +647,7 @@ transientTau = {tau}
         # test None if not able to access GWOSC data
         het = Heterodyne()
         data = het.get_frame_data(
-            site="H1",
-            starttime=1126259460,
-            endtime=1126259464,
-            host=GWOSC_DEFAULT_HOST,
+            site="H1", starttime=1126259460, endtime=1126259464, host=GWOSC_DEFAULT_HOST
         )
 
         assert data is None
@@ -974,7 +971,16 @@ transientTau = {tau}
                 sun_ephem=hetdata.ephemsun,
             )
 
-            models.append(sim.model(usephase=True, freqfactor=hetdata.freq_factor))
+            # due to how the HeterodynedCWSimulator works we need to set
+            # updateglphase = True for the glitching signal to generate a
+            # signal without the glitch phase included!
+            models.append(
+                sim.model(
+                    usephase=True,
+                    freqfactor=hetdata.freq_factor,
+                    updateglphase=(True if psr == "J2222+2222" else False),
+                )
+            )
 
             # without inclusion of SSB model should not match
             assert np.any(np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 5e-3)
@@ -1044,12 +1050,12 @@ transientTau = {tau}
                 "J1111+1111",
             ]:  # isolated and binary pulsar (non-glitching)
                 assert np.all(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 5e-3
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 6e-3
                 )
             else:
                 # without inclusion glitch phase model should not match
                 assert np.any(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 5e-3
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 6e-3
                 )
 
         # now heterodyne with SSB, BSB and glitch phase
@@ -1065,6 +1071,7 @@ transientTau = {tau}
             resamplerate=1 / 60,
             includessb=True,
             includebsb=True,
+            includeglitch=True,
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
         )
@@ -1078,4 +1085,7 @@ transientTau = {tau}
 
             assert het2.resamplerate == 1 / hetdata.dt.value
             assert len(hetdata) == int(length * het2.resamplerate)
-            assert np.any(np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 5e-3)
+
+            # increase tolerance for acceptance due to small outliers (still
+            # equivalent at the ~1% level)
+            assert np.all(np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 1.5e-2)
