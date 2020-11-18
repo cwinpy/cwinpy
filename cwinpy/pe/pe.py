@@ -1892,7 +1892,15 @@ class PEInput(Input):
         self.transfer_files = cf.getboolean("dag", "transfer-files", fallback=True)
         self.osg = cf.getboolean("dag", "osg", fallback=False)
         self.label = cf.get("dag", "name", fallback="cwinpy_pe")
+
+        # see bilby_pipe MainInput class
         self.scheduler = cf.get("dag", "scheduler", fallback="condor")
+        self.scheduler_args = cf.get("dag", "scheduler_args", fallback=None)
+        self.scheduler_module = cf.get("dag", "scheduler_module", fallback=None)
+        self.scheduler_env = cf.get("dag", "scheduler_env", fallback=None)
+        self.scheduler_analysis_time = cf.get(
+            "dag", "scheduler_analysis_time", fallback="7-00:00:00"
+        )
 
         self.outdir = cf.get("run", "basedir", fallback=os.getcwd())
 
@@ -1903,11 +1911,16 @@ class PEInput(Input):
         )
         self.request_memory = cf.get("job", "request_memory", fallback="4 GB")
         self.request_cpus = cf.getint("job", "request_cpus", fallback=1)
-        self.accounting = cf.get("job", "accounting_group", fallback=None)
+        self.accounting = cf.get(
+            "job", "accounting_group", fallback="cwinpy"
+        )  # cwinpy is a dummy tag
         self.accounting_user = cf.get("job", "accounting_group_user", fallback=None)
         requirements = cf.get("job", "requirements", fallback=None)
         self.requirements = [requirements] if requirements else []
         self.retry = cf.getint("job", "retry", fallback=0)
+        self.notification = cf.get("job", "notification", fallback="Never")
+        self.email = cf.get("job", "email", fallback=None)
+        self.condor_job_priority = cf.getint("job", "condor_job_priority", fallback=0)
 
         # number of parallel runs for each job
         self.n_parallel = cf.getint("pe", "n_parallel", fallback=1)
