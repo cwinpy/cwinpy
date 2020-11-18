@@ -460,7 +460,7 @@ class TestMassQuadrupoleDistribution(object):
 
         pdist = ExponentialDistribution("ELL", mu=Uniform(0.0, 1e-5, "mu"))
         mdist = MassQuadrupoleDistribution(
-            data=[testdata1, testdata2], distribution=pdist, use_ellipticity=True,
+            data=[testdata1, testdata2], distribution=pdist, use_ellipticity=True
         )
         res = mdist.sample(**{"Nlive": 100, "save": False, "label": "test2"})
 

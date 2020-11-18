@@ -1528,7 +1528,7 @@ class PEDAGRunner(object):
                                     else:
                                         print(
                                             "Duplicate pulsar '{}' data. Ignoring "
-                                            "duplicate.".format(pname),
+                                            "duplicate.".format(pname)
                                         )
             elif fakeasd1f is not None or fakeasd2f is not None:
                 # set to use simulated data
@@ -1683,7 +1683,7 @@ class PEDAGRunner(object):
                 else:
                     print(
                         "Removing pulsar '{}' as either no data, or no prior "
-                        "is given".format(pname),
+                        "is given".format(pname)
                     )
                     if pname in datanames:
                         datadict.pop(pname)
@@ -1754,7 +1754,7 @@ class PEDAGRunner(object):
                 configdict["output_snr"] = "True"
 
             for ephem, ephemname in zip(
-                [earthephem, sunephem], ["ephem_earth", "ephem_sun"],
+                [earthephem, sunephem], ["ephem_earth", "ephem_sun"]
             ):
                 if ephem is not None:
                     if isinstance(ephem, dict):
@@ -2024,13 +2024,7 @@ class PulsarPENode(Node):
             ]
 
             # make paths relative
-            for key in [
-                "par_file",
-                "inj_par",
-                "data_file_1f",
-                "data_file_2f",
-                "prior",
-            ]:
+            for key in ["par_file", "inj_par", "data_file_1f", "data_file_2f", "prior"]:
                 if key in list(configdict.keys()):
                     if key in ["data_file_1f", "data_file_2f"]:
                         for detkey in configdict[key]:
@@ -2061,7 +2055,7 @@ class PulsarPENode(Node):
 
             self.extra_lines.extend(
                 self._condor_file_transfer_lines(
-                    list(set(input_files_to_transfer)), [configdict["outdir"]],
+                    list(set(input_files_to_transfer)), [configdict["outdir"]]
                 )
             )
 
