@@ -1,6 +1,14 @@
 # Notable changes between versions
 
-## [0.4.1] 2019-06-22
+## [0.4.2] 2020-11-18
+
+Changes for this release:
+
+- Updates to deal with changes to bilby_pipe's Condor API (!26).
+- Allow simulations to set the start time, end time and time step of the data (!23).
+- Allow hierarchical analysis to work in ellipticity as well as mass quadrupole (!24).
+
+## [0.4.1] 2020-06-22
 
 Changed for this release:
 
@@ -9,13 +17,13 @@ Changed for this release:
 - Add power law distribution to allowed hierarchical model distributions (!21).
 - Change Gaussian distribution in the hierarchical models to take in a Dirichlet prior on the Gaussian mode weights (!22).
 
-## [0.3.1] 2019-06-02
+## [0.3.1] 2020-06-02
 
 Changes for this release:
 
 - Allow Earth and Sun ephemeris files, and time correction files, to be explicitly given to the `HeterodynedData` object. Additionally allow these files to be passed via the `cwinpy_pe` script and DAG generation (!20).
 
-## [0.3.0] 2019-05-19
+## [0.3.0] 2020-05-19
 
 Changes for this release:
 
