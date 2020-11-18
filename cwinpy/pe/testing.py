@@ -134,7 +134,7 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
 
     # make plots
     try:
-        _ = bilby.core.result.make_pp_plot(results, filename=outfile, keys=parameters,)
+        _ = bilby.core.result.make_pp_plot(results, filename=outfile, keys=parameters)
     except Exception as e:
         raise RuntimeError("Problem creating PP plots: {}".format(e))
 

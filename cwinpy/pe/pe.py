@@ -1528,7 +1528,7 @@ class PEDAGRunner(object):
                                     else:
                                         print(
                                             "Duplicate pulsar '{}' data. Ignoring "
-                                            "duplicate.".format(pname),
+                                            "duplicate.".format(pname)
                                         )
             elif fakeasd1f is not None or fakeasd2f is not None:
                 # set to use simulated data
@@ -1683,7 +1683,7 @@ class PEDAGRunner(object):
                 else:
                     print(
                         "Removing pulsar '{}' as either no data, or no prior "
-                        "is given".format(pname),
+                        "is given".format(pname)
                     )
                     if pname in datanames:
                         datadict.pop(pname)
@@ -1754,7 +1754,7 @@ class PEDAGRunner(object):
                 configdict["output_snr"] = "True"
 
             for ephem, ephemname in zip(
-                [earthephem, sunephem], ["ephem_earth", "ephem_sun"],
+                [earthephem, sunephem], ["ephem_earth", "ephem_sun"]
             ):
                 if ephem is not None:
                     if isinstance(ephem, dict):
@@ -1892,7 +1892,15 @@ class PEInput(Input):
         self.transfer_files = cf.getboolean("dag", "transfer-files", fallback=True)
         self.osg = cf.getboolean("dag", "osg", fallback=False)
         self.label = cf.get("dag", "name", fallback="cwinpy_pe")
+
+        # see bilby_pipe MainInput class
         self.scheduler = cf.get("dag", "scheduler", fallback="condor")
+        self.scheduler_args = cf.get("dag", "scheduler_args", fallback=None)
+        self.scheduler_module = cf.get("dag", "scheduler_module", fallback=None)
+        self.scheduler_env = cf.get("dag", "scheduler_env", fallback=None)
+        self.scheduler_analysis_time = cf.get(
+            "dag", "scheduler_analysis_time", fallback="7-00:00:00"
+        )
 
         self.outdir = cf.get("run", "basedir", fallback=os.getcwd())
 
@@ -1903,11 +1911,16 @@ class PEInput(Input):
         )
         self.request_memory = cf.get("job", "request_memory", fallback="4 GB")
         self.request_cpus = cf.getint("job", "request_cpus", fallback=1)
-        self.accounting = cf.get("job", "accounting_group", fallback=None)
+        self.accounting = cf.get(
+            "job", "accounting_group", fallback="cwinpy"
+        )  # cwinpy is a dummy tag
         self.accounting_user = cf.get("job", "accounting_group_user", fallback=None)
         requirements = cf.get("job", "requirements", fallback=None)
         self.requirements = [requirements] if requirements else []
         self.retry = cf.getint("job", "retry", fallback=0)
+        self.notification = cf.get("job", "notification", fallback="Never")
+        self.email = cf.get("job", "email", fallback=None)
+        self.condor_job_priority = cf.getint("job", "condor_job_priority", fallback=0)
 
         # number of parallel runs for each job
         self.n_parallel = cf.getint("pe", "n_parallel", fallback=1)
@@ -2011,13 +2024,7 @@ class PulsarPENode(Node):
             ]
 
             # make paths relative
-            for key in [
-                "par_file",
-                "inj_par",
-                "data_file_1f",
-                "data_file_2f",
-                "prior",
-            ]:
+            for key in ["par_file", "inj_par", "data_file_1f", "data_file_2f", "prior"]:
                 if key in list(configdict.keys()):
                     if key in ["data_file_1f", "data_file_2f"]:
                         for detkey in configdict[key]:
@@ -2048,7 +2055,7 @@ class PulsarPENode(Node):
 
             self.extra_lines.extend(
                 self._condor_file_transfer_lines(
-                    list(set(input_files_to_transfer)), [configdict["outdir"]],
+                    list(set(input_files_to_transfer)), [configdict["outdir"]]
                 )
             )
 
