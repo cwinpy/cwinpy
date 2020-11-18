@@ -1,5 +1,11 @@
 # Notable changes between versions
 
+## [0.4.3] 2020-11-18
+
+Changes for this release:
+
+- Further updates to deal with changes to bilby_pipe pipeline API (!27)
+
 ## [0.4.2] 2020-11-18
 
 Changes for this release:
