@@ -1542,6 +1542,9 @@ class Heterodyne(object):
                             gpstimesint.data[i] = lal.LIGOTimeGPS(time)
                         # include final time value
                         gpstimesint.data[-1] = lal.LIGOTimeGPS(data.times.value[-1])
+                        timesint = np.append(
+                            data.times.value[::idxstep], [data.times.value[-1]]
+                        )
 
                     # loop over pulsars
                     for pulsar in pulsarlist:
@@ -1588,16 +1591,13 @@ class Heterodyne(object):
                                     psr.PulsarParameters(),
                                     gpstimesint,
                                     self.laldetector,
-                                    edat,
-                                    tdat,
+                                    self._ephemerides[ephem],
+                                    self._timecorr[units],
                                     ttype[units],
                                 )
 
                                 # create interpolation function
-                                inttimes = np.append(
-                                    data.times.value, [data.times.value[-1]]
-                                )
-                                tckssb = splrep(inttimes, ssbdelay)
+                                tckssb = splrep(timesint, ssbdelay.data)
                                 ssbdelayint = lal.CreateREAL8Vector(data.size)
                                 ssbdelayint.data = splev(data.times.value, tckssb)
 
@@ -1607,56 +1607,36 @@ class Heterodyne(object):
                                         psr.PulsarParameters(),
                                         gpstimesint,
                                         ssbdelay,
-                                        edat,
+                                        self._ephemerides[ephem],
                                     )
 
                                     # create interpolation function
-                                    tckbsb = splrep(inttimes, bsbdelay)
+                                    tckbsb = splrep(timesint, bsbdelay.data)
                                     bsbdelayint = lal.CreateREAL8Vector(data.size)
                                     bsbdelayint.data = splev(data.times.value, tckbsb)
                                 else:
                                     bsbdelayint = None
 
                         # get phase evolution
-                        if self.interpolationstep > 0 and self.includessb:
-                            # use interpolated delays
-                            phase = lalpulsar.HeterodynedPulsarPhaseDifference(
-                                psr.PulsarParameters(),
-                                None,
-                                gpstimes,
-                                self.freqfactor,
-                                ssbdelayint,
-                                0,
-                                bsbdelayint,
-                                0,
-                                None,
-                                int(self.includeglitch),
-                                None,
-                                int(self.includefitwaves),
-                                self.laldetector,
-                                edat,
-                                tdat,
-                                ttype[units],
-                            )
-                        else:
-                            phase = lalpulsar.HeterodynedPulsarPhaseDifference(
-                                psr.PulsarParameters(),
-                                None,
-                                gpstimes,
-                                self.freqfactor,
-                                None,
-                                int(self.includessb),
-                                None,
-                                int(self.includebsb),
-                                None,
-                                int(self.includeglitch),
-                                None,
-                                int(self.includefitwaves),
-                                self.laldetector,
-                                edat,
-                                tdat,
-                                ttype[units],
-                            )
+                        useint = self.interpolationstep > 0 and self.includessb
+                        phase = lalpulsar.HeterodynedPulsarPhaseDifference(
+                            psr.PulsarParameters(),
+                            None,
+                            gpstimes,
+                            self.freqfactor,
+                            ssbdelayint if useint else None,
+                            0 if useint else int(self.includessb),
+                            bsbdelayint if useint else None,
+                            0 if useint else int(self.includebsb),
+                            None,
+                            int(self.includeglitch),
+                            None,
+                            int(self.includefitwaves),
+                            self.laldetector,
+                            edat if not self.includessb else self._ephemerides[ephem],
+                            tdat if not self.includessb else self._timecorr[units],
+                            ttype[units],
+                        )
 
                         # heterodyne data
                         datahet = data.heterodyne(

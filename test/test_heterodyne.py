@@ -356,7 +356,7 @@ transientTau = {tau}
 
         shutil.rmtree(cls.dummydir)
         shutil.rmtree(cls.fakepardir)
-        shutil.rmtree(cls.fakedatadir)
+        # shutil.rmtree(cls.fakedatadir)
 
     def test_start_end(self):
         """
@@ -1089,3 +1089,58 @@ transientTau = {tau}
             # increase tolerance for acceptance due to small outliers (still
             # equivalent at the ~1% level)
             assert np.all(np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 1.5e-2)
+
+        # perform heterodyne in one step
+        fulloutdir = os.path.join(self.fakedatadir, "full_heterodyne_output")
+
+        het3 = Heterodyne(
+            starttime=segments[0][0],
+            endtime=segments[-1][-1],
+            pulsarfiles=self.fakeparfile,
+            segmentlist=segments,
+            framecache=self.fakedatadir,
+            channel=self.fakedatachannels[0],
+            freqfactor=2,
+            stride=86400 // 2,
+            resamplerate=1 / 60,
+            includessb=True,
+            includebsb=True,
+            includeglitch=True,
+            output=fulloutdir,
+            label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+        )
+
+        het3.heterodyne()
+
+        # compare against model
+        for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
+            # load data
+            hetdata = HeterodynedData.read(
+                het3.outputfiles[psr].format(**labeldict, psr=psr)
+            )
+
+            assert het3.resamplerate == 1 / hetdata.dt.value
+            assert len(hetdata) == int(length * het3.resamplerate)
+
+            # set expected model (recalculate due to data cropping differences
+            # with "full" heterodyne)
+            sim = HeterodynedCWSimulator(
+                hetdata.par,
+                hetdata.detector,
+                times=hetdata.times.value,
+                earth_ephem=hetdata.ephemearth,
+                sun_ephem=hetdata.ephemsun,
+            )
+
+            # due to how the HeterodynedCWSimulator works we need to set
+            # updateglphase = True for the glitching signal to generate a
+            # signal without the glitch phase included!
+            model = sim.model(
+                usephase=True,
+                freqfactor=hetdata.freq_factor,
+                updateglphase=(True if psr == "J2222+2222" else False),
+            )
+
+            # increase tolerance for acceptance due to small outliers (still
+            # equivalent at the ~1% level)
+            assert np.all(np.abs(hetdata.data - model) / np.abs(model) < 1.5e-2)
