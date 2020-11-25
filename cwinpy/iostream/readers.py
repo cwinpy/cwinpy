@@ -1,11 +1,11 @@
 import os
 
+import numpy as np
 from gwpy.io import hdf5 as io_hdf5
 from gwpy.io import registry as io_registry
 from gwpy.io.utils import identify_factory
 from gwpy.timeseries import TimeSeriesBase
 from gwpy.types.io.hdf5 import write_hdf5_series as gwpy_write_hdf5_series
-from numpy import column_stack, isfinite, loadtxt, savetxt, sqrt
 
 from ..data import HeterodynedData
 
@@ -24,7 +24,7 @@ def read_ascii_series(input_, array_type=HeterodynedData, **kwargs):
         The desired return type. Defaults to :class:`cwinpy.data.HeterodynedData`.
     """
 
-    data = loadtxt(input_, **kwargs)
+    data = np.loadtxt(input_, **kwargs)
 
     # get any comment lines from the file
     commentstrs = list(kwargs.get("comments", ["%", "#"]))  # delimiters
@@ -85,19 +85,36 @@ def read_hdf5_series(
     # make sure certain values are integers
     for key in kwargs:
         if key in ["window", "bbminlength", "bbmaxlength"]:
-            if isfinite(kwargs[key]):
+            if np.isfinite(kwargs[key]):
                 kwargs[key] = int(kwargs[key])
 
     # complex time series data
     data = dataset[()]
 
+    # extract the time stamps
+    timespans = kwargs.pop("times", None)
+    try:
+        dt = kwargs.pop("dt")
+    except KeyError:
+        dt = kwargs.pop("dx")
+    if timespans is not None:
+        times = np.array([], dtype=np.float)
+        for ts in timespans:
+            times = np.concatenate((times, np.arange(ts[0], ts[1] + dt / 2, dt)))
+        kwargs["times"] = times
+    else:
+        kwargs["times"] = np.arange(kwargs["x0"], kwargs["x0"] + len(data) * dt, dt)
+
+    filter_history = kwargs.pop("filter_history", None)
+
     # extract data variances if contained in the file
     vars = kwargs.pop("vars", None)
-
     if vars is None:
         array = array_type(data, **kwargs)
     else:
-        array = array_type(column_stack((data.real, data.imag, sqrt(vars))), **kwargs)
+        array = array_type(
+            np.column_stack((data.real, data.imag, np.sqrt(vars))), **kwargs
+        )
 
     # re-add noise-free injected signal
     if injdata is not None:
@@ -106,6 +123,10 @@ def read_hdf5_series(
         )
         array.injection = True
         array.injpar = parfiles["injpar"]
+
+    # add filter history
+    if filter_history is not None:
+        array.filter_history = filter_history
 
     for par in ["par", "injpar"]:
         if par in parfiles:
@@ -147,12 +168,15 @@ def write_ascii_series(series, output, **kwargs):
         comments = ""
 
     if stds is None:
-        return savetxt(
-            output, column_stack((xarr, yarrr, yarri)), header=comments, **kwargs
+        return np.savetxt(
+            output, np.column_stack((xarr, yarrr, yarri)), header=comments, **kwargs
         )
     else:
-        return savetxt(
-            output, column_stack((xarr, yarrr, yarri, stds)), header=comments, **kwargs
+        return np.savetxt(
+            output,
+            np.column_stack((xarr, yarrr, yarri, stds)),
+            header=comments,
+            **kwargs
         )
 
 
@@ -177,26 +201,27 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
         attrs["detector"] = series.detector
 
     for par in ["par", "injpar"]:
-        import tempfile
-
         if hasattr(series, par):
-            # output pulsar parameter data to temporary file
-            # Note: a better option would be to add a __str__ method to the PulsarParametersPy object
-            tempf = tempfile.mkstemp(suffix=".par")[1]
-            series.par.pp_to_par(tempf)
-            with open(tempf, "r") as fp:
-                pardata = fp.readlines()
-            os.remove(tempf)
+            # hold pulsar parameter data as a string
+            attrs[par] = str(series.par)
 
-            attrs[par] = "".join(pardata)
-
-    # add times as extra attribute
-    attrs["times"] = series.times
+    # save times as start and end times of contiguous chunks (cannot save
+    # full set of times for long datasets due to HDF5 header size
+    # restrictions)
+    dt = series.dt.value
+    if not np.allclose(np.diff(series.times.value), dt * np.ones(len(series) - 1)):
+        breaks = np.argwhere(np.diff(series.times.value) != dt)[0].tolist()
+        attrs["times"] = []
+        breaks = [-1] + breaks + [len(series) - 1]
+        for i in range(len(breaks) - 1):
+            attrs["times"].append(
+                (series.times.value[breaks[i] + 1], series.times.value[breaks[i + 1]])
+            )
 
     # remove metadata slots that can't/shouldn't be written as attributes
     slots = tuple()
     origslots = tuple(series._metadata_slots)
-    badslots = ["par", "injpar", "laldetector", "running_median", "vars"]
+    badslots = ["par", "injpar", "laldetector", "running_median", "vars", "xindex"]
 
     if kwargs.pop("includestds", False):
         # allow vars to be included

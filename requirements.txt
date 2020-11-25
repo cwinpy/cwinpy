@@ -5,7 +5,8 @@ bilby_pipe>=1.0.2
 matplotlib
 scipy
 lintegrate>=0.1.0
-lalsuite>=6.71
+lalsuite>=6.74.1.dev20200807
 numba
-gwpy
+gwpy>=2.0.0
+gwosc>=0.5.4
 pycondor

@@ -12,7 +12,8 @@ from astropy.io import registry as io_registry
 from gwpy.detector import Channel
 from gwpy.io.mp import read_multi
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
-from gwpy.timeseries import TimeSeriesBase
+from gwpy.segments import SegmentList
+from gwpy.timeseries import TimeSeries, TimeSeriesBase
 from gwpy.types import Series
 from numba import jit
 
@@ -759,7 +760,8 @@ class HeterodynedData(TimeSeriesBase):
         the data was generated.
     window: int, 30
         The length of a window used for calculating a running median over the
-        data.
+        data. If set to zero the running median will just be initialised with
+        zero values.
     inject: bool, False
         Set to ``True`` to add a simulated signal to the data based on the
         parameters supplied in `injpar`, or `par` if `injpar` is not given.
@@ -831,6 +833,7 @@ class HeterodynedData(TimeSeriesBase):
     }
 
     _metadata_slots = Series._metadata_slots + (
+        "dt",
         "comments",
         "par",
         "injpar",
@@ -843,10 +846,15 @@ class HeterodynedData(TimeSeriesBase):
         "outlier_thresh",
         "injtimes",
         "freq_factor",
+        "filter_history",
         "running_median",
         "inj_data",
         "input_stds",
         "outlier_mask",
+        "include_ssb",
+        "include_bsb",
+        "include_glitch",
+        "include_fitwaves",
     )
 
     def __new__(
@@ -938,6 +946,9 @@ class HeterodynedData(TimeSeriesBase):
                 else:
                     raise ValueError("Supplied data array is the wrong shape")
 
+            if len(hettimes) != dataarray.shape[0]:
+                raise ValueError("Supplied times is not that same length as the data")
+
             if hettimes is not None and times is not None:
                 if not np.array_equal(hettimes, times):
                     raise ValueError(
@@ -976,12 +987,7 @@ class HeterodynedData(TimeSeriesBase):
                 warnings.warn("Your data is only one data point long!")
                 new.dt = None
 
-        # for the moment there is the assumption that time stamps are integers,
-        # so check this
-        if not new.tottime.value.is_integer() or not new.dt.value.is_integer():
-            raise ValueError("Time stamps must be integers")
-
-        # don't recomute values on data that has been read in
+        # don't recompute values on data that has been read in
         if not isinstance(data, str) or remove_outliers:
             # initialise the running median
             _ = new.compute_running_median(N=new.window)
@@ -1069,7 +1075,7 @@ class HeterodynedData(TimeSeriesBase):
     @window.setter
     def window(self, window):
         if isinstance(window, int):
-            if window < 2:
+            if window < 2 and window != 0:
                 raise ValueError("Window length must be greater than 2")
             else:
                 self._window = window
@@ -1231,7 +1237,9 @@ class HeterodynedData(TimeSeriesBase):
         Parameters
         ----------
         N: int, 30
-            The window length of the running median. Defaults to 30 points.
+            The window length of the running median. Defaults to 30 points. If
+            set to 0 the running median will be initialised as an array of
+            zeros.
 
         Returns
         -------
@@ -1240,26 +1248,27 @@ class HeterodynedData(TimeSeriesBase):
             running median subtracted.
         """
 
-        if N < 2:
+        if N < 2 and N != 0:
             raise ValueError("The running median window must be greater than 1")
 
         self._running_median = TimeSeriesBase(
             np.zeros(len(self), dtype=np.complex), times=self.times
         )
-        for i in range(len(self)):
-            if i < N // 2:
-                startidx = 0
-                endidx = i + (N // 2) + 1
-            elif i > len(self) - N:
-                startidx = i - (N // 2) + 1
-                endidx = len(self)
-            else:
-                startidx = i - (N // 2) + 1
-                endidx = i + (N // 2) + 1
+        if N > 0:
+            for i in range(len(self)):
+                if i < N // 2:
+                    startidx = 0
+                    endidx = i + (N // 2) + 1
+                elif i > len(self) - N:
+                    startidx = i - (N // 2) + 1
+                    endidx = len(self)
+                else:
+                    startidx = i - (N // 2) + 1
+                    endidx = i + (N // 2) + 1
 
-            self._running_median[i] = np.median(
-                self.data.real[startidx:endidx]
-            ) + 1j * np.median(self.data.imag[startidx:endidx])
+                self._running_median[i] = np.median(
+                    self.data.real[startidx:endidx]
+                ) + 1j * np.median(self.data.imag[startidx:endidx])
 
         return self.running_median
 
@@ -3047,6 +3056,189 @@ class HeterodynedData(TimeSeriesBase):
         padded[tidxs] = data
 
         return padded
+
+    @property
+    def include_ssb(self):
+        """
+        A boolean stating whether the heterodyne included Solar System
+        barycentring.
+        """
+
+        try:
+            return self._include_ssb
+        except AttributeError:
+            return False
+
+    @include_ssb.setter
+    def include_ssb(self, incl):
+        self._include_ssb = bool(incl)
+
+    @property
+    def include_bsb(self):
+        """
+        A boolean stating whether the heterodyne included Binary System
+        barycentring.
+        """
+
+        try:
+            return self._include_bsb
+        except AttributeError:
+            return False
+
+    @include_bsb.setter
+    def include_bsb(self, incl):
+        self._include_bsb = bool(incl)
+
+    @property
+    def include_glitch(self):
+        """
+        A boolean stating whether the heterodyne included corrections for any
+        glitch phase evolution.
+        """
+
+        try:
+            return self._include_glitch
+        except AttributeError:
+            return False
+
+    @include_glitch.setter
+    def include_glitch(self, incl):
+        self._include_glitch = bool(incl)
+
+    @property
+    def include_fitwaves(self):
+        """
+        A boolean stating whether the heterodyne included corrections for any
+        red noise FITWAVES parameters.
+        """
+
+        try:
+            return self._include_fitwaves
+        except AttributeError:
+            return False
+
+    @include_fitwaves.setter
+    def include_fitwaves(self, incl):
+        self._include_fitwaves = bool(incl)
+
+    def as_timeseries(self):
+        """
+        Return the data as a :class:`gwpy.timeseries.TimeSeries`.
+        """
+
+        return TimeSeries(self.data, times=self.times, channel=self.channel)
+
+    @property
+    def filter_history(self):
+        """
+        An array with the "history" of any filters used during the
+        heterodyning.
+        """
+
+        try:
+            return self._filter_history
+        except AttributeError:
+            return None
+
+    @filter_history.setter
+    def filter_history(self, history):
+        self._filter_history = np.array(history)
+
+    def heterodyne(self, phase, stride=1, singlesided=False, datasegments=None):
+        """
+        Heterodyne the data (see :meth:`gwpy.timeseries.TimeSeries.heterodyne`)
+        for details). Unlike :meth:`gwpy.timeseries.TimeSeries.heterodyne` this
+        will heterodyne unevenly sampled data, although contiguous segments of
+        data will be truncated if they do not contain an integer number of
+        strides. Additional parameters are given below:
+
+        Parameters
+        ----------
+        datasegments: list
+            A list of pairs of times within which to include data. Data outside
+            these times will be removed.
+        """
+
+        try:
+            phaselen = len(phase)
+        except Exception as exc:
+            raise TypeError("Phase is not array_like: {}".format(exc))
+        if phaselen != len(self):
+            raise ValueError(
+                "Phase array must be the same length as the HeterodynedData"
+            )
+
+        dt = self.dt.value
+        samplerate = 1.0 / dt
+        stridesamp = int(stride * samplerate)
+
+        # find contiguous stretches of data
+        if not np.allclose(
+            np.diff(self.times.value), self.dt.value * np.ones(len(self) - 1)
+        ):
+            breaks = np.argwhere(np.diff(self.times.value) != self.dt.value)[0].tolist()
+            segments = SegmentList()
+            breaks = [-1] + breaks + [len(self) - 1]
+            for i in range(len(breaks) - 1):
+                segments.append(
+                    (
+                        self.times.value[breaks[i] + 1] - dt / 2,
+                        self.times.value[breaks[i + 1]] + dt / 2,
+                    )
+                )
+        else:
+            segments = SegmentList(
+                [(self.times.value[0] - dt / 2, self.times.value[-1] + dt / 2)]
+            )
+
+        if datasegments is not None:
+            # get times within segments and data time span
+            segments = (segments & SegmentList(datasegments)) & SegmentList(
+                [self.times.value[0] - dt / 2, self.times.value[-1] + dt / 2]
+            )
+
+        # check that some data is within the segments
+        if len(segments) == 0:
+            return None
+
+        # heterodyne the data
+        hetdata = np.exp(-1j * np.asarray(phase)) * self.data
+
+        times = []
+        # downsample the data
+        counter = 0
+        for seg in segments:
+            segsize = seg[1] - seg[0]
+            nsteps = int(segsize // stride)  # number of steps within segment
+
+            idx = np.argwhere(
+                (self.times.value >= seg[0]) & (self.times.value < seg[1])
+            ).flatten()
+
+            if len(idx) == 0:
+                continue
+
+            for step in range(nsteps):
+                istart = int(stridesamp * step)
+                iend = istart + stridesamp
+                stepidx = idx[istart:iend]
+                hetdata[counter] = (
+                    2 * hetdata[stepidx].mean()
+                    if singlesided
+                    else hetdata[stepidx].mean()
+                )
+                times.append(self.times.value[stepidx].mean())
+                counter += 1
+
+        # resize
+        hetdata.resize((counter,))
+
+        # create new object (will not contain, e.g., par file, injection info,
+        # etc)
+        out = type(self)(hetdata, times=times, window=0, bbminlength=len(self))
+        out.__array_finalize__(self)
+
+        return out
 
     def __len__(self):
         return len(self.data)

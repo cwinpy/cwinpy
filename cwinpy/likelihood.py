@@ -206,6 +206,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         # or binary parameters
         self.include_phase = False
         self.include_binary = False
+        self.include_glitch = False
         self.update_ssb = False
         for key in self.priors:
             if (
@@ -232,6 +233,9 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                                 self.include_binary = True
                             elif key.upper() in self.POSITIONAL_PARAMETERS:
                                 self.update_ssb = True
+                            elif len(key) > 2:
+                                if key.upper()[0:2] == "GL":
+                                    self.include_glitch = True
                             break
                 else:
                     self.include_phase = True
@@ -239,6 +243,9 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                         self.include_binary = True
                     elif key.upper() in self.POSITIONAL_PARAMETERS:
                         self.update_ssb = True
+                    elif len(key) > 2:
+                        if key.upper()[0:2] == "GL":
+                            self.include_glitch = True
 
         # check if any non-GR "amplitude" parameters are set
         self.nonGR = False
@@ -506,6 +513,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 usephase=self.include_phase,
                 updateSSB=self.update_ssb,
                 updateBSB=self.include_binary,
+                updateglphase=self.include_glitch,
                 freqfactor=data.freq_factor,
             )
 
