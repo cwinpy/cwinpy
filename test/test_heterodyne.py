@@ -48,7 +48,7 @@ class TestHeterodyne(object):
 
         os.makedirs(cls.fakedatadir, exist_ok=True)
 
-        cls.fakedatabandwidth = 16  # Hz
+        cls.fakedatabandwidth = 8  # Hz
         sqrtSn = 1e-29  # noise amplitude spectral density
         cls.fakedataname = "FAKEDATA"
 
@@ -84,7 +84,7 @@ transientTau = {tau}
 """
 
         # FIRST PULSAR (ISOLATED)
-        f0 = 12.3456 / 2.0  # source rotation frequency (Hz)
+        f0 = 6.9456 / 2.0  # source rotation frequency (Hz)
         f1 = -9.87654e-11 / 2.0  # source rotational frequency derivative (Hz/s)
         f2 = 2.34134e-18 / 2.0  # second frequency derivative (Hz/s^2)
         alpha = 0.0  # source right ascension (rads)
@@ -136,7 +136,7 @@ transientTau = {tau}
             fp.write("\n")
 
         # SECOND PULSAR (BINARY SYSTEM)
-        f0 = 8.7654321 / 2.0  # source rotation frequency (Hz)
+        f0 = 3.8654321 / 2.0  # source rotation frequency (Hz)
         f1 = 9.87654e-13 / 2.0  # source rotational frequency derivative (Hz/s)
         f2 = -1.34134e-20 / 2.0  # second frequency derivative (Hz/s^2)
         alpha = 1.3  # source right ascension (rads)
@@ -206,7 +206,7 @@ transientTau = {tau}
             fp.write("\n")
 
         # THIRD PULSAR (GLITCHING PULSAR)
-        f0 = 10.1654321 / 2.0  # source rotation frequency (Hz)
+        f0 = 5.3654321 / 2.0  # source rotation frequency (Hz)
         f1 = -4.57654e-10 / 2.0  # source rotational frequency derivative (Hz/s)
         f2 = 1.34134e-18 / 2.0  # second frequency derivative (Hz/s^2)
         alpha = 4.6  # source right ascension (rads)
@@ -356,7 +356,7 @@ transientTau = {tau}
 
         shutil.rmtree(cls.dummydir)
         shutil.rmtree(cls.fakepardir)
-        # shutil.rmtree(cls.fakedatadir)
+        shutil.rmtree(cls.fakedatadir)
 
     def test_start_end(self):
         """
@@ -589,13 +589,16 @@ transientTau = {tau}
 
         assert len(cachedata) == 1
         for i in range(len(cachedata)):
-            assert "{}-{}_{}-{}-{}.gwf".format(
-                self.fakedatadetectors[0][0],
-                self.fakedatadetectors[0],
-                self.fakedataname,
-                self.fakedatastarts[i],
-                self.fakedataduration,
-            ) == os.path.basename(cachedata[i])
+            assert (
+                "{}-{}_{}-{}-{}.gwf".format(
+                    self.fakedatadetectors[0][0],
+                    self.fakedatadetectors[0],
+                    self.fakedataname,
+                    self.fakedatastarts[i],
+                    self.fakedataduration,
+                )
+                == os.path.basename(cachedata[i])
+            )
 
         # test reading files from cache file
         data = het.get_frame_data(
@@ -894,7 +897,7 @@ transientTau = {tau}
             framecache=self.fakedatadir,
             channel=self.fakedatachannels[0],
             freqfactor=2,
-            stride=86400 // 2,
+            stride=self.fakedataduration // 2,
             output=outdir,
             resamplerate=1,
         )
@@ -1050,12 +1053,12 @@ transientTau = {tau}
                 "J1111+1111",
             ]:  # isolated and binary pulsar (non-glitching)
                 assert np.all(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 6e-3
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 1e-2
                 )
             else:
                 # without inclusion glitch phase model should not match
                 assert np.any(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 6e-3
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 1e-2
                 )
 
         # now heterodyne with SSB, BSB and glitch phase
@@ -1087,13 +1090,22 @@ transientTau = {tau}
             assert len(hetdata) == int(length * het2.resamplerate)
 
             # increase tolerance for acceptance due to small outliers (still
-            # equivalent at the ~1% level)
-            assert np.all(np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 1.5e-2)
+            # equivalent at the ~2% level)
+            assert np.all(np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 2e-2)
+
+    def test_full_heterodyne(self):
+        """
+        Test heterodyning on fake data, performing the heterodyne in one step.
+        """
+
+        segments = [
+            (time, time + self.fakedataduration) for time in self.fakedatastarts
+        ]
 
         # perform heterodyne in one step
         fulloutdir = os.path.join(self.fakedatadir, "full_heterodyne_output")
 
-        het3 = Heterodyne(
+        het = Heterodyne(
             starttime=segments[0][0],
             endtime=segments[-1][-1],
             pulsarfiles=self.fakeparfile,
@@ -1101,7 +1113,7 @@ transientTau = {tau}
             framecache=self.fakedatadir,
             channel=self.fakedatachannels[0],
             freqfactor=2,
-            stride=86400 // 2,
+            stride=self.fakedataduration // 2,
             resamplerate=1 / 60,
             includessb=True,
             includebsb=True,
@@ -1110,20 +1122,25 @@ transientTau = {tau}
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
         )
 
-        het3.heterodyne()
+        het.heterodyne()
+
+        labeldict = {
+            "det": het.detector,
+            "gpsstart": int(het.starttime),
+            "gpsend": int(het.endtime),
+            "freqfactor": int(het.freqfactor),
+        }
 
         # compare against model
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
             hetdata = HeterodynedData.read(
-                het3.outputfiles[psr].format(**labeldict, psr=psr)
+                het.outputfiles[psr].format(**labeldict, psr=psr)
             )
 
-            assert het3.resamplerate == 1 / hetdata.dt.value
-            assert len(hetdata) == int(length * het3.resamplerate)
+            assert het.resamplerate == 1 / hetdata.dt.value
 
-            # set expected model (recalculate due to data cropping differences
-            # with "full" heterodyne)
+            # set expected model
             sim = HeterodynedCWSimulator(
                 hetdata.par,
                 hetdata.detector,
@@ -1142,5 +1159,5 @@ transientTau = {tau}
             )
 
             # increase tolerance for acceptance due to small outliers (still
-            # equivalent at the ~1% level)
-            assert np.all(np.abs(hetdata.data - model) / np.abs(model) < 1.5e-2)
+            # equivalent at the ~2% level)
+            assert np.all(np.abs(hetdata.data - model) / np.abs(model) < 2e-2)

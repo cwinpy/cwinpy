@@ -1617,6 +1617,36 @@ class Heterodyne(object):
                                 else:
                                     bsbdelayint = None
 
+                                # get the heterodyne glitch phase
+                                if self.includeglitch:
+                                    glphase = lalpulsar.HeterodynedPulsarGetGlitchPhase(
+                                        psr.PulsarParameters(),
+                                        gpstimes,
+                                        ssbdelayint,
+                                        bsbdelayint,
+                                    )
+                                    glphase.data = (
+                                        -1.0 * glphase.data
+                                    )  # flip phase sign
+                                else:
+                                    glphase = None
+
+                                # get fitwaves phase
+                                if self.includefitwaves:
+                                    fwphase = (
+                                        lalpulsar.HeterodynedPulsarGetFITWAVESPhase(
+                                            psr.PulsarParameters(),
+                                            gpstimes,
+                                            ssbdelayint,
+                                            psr["F0"],
+                                        )
+                                    )
+                                    fwphase.data = (
+                                        -1.0 * fwphase.data
+                                    )  # flip phase sign
+                                else:
+                                    fwphase = None
+
                         # get phase evolution
                         useint = self.interpolationstep > 0 and self.includessb
                         phase = lalpulsar.HeterodynedPulsarPhaseDifference(
@@ -1628,10 +1658,10 @@ class Heterodyne(object):
                             0 if useint else int(self.includessb),
                             bsbdelayint if useint else None,
                             0 if useint else int(self.includebsb),
-                            None,
-                            int(self.includeglitch),
-                            None,
-                            int(self.includefitwaves),
+                            glphase if useint else None,
+                            0 if useint else int(self.includeglitch),
+                            fwphase if useint else None,
+                            0 if useint else int(self.includefitwaves),
                             self.laldetector,
                             edat if not self.includessb else self._ephemerides[ephem],
                             tdat if not self.includessb else self._timecorr[units],
@@ -1657,7 +1687,7 @@ class Heterodyne(object):
                         datadown.sample_rate = self.resamplerate
                         for step in range(nsteps):
                             istart = int(stridesamp * step)
-                            idx = np.arange(istart, istart + stridesamp)
+                            idx = slice(istart, istart + stridesamp)
                             datadown.value[step] = datahet.value[idx].mean()
 
                         # crop filter response from data
