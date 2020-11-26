@@ -1621,31 +1621,37 @@ class Heterodyne(object):
                                 if self.includeglitch:
                                     glphase = lalpulsar.HeterodynedPulsarGetGlitchPhase(
                                         psr.PulsarParameters(),
-                                        gpstimes,
-                                        ssbdelayint,
-                                        bsbdelayint,
+                                        gpstimesint,
+                                        ssbdelay,
+                                        bsbdelay,
                                     )
-                                    glphase.data = (
-                                        -1.0 * glphase.data
-                                    )  # flip phase sign
+
+                                    # create interpolation function (note due to the minus sign in
+                                    # the heterodyne the glitch phase sign needs to be flipped)
+                                    tckglph = splrep(timesint, -1.0 * glphase.data)
+                                    glphaseint = lal.CreateREAL8Vector(data.size)
+                                    glphaseint.data = splev(data.times.value, tckglph)
                                 else:
-                                    glphase = None
+                                    glphaseint = None
 
                                 # get fitwaves phase
                                 if self.includefitwaves:
                                     fwphase = (
                                         lalpulsar.HeterodynedPulsarGetFITWAVESPhase(
                                             psr.PulsarParameters(),
-                                            gpstimes,
-                                            ssbdelayint,
+                                            gpstimesint,
+                                            ssbdelay,
                                             psr["F0"],
                                         )
                                     )
-                                    fwphase.data = (
-                                        -1.0 * fwphase.data
-                                    )  # flip phase sign
+
+                                    # create interpolation function (note due to the minus sign in
+                                    # the heterodyne the fitwaves phase sign needs to be flipped)
+                                    tckfwph = splrep(timesint, -1.0 * fwphase.data)
+                                    fwphaseint = lal.CreateREAL8Vector(data.size)
+                                    fwphaseint.data = splev(data.times.value, tckfwph)
                                 else:
-                                    fwphase = None
+                                    fwphaseint = None
 
                         # get phase evolution
                         useint = self.interpolationstep > 0 and self.includessb
@@ -1658,9 +1664,9 @@ class Heterodyne(object):
                             0 if useint else int(self.includessb),
                             bsbdelayint if useint else None,
                             0 if useint else int(self.includebsb),
-                            glphase if useint else None,
+                            glphaseint if useint else None,
                             0 if useint else int(self.includeglitch),
-                            fwphase if useint else None,
+                            fwphaseint if useint else None,
                             0 if useint else int(self.includefitwaves),
                             self.laldetector,
                             edat if not self.includessb else self._ephemerides[ephem],
