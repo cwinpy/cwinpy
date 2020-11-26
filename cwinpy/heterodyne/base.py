@@ -17,8 +17,8 @@ from gwpy.timeseries import TimeSeries, TimeSeriesDict, TimeSeriesList
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from scipy.interpolate import splev, splrep
 
-from .data import HeterodynedData
-from .utils import get_psr_name, initialise_ephemeris, is_par_file
+from ..data import HeterodynedData
+from ..utils import get_psr_name, initialise_ephemeris, is_par_file
 
 
 class Heterodyne(object):
@@ -33,9 +33,9 @@ class Heterodyne(object):
         The integer end time of the data to be heterodyned in GPS seconds.
     stride: int
         The number of seconds to stride through the data, i.e., loop through
-        the data reading in ``stride`` seconds each time. Defaults to 3600
+        the data reading in ``stride`` seconds each time. Defaults to 3600.
     detector: str
-        A string given the name of the detector for which the data is being
+        A string given the name of the detector for which the data is to be
         heterodyned.
     frametype: str
         The ``frametype`` name of the data to be heterodyned. See, e.g., the

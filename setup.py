@@ -42,11 +42,13 @@ setup(
             "cwinpy_pe=cwinpy.pe.pe:pe_cli",
             "cwinpy_pe_dag=cwinpy.pe.pe:pe_dag_cli",
             "cwinpy_pe_generate_pp_plots=cwinpy.pe.testing:generate_pp_plots",
+            "cwinpy_heterodyne=cwinpy.heterodyne.heterodyne:heterodyne_cli",
         ]
     },
     cmdclass=CMDCLASS,
     classifiers=[
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
     ],
 )

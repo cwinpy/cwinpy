@@ -30,13 +30,7 @@ from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..likelihood import TargetedPulsarLikelihood
-from ..utils import is_par_file
-
-
-def sighandler(signum, frame):
-    # perform periodic eviction with exit code 130
-    # see https://git.ligo.org/lscsoft/bilby_pipe/blob/0b5ca550e3a92494ef3e04801e79a2f9cd902b44/bilby_pipe/parser.py#L270  # noqa: E501
-    sys.exit(130)
+from ..utils import is_par_file, sighandler
 
 
 def create_pe_parser():
@@ -1238,7 +1232,7 @@ def pe(**kwargs):
             cliargs = sys.argv[1:]
 
         try:
-            args, unknown_args = parse_args(cliargs, parser)
+            args, _ = parse_args(cliargs, parser)
         except BilbyPipeError as e:
             raise IOError("{}".format(e))
 
