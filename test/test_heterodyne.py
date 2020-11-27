@@ -10,7 +10,8 @@ import lal
 import numpy as np
 import pytest
 from astropy.utils.data import download_file
-from cwinpy import Heterodyne, HeterodynedData
+from cwinpy import HeterodynedData
+from cwinpy.heterodyne import Heterodyne, heterodyne
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from lalpulsar.simulateHeterodynedCW import DOWNLOAD_URL, HeterodynedCWSimulator
@@ -889,7 +890,7 @@ transientTau = {tau}
             het.heterodyne(includeglitch=True)
 
         # perform first stage heterodyne
-        het = Heterodyne(
+        het = heterodyne(
             starttime=segments[0][0],
             endtime=segments[-1][-1],
             pulsarfiles=self.fakeparfile,
@@ -901,8 +902,6 @@ transientTau = {tau}
             output=outdir,
             resamplerate=1,
         )
-
-        het.heterodyne()
 
         labeldict = {
             "det": het.detector,
@@ -943,7 +942,7 @@ transientTau = {tau}
         fineoutdir = os.path.join(self.fakedatadir, "fine_heterodyne_output")
 
         # first heterodyne without SSB
-        het2 = Heterodyne(
+        het2 = heterodyne(
             detector=self.fakedatadetectors[0],
             heterodyneddata=outdir,  # pass previous output directory
             pulsarfiles=self.fakeparfile,
@@ -953,7 +952,6 @@ transientTau = {tau}
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
         )
-        het2.heterodyne()
 
         models = []
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
@@ -990,7 +988,7 @@ transientTau = {tau}
 
         # now heterodyne with SSB
         del het2
-        het2 = Heterodyne(
+        het2 = heterodyne(
             detector=self.fakedatadetectors[0],
             heterodyneddata=outdir,  # pass previous output directory
             pulsarfiles=self.fakeparfile,
@@ -1000,7 +998,6 @@ transientTau = {tau}
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
         )
-        het2.heterodyne()
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
@@ -1023,7 +1020,7 @@ transientTau = {tau}
 
         # now heterodyne with SSB and BSB
         del het2
-        het2 = Heterodyne(
+        het2 = heterodyne(
             detector=self.fakedatadetectors[0],
             heterodyneddata={
                 psr: het.outputfiles[psr].format(**labeldict, psr=psr)
@@ -1037,7 +1034,6 @@ transientTau = {tau}
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
         )
-        het2.heterodyne()
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
@@ -1063,7 +1059,7 @@ transientTau = {tau}
 
         # now heterodyne with SSB, BSB and glitch phase
         del het2
-        het2 = Heterodyne(
+        het2 = heterodyne(
             detector=self.fakedatadetectors[0],
             heterodyneddata={
                 psr: het.outputfiles[psr].format(**labeldict, psr=psr)
@@ -1078,7 +1074,6 @@ transientTau = {tau}
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
         )
-        het2.heterodyne()
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
@@ -1105,7 +1100,7 @@ transientTau = {tau}
         # perform heterodyne in one step
         fulloutdir = os.path.join(self.fakedatadir, "full_heterodyne_output")
 
-        het = Heterodyne(
+        het = heterodyne(
             starttime=segments[0][0],
             endtime=segments[-1][-1],
             pulsarfiles=self.fakeparfile,
@@ -1121,8 +1116,6 @@ transientTau = {tau}
             output=fulloutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
         )
-
-        het.heterodyne()
 
         labeldict = {
             "det": het.detector,
