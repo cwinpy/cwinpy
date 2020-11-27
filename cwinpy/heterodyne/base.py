@@ -106,7 +106,7 @@ class Heterodyne(object):
         either i) a string giving the path to an individual pulsar
         TEMPO(2)-style parameter file, ii) a string giving the path to a
         directory containing multiple TEMPO(2)-style parameter files (the path
-        with be recursively searched for any file with the extension ".par"),
+        will be recursively searched for any file with the extension ".par"),
         iii) a list of paths to individual pulsar parameter files, iv) a
         dictionary containing paths to individual pulsars parameter files keyed
         to their names.
@@ -117,7 +117,8 @@ class Heterodyne(object):
     filterknee: float
         The knee frequency (Hz) of the low-pass filter applied after
         heterodyning the data. This should only be given when heterodying raw
-        strain and not if re-heterodyning processed data. Default is 0.5 Hz.
+        strain data and not if re-heterodyning processed data. Default is 0.5
+        Hz.
     heterodyneddata: str, dict
         A string or dictionary of strings containing the full file path, or
         directory path, pointing the the location of pre-heterodyned data. For
@@ -135,7 +136,7 @@ class Heterodyne(object):
     freqfactor: float
         The factor applied to the pulsars rotational parameters when defining
         the gravitational-wave phase evolution. For example, the default value
-        of 2, multiplies the phase evolution by 2 under the assumption of a
+        of 2 multiplies the phase evolution by 2 under the assumption of a
         signal emitted from the l=m=2 quadrupole mode of a rigidly rotating
         triaxial neutron star.
     crop: int
@@ -143,20 +144,20 @@ class Heterodyne(object):
         to remove filter impulse effects and issues prior to lock-loss.
         Default is 60 seconds.
     includessb: bool
-        Set this to True to include the modulation of the signal due to Solar
-        System motion and relativistic effects (e.g., Roemer, Einstein,
-        Shapiro delay). Default is False.
+        Set this to True to include removing the modulation of the signal due
+        to Solar System motion and relativistic effects (e.g., Roemer,
+        Einstein, and Shapiro delay) during the heterodyne. Default is False.
     includebsb: bool
-        Set this to True to include the modulation of the signal due to binary
-        system motion and relativistic effects. To use this ``includessb``
-        must also be True. Default is False.
+        Set this to True to include removing the modulation of the signal due
+        to binary system motion and relativistic effects during the heterodyne.
+        To use this ``includessb`` must also be True. Default is False.
     includeglitch: bool
-        Set this to True to include in the phase evolution the effects of any
-        modelled pulsar glitches. Default is False.
+        Set this to True to include removing the effects on the phase evolution
+        of any modelled pulsar glitches during the heterodyne. Default is False.
     includefitwaves: bool
-        Set this to True to include in the phase evolution of a series of
+        Set this to True to include removing the phase evolution of a series of
         sinusoids designed to model low-frequency timing noise in the pulsar
-        signal. Default is False.
+        signal during the heterodyne. Default is False.
     interpolationstep: int
         If performing the full heterodyne in one step it is quicker to
         interpolate the solar system barycentre time delay and binary

@@ -1259,7 +1259,7 @@ def pe(**kwargs):
 
 def pe_cli(**kwargs):  # pragma: no cover
     """
-    Entry point to ``cwinpy_pe script``. This just calls :func:`cwinpy.pe.pe`,
+    Entry point to ``cwinpy_pe`` script. This just calls :func:`cwinpy.pe.pe`,
     but does not return any objects.
     """
 

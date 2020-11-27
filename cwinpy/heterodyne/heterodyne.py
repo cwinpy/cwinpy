@@ -10,7 +10,7 @@ from bilby_pipe.bilbyargparser import BilbyArgParser
 from bilby_pipe.utils import BilbyPipeError, parse_args
 
 # from ..utils import sighandler
-from .heterodyne import Heterodyne
+from .base import Heterodyne
 
 
 def create_heterodyne_parser():
@@ -42,6 +42,18 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "Time after which the job will be self-evicted with code 130. "
             "After this, condor will restart the job. Default is 43200s. "
             "This is used to decrease the chance of HTCondor hard evictions."
+        ),
+    )
+    parser.add(
+        "--resume",
+        action="store_true",
+        default=False,
+        help=(
+            "Set this flag to resume heterodyning in case not all pulsars "
+            "completed. This checks whether output files (as set using "
+            '"--output" and "--label" arguments) already exist and does '
+            "not repeat the analysis if that is the case. If wanting to "
+            "overwrite existing files make sure this flag is not given."
         ),
     )
 
@@ -132,6 +144,23 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "e.g., \"['file1.lcf','file2.lcf']\"."
         ),
     )
+    dataparser.add(
+        "--heterodyneddata",
+        help=(
+            "A string, or dictionary of strings, containing the full file "
+            "path, or directory path, pointing the the location of "
+            "pre-heterodyned data. For a single pulsar a file path can be "
+            "given. For multiple pulsars a directory containing heterodyned "
+            "files (in HDF5 or txt format) can be given provided that within "
+            "it the file names contain the pulsar names as supplied in the "
+            'file input with "--pulsarfiles". Alternatively, a dictionary '
+            "can be supplied, keyed on the pulsar name, containing a single "
+            "file path or a directory path as above. If supplying a "
+            "directory, it can contain multiple heterodyned files for a each "
+            "pulsar and all will be used. If giving a dictionary it should be "
+            "surrounded by quotation marks."
+        ),
+    )
 
     segmentparser = parser.add_argument_group("Analysis segment inputs")
     segmentparser.add(
@@ -151,6 +180,168 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "strings, giving the data DQ flags that will be used to generate "
             "a segment list. Lists should be surrounded by quotation marks, "
             "e.g., \"['L1:DMT-ANALYSIS_READY:1']\"."
+        ),
+    )
+    segmentparser.add(
+        "--excludeflags",
+        help=(
+            "A string, or list of strings, giving the data DQ flags to "
+            "when generating a segment list. Lists should be surrounded by "
+            "quotation marks."
+        ),
+    )
+    segmentparser.add(
+        "--outputsegmentlist",
+        type=str,
+        help=(
+            "If generating a segment list it will be output to the file "
+            "specified by this argument."
+        ),
+    )
+    segmentparser.add(
+        "--appendsegmentlist",
+        action="store_true",
+        default=False,
+        help=(
+            "If generating a segment list set this to True to append to the "
+            'file specified by "--outputsegmentlist" rather than '
+            "overwriting. Default is False."
+        ),
+    )
+    segmentparser.add(
+        "--segmentserver",
+        type=str,
+        help=("The segment database URL."),
+    )
+
+    pulsarparser = parser.add_argument_group("Pulsar inputs")
+    pulsarparser.add(
+        "--pulsarfiles",
+        help=(
+            "This specifies the pulsars for which to heterodyne the data. It "
+            "can be either i) a string giving the path to an individual "
+            "pulsar TEMPO(2)-style parameter file, ii) a string giving the "
+            "path to a directory containing multiple TEMPO(2)-style parameter "
+            "files (the path will be recursively searched for any file with "
+            'the extension ".par"), iii) a list of paths to individual '
+            "pulsar parameter files, iv) a dictionary containing paths to "
+            "individual pulsars parameter files keyed to their names. If "
+            "providing a list or dictionary it should be surrounded by "
+            "quotation marks."
+        ),
+    )
+    pulsarparser.add(
+        "--pulsars",
+        help=(
+            "You can analyse only particular pulsars from those specified by "
+            'parameter files found through the "--pulsars" argument by '
+            "passing a string, or list of strings, with particular pulsars "
+            "names to use."
+        ),
+    )
+
+    outputparser = parser.add_argument_group("Data output inputs")
+    outputparser.add(
+        "--output",
+        help=(
+            "The base directory into which the heterodyned results will be "
+            "output. To specify explicit directory paths for individual "
+            "pulsars this can be a dictionary of directory paths keyed to the "
+            'pulsar name (in which case the "--label" argument will be used '
+            "to set the file name), or full file paths, which will be used in "
+            'place of the "--label" argument.'
+        ),
+    )
+    outputparser.add(
+        "--label",
+        help=(
+            "The output format for the heterdyned data files. These can be "
+            'format strings containing the keywords "psr" for the pulsar '
+            'name, "det" for the detector, "freqfactor" for the rotation '
+            'frequency scale factor used, "gpsstart" for the GPS start '
+            'time, and "gpsend" for the GPS end time. The extension should '
+            'be given as ".hdf", ".h5", or ".hdf5". E.g., the default '
+            'is "heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf".'
+        ),
+    )
+
+    heterodyneparser = parser.add_argument_group("Heterodyne inputs")
+    heterodyneparser.add(
+        "--filterknee",
+        type=float,
+        help=(
+            "The knee frequency (Hz) of the low-pass filter applied after "
+            "heterodyning the data. This should only be given when "
+            "heterodying raw strain data and not if re-heterodyning processed "
+            "data. Default is 0.5 Hz."
+        ),
+    )
+    heterodyneparser.add(
+        "--resamplerate",
+        type=float,
+        required=True,
+        help=(
+            "The rate in Hz at which to resample the data (via averaging) "
+            "after application of the heterodyne (and filter if applied)."
+        ),
+    )
+    heterodyneparser.add(
+        "--freqfactor",
+        type=float,
+        help=(
+            "The factor applied to the pulsars rotational parameters when "
+            "defining the gravitational-wave phase evolution. For example, "
+            "the default value of 2 multiplies the phase evolution by 2 under "
+            "the assumption of a signal emitted from the l=m=2 quadrupole "
+            "mode of a rigidly rotating triaxial neutron star."
+        ),
+    )
+    heterodyneparser.add(
+        "--crop",
+        type=int,
+        help=(
+            "The number of seconds to crop from the start and end of data "
+            "segments to remove filter impulse effects and issues prior to "
+            "lock-loss. Default is 60 seconds."
+        ),
+    )
+    heterodyneparser.add(
+        "--includessb",
+        action="store_true",
+        default=False,
+        help=(
+            "Set this flag to include removing the modulation of the signal due to "
+            "Solar System motion and relativistic effects (e.g., Roemer, "
+            "Einstein, and Shapiro delay) during the heterodyne."
+        ),
+    )
+    heterodyneparser.add(
+        "--includebsb",
+        action="store_true",
+        default=False,
+        help=(
+            "Set this flag to include removing the modulation of the signal "
+            "due to binary system motion and relativistic effects during the "
+            'heterodyne. To use this "--includessb" must also be set.'
+        ),
+    )
+    heterodyneparser.add(
+        "--includeglitch",
+        action="store_true",
+        default=False,
+        help=(
+            "Set this flag to include removing the effects of the phase "
+            "evolution of any modelled pulsar glitches during the heterodyne."
+        ),
+    )
+    heterodyneparser.add(
+        "--includefitwaves",
+        action="store_true",
+        default=False,
+        help=(
+            "Set this to True to include removing the phase evolution of a "
+            "series of sinusoids designed to model low-frequency timing noise "
+            "in the pulsar signal during the heterodyne."
         ),
     )
 
@@ -197,17 +388,28 @@ def heterodyne(**kwargs):
         hetkwargs = kwargs
 
     # check non-standard arguments that could be Python objects
-    nsattrs = ["framecache", "segmentlist", "includeflags"]
+    nsattrs = [
+        "framecache",
+        "heterodyneddata",
+        "segmentlist",
+        "includeflags",
+        "excludeflags",
+        "pulsarfiles",
+        "pulsars",
+        "output",
+    ]
     for attr in nsattrs:
         value = hetkwargs.pop(attr, None)
 
-        if value is not None:
+        if isinstance(value, str):
             # check whether the value can be evaluated as a Python object
             try:
                 value = ast.literal_eval(value)
             except (ValueError, SyntaxError):
                 pass
 
+            hetkwargs[attr] = value
+        elif value is not None:
             hetkwargs[attr] = value
 
     # set up the run
@@ -221,7 +423,7 @@ def heterodyne(**kwargs):
 
 def heterodyne_cli(**kwargs):  # pragma: no cover
     """
-    Entry point to ``cwinpy_heterodyne script``. This just calls
+    Entry point to ``cwinpy_heterodyne`` script. This just calls
     :func:`cwinpy.heterodyne.heterodyne`, but does not return any objects.
     """
 
