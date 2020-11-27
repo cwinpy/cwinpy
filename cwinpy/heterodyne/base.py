@@ -112,7 +112,7 @@ class Heterodyne(object):
         to their names.
     pulsars: str, list
         You can analyse only particular pulsars from those specified by
-        parameter files found through the ``pulsars`` argument by passing a
+        parameter files found through the ``pulsarfiles`` argument by passing a
         string, or list of strings, with particular pulsars names to use.
     filterknee: float
         The knee frequency (Hz) of the low-pass filter applied after

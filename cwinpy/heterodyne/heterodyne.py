@@ -3,13 +3,25 @@ Run heterodyne pre-processing of gravitational-wave data.
 """
 
 import ast
+import configparser
+import os
+import signal
 import sys
 
 import cwinpy
+import numpy as np
 from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.utils import BilbyPipeError, parse_args
+from bilby_pipe.input import Input
+from bilby_pipe.job_creation.dag import Dag
+from bilby_pipe.job_creation.node import Node
+from bilby_pipe.utils import (
+    BilbyPipeError,
+    check_directory_exists_and_if_not_mkdir,
+    parse_args,
+)
+from configargparse import DefaultConfigFileParser
 
-# from ..utils import sighandler
+from ..utils import sighandler
 from .base import Heterodyne
 
 
@@ -234,7 +246,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         "--pulsars",
         help=(
             "You can analyse only particular pulsars from those specified by "
-            'parameter files found through the "--pulsars" argument by '
+            'parameter files found through the "--pulsarfiles" argument by '
             "passing a string, or list of strings, with particular pulsars "
             "names to use."
         ),
@@ -416,6 +428,8 @@ def heterodyne(**kwargs):
     het = Heterodyne(**hetkwargs)
 
     # heterodyne the data
+    signal.signal(signal.SIGALRM, handler=sighandler)
+    signal.alarm(hetkwargs.pop("periodic_restart_time"))
     het.heterodyne()
 
     return het
@@ -429,3 +443,461 @@ def heterodyne_cli(**kwargs):  # pragma: no cover
 
     kwargs["cli"] = True  # set to show use of CLI
     _ = heterodyne(**kwargs)
+
+
+class HeterodyneDAGRunner(object):
+    """
+    Set up and run the heterodyne DAG.
+
+    Parameters
+    ----------
+    config: :class:`configparser.ConfigParser`
+          A :class:`configparser.ConfigParser` object with the analysis setup
+          parameters.
+    """
+
+    def __init__(self, config, **kwargs):
+        # create and build the dag
+        self.create_dag(config, **kwargs)
+
+        if self.submitdag:
+            if self.build:
+                self.dag.build_submit(submit_options=self.submit_options)
+            else:
+                self.dag.submit_dag(self.submit_options)
+
+    def create_dag(self, config, **kwargs):
+        """
+        Create the HTCondor DAG from the configuration parameters.
+
+        Parameters
+        ----------
+        config: :class:`configparser.ConfigParser`
+            A :class:`configparser.ConfigParser` object with the analysis setup
+            parameters.
+        """
+
+        if not isinstance(config, configparser.ConfigParser):
+            raise TypeError("'config' must be a ConfigParser object")
+
+        inputs = HeterodyneInput(config)
+
+        if "dag" in kwargs:
+            # get a previously created DAG if given (for example for a full
+            # analysis pipeline)
+            self.dag = kwargs["dag"]
+        else:
+            self.dag = Dag(inputs)
+
+        # get whether to build the dag
+        self.build = config.getboolean("dag", "build", fallback=True)
+
+        # get whether to automatically submit the dag
+        self.submitdag = config.getboolean("dag", "submitdag", fallback=False)
+
+        # get any additional submission options
+        self.submit_options = config.get("dag", "submit_options", fallback=None)
+
+        # create configurations for each cwinpy_heterodyne job
+        if not config.has_section("heterodyne"):
+            raise IOError("Configuration file must have a [heterodyne] section.")
+
+        # create Heterodyne object to get pulsar parameter file information
+        pulsarfiles = config.get("heterodyne", "pulsarfiles", fallback=None)
+        pulsars = config.get("heterodyne", "pulsars", fallback=None)
+        if pulsarfiles is None:
+            raise ValueError("A set of pulsar parameter files must be supplied")
+        het = Heterodyne(pulsarfiles=self.eval(pulsarfiles), pulsars=self.eval(pulsars))
+
+        detectors = self.eval(config.get("heterodyne", "detectors", fallback=None))
+        if isinstance(detectors, str):
+            detectors = [detectors]  # make into a list
+        elif detectors is None:
+            raise ValueError("At least one detector must be supplied")
+
+        freqfactors = self.eval(
+            config.get("heterodyne", "freqfactors", fallback="[2.0]")
+        )
+        if isinstance(freqfactors, (int, float)):
+            freqfactors = [freqfactors]  # make into a list
+
+        # get times of data to analyse
+        fullstarttimes = self.eval(
+            config.get("heterodyne", "starttimes", fallback=None)
+        )
+        if isinstance(fullstarttimes, dict):
+            if sorted(detectors) != sorted(fullstarttimes.keys()):
+                raise ValueError("Start times must be specified for all detectors")
+            for key, value in fullstarttimes.copy().items():
+                if isinstance(value, int):
+                    fullstarttimes[key] = [value]  # convert values to lists
+                elif not isinstance(value, list):
+                    raise ValueError("Must have a list of start times for a detector")
+        elif isinstance(fullstarttimes, int):
+            fullstarttimes = {
+                det: [fullstarttimes] for det in detectors
+            }  # convert to dict
+        else:
+            raise ValueError("Start times must be given")
+
+        fullendtimes = self.eval(config.get("heterodyne", "endtimes", fallback=None))
+        if isinstance(fullendtimes, dict):
+            if sorted(detectors) != sorted(fullendtimes.keys()):
+                raise ValueError("End times must be specified for all detectors")
+            for key, value in fullendtimes.copy().items():
+                if isinstance(value, int):
+                    fullendtimes[key] = [value]  # convert values to lists
+                elif not isinstance(value, list):
+                    raise ValueError("Must have a list of end times for a detector")
+        elif isinstance(fullendtimes, int):
+            fullendtimes = {det: [fullendtimes] for det in detectors}  # convert to dict
+        else:
+            raise ValueError("End times must be given")
+
+        for det in detectors:
+            if len(fullendtimes[det]) != len(fullstarttimes[det]):
+                raise ValueError("Inconsistent numbers of start and end times")
+
+        njobs = config.getint("heterodyne", "njobs", fallback=1)
+
+        # get all the split times
+        if njobs == 1:
+            starttimes = fullstarttimes
+            endtimes = fullendtimes
+        elif njobs > 1:
+            starttimes = {det: [] for det in detectors}
+            endtimes = {det: [] for det in detectors}
+
+            totaltimes = {
+                det: sum(
+                    fullendtimes[det][i] - fullstarttimes[det][i]
+                    for i in range(len(fullendtimes[det]))
+                )
+                for det in detectors
+            }
+            for det in detectors:
+                tstep = int(np.ceil(totaltimes / njobs))
+
+                for starttime, endtime in zip(fullstarttimes[det], fullendtimes[det]):
+                    curstart = starttime
+                    while curstart < endtime:
+                        curend = curstart + tstep
+                        starttimes[det].append(curstart)
+                        endtimes[det].append(min([curend, endtime]))
+                        curstart = curend
+        else:
+            raise ValueError("Number of jobs must be a positive integer")
+
+        # set whether to perform the heterodyne in 1 or two stages
+        stages = config.getint("heterodyne", "stages", fallback=1)
+        if stages not in [1, 2]:
+            raise ValueError("Stages must either be 1 or 2")
+
+        # create jobs
+        self.hetnodes = []
+
+        # loop over frequency factors
+        for ff in freqfactors:
+            # loop over each detector
+            for det in detectors:
+                # loop over times
+                for starttime, endtime in zip(starttimes[det], endtimes[det]):
+                    configdict = {}
+
+                    configdict["starttime"] = starttime
+                    configdict["endtime"] = endtimes
+                    configdict["detector"] = det
+                    configdict["freqfactor"] = ff
+
+                    configdict["pulsarfiles"] = pulsarfiles
+                    configdict["pulsars"] = pulsars
+
+                    self.hetnodes.append(
+                        HeterodyneNode(inputs, configdict.copy(), self.dag)
+                    )
+
+        # need to check whether doing fine heterodyne - in this case need to create new jobs on a per pulsar basis
+        if stages == 2:
+            for psr in het.pulsars:
+                for ff in freqfactors:
+                    for det in detectors:
+                        configdict = {}
+                        configdict["starttime"] = starttimes[det][0]
+                        configdict["endtime"] = endtimes[det][-1]
+                        configdict["detector"] = det
+                        configdict["freqfactor"] = ff
+                        configdict["pulsars"] = psr
+
+                        # include all modulations
+                        configdict["includessb"] = True
+                        configdict["includebsb"] = True
+                        configdict["includeglitch"] = True
+                        configdict["includefitwaves"] = True
+
+                    _ = HeterodyneNode(
+                        inputs, configdict.copy(), self.dag, hetnodelist=self.hetnodes
+                    )
+
+        if self.build:
+            self.dag.build()
+
+    def eval(self, arg):
+        """
+        Try and evaluate a string using :func:`ast.literal_eval`.
+
+        Parameters
+        ----------
+        arg: str
+            A string to be evaluated.
+
+        Returns
+        -------
+        object:
+            The evaluated object, or original string, if not able to be evaluated.
+        """
+
+        # copy of string
+        newobj = str(arg)
+
+        try:
+            newobj = ast.literal_eval(newobj)
+        except (ValueError, SyntaxError):
+            pass
+
+        return newobj
+
+
+class HeterodyneInput(Input):
+    def __init__(self, cf):
+        """
+        Class that sets inputs for the DAG and analysis node generation.
+
+        Parameters
+        ----------
+        cf: :class:`configparser.ConfigParser`
+            The configuration file for the DAG set up.
+        """
+
+        self.config = cf
+        self.submit = cf.getboolean("dag", "submitdag", fallback=False)
+        self.transfer_files = cf.getboolean("dag", "transfer-files", fallback=True)
+        self.osg = cf.getboolean("dag", "osg", fallback=False)
+        self.label = cf.get("dag", "name", fallback="cwinpy_pe")
+
+        # see bilby_pipe MainInput class
+        self.scheduler = cf.get("dag", "scheduler", fallback="condor")
+        self.scheduler_args = cf.get("dag", "scheduler_args", fallback=None)
+        self.scheduler_module = cf.get("dag", "scheduler_module", fallback=None)
+        self.scheduler_env = cf.get("dag", "scheduler_env", fallback=None)
+        self.scheduler_analysis_time = cf.get(
+            "dag", "scheduler_analysis_time", fallback="7-00:00:00"
+        )
+
+        self.outdir = cf.get("run", "basedir", fallback=os.getcwd())
+
+        self.universe = cf.get("job", "universe", fallback="vanilla")
+        self.getenv = cf.getboolean("job", "getenv", fallback=False)
+        self.pe_log_directory = cf.get(
+            "job", "log", fallback=os.path.join(os.path.abspath(self._outdir), "log")
+        )
+        self.request_memory = cf.get("job", "request_memory", fallback="4 GB")
+        self.request_cpus = cf.getint("job", "request_cpus", fallback=1)
+        self.accounting = cf.get(
+            "job", "accounting_group", fallback="cwinpy"
+        )  # cwinpy is a dummy tag
+        self.accounting_user = cf.get("job", "accounting_group_user", fallback=None)
+        requirements = cf.get("job", "requirements", fallback=None)
+        self.requirements = [requirements] if requirements else []
+        self.retry = cf.getint("job", "retry", fallback=0)
+        self.notification = cf.get("job", "notification", fallback="Never")
+        self.email = cf.get("job", "email", fallback=None)
+        self.condor_job_priority = cf.getint("job", "condor_job_priority", fallback=0)
+
+        # needs to be set for the bilby_pipe Node initialisation, but is not a
+        # requirement for cwinpy_heterodyne
+        self.online_pe = False
+        self.extra_lines = []
+        self.run_local = False
+
+    @property
+    def submit_directory(self):
+        subdir = self.config.get(
+            "dag", "submit", fallback=os.path.join(self._outdir, "submit")
+        )
+        check_directory_exists_and_if_not_mkdir(subdir)
+        return subdir
+
+    @property
+    def initialdir(self):
+        if hasattr(self, "_initialdir"):
+            if self._initialdir is not None:
+                return self._initialdir
+            else:
+                return os.getcwd()
+        else:
+            return os.getcwd()
+
+    @initialdir.setter
+    def initialdir(self, initialdir):
+        if isinstance(initialdir, str):
+            self._initialdir = initialdir
+        else:
+            self._initialdir = None
+
+
+class HeterodyneNode(Node):
+    def __init__(self, inputs, configdict, dag, hetnodelist=None, generation_node=None):
+        super().__init__(inputs)
+        self.dag = dag
+
+        self.request_cpus = inputs.request_cpus
+        self.retry = inputs.retry
+        self.getenv = inputs.getenv
+        self._universe = inputs.universe
+
+        starttime = configdict["starttime"]
+        endtime = configdict["endtime"]
+        detector = configdict["detector"]
+        freqfactor = configdict["freqfactor"]
+        pulsar = configdict.get("pulsar", None)
+
+        psrstring = "" if pulsar is None else "{}_".format(pulsar.replace("+", "plus"))
+
+        # resdir = inputs.config.get("pe", "results", fallback="results")
+        # self.psrbase = os.path.join(inputs.outdir, resdir, psrname)
+        # if self.inputs.n_parallel > 1:
+        #    self.resdir = os.path.join(self.psrbase, "par{}".format(parallel_idx))
+        # else:
+        #    self.resdir = self.psrbase
+
+        check_directory_exists_and_if_not_mkdir(self.resdir)
+        configdict["outdir"] = self.resdir
+
+        # job name prefix
+        jobname = inputs.config.get("job", "name", fallback="cwinpy_heterodyne")
+        self.base_job_name = "{}_{}{}_{}_{}-{}".format(
+            jobname, psrstring, detector, freqfactor, starttime, endtime
+        )
+        self.job_name = self.base_job_name
+
+        # output the configuration file
+        configdir = inputs.config.get("heterodyne", "config", fallback="configs")
+        configlocation = os.path.join(inputs.outdir, configdir)
+        check_directory_exists_and_if_not_mkdir(configlocation)
+        configfile = os.path.join(
+            configlocation,
+            "{}{}_{}_{}-{}.ini".format(
+                psrstring, detector, freqfactor, starttime, endtime
+            ),
+        )
+
+        self.setup_arguments(
+            add_ini=False, add_unknown_args=False, add_command_line_args=False
+        )
+
+        # add files for transfer
+        if self.inputs.transfer_files or self.inputs.osg:
+            tmpinitialdir = self.inputs.initialdir
+
+            self.inputs.initialdir = self.resdir
+
+            input_files_to_transfer = [
+                self._relative_topdir(configfile, self.inputs.initialdir)
+            ]
+
+            # make paths relative
+            for key in ["par_file", "inj_par", "data_file_1f", "data_file_2f", "prior"]:
+                if key in list(configdict.keys()):
+                    if key in ["data_file_1f", "data_file_2f"]:
+                        for detkey in configdict[key]:
+                            input_files_to_transfer.append(
+                                self._relative_topdir(
+                                    configdict[key][detkey], self.inputs.initialdir
+                                )
+                            )
+
+                            # set to use only file as the transfer directory is flat
+                            configdict[key][detkey] = os.path.basename(
+                                configdict[key][detkey]
+                            )
+                    else:
+                        input_files_to_transfer.append(
+                            self._relative_topdir(
+                                configdict[key], self.inputs.initialdir
+                            )
+                        )
+
+                        # set to use only file as the transfer directory is flat
+                        configdict[key] = os.path.basename(configdict[key])
+
+            configdict["outdir"] = "results/"
+
+            # add output directory to inputs in case resume file exists
+            input_files_to_transfer.append(".")
+
+            self.extra_lines.extend(
+                self._condor_file_transfer_lines(
+                    list(set(input_files_to_transfer)), [configdict["outdir"]]
+                )
+            )
+
+            self.arguments.add("config", os.path.basename(configfile))
+        else:
+            tmpinitialdir = None
+            self.arguments.add("config", configfile)
+
+        self.extra_lines.extend(self._checkpoint_submit_lines())
+
+        # add accounting user
+        if self.inputs.accounting_user is not None:
+            self.extra_lines.append(
+                "accounting_group_user = {}".format(self.inputs.accounting_user)
+            )
+
+        parseobj = DefaultConfigFileParser()
+        with open(configfile, "w") as fp:
+            fp.write(parseobj.serialize(configdict))
+
+        self.process_node()
+
+        # reset initial directory
+        if tmpinitialdir is not None:
+            self.inputs.initialdir = tmpinitialdir
+
+        if hetnodelist is not None:
+            # for fine heterodyne, add previous jobs as parent
+            for hetnode in hetnodelist:
+                self.job.add_parent(hetnode.job)
+
+    @property
+    def executable(self):
+        jobexec = self.inputs.config.get(
+            "job", "executable", fallback="cwinpy_heterodyne"
+        )
+        return self._get_executable_path(jobexec)
+
+    @property
+    def request_memory(self):
+        return self.inputs.request_memory
+
+    @property
+    def log_directory(self):
+        check_directory_exists_and_if_not_mkdir(self.inputs.pe_log_directory)
+        return self.inputs.pe_log_directory
+
+    @property
+    def result_directory(self):
+        """ The path to the directory where result output will be stored """
+        check_directory_exists_and_if_not_mkdir(self.resdir)
+        return self.resdir
+
+    @staticmethod
+    def _relative_topdir(path, reference):
+        """Returns the top-level directory name of a path relative
+        to a reference
+        """
+        try:
+            return os.path.relpath(path, reference)
+        except ValueError as exc:
+            exc.args = ("cannot format {} relative to {}".format(path, reference),)
+            raise
