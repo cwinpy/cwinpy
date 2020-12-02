@@ -114,7 +114,7 @@ each parameter, and pair of parameters.  To instead save the results to a `HDF5
 .. note::
 
    The slight offset seen in the recovered phase is related to the uncompensated 150 microsec time
-   delay in the actuation function used to generate the simulated signal as discuss in [4]_.
+   delay in the actuation function used to generate the simulated signal as discussed in [4]_.
 
 The code should also output the natural logarithm of the signal model `evidence
 <https://en.wikipedia.org/wiki/Marginal_likelihood>`_ (``log_evidence``), noise-only model evidence

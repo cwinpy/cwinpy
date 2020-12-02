@@ -357,6 +357,41 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         ),
     )
 
+    ephemerisparser = parser.add_argument_group("Solar system ephemeris inputs")
+    ephemerisparser.add(
+        "--earthephemeris",
+        help=(
+            'A dictionary, keyed to ephemeris names, e.g., "DE405", pointing '
+            "to the location of a file containing that ephemeris for the "
+            "Earth. The dictionary must be supplied within quotation marks, "
+            "e.g., \"{'DE436':'earth_DE436.txt'}\". If a pulsar requires a "
+            "specific ephemeris that is not provided in this dictionary, then "
+            "the code will automatically attempt to find or download the "
+            "required file if available."
+        ),
+    )
+    ephemerisparser.add(
+        "--sunephemeris",
+        help=(
+            'A dictionary, keyed to ephemeris names, e.g., "DE405", pointing '
+            "to the location of a file containing that ephemeris for the "
+            "Sun. If a pulsar requires a specific ephemeris that is not "
+            "provided in this dictionary, then the code will automatically "
+            "attempt to find or download the required file if available."
+        ),
+    )
+    ephemerisparser.add(
+        "--timeephemeris",
+        help=(
+            "A dictionary, keyed to time system name, which can be either "
+            '"TCB" or "TDB", pointing to the location of a file containing '
+            "that ephemeris for that time system. If a pulsar requires a "
+            "specific ephemeris that is not provided in this dictionary, then "
+            "the code will automatically attempt to find or download the "
+            "required file if available."
+        ),
+    )
+
     return parser
 
 
@@ -409,6 +444,9 @@ def heterodyne(**kwargs):
         "pulsarfiles",
         "pulsars",
         "output",
+        "earthephemeris",
+        "sunephemeris",
+        "timeephemeris",
     ]
     for attr in nsattrs:
         value = hetkwargs.pop(attr, None)
@@ -558,13 +596,13 @@ class HeterodyneDAGRunner(object):
             if len(fullendtimes[det]) != len(fullstarttimes[det]):
                 raise ValueError("Inconsistent numbers of start and end times")
 
-        njobs = config.getint("heterodyne", "njobs", fallback=1)
+        ntimejobs = config.getint("heterodyne", "ntimejobs", fallback=1)
 
         # get all the split times
-        if njobs == 1:
+        if ntimejobs == 1:
             starttimes = fullstarttimes
             endtimes = fullendtimes
-        elif njobs > 1:
+        elif ntimejobs > 1:
             starttimes = {det: [] for det in detectors}
             endtimes = {det: [] for det in detectors}
 
@@ -576,7 +614,7 @@ class HeterodyneDAGRunner(object):
                 for det in detectors
             }
             for det in detectors:
-                tstep = int(np.ceil(totaltimes / njobs))
+                tstep = int(np.ceil(totaltimes / ntimejobs))
 
                 for starttime, endtime in zip(fullstarttimes[det], fullendtimes[det]):
                     curstart = starttime
@@ -588,55 +626,135 @@ class HeterodyneDAGRunner(object):
         else:
             raise ValueError("Number of jobs must be a positive integer")
 
+        # get number over which to split up pulsars
+        npulsarjobs = config.getint("heterodyne", "npulsarjobs", fallback=1)
+        pulsargroups = []
+        if npulsarjobs == 1 or len(het.pulsars) == 1:
+            pulsargroups.append(het.pulsars)
+        else:
+            pstep = int(np.ceil(len(het.pulsars) / npulsarjobs))
+            for i in range(npulsarjobs):
+                pulsargroups.append(het.pulsars[pstep * i : pstep * (i + 1)])
+
         # set whether to perform the heterodyne in 1 or two stages
         stages = config.getint("heterodyne", "stages", fallback=1)
         if stages not in [1, 2]:
             raise ValueError("Stages must either be 1 or 2")
 
+        # get the resample rate(s)
+        if stages == 1:
+            resamplerate = [
+                self.eval(
+                    config.get("heterodyne", "resamplerate", fallback="1.0 / 60.0")
+                )
+            ]
+        else:
+            resamplerate = self.eval(
+                config.get("heterodyne", "resamplerate", fallback="[1.0, 1.0 / 60.0]")
+            )
+
+        # set the components of the signal modulation, i.e., solar system,
+        # binary system, to include in the heterodyne stages. By default a
+        # single stage heterodyne will include all components and a two stage
+        # heteodyne will include no components in the first stage, but all
+        # components in the second stage. If suppling different values for a
+        # two stage process use lists
+        if stages == 1:
+            includessb = [config.getboolean("heterodyne", "includessb", fallback=True)]
+            includebsb = [config.getboolean("heterodyne", "includebsb", fallback=True)]
+            includeglitch = [
+                config.getboolean("heterodyne", "includeglitch", fallback=True)
+            ]
+            includefitwaves = [
+                config.getboolean("heterodyne", "includefitwaves", fallback=True)
+            ]
+        else:
+            includessb = self.eval(
+                config.getboolean("heterodyne", "includessb", fallback="[False, True]")
+            )
+            includebsb = self.eval(
+                config.getboolean("heterodyne", "includebsb", fallback="[False, True]")
+            )
+            includeglitch = self.eval(
+                config.getboolean(
+                    "heterodyne", "includeglitch", fallback="[False, True]"
+                )
+            )
+            includefitwaves = self.eval(
+                config.getboolean(
+                    "heterodyne", "includefitwaves", fallback="[False, True]"
+                )
+            )
+
         # create jobs
         self.hetnodes = []
+        self.pulsar_nodes = {
+            psr: [] for psr in het.pulsars
+        }  # dictionary to contain all nodes for a given pulsar
 
-        # loop over frequency factors
-        for ff in freqfactors:
-            # loop over each detector
-            for det in detectors:
-                # loop over times
-                for starttime, endtime in zip(starttimes[det], endtimes[det]):
-                    configdict = {}
+        # loop over sets of pulsars
+        for pgroup in pulsargroups:
+            self.hetnodes.append([])
+            # loop over frequency factors
+            for ff in freqfactors:
+                # loop over each detector
+                for det in detectors:
+                    # loop over times
+                    for starttime, endtime in zip(starttimes[det], endtimes[det]):
+                        configdict = {}
 
-                    configdict["starttime"] = starttime
-                    configdict["endtime"] = endtimes
-                    configdict["detector"] = det
-                    configdict["freqfactor"] = ff
+                        configdict["starttime"] = starttime
+                        configdict["endtime"] = endtimes
+                        configdict["detector"] = det
+                        configdict["freqfactor"] = ff
+                        configdict["resamplerate"] = resamplerate[0]
 
-                    configdict["pulsarfiles"] = pulsarfiles
-                    configdict["pulsars"] = pulsars
+                        configdict["pulsarfiles"] = pulsarfiles
+                        configdict["pulsars"] = pgroup
 
-                    self.hetnodes.append(
-                        HeterodyneNode(inputs, configdict.copy(), self.dag)
-                    )
+                        # set whether to include modulations
+                        configdict["includessb"] = includessb[0]
+                        configdict["includebsb"] = includebsb[0]
+                        configdict["includeglitch"] = includeglitch[0]
+                        configdict["includefitwaves"] = includefitwaves[0]
+
+                        self.hetnodes[-1].append(
+                            HeterodyneNode(inputs, configdict.copy(), self.dag)
+                        )
+
+                        # put nodes into dictionary for each pulsar
+                        if stages == 1:
+                            for psr in pgroup:
+                                self.pulsar_nodes[psr].append(self.hetnodes[-1][-1])
 
         # need to check whether doing fine heterodyne - in this case need to create new jobs on a per pulsar basis
         if stages == 2:
-            for psr in het.pulsars:
-                for ff in freqfactors:
-                    for det in detectors:
-                        configdict = {}
-                        configdict["starttime"] = starttimes[det][0]
-                        configdict["endtime"] = endtimes[det][-1]
-                        configdict["detector"] = det
-                        configdict["freqfactor"] = ff
-                        configdict["pulsars"] = psr
+            for i, pgroup in enumerate(pulsargroups):
+                for psr in pgroup:
+                    for ff in freqfactors:
+                        for det in detectors:
+                            configdict = {}
+                            configdict["starttime"] = starttimes[det][0]
+                            configdict["endtime"] = endtimes[det][-1]
+                            configdict["detector"] = det
+                            configdict["freqfactor"] = ff
+                            configdict["pulsars"] = psr
+                            configdict["resamplerate"] = resamplerate[-1]
 
-                        # include all modulations
-                        configdict["includessb"] = True
-                        configdict["includebsb"] = True
-                        configdict["includeglitch"] = True
-                        configdict["includefitwaves"] = True
+                            # include all modulations
+                            configdict["includessb"] = includessb[-1]
+                            configdict["includebsb"] = includebsb[-1]
+                            configdict["includeglitch"] = includeglitch[-1]
+                            configdict["includefitwaves"] = includefitwaves[-1]
 
-                    _ = HeterodyneNode(
-                        inputs, configdict.copy(), self.dag, hetnodelist=self.hetnodes
-                    )
+                            self.pulsar_nodes[psr].append(
+                                HeterodyneNode(
+                                    inputs,
+                                    configdict.copy(),
+                                    self.dag,
+                                    generation_node=self.hetnodes[i],
+                                )
+                            )
 
         if self.build:
             self.dag.build()
@@ -746,7 +864,7 @@ class HeterodyneInput(Input):
 
 
 class HeterodyneNode(Node):
-    def __init__(self, inputs, configdict, dag, hetnodelist=None, generation_node=None):
+    def __init__(self, inputs, configdict, dag, generation_node=None):
         super().__init__(inputs)
         self.dag = dag
 
@@ -864,10 +982,14 @@ class HeterodyneNode(Node):
         if tmpinitialdir is not None:
             self.inputs.initialdir = tmpinitialdir
 
-        if hetnodelist is not None:
+        if generation_node is not None:
             # for fine heterodyne, add previous jobs as parent
-            for hetnode in hetnodelist:
-                self.job.add_parent(hetnode.job)
+            if isinstance(generation_node, Node):
+                self.job.add_parent(generation_node.job)
+            elif isinstance(generation_node, list):
+                self.job.add_parents(
+                    [gnode.job for gnode in generation_node if isinstance(gnode, Node)]
+                )
 
     @property
     def executable(self):

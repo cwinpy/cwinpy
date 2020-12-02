@@ -1311,6 +1311,9 @@ class PEDAGRunner(object):
         else:
             self.dag = Dag(inputs)
 
+        # get previous nodes that are parents to PE jobs
+        generation_nodes = kwargs.get("generation_nodes", None)
+
         # get whether to build the dag
         self.build = config.getboolean("dag", "build", fallback=True)
 
@@ -1779,7 +1782,18 @@ class PEDAGRunner(object):
 
             parallel_node_list = []
             for idx in range(inputs.n_parallel):
-                penode = PulsarPENode(inputs, configdict.copy(), pname, idx, self.dag)
+                gnode = None
+                if isinstance(generation_nodes, dict):
+                    gnode = generation_nodes.get(pname, None)
+
+                penode = PulsarPENode(
+                    inputs,
+                    configdict.copy(),
+                    pname,
+                    idx,
+                    self.dag,
+                    generation_node=gnode,
+                )
                 parallel_node_list.append(penode)
 
             if inputs.n_parallel > 1:
@@ -2079,7 +2093,12 @@ class PulsarPENode(Node):
         if generation_node is not None:
             # This is for the future when implementing a full pipeline
             # the generation node will be, for example, a heterodyning job
-            self.job.add_parent(generation_node.job)
+            if isinstance(generation_node, Node):
+                self.job.add_parent(generation_node.job)
+            elif isinstance(generation_node, list):
+                self.job.add_parents(
+                    [gnode.job for gnode in generation_node if isinstance(gnode, Node)]
+                )
 
     @property
     def executable(self):

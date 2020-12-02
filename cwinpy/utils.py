@@ -257,7 +257,13 @@ def q22_to_ellipticity(q22):
 
 
 def initialise_ephemeris(
-    ephem="DE405", units="TCB", earthfile=None, sunfile=None, timefile=None
+    ephem="DE405",
+    units="TCB",
+    earthfile=None,
+    sunfile=None,
+    timefile=None,
+    ssonly=False,
+    timeonly=False,
 ):
     """
     Download/read and return solar system ephemeris and time coordinate data.
@@ -285,9 +291,40 @@ def initialise_ephemeris(
     units: str
         The time coordinate system, which can be either "TDB" or "TCB" (TCB is
         the default).
+    ssonly: bool
+        If True only return the initialised solar system ephemeris data.
+        Default is False.
+    timeonly: bool
+        If True only return the initialised time correction ephemeris data.
+        Default is False.
+
+    Returns
+    -------
+    edat, sdat:
+        The LAL EphemerisData object and TimeCorrectionData object.
     """
 
     DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
+
+    earth = "earth00-40-{}.dat.gz".format(ephem) if earthfile is None else earthfile
+    sun = "sun00-40-{}.dat.gz".format(ephem) if sunfile is None else sunfile
+
+    if not timeonly:
+        try:
+            edat = lalpulsar.InitBarycenter(earth, sun)
+        except RuntimeError:
+            # try downloading the ephemeris files
+            try:
+                from astropy.utils.data import download_file
+
+                efile = download_file(DOWNLOAD_URL.format(earth), cache=True)
+                sfile = download_file(DOWNLOAD_URL.format(sun), cache=True)
+                edat = lalpulsar.InitBarycenter(efile, sfile)
+            except Exception as e:
+                raise IOError("Could not read in ephemeris files: {}".format(e))
+
+        if ssonly:
+            return edat
 
     unit = None
     if timefile is None:
@@ -296,22 +333,7 @@ def initialise_ephemeris(
         else:
             raise ValueError("units must be TCB or TDB")
 
-    earth = "earth00-40-{}.dat.gz".format(ephem) if earthfile is None else earthfile
-    sun = "sun00-40-{}.dat.gz".format(ephem) if sunfile is None else sunfile
     time = "{}_2000-2040.dat.gz".format(unit) if timefile is None else timefile
-
-    try:
-        edat = lalpulsar.InitBarycenter(earth, sun)
-    except RuntimeError:
-        # try downloading the ephemeris files
-        try:
-            from astropy.utils.data import download_file
-
-            efile = download_file(DOWNLOAD_URL.format(earth), cache=True)
-            sfile = download_file(DOWNLOAD_URL.format(sun), cache=True)
-            edat = lalpulsar.InitBarycenter(efile, sfile)
-        except Exception as e:
-            raise IOError("Could not read in ephemeris files: {}".format(e))
 
     try:
         tdat = lalpulsar.InitTimeCorrections(time)
@@ -325,7 +347,10 @@ def initialise_ephemeris(
         except Exception as e:
             raise IOError("Could not read in time correction file: {}".format(e))
 
-    return edat, tdat
+    if timeonly:
+        return tdat
+    else:
+        return edat, tdat
 
 
 def sighandler(signum, frame):

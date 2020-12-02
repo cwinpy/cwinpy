@@ -164,6 +164,24 @@ class Heterodyne(object):
         barycentre time delay. This sets the step size, in seconds, between
         the points in these calculations that will be the interpolation nodes.
         The default is 60 seconds.
+    earthephemeris: dict
+        A dictionary, keyed to ephemeris names, e.g., "DE405", pointing to the
+        location of a file containing that ephemeris for the Earth. If a pulsar
+        requires a specific ephemeris that is not provided in this dictionary,
+        then the code will automatically attempt to find or download the
+        required file if available.
+    sunephemeris: dict
+        A dictionary, keyed to ephemeris names, e.g., "DE405", pointing to the
+        location of a file containing that ephemeris for the Sun. If a pulsar
+        requires a specific ephemeris that is not provided in this dictionary,
+        then the code will automatically attempt to find or download the
+        required file if available.
+    timeephemeris: dict
+        A dictionary, keyed to time system name, which can be either "TCB" or
+        "TDB", pointing to the location of a file containing that ephemeris for
+        that time system. If a pulsar requires a specific ephemeris that is not
+        provided in this dictionary, then the code will automatically attempt
+        to find or download the required file if available.
     resume: bool
         Set to True to resume heterodyning in case not all pulsars completed.
         This checks whether output files (as set using ``output`` and
@@ -207,6 +225,9 @@ class Heterodyne(object):
         includeglitch=False,
         includefitwaves=False,
         interpolationstep=60,
+        earthephemeris=None,
+        sunephemeris=None,
+        timeephemeris=None,
         resume=False,
     ):
         # set analysis times
@@ -260,6 +281,9 @@ class Heterodyne(object):
         self.includeglitch = includeglitch
         self.includefitwaves = includefitwaves
         self.interpolationstep = interpolationstep
+
+        # set ephemeris information
+        self.set_ephemeris(earthephemeris, sunephemeris, timeephemeris)
 
         # set signal in case of termination of job
         signal.signal(signal.SIGTERM, self._write_current_pulsars_and_exit)
@@ -1213,6 +1237,8 @@ class Heterodyne(object):
         self.includefitwaves = kwargs.get("includefitwaves", self.includefitwaves)
         self.interpolationstep = kwargs.get("interpolationstep", self.interpolationstep)
 
+        # solar system ephemeris information
+
         # update heterodyned data
         if kwargs.get("heterodyneddata", None) is not None:
             self.heterodyneddata = kwargs.get("heterodyneddata")
@@ -1235,8 +1261,6 @@ class Heterodyne(object):
         if self.segments is None and not self.heterodyneddata:
             self.get_segment_list(**kwargs)
 
-        self._ephemerides = {}
-        self._timecorr = {}
         ttype = {
             "TDB": lalpulsar.TIMECORRECTION_TDB,
             "TCB": lalpulsar.TIMECORRECTION_TCB,
@@ -2078,6 +2102,50 @@ class Heterodyne(object):
     @includefitwaves.setter
     def includefitwaves(self, incl):
         self._includefitwaves = bool(incl)
+
+    def set_ephemeris(self, earthephemeris=None, sunephemeris=None, timeephemeris=None):
+        """
+        Initialise the solar system and time ephemeris data.
+
+        Parameters
+        ----------
+        earthephemeris: dict
+            A dictionary, keyed to ephemeris names, e.g., "DE405", pointing to
+            the location of a file containing that ephemeris for the Earth.
+        sunephemeris: dict
+            A dictionary, keyed to ephemeris names, e.g., "DE405", pointing to
+            the location of a file containing that ephemeris for the Sun.
+        timeephemeris: dict
+            A dictionary, keyed to time system name, which can be either "TCB"
+            or "TDB", pointing to the location of a file containing that
+            ephemeris for that time system.
+        """
+
+        if not hasattr("_ephemerides", self):
+            self._ephemerides = {}
+
+        if not hasattr("_timecorr", self):
+            self._timecorr = {}
+
+        if isinstance(earthephemeris, dict) and isinstance(sunephemeris, dict):
+            for ephemtype in earthephemeris:
+                if ephemtype not in sunephemeris:
+                    raise KeyError(
+                        "Earth and Sun ephemeris dictionaries must contain the same keys"
+                    )
+
+                self._ephemerides[ephemtype] = initialise_ephemeris(
+                    earthfile=earthephemeris[ephemtype],
+                    sunfile=sunephemeris[ephemtype],
+                    ssonly=True,
+                )
+
+        if isinstance(timeephemeris, dict):
+            for timetype in timeephemeris:
+                self._timecorr[timetype] = initialise_ephemeris(
+                    timefile=timeephemeris[timetype],
+                    timeonly=True,
+                )
 
 
 def remote_frame_cache(
