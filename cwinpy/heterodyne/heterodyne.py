@@ -570,7 +570,7 @@ class HeterodyneDAGRunner(object):
                 if isinstance(value, int):
                     fullstarttimes[key] = [value]  # convert values to lists
                 elif not isinstance(value, list):
-                    raise ValueError("Must have a list of start times for a detector")
+                    raise TypeError("Must have a list of start times for a detector")
         elif isinstance(fullstarttimes, int):
             fullstarttimes = {
                 det: [fullstarttimes] for det in detectors
@@ -586,7 +586,7 @@ class HeterodyneDAGRunner(object):
                 if isinstance(value, int):
                     fullendtimes[key] = [value]  # convert values to lists
                 elif not isinstance(value, list):
-                    raise ValueError("Must have a list of end times for a detector")
+                    raise TypeError("Must have a list of end times for a detector")
         elif isinstance(fullendtimes, int):
             fullendtimes = {det: [fullendtimes] for det in detectors}  # convert to dict
         else:
@@ -596,12 +596,64 @@ class HeterodyneDAGRunner(object):
             if len(fullendtimes[det]) != len(fullstarttimes[det]):
                 raise ValueError("Inconsistent numbers of start and end times")
 
+        stride = config.getint("heterodyne", "stride", fallback=None)
         ntimejobs = config.getint("heterodyne", "ntimejobs", fallback=1)
+
+        # get frame data information
+        frametypes = self.eval(config.get("heterodyne", "frametypes", fallback=None))
+        framecaches = self.eval(config.get("heterodyne", "framecaches", fallback=None))
+        channels = self.eval(config.get("heterodyne", "channels", fallback=None))
+        host = config.get("heterodyne", "host", fallback=None)
+        framedata = {det: [] for det in detectors}
+        if frametypes is None and framecaches is None:
+            raise ValueError("Frame types of frame cache files must be supplied")
+        for finfo, fname in zip(
+            [frametypes, framecaches, channels],
+            ["frametypes", "framecaches", "channels"],
+        ):
+            if finfo is not None:
+                # set frame types/caches
+                if isinstance(finfo, str) and len(detectors) == 1:
+                    finfo = {det: [finfo] for det in detectors}
+                elif isinstance(finfo, dict):
+                    for key, value in finfo.copy.items():
+                        if isinstance(value, str):
+                            finfo[key] = [value] * len(fullstarttimes[key])
+                        elif not isinstance(value, list):
+                            raise TypeError("Must have a list of {}".format(fname))
+                else:
+                    raise TypeError("{} should be a dictionary".format(fname))
+
+        # get segment information
+        segmentserver = config.get("heterodyne", "segmentserver", fallback=None)
+        segmentlists = self.eval(
+            config.get("heterodyne", "segmentlists", fallback=None)
+        )
+        includeflags = self.eval(
+            config.get("heterodyne", "includeflags", fallback=None)
+        )
+        # excludeflags = self.eval(
+        #    config.get("heterodyne", "excludeflags", fallback=None)
+        # )
+        if segmentlists is None and includeflags is None:
+            raise ValueError(
+                "Segment lists of segment data quality flags must be supplied"
+            )
 
         # get all the split times
         if ntimejobs == 1:
             starttimes = fullstarttimes
             endtimes = fullendtimes
+
+            for det in detectors:
+                for i in range(len(fullstarttimes[det])):
+                    frinfo = {}
+                    if frametypes is not None:
+                        frinfo["frametype"] = frametypes[det][i]
+                    else:
+                        frinfo["framecache"] = framecaches[det][i]
+                    frinfo["channel"] = channels[det][i]
+                    framedata[det].append(frinfo.copy())
         elif ntimejobs > 1:
             starttimes = {det: [] for det in detectors}
             endtimes = {det: [] for det in detectors}
@@ -616,6 +668,7 @@ class HeterodyneDAGRunner(object):
             for det in detectors:
                 tstep = int(np.ceil(totaltimes / ntimejobs))
 
+                idx = 0
                 for starttime, endtime in zip(fullstarttimes[det], fullendtimes[det]):
                     curstart = starttime
                     while curstart < endtime:
@@ -623,6 +676,14 @@ class HeterodyneDAGRunner(object):
                         starttimes[det].append(curstart)
                         endtimes[det].append(min([curend, endtime]))
                         curstart = curend
+                        frinfo = {}
+                        if frametypes is not None:
+                            frinfo["frametype"] = frametypes[det][idx]
+                        else:
+                            frinfo["framecache"] = framecaches[det][idx]
+                        frinfo["channel"] = channels[det][idx]
+                        framedata[det].append(frinfo.copy())
+                    idx += 1
         else:
             raise ValueError("Number of jobs must be a positive integer")
 
@@ -700,6 +761,7 @@ class HeterodyneDAGRunner(object):
                 # loop over each detector
                 for det in detectors:
                     # loop over times
+                    idx = 0
                     for starttime, endtime in zip(starttimes[det], endtimes[det]):
                         configdict = {}
 
@@ -708,6 +770,17 @@ class HeterodyneDAGRunner(object):
                         configdict["detector"] = det
                         configdict["freqfactor"] = ff
                         configdict["resamplerate"] = resamplerate[0]
+
+                        # set frame data info
+                        configdict.update(framedata[det][idx])
+                        if host is not None:
+                            configdict["host"] = host
+
+                        if stride is not None:
+                            configdict["stride"] = stride
+
+                        # set segment data info
+                        configdict["segmentserver"] = segmentserver
 
                         configdict["pulsarfiles"] = pulsarfiles
                         configdict["pulsars"] = pgroup
@@ -726,6 +799,8 @@ class HeterodyneDAGRunner(object):
                         if stages == 1:
                             for psr in pgroup:
                                 self.pulsar_nodes[psr].append(self.hetnodes[-1][-1])
+
+                        idx += 1
 
         # need to check whether doing fine heterodyne - in this case need to create new jobs on a per pulsar basis
         if stages == 2:
