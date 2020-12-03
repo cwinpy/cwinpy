@@ -94,7 +94,7 @@ class Heterodyne(object):
         case the ``label`` argument will be used to set the file name), or full
         file paths, which will be used in place of the ``label`` argument.
     label: str
-        The output format for the heterdyned data files. These can be format
+        The output format for the heterodyned data files. These can be format
         strings containing the keywords ``psr`` for the pulsar name, ``det``
         for the detector, ``freqfactor`` for the rotation frequency scale
         factor used, ``gpsstart`` for the GPS start time, and ``gpsend`` for
@@ -1661,13 +1661,11 @@ class Heterodyne(object):
 
                                 # get fitwaves phase
                                 if self.includefitwaves:
-                                    fwphase = (
-                                        lalpulsar.HeterodynedPulsarGetFITWAVESPhase(
-                                            psr.PulsarParameters(),
-                                            gpstimesint,
-                                            ssbdelay,
-                                            psr["F0"],
-                                        )
+                                    fwphase = lalpulsar.HeterodynedPulsarGetFITWAVESPhase(
+                                        psr.PulsarParameters(),
+                                        gpstimesint,
+                                        ssbdelay,
+                                        psr["F0"],
                                     )
 
                                     # create interpolation function (note due to the minus sign in
@@ -2143,8 +2141,7 @@ class Heterodyne(object):
         if isinstance(timeephemeris, dict):
             for timetype in timeephemeris:
                 self._timecorr[timetype] = initialise_ephemeris(
-                    timefile=timeephemeris[timetype],
-                    timeonly=True,
+                    timefile=timeephemeris[timetype], timeonly=True,
                 )
 
 

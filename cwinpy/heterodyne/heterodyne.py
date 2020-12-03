@@ -220,11 +220,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "overwriting. Default is False."
         ),
     )
-    segmentparser.add(
-        "--segmentserver",
-        type=str,
-        help=("The segment database URL."),
-    )
+    segmentparser.add("--segmentserver", type=str, help=("The segment database URL."))
 
     pulsarparser = parser.add_argument_group("Pulsar inputs")
     pulsarparser.add(
@@ -267,7 +263,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
     outputparser.add(
         "--label",
         help=(
-            "The output format for the heterdyned data files. These can be "
+            "The output format for the heterodyned data files. These can be "
             'format strings containing the keywords "psr" for the pulsar '
             'name, "det" for the detector, "freqfactor" for the rotation '
             'frequency scale factor used, "gpsstart" for the GPS start '
@@ -540,18 +536,43 @@ class HeterodyneDAGRunner(object):
         if not config.has_section("heterodyne"):
             raise IOError("Configuration file must have a [heterodyne] section.")
 
-        # create Heterodyne object to get pulsar parameter file information
-        pulsarfiles = config.get("heterodyne", "pulsarfiles", fallback=None)
-        pulsars = config.get("heterodyne", "pulsars", fallback=None)
-        if pulsarfiles is None:
-            raise ValueError("A set of pulsar parameter files must be supplied")
-        het = Heterodyne(pulsarfiles=self.eval(pulsarfiles), pulsars=self.eval(pulsars))
-
+        # detectors to use
         detectors = self.eval(config.get("heterodyne", "detectors", fallback=None))
         if isinstance(detectors, str):
             detectors = [detectors]  # make into a list
         elif detectors is None:
             raise ValueError("At least one detector must be supplied")
+
+        # get pulsar information
+        pulsarfiles = config.get("heterodyne", "pulsarfiles", fallback=None)
+        pulsars = config.get("heterodyne", "pulsars", fallback=None)
+        if pulsarfiles is None:
+            raise ValueError("A set of pulsar parameter files must be supplied")
+
+        # output information
+        outputdirs = self.eval(config.get("heterodyne", "outputdir", fallback=None))
+        if isinstance(outputdirs, dict):
+            if sorted(outputdirs.keys()) != sorted(detectors):
+                raise KeyError(
+                    "output directory dictionary must be keyed to detector names"
+                )
+        elif isinstance(outputdirs, str):
+            outputdirs = {det: outputdirs for det in detectors}
+        else:
+            raise TypeError("outputdirs must be a string or dictionary")
+
+        label = self.eval(config.get("heterodyne", "label", fallback=None))
+        if label is not None:
+            if isinstance(label, list):
+                if len(label) != 2 and len(label) != 1:
+                    raise ValueError("label should be a list with one or two items")
+            elif isinstance(label, str):
+                label = [label]
+            else:
+                raise TypeError("label must be a string or a list")
+
+        # create Heterodyne object to get pulsar parameter file information
+        het = Heterodyne(pulsarfiles=self.eval(pulsarfiles), pulsars=self.eval(pulsars))
 
         freqfactors = self.eval(
             config.get("heterodyne", "freqfactors", fallback="[2.0]")
@@ -607,10 +628,10 @@ class HeterodyneDAGRunner(object):
         framedata = {det: [] for det in detectors}
         if frametypes is None and framecaches is None:
             raise ValueError("Frame types of frame cache files must be supplied")
-        for finfo, fname in zip(
-            [frametypes, framecaches, channels],
-            ["frametypes", "framecaches", "channels"],
-        ):
+
+        for finfo, fname in dict(
+            frametypes=frametypes, framecaches=framecaches, channels=channels
+        ).items():
             if finfo is not None:
                 # set frame types/caches
                 if isinstance(finfo, str) and len(detectors) == 1:
@@ -619,7 +640,14 @@ class HeterodyneDAGRunner(object):
                     for key, value in finfo.copy.items():
                         if isinstance(value, str):
                             finfo[key] = [value] * len(fullstarttimes[key])
-                        elif not isinstance(value, list):
+                        elif isinstance(value, list):
+                            if len(value) != len(fullstarttimes[key]):
+                                raise ValueError(
+                                    "{} lists must be consistent with the number of start and end times".format(
+                                        fname
+                                    )
+                                )
+                        else:
                             raise TypeError("Must have a list of {}".format(fname))
                 else:
                     raise TypeError("{} should be a dictionary".format(fname))
@@ -632,13 +660,38 @@ class HeterodyneDAGRunner(object):
         includeflags = self.eval(
             config.get("heterodyne", "includeflags", fallback=None)
         )
-        # excludeflags = self.eval(
-        #    config.get("heterodyne", "excludeflags", fallback=None)
-        # )
+        excludeflags = self.eval(
+            config.get("heterodyne", "excludeflags", fallback=None)
+        )
+        segmentdata = {det: [] for det in detectors}
         if segmentlists is None and includeflags is None:
             raise ValueError(
                 "Segment lists of segment data quality flags must be supplied"
             )
+
+        for sinfo, sname in dict(
+            includeflags=includeflags,
+            excludeflags=excludeflags,
+            segmentlists=segmentlists,
+        ).items():
+            if sinfo is not None:
+                if isinstance(sinfo, str) and len(detectors) == 1:
+                    sinfo = {det: [sinfo] for det in detectors}
+                elif isinstance(sinfo, dict):
+                    for key, balue in sinfo.copy.items():
+                        if isinstance(value, str):
+                            sinfo[key] = [value] * len(fullstarttimes[key])
+                        elif isinstance(value, list):
+                            if len(value) != len(fullstarttimes[key]):
+                                raise ValueError(
+                                    "{} lists must be consistent with the number of start and end times".format(
+                                        sname
+                                    )
+                                )
+                        else:
+                            raise TypeError("Must have a list of {}".format(sname))
+                else:
+                    raise TypeError("{} should be a dictionary".format(sname))
 
         # get all the split times
         if ntimejobs == 1:
@@ -654,6 +707,14 @@ class HeterodyneDAGRunner(object):
                         frinfo["framecache"] = framecaches[det][i]
                     frinfo["channel"] = channels[det][i]
                     framedata[det].append(frinfo.copy())
+
+                    seginfo = {}
+                    if segmentlists is not None:
+                        seginfo["segmentlist"] = segmentlists[det][i]
+                    else:
+                        seginfo["includeflags"] = includeflags[det][i]
+                        seginfo["excludeflags"] = excludeflags[det][i].split(",")
+                    segmentdata[det].append(seginfo.copy())
         elif ntimejobs > 1:
             starttimes = {det: [] for det in detectors}
             endtimes = {det: [] for det in detectors}
@@ -676,6 +737,7 @@ class HeterodyneDAGRunner(object):
                         starttimes[det].append(curstart)
                         endtimes[det].append(min([curend, endtime]))
                         curstart = curend
+
                         frinfo = {}
                         if frametypes is not None:
                             frinfo["frametype"] = frametypes[det][idx]
@@ -683,6 +745,14 @@ class HeterodyneDAGRunner(object):
                             frinfo["framecache"] = framecaches[det][idx]
                         frinfo["channel"] = channels[det][idx]
                         framedata[det].append(frinfo.copy())
+
+                        seginfo = {}
+                        if segmentlists is not None:
+                            seginfo["segmentlist"] = segmentlists[det][idx]
+                        else:
+                            seginfo["includeflags"] = includeflags[det][idx]
+                            seginfo["excludeflags"] = excludeflags[det][idx].split(",")
+                        segmentdata[det].append(seginfo.copy())
                     idx += 1
         else:
             raise ValueError("Number of jobs must be a positive integer")
@@ -717,8 +787,8 @@ class HeterodyneDAGRunner(object):
         # set the components of the signal modulation, i.e., solar system,
         # binary system, to include in the heterodyne stages. By default a
         # single stage heterodyne will include all components and a two stage
-        # heteodyne will include no components in the first stage, but all
-        # components in the second stage. If suppling different values for a
+        # heterodyne will include no components in the first stage, but all
+        # components in the second stage. If supplying different values for a
         # two stage process use lists
         if stages == 1:
             includessb = [config.getboolean("heterodyne", "includessb", fallback=True)]
@@ -753,6 +823,9 @@ class HeterodyneDAGRunner(object):
             psr: [] for psr in het.pulsars
         }  # dictionary to contain all nodes for a given pulsar
 
+        # dictionary to contain all the heterodyned data files for each pulsar
+        self.heterodyned_files = {psr: [] for psr in het.pulsars}
+
         # loop over sets of pulsars
         for pgroup in pulsargroups:
             self.hetnodes.append([])
@@ -780,7 +853,9 @@ class HeterodyneDAGRunner(object):
                             configdict["stride"] = stride
 
                         # set segment data info
-                        configdict["segmentserver"] = segmentserver
+                        if segmentserver is not None:
+                            configdict["segmentserver"] = segmentserver
+                        configdict.update(segmentdata[det][idx])
 
                         configdict["pulsarfiles"] = pulsarfiles
                         configdict["pulsars"] = pgroup
@@ -790,6 +865,29 @@ class HeterodyneDAGRunner(object):
                         configdict["includebsb"] = includebsb[0]
                         configdict["includeglitch"] = includeglitch[0]
                         configdict["includefitwaves"] = includefitwaves[0]
+
+                        # temporary Heterodyne object to get the output file names
+                        tmphet = Heterodyne(
+                            starttime=starttime,
+                            endtime=endtime,
+                            detector=det,
+                            freqfactor=ff,
+                            output=outputdirs[det],
+                            label=label[0],
+                            pulsars=pgroup,
+                            pulsarfiles=pulsarfiles,
+                        )
+                        for psr in pgroup:
+                            labeldict = {
+                                "det": tmphet.detector,
+                                "gpsstart": int(tmphet.starttime),
+                                "gpsend": int(tmphet.endtime),
+                                "freqfactor": int(tmphet.freqfactor),
+                                "psr": psr,
+                            }
+                            self.heterodyned_files[psr].append(
+                                tmphet.outputfiles[psr].format(**labeldict)
+                            )
 
                         self.hetnodes[-1].append(
                             HeterodyneNode(inputs, configdict.copy(), self.dag)
@@ -821,6 +919,9 @@ class HeterodyneDAGRunner(object):
                             configdict["includebsb"] = includebsb[-1]
                             configdict["includeglitch"] = includeglitch[-1]
                             configdict["includefitwaves"] = includefitwaves[-1]
+
+                            # input the data
+                            # configdict["heterodyneddata"] =
 
                             self.pulsar_nodes[psr].append(
                                 HeterodyneNode(
