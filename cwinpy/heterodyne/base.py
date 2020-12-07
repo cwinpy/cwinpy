@@ -120,16 +120,16 @@ class Heterodyne(object):
         strain data and not if re-heterodyning processed data. Default is 0.5
         Hz.
     heterodyneddata: str, dict
-        A string or dictionary of strings containing the full file path, or
-        directory path, pointing the the location of pre-heterodyned data. For
-        a single pulsar a file path can be given. For multiple pulsars a
+        A string or dictionary of strings/lists containing the full file path,
+        or directory path, pointing the the location of pre-heterodyned data.
+        For a single pulsar a file path can be given. For multiple pulsars a
         directory containing heterodyned files (in HDF5 or txt format) can be
         given provided that within it the file names contain the pulsar names
         as supplied in the file input with ``pulsarfiles``. Alternatively, a
         dictionary can be supplied, keyed on the pulsar name, containing a
-        single file path or a directory path as above. If supplying a
-        directory, it can contain multiple heterodyned files for a each pulsar
-        and all will be used.
+        single file path, a directory path as above, or a list of file paths.
+        If supplying a directory, it can contain multiple heterodyned files for
+        a each pulsar and all will be used.
     resamplerate: float
         The rate in Hz at which to resample the data (via averaging) after
         application of the heterodyne (and filter if applied).
@@ -1661,11 +1661,13 @@ class Heterodyne(object):
 
                                 # get fitwaves phase
                                 if self.includefitwaves:
-                                    fwphase = lalpulsar.HeterodynedPulsarGetFITWAVESPhase(
-                                        psr.PulsarParameters(),
-                                        gpstimesint,
-                                        ssbdelay,
-                                        psr["F0"],
+                                    fwphase = (
+                                        lalpulsar.HeterodynedPulsarGetFITWAVESPhase(
+                                            psr.PulsarParameters(),
+                                            gpstimesint,
+                                            ssbdelay,
+                                            psr["F0"],
+                                        )
                                     )
 
                                     # create interpolation function (note due to the minus sign in
@@ -1895,49 +1897,60 @@ class Heterodyne(object):
             A boolean stating whether the input ``hetdata`` was a file or not.
         """
 
-        if not isinstance(hetdata, str):
+        if isinstance(hetdata, str):
+            hetdata = [hetdata]
+        elif not isinstance(hetdata, list):
             raise TypeError(
-                "Heterodyneddata must be a string giving a file or directory path"
+                "Heterodyneddata must be a string or list giving a file or directory path"
             )
 
         # check if a file by testing for a hdf5-type or txt extension
-        if os.path.splitext(hetdata)[1] in self.extensions:
-            # try reading the data
-            try:
-                het = HeterodynedData.read(hetdata)
-            except Exception as e:
-                raise IOError(e.args[0])
-
-            if het.par is None:
-                raise AttributeError(
-                    "Heterodyned data '{}' contains no pulsar parameter file".format(
-                        hetdata
-                    )
-                )
-            else:
-                return [hetdata], True
-        elif os.path.isdir(hetdata):
-            # glob for file types
-            hetfiles = [
-                f
-                for ext in self.extensions
-                for f in glob.glob(
-                    os.path.join(hetdata, "*{}".format(ext)), recursive=True
-                )
-            ]
-
-            if len(hetfiles) > 0:
-                # try reading first file
+        hetfiles = []
+        isfile = False
+        for hetfile in hetdata:
+            if os.path.splitext(hetfile)[1] in self.extensions:
+                # try reading the data
                 try:
-                    het = HeterodynedData.read(hetfiles[0])
+                    het = HeterodynedData.read(hetfile)
                 except Exception as e:
                     raise IOError(e.args[0])
 
-                return hetfiles, False
+                if het.par is None:
+                    raise AttributeError(
+                        "Heterodyned data '{}' contains no pulsar parameter file".format(
+                            hetfile
+                        )
+                    )
+                else:
+                    hetfiles.append(hetfile)
+                    isfile = True
+            elif os.path.isdir(hetfile):
+                # glob for file types
+                curhetfiles = [
+                    f
+                    for ext in self.extensions
+                    for f in glob.glob(
+                        os.path.join(hetdata, "*{}".format(ext)), recursive=True
+                    )
+                ]
+
+                if len(curhetfiles) > 0:
+                    # try reading first file
+                    try:
+                        het = HeterodynedData.read(curhetfiles[0])
+                    except Exception as e:
+                        raise IOError(e.args[0])
+
+                    hetfiles.extend(curhetfiles)
+                    isfile = False
+                else:
+                    raise RuntimeError(
+                        "No files found in directory '{}'".format(hetfile)
+                    )
             else:
-                raise RuntimeError("No files found in directory '{}'".format(hetdata))
-        else:
-            raise ValueError("hetdata must be a file or directory path")
+                raise ValueError("hetdata must be a file or directory path")
+
+        return hetfiles, isfile
 
     def _setup_filters(self, filterknee, samplerate):
         """
@@ -2141,7 +2154,8 @@ class Heterodyne(object):
         if isinstance(timeephemeris, dict):
             for timetype in timeephemeris:
                 self._timecorr[timetype] = initialise_ephemeris(
-                    timefile=timeephemeris[timetype], timeonly=True,
+                    timefile=timeephemeris[timetype],
+                    timeonly=True,
                 )
 
 
