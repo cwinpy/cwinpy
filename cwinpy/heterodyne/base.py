@@ -188,6 +188,9 @@ class Heterodyne(object):
         ``label`` arguments) already exist and does not repeat the analysis
         if that is the case. If wanting to overwrite existing files make sure
         this is False. Defaults to False.
+    config: str
+        A string containing the information on the configuration used to
+        generate the heterodyne.
     """
 
     # allowed file extension
@@ -229,6 +232,7 @@ class Heterodyne(object):
         sunephemeris=None,
         timeephemeris=None,
         resume=False,
+        config=None,
     ):
         # set analysis times
         self.starttime = starttime
@@ -281,6 +285,9 @@ class Heterodyne(object):
         self.includeglitch = includeglitch
         self.includefitwaves = includefitwaves
         self.interpolationstep = interpolationstep
+
+        # set configuration information
+        self.config = config
 
         # set ephemeris information
         self.set_ephemeris(earthephemeris, sunephemeris, timeephemeris)
@@ -1766,6 +1773,7 @@ class Heterodyne(object):
                 freqfactor=self.freqfactor,
                 bbminlength=data.size,  # don't perform Bayesian blocks
                 window=0,  # don't compute a running median
+                comment="" if not isinstance(self.config, str) else self.config,
             )
             het.include_ssb = self.includessb
             het.include_bsb = self.includebsb

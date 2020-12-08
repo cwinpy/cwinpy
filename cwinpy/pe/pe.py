@@ -1897,7 +1897,7 @@ class PEInput(Input):
 
         self.config = cf
         self.submit = cf.getboolean("dag", "submitdag", fallback=False)
-        self.transfer_files = cf.getboolean("dag", "transfer-files", fallback=True)
+        self.transfer_files = cf.getboolean("dag", "transfer_files", fallback=True)
         self.osg = cf.getboolean("dag", "osg", fallback=False)
         self.label = cf.get("dag", "name", fallback="cwinpy_pe")
 

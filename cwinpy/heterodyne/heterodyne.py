@@ -426,7 +426,10 @@ def heterodyne(**kwargs):
         if "config" in kwargs:
             # update with other keyword arguments
             hetkwargs.update(kwargs)
-            hetkwargs.pop("config")
+
+            # convert "config" into string with contents of configuration file
+            with open(kwargs["config"], "r") as fp:
+                hetkwargs["config"] = fp.readlines()
     else:
         hetkwargs = kwargs
 
@@ -551,24 +554,28 @@ class HeterodyneDAGRunner(object):
 
         # output information
         outputdirs = self.eval(config.get("heterodyne", "outputdir", fallback=None))
-        if isinstance(outputdirs, dict):
-            if sorted(outputdirs.keys()) != sorted(detectors):
-                raise KeyError(
-                    "output directory dictionary must be keyed to detector names"
-                )
-        elif isinstance(outputdirs, str):
-            outputdirs = {det: outputdirs for det in detectors}
-        else:
-            raise TypeError("outputdirs must be a string or dictionary")
+        if not isinstance(outputdirs, list):
+            outputdirs = [outputdirs]
+
+        for outputdir in outputdirs:
+            if isinstance(outputdir, str):
+                outputdir = {det: outputdir for det in detectors}
+            elif isinstance(outputdir, dict):
+                if sorted(outputdir.keys()) != sorted(detectors):
+                    raise KeyError(
+                        "outputdirs dictionary must have same keys as the given detectors"
+                    )
+                for det in detectors:
+                    if not isinstance(outputdir[det], str):
+                        raise TypeError("outputdirs must be a string")
+            else:
+                raise TypeError("outputdirs must be a string or dictionary")
 
         label = self.eval(config.get("heterodyne", "label", fallback=None))
         if label is not None:
-            if isinstance(label, list):
-                if len(label) != 2 and len(label) != 1:
-                    raise ValueError("label should be a list with one or two items")
-            elif isinstance(label, str):
+            if isinstance(label, str):
                 label = [label]
-            else:
+            elif not isinstance(label, list):
                 raise TypeError("label must be a string or a list")
 
         freqfactors = self.eval(
@@ -833,8 +840,27 @@ class HeterodyneDAGRunner(object):
             # filter knee frequency (default to 0.5 Hz for two stage heterodyne)
             filterknee = config.getfloat("heterodyne", "filterknee", fallback=0.5)
 
+        # check output directories and labels lists are correct length
+        if stages == 1:
+            if label is not None:
+                if len(label) == 0:
+                    raise ValueError("A label must be supplied")
+            if len(outputdirs) == 0:
+                raise ValueError("An output directory must be supplied")
+        else:
+            if label is not None:
+                if len(label) != 2:
+                    raise ValueError(
+                        "Two labels must be supplied, one for each heterodyne stage"
+                    )
+            if len(outputdirs) != 2:
+                raise ValueError(
+                    "Two output directories must be supplied, one for each heterodyne stage"
+                )
+
         interpolationstep = config.get("heterodyne", "interpolationstep", fallback=60)
         crop = config.getint("heterodyne", "crop", fallback=60)
+        resume = config.getboolean("heterodyne", "resume", fallback=False)
 
         # create jobs
         self.hetnodes = []
@@ -864,6 +890,7 @@ class HeterodyneDAGRunner(object):
                         configdict["resamplerate"] = resamplerate[0]
                         configdict["filterknee"] = filterknee
                         configdict["crop"] = crop
+                        configdict["resume"] = resume
 
                         # set frame data/heterodyned data info
                         configdict.update(framedata[det][idx])
@@ -897,7 +924,7 @@ class HeterodyneDAGRunner(object):
                             endtime=endtime,
                             detector=det,
                             freqfactor=ff,
-                            output=outputdirs[det],
+                            output=outputdirs[0][det],
                             label=label[0],
                             pulsars=pgroup,
                             pulsarfiles=pulsarfiles,
@@ -913,6 +940,8 @@ class HeterodyneDAGRunner(object):
                             self.heterodyned_files[psr].append(
                                 tmphet.outputfiles[psr].format(**labeldict)
                             )
+                        configdict["output"] = outputdirs[0][det]
+                        configdict["label"] = label[0]
 
                         self.hetnodes[-1].append(
                             HeterodyneNode(
@@ -958,6 +987,10 @@ class HeterodyneDAGRunner(object):
                             configdict["heterodyneddata"] = {
                                 psr: self.heterodyned_files[psr]
                             }
+
+                            # output structure
+                            configdict["output"] = outputdirs[1][det]
+                            configdict["label"] = label[1]
 
                             self.pulsar_nodes[psr].append(
                                 HeterodyneNode(
@@ -1014,7 +1047,7 @@ class HeterodyneInput(Input):
 
         self.config = cf
         self.submit = cf.getboolean("dag", "submitdag", fallback=False)
-        self.transfer_files = cf.getboolean("dag", "transfer-files", fallback=True)
+        self.transfer_files = cf.getboolean("dag", "transfer_files", fallback=True)
         self.osg = cf.getboolean("dag", "osg", fallback=False)
         self.label = cf.get("dag", "name", fallback="cwinpy_pe")
 
@@ -1031,7 +1064,7 @@ class HeterodyneInput(Input):
 
         self.universe = cf.get("job", "universe", fallback="vanilla")
         self.getenv = cf.getboolean("job", "getenv", fallback=False)
-        self.pe_log_directory = cf.get(
+        self.heterodyne_log_directory = cf.get(
             "job", "log", fallback=os.path.join(os.path.abspath(self._outdir), "log")
         )
         self.request_memory = cf.get("job", "request_memory", fallback="4 GB")
@@ -1093,19 +1126,16 @@ class HeterodyneNode(Node):
         endtime = configdict["endtime"]
         detector = configdict["detector"]
         freqfactor = configdict["freqfactor"]
-        pulsar = configdict.get("pulsar", None)
+        pulsar = configdict.get("pulsars", None)
 
-        psrstring = "" if pulsar is None else "{}_".format(pulsar.replace("+", "plus"))
+        psrstring = (
+            ""
+            if not isinstance(pulsar, str)
+            else "{}_".format(pulsar.replace("+", "plus"))
+        )
 
-        # resdir = inputs.config.get("pe", "results", fallback="results")
-        # self.psrbase = os.path.join(inputs.outdir, resdir, psrname)
-        # if self.inputs.n_parallel > 1:
-        #    self.resdir = os.path.join(self.psrbase, "par{}".format(parallel_idx))
-        # else:
-        #    self.resdir = self.psrbase
-
+        self.resdir = configdict["output"]
         check_directory_exists_and_if_not_mkdir(self.resdir)
-        configdict["outdir"] = self.resdir
 
         # job name prefix
         jobname = inputs.config.get("job", "name", fallback="cwinpy_heterodyne")
@@ -1139,30 +1169,28 @@ class HeterodyneNode(Node):
                 self._relative_topdir(configfile, self.inputs.initialdir)
             ]
 
-            # make paths relative
-            for key in ["pulsarfiles"]:
-                if key in list(configdict.keys()):
-                    if key in ["data_file_1f", "data_file_2f"]:
-                        for detkey in configdict[key]:
-                            input_files_to_transfer.append(
-                                self._relative_topdir(
-                                    configdict[key][detkey], self.inputs.initialdir
-                                )
-                            )
+            # set a directory for heterodyned data to be output to on the node
+            outputdir = "heterodyneddata"
 
-                            # set to use only file as the transfer directory is flat
-                            configdict[key][detkey] = os.path.basename(
-                                configdict[key][detkey]
-                            )
-                    else:
-                        input_files_to_transfer.append(
-                            self._relative_topdir(
-                                configdict[key], self.inputs.initialdir
-                            )
+            # if resume is set transfer any created files
+            if configdict["resume"]:
+                # create temporary Heterodyne object to get output files
+                tmphet = Heterodyne(
+                    output=configdict["output"],
+                    label=configdict["label"],
+                    pulsarfiles=configdict["pulsarfiles"],
+                    pulsars=configdict["pulsars"],
+                )
+
+                for psr in tmphet.outputfiles.copy():
+                    input_files_to_transfer.append(
+                        self._relative_topdir(
+                            tmphet.outputfiles[psr],
+                            self.inputs.initialdir,
                         )
+                    )
 
-                        # set to use only file as the transfer directory is flat
-                        configdict[key] = os.path.basename(configdict[key])
+            configdict["output"] = outputdir
 
             # transfer pulsar parameter files
             for psr in configdict["pulsarfiles"].copy():
@@ -1177,6 +1205,24 @@ class HeterodyneNode(Node):
                     configdict["pulsarfiles"][psr]
                 )
 
+            # transfer frame cache files
+            if "framecache" in configdict:
+                input_files_to_transfer.append(
+                    self._relative_topdir(
+                        configdict["framecache"], self.inputs.initialdir
+                    )
+                )
+                configdict["framecache"] = os.path.basename(configdict["framecache"])
+
+            # transfer segment list files
+            if "segmentlist" in configdict:
+                input_files_to_transfer.append(
+                    self._relative_topdir(
+                        configdict["segmentlist"], self.inputs.initialdir
+                    )
+                )
+                configdict["segmentlist"] = os.path.basename(configdict["segmentlist"])
+
             # transfer heterodyned data files
             if "heterodyneddata" in configdict:
                 for psr in configdict["heteroyneddata"].copy():
@@ -1189,14 +1235,9 @@ class HeterodyneNode(Node):
 
                     configdict["heteroyneddata"][psr] = psrfiles
 
-            configdict["outdir"] = "results/"
-
-            # add output directory to inputs in case resume file exists
-            input_files_to_transfer.append(".")
-
             self.extra_lines.extend(
                 self._condor_file_transfer_lines(
-                    list(set(input_files_to_transfer)), [configdict["outdir"]]
+                    list(set(input_files_to_transfer)), [configdict["output"]]
                 )
             )
 
@@ -1245,8 +1286,8 @@ class HeterodyneNode(Node):
 
     @property
     def log_directory(self):
-        check_directory_exists_and_if_not_mkdir(self.inputs.pe_log_directory)
-        return self.inputs.pe_log_directory
+        check_directory_exists_and_if_not_mkdir(self.inputs.heterodyne_log_directory)
+        return self.inputs.heterodyne_log_directory
 
     @property
     def result_directory(self):
