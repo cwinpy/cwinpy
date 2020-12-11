@@ -4,9 +4,11 @@ Run heterodyne pre-processing of gravitational-wave data.
 
 import ast
 import configparser
+import copy
 import os
 import signal
 import sys
+from argparse import ArgumentParser
 
 import cwinpy
 import numpy as np
@@ -150,10 +152,13 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
     dataparser.add(
         "--framecache",
         help=(
-            "Provide a pregenerate cache of gravitational-wave files, either "
-            "as a single file, or a list of files. If a list, this should be "
-            "in the form of a Python list, surrounded by quotation marks, "
-            "e.g., \"['file1.lcf','file2.lcf']\"."
+            "Provide a pregenerated cache of gravitational-wave files, either "
+            "as a single file, or a list of files. Alternatively, you can "
+            "supply a directory containing the files (which will be "
+            "searched recursively for gwf and then hdf5 files), which should "
+            'be used in conjunction with the "frametype" argument. If giving '
+            "a list, this should be in the form of a Python list, surrounded "
+            "by quotation marks, e.g., \"['file1.lcf','file2.lcf']\"."
         ),
     )
     dataparser.add(
@@ -557,9 +562,9 @@ class HeterodyneDAGRunner(object):
         if not isinstance(outputdirs, list):
             outputdirs = [outputdirs]
 
-        for outputdir in outputdirs:
+        for i, outputdir in enumerate(copy.deepcopy(outputdirs)):
             if isinstance(outputdir, str):
-                outputdir = {det: outputdir for det in detectors}
+                outputdirs[i] = {det: outputdir for det in detectors}
             elif isinstance(outputdir, dict):
                 if sorted(outputdir.keys()) != sorted(detectors):
                     raise KeyError(
@@ -626,8 +631,14 @@ class HeterodyneDAGRunner(object):
 
         # get frame data information
         frametypes = self.eval(config.get("heterodyne", "frametypes", fallback=None))
+        if isinstance(frametypes, str) and len(detectors) == 1:
+            frametypes = {det: frametypes for det in detectors}
         framecaches = self.eval(config.get("heterodyne", "framecaches", fallback=None))
+        if isinstance(framecaches, str) and len(detectors) == 1:
+            framecaches = {det: framecaches for det in detectors}
         channels = self.eval(config.get("heterodyne", "channels", fallback=None))
+        if isinstance(channels, str) and len(detectors) == 1:
+            channels = {det: channels for det in detectors}
         host = config.get("heterodyne", "host", fallback=None)
         heterodyneddata = self.eval(
             config.get("heterodyne", "heterodyneddata", fallback=None)
@@ -644,10 +655,8 @@ class HeterodyneDAGRunner(object):
             ).items():
                 if finfo is not None:
                     # set frame types/caches
-                    if isinstance(finfo, str) and len(detectors) == 1:
-                        finfo = {det: [finfo] for det in detectors}
-                    elif isinstance(finfo, dict):
-                        for key, value in finfo.copy.items():
+                    if isinstance(finfo, dict):
+                        for key, value in finfo.copy().items():
                             if isinstance(value, str):
                                 finfo[key] = [value] * len(fullstarttimes[key])
                             elif isinstance(value, list):
@@ -667,12 +676,18 @@ class HeterodyneDAGRunner(object):
         segmentlists = self.eval(
             config.get("heterodyne", "segmentlists", fallback=None)
         )
+        if isinstance(segmentlists, str) and len(detectors) == 1:
+            segmentlists = {det: segmentlists for det in detectors}
         includeflags = self.eval(
             config.get("heterodyne", "includeflags", fallback=None)
         )
+        if isinstance(includeflags, str) and len(detectors) == 1:
+            includeflags = {det: includeflags for det in detectors}
         excludeflags = self.eval(
             config.get("heterodyne", "excludeflags", fallback=None)
         )
+        if isinstance(excludeflags, str) and len(detectors) == 1:
+            excludeflags = {det: excludeflags for det in detectors}
         segmentdata = {det: [] for det in detectors}
         if segmentlists is None and includeflags is None and heterodyneddata is None:
             raise ValueError(
@@ -685,10 +700,8 @@ class HeterodyneDAGRunner(object):
             segmentlists=segmentlists,
         ).items():
             if sinfo is not None:
-                if isinstance(sinfo, str) and len(detectors) == 1:
-                    sinfo = {det: [sinfo] for det in detectors}
-                elif isinstance(sinfo, dict):
-                    for key, value in sinfo.copy.items():
+                if isinstance(sinfo, dict):
+                    for key, value in sinfo.copy().items():
                         if isinstance(value, str):
                             sinfo[key] = [value] * len(fullstarttimes[key])
                         elif isinstance(value, list):
@@ -722,8 +735,14 @@ class HeterodyneDAGRunner(object):
                     if segmentlists is not None:
                         seginfo["segmentlist"] = segmentlists[det][i]
                     else:
-                        seginfo["includeflags"] = includeflags[det][i]
-                        seginfo["excludeflags"] = excludeflags[det][i].split(",")
+                        seginfo["includeflags"] = (
+                            None if includeflags is None else includeflags[det][i]
+                        )
+                        seginfo["excludeflags"] = (
+                            None
+                            if excludeflags is None
+                            else excludeflags[det][i].split(",")
+                        )
                     segmentdata[det].append(seginfo.copy())
         elif ntimejobs > 1:
             starttimes = {det: [] for det in detectors}
@@ -737,7 +756,7 @@ class HeterodyneDAGRunner(object):
                 for det in detectors
             }
             for det in detectors:
-                tstep = int(np.ceil(totaltimes / ntimejobs))
+                tstep = int(np.ceil(totaltimes[det] / ntimejobs))
 
                 idx = 0
                 for starttime, endtime in zip(fullstarttimes[det], fullendtimes[det]):
@@ -760,8 +779,14 @@ class HeterodyneDAGRunner(object):
                         if segmentlists is not None:
                             seginfo["segmentlist"] = segmentlists[det][idx]
                         else:
-                            seginfo["includeflags"] = includeflags[det][idx]
-                            seginfo["excludeflags"] = excludeflags[det][idx].split(",")
+                            seginfo["includeflags"] = (
+                                None if includeflags is None else includeflags[det][idx]
+                            )
+                            seginfo["excludeflags"] = (
+                                None
+                                if excludeflags is None
+                                else excludeflags[det][idx].split(",")
+                            )
                         segmentdata[det].append(seginfo.copy())
                     idx += 1
         else:
@@ -884,7 +909,7 @@ class HeterodyneDAGRunner(object):
                         configdict = {}
 
                         configdict["starttime"] = starttime
-                        configdict["endtime"] = endtimes
+                        configdict["endtime"] = endtime
                         configdict["detector"] = det
                         configdict["freqfactor"] = ff
                         configdict["resamplerate"] = resamplerate[0]
@@ -907,7 +932,7 @@ class HeterodyneDAGRunner(object):
                         configdict.update(segmentdata[det][idx])
 
                         configdict["pulsarfiles"] = {
-                            het.pulsarfiles[psr] for psr in pgroup
+                            psr: het.pulsarfiles[psr] for psr in pgroup
                         }
                         configdict["pulsars"] = pgroup
 
@@ -925,7 +950,7 @@ class HeterodyneDAGRunner(object):
                             detector=det,
                             freqfactor=ff,
                             output=outputdirs[0][det],
-                            label=label[0],
+                            label=label[0] if label is not None else None,
                             pulsars=pgroup,
                             pulsarfiles=pulsarfiles,
                         )
@@ -941,7 +966,7 @@ class HeterodyneDAGRunner(object):
                                 tmphet.outputfiles[psr].format(**labeldict)
                             )
                         configdict["output"] = outputdirs[0][det]
-                        configdict["label"] = label[0]
+                        configdict["label"] = label[0] if label is not None else None
 
                         self.hetnodes[-1].append(
                             HeterodyneNode(
@@ -990,7 +1015,9 @@ class HeterodyneDAGRunner(object):
 
                             # output structure
                             configdict["output"] = outputdirs[1][det]
-                            configdict["label"] = label[1]
+                            configdict["label"] = (
+                                label[1] if label is not None else None
+                            )
 
                             self.pulsar_nodes[psr].append(
                                 HeterodyneNode(
@@ -1034,6 +1061,62 @@ class HeterodyneDAGRunner(object):
         return newobj
 
 
+def heterodyne_dag(**kwargs):
+    """
+    Run heterodyne_dag within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
+    DAG for running multiple ``cwinpy_heterodyne`` instances on a computer cluster.
+
+    Parameters
+    ----------
+    config: str
+        A configuration file, or :class:`configparser:ConfigParser` object,
+        for the analysis.
+
+    Returns
+    -------
+    dag:
+        The pycondor :class:`pycondor.Dagman` object.
+    """
+
+    if "config" in kwargs:
+        configfile = kwargs.pop("config")
+    else:  # pragma: no cover
+        parser = ArgumentParser(
+            description=(
+                "A script to create a HTCondor DAG to run GW strain data "
+                "processing to heterodyne the data based on the expected "
+                "phase evolution for a selection of pulsars."
+            )
+        )
+        parser.add_argument("config", help=("The configuration file for the analysis"))
+
+        args = parser.parse_args()
+        configfile = args.config
+
+    if isinstance(configfile, configparser.ConfigParser):
+        config = configfile
+    else:
+        config = configparser.ConfigParser()
+
+        try:
+            config.read_file(open(configfile, "r"))
+        except Exception as e:
+            raise IOError(
+                "Problem reading configuration file '{}'\n: {}".format(configfile, e)
+            )
+
+    return HeterodyneDAGRunner(config, **kwargs)
+
+
+def heterodyne_dag_cli(**kwargs):  # pragma: no cover
+    """
+    Entry point to the cwinpy_heterodyne_dag script. This just calls
+    :func:`cwinpy.heterodyne.heterodyne_dag`, but does not return any objects.
+    """
+
+    _ = heterodyne_dag(**kwargs)
+
+
 class HeterodyneInput(Input):
     def __init__(self, cf):
         """
@@ -1049,7 +1132,7 @@ class HeterodyneInput(Input):
         self.submit = cf.getboolean("dag", "submitdag", fallback=False)
         self.transfer_files = cf.getboolean("dag", "transfer_files", fallback=True)
         self.osg = cf.getboolean("dag", "osg", fallback=False)
-        self.label = cf.get("dag", "name", fallback="cwinpy_pe")
+        self.label = cf.get("dag", "name", fallback="cwinpy_heterodyne")
 
         # see bilby_pipe MainInput class
         self.scheduler = cf.get("dag", "scheduler", fallback="condor")
@@ -1177,7 +1260,7 @@ class HeterodyneNode(Node):
                 # create temporary Heterodyne object to get output files
                 tmphet = Heterodyne(
                     output=configdict["output"],
-                    label=configdict["label"],
+                    label=configdict.get("label", None),
                     pulsarfiles=configdict["pulsarfiles"],
                     pulsars=configdict["pulsars"],
                 )

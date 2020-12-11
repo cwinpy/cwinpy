@@ -2,17 +2,18 @@
 Classes for heterodyning strain data.
 """
 
-import glob
 import os
 import signal
+from pathlib import Path
 
 import lal
 import lalframe
 import lalpulsar
 import numpy as np
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
+from gwosc.timeline import get_segments
 from gwpy.io.cache import is_cache, read_cache
-from gwpy.segments import DataQualityFlag
+from gwpy.segments import DataQualityFlag, SegmentList
 from gwpy.timeseries import TimeSeries, TimeSeriesDict, TimeSeriesList
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from scipy.interpolate import splev, splrep
@@ -65,6 +66,10 @@ class Heterodyne(object):
     framecache: str, list
         If you have a pregenerated cache of gravitational-wave file paths
         (either in a file or as a list of files) you can use them.
+        Alternatively, you can supply a directory that will be searched
+        recursively for frame files (first it will try to find ".gwf" file
+        extension files then ".hdf5" files). This should be used in conjunction
+        with the ``frametype`` argument.
     segmentlist: str, list
         A list of data segment start and end times (stored a tuple pairs) in
         the list. Or, an ascii text file containing segment start and end times
@@ -74,7 +79,8 @@ class Heterodyne(object):
         segment list if not provided in ``segmentlist``. See, e.g., the GWPy
         documentation
         `here <https://gwpy.github.io/docs/stable/segments/index.html>`_ and
-        the :func:`cwinpy.heterodyne.generate_segments` function.
+        the :func:`cwinpy.heterodyne.generate_segments` function. Use, e.g.,
+        "H1_DATA" to get segments from GWOSC for open data.
     excludeflags: str, list
         A string, or list of string giving data DQ flags to exclude when
         generating a segment list if not provided in ``segmentlist``. See
@@ -656,17 +662,27 @@ class Heterodyne(object):
                 # check if cache is a directory
                 if os.path.isdir(framecache):
                     # get list of frame files
-                    cache = local_frame_cache(
-                        framecache,
-                        starttime=starttime,
-                        endtime=endtime,
-                        frametype=frametype,
-                        recursive=kwargs.get("recursive", False),
-                        site=kwargs.get("site", self.detector),
-                        extension=kwargs.get("extension", "gwf"),
-                        write=outputframecache,
-                        append=appendframecache,
+                    extensions = (
+                        ["gwf", "hdf5"]
+                        if "extension" not in kwargs
+                        else [kwargs["extension"]]
                     )
+
+                    # try different extensions in turn
+                    for extension in extensions:
+                        cache = local_frame_cache(
+                            framecache,
+                            starttime=starttime,
+                            endtime=endtime,
+                            frametype=frametype,
+                            recursive=kwargs.get("recursive", False),
+                            site=kwargs.get("site", self.detector),
+                            extension=extension,
+                            write=outputframecache,
+                            append=appendframecache,
+                        )
+                        if len(cache) > 0:
+                            break
                 else:
                     # read in frame files from cache file
                     if is_cache(framecache):
@@ -783,6 +799,12 @@ class Heterodyne(object):
             kwargs.setdefault("server", self.segmentserver)
             kwargs.setdefault("writesegments", self.outputsegmentlist)
             kwargs.setdefault("appendsegments", self.appendsegmentlist)
+
+            # check whether include flags looks like it wants GWOSC data
+            if len(self.includeflags) == 1:
+                # GWOSC segments look like DET_DATA
+                if "{}_DATA".format(self.detector) == self.includeflags[0]:
+                    kwargs.setdefault("usegwosc", True)
 
         segments = generate_segments(**kwargs)
         self._segments = segments
@@ -959,10 +981,7 @@ class Heterodyne(object):
             if isinstance(pfiles, str):
                 if os.path.isdir(pfiles):
                     pfilelist = [
-                        os.path.realpath(pf)
-                        for pf in glob.glob(
-                            os.path.join(pfiles, "*.par"), recursive=True
-                        )
+                        os.path.realpath(pf) for pf in Path(pfiles).rglob("*.par")
                     ]
                 else:
                     pfilelist = [pfiles]
@@ -1937,9 +1956,7 @@ class Heterodyne(object):
                 curhetfiles = [
                     f
                     for ext in self.extensions
-                    for f in glob.glob(
-                        os.path.join(hetdata, "*{}".format(ext)), recursive=True
-                    )
+                    for f in Path(hetdata).rglob("*{}".format(ext))
                 ]
 
                 if len(curhetfiles) > 0:
@@ -2140,10 +2157,10 @@ class Heterodyne(object):
             ephemeris for that time system.
         """
 
-        if not hasattr("_ephemerides", self):
+        if not hasattr(self, "_ephemerides"):
             self._ephemerides = {}
 
-        if not hasattr("_timecorr", self):
+        if not hasattr(self, "_timecorr"):
             self._timecorr = {}
 
         if isinstance(earthephemeris, dict) and isinstance(sunephemeris, dict):
@@ -2194,7 +2211,7 @@ def remote_frame_cache(
     >>> end = 1187733618    # GPS for 2017-08-25 22:00:00 UTC
     >>> channels = ['H1:DCH-CLEAN_STRAIN_C02', 'L1:DCH-CLEAN_STRAIN_C02']
     >>> frametype = ['H1_CLEANED_HOFT_C02', 'L1_CLEANED_HOFT_C02']
-    >>> cache = generate_cache(start, end, channels, frametype=frametype)
+    >>> cache = remote_frame_cache(start, end, channels, frametype=frametype)
 
     Parameters
     ----------
@@ -2384,9 +2401,7 @@ def local_frame_cache(
     """
 
     try:
-        files = glob.glob(
-            os.path.join(path, "*.{}".format(extension)), recursive=recursive
-        )
+        files = Path(path).rglob("*.{}".format(extension))
     except Exception as e:
         raise IOError("Could not parse the path: {}".format(e))
 
@@ -2497,6 +2512,7 @@ def generate_segments(
     excludeflags=None,
     segmentfile=None,
     server=None,
+    usegwosc=False,
     writesegments=None,
     appendsegments=False,
 ):
@@ -2506,6 +2522,14 @@ def generate_segments(
     <https://gwpy.github.io/docs/stable/segments/dqsegdb.html>`_ this requires
     access to the GW segment database, which is reserved for members of the
     LIGO-Virgo-KAGRA collaborations.
+
+    To get segment lists for open data via GWOSC the "include_flags" argument
+    should be, e.g., "DET_DATA" where "DET" is replaced by the detector prefix.
+    The "usegwosc" argument should be set to True to be explicitly about using
+    GWOSC. If looking at CW hardware injections in GWOSC data the exclude flag
+    should be, e.g., "DET_NO_CW_HW_INJ", where again "DET" is replaced by the
+    detector prefix. This will exclude times when the injections were not
+    present.
 
     Parameters
     ----------
@@ -2533,6 +2557,9 @@ def generate_segments(
         The URL of the segment database server to use. If not given then the
         default server URL is used (see
         :func:`gwpy.segments.DataQualityFlag.query`).
+    usegwosc: bool
+        If querying for segments from GWOSC (see above) set this to True.
+        Default is False.
     writesegments: str
         A string giving a file to output the segments to.
     appendsegments: bool
@@ -2605,7 +2632,12 @@ def generate_segments(
         # get included segments
         for dqflag in includetypes:
             # create query
-            query = DataQualityFlag.query(dqflag, starttime, endtime, **serverkwargs)
+            if usegwosc:
+                query = SegmentList(get_segments(dqflag, starttime, endtime))
+            else:
+                query = DataQualityFlag.query(
+                    dqflag, starttime, endtime, **serverkwargs
+                )
 
             if segs is None:
                 segs = query.copy()
@@ -2615,9 +2647,12 @@ def generate_segments(
         # remove excluded segments
         if excludeflags is not None and segs is not None:
             for dqflag in excludetypes:
-                query = DataQualityFlag.query(
-                    dqflag, starttime, endtime, **serverkwargs
-                )
+                if usegwosc:
+                    query = SegmentList(get_segments(dqflag, starttime, endtime))
+                else:
+                    query = DataQualityFlag.query(
+                        dqflag, starttime, endtime, **serverkwargs
+                    )
 
                 segs = segs & ~query
 
