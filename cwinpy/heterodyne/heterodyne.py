@@ -245,11 +245,12 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
     )
     pulsarparser.add(
         "--pulsars",
+        action="append",
         help=(
             "You can analyse only particular pulsars from those specified by "
             'parameter files found through the "--pulsarfiles" argument by '
             "passing a string, or list of strings, with particular pulsars "
-            "names to use."
+            "names to use. "
         ),
     )
 
@@ -934,7 +935,7 @@ class HeterodyneDAGRunner(object):
                         configdict["pulsarfiles"] = {
                             psr: het.pulsarfiles[psr] for psr in pgroup
                         }
-                        configdict["pulsars"] = pgroup
+                        configdict["pulsars"] = copy.deepcopy(pgroup)
 
                         # set whether to include modulations
                         configdict["includessb"] = includessb[0]
@@ -951,7 +952,7 @@ class HeterodyneDAGRunner(object):
                             freqfactor=ff,
                             output=outputdirs[0][det],
                             label=label[0] if label is not None else None,
-                            pulsars=pgroup,
+                            pulsars=copy.deepcopy(pgroup),
                             pulsarfiles=pulsarfiles,
                         )
                         for psr in pgroup:
@@ -1056,7 +1057,18 @@ class HeterodyneDAGRunner(object):
         try:
             newobj = ast.literal_eval(newobj)
         except (ValueError, SyntaxError):
-            pass
+            # try evaluating expressions such as "1/60", which fail for recent
+            # versions of ast in Python 3.7+
+            for op in ["/", "*", "+", "-"]:
+                if op in newobj:
+                    if len(newobj.split(op)) == 2:
+                        try:
+                            vals = [float(val) for val in newobj.split(op)]
+                        except ValueError:
+                            break
+
+                        newobj = eval("{}{}{}".format(vals[0], op, vals[1]))
+                    break
 
         return newobj
 
