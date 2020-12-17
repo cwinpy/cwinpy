@@ -240,3 +240,8 @@ intersphinx_mapping = {
 pe_help = subprocess.getoutput("cwinpy_pe --help")
 with open("pe/pe_help.txt", "w") as fp:
     fp.write(pe_help)
+
+# generate cwinpy_heterodyne help string for docs
+heterodyne_help = subprocess.getoutput("cwinpy_heterodyne --help")
+with open("heterodyne/heterodyne_help.txt", "w") as fp:
+    fp.write(heterodyne_help)

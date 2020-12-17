@@ -19,10 +19,10 @@ There is also an API for running this analysis from within a Python shell or scr
 Running the analysis
 --------------------
 
-The script, and :ref:`API`, can be used to perform parameter estimation over a variety of signal
+The ``cwinpy_pe`` script, and :ref:`API`, can be used to perform parameter estimation over a variety of signal
 parameter both on real data or simulated data. We will cover some examples of both cases and show
 equivalent ways of running the analysis via the use of: command line arguments to the
-``cwinpy_pe`` script; a configuration files, or the :ref:`API`. The current command line
+``cwinpy_pe`` script, a configuration file, or the :ref:`API`. The current command line
 arguments for ``cwinpy_pe`` are given :ref:`below<Command line arguments>`.
 
 Example: single detector data
@@ -221,9 +221,8 @@ want to simulate data from many sources. If you have a multicore machine, or acc
 cluster, with `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ installed you can use CWInPy to
 create a set of analysis jobs, in the form of a Condor `DAG
 <https://htcondor.readthedocs.io/en/v8_8_4/users-manual/dagman-applications.html>`_, for each
-source. This makes use of PyCondor `installed
-<https://jrbourbeau.github.io/pycondor/installation.html>`_, which is installed as one of the
-requirements for CWInPy.
+source. This makes use of `PyCondor <https://jrbourbeau.github.io/pycondor/installation.html>`_,
+which is installed as one of the requirements for CWInPy.
 
 To set up a DAG to analyse real data for multiple pulsars you need to have certain datasets and
 files organised in a particular way. You must have a set of TEMPO(2)-style pulsar parameter files,
