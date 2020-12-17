@@ -1057,18 +1057,31 @@ class HeterodyneDAGRunner(object):
         try:
             newobj = ast.literal_eval(newobj)
         except (ValueError, SyntaxError):
-            # try evaluating expressions such as "1/60", which fail for recent
-            # versions of ast in Python 3.7+
-            for op in ["/", "*", "+", "-"]:
-                if op in newobj:
-                    if len(newobj.split(op)) == 2:
-                        try:
-                            vals = [float(val) for val in newobj.split(op)]
-                        except ValueError:
-                            break
+            # try evaluating expressions such as "1/60" or "[1., 1./60.],
+            # which fail for recent versions of ast in Python 3.7+
 
-                        newobj = eval("{}{}{}".format(vals[0], op, vals[1]))
-                    break
+            # if expression contains a list strip the brackets to start 
+            objlist = newobj.strip("[").strip("]").split(",") 
+            issafe = False 
+            for obj in objlist: 
+                try: 
+                    # check if value is just a number 
+                    _ = float(obj) 
+                    issafe = True 
+                except ValueError: 
+                    issafe = False 
+                    for op in ["/", "*", "+", "-"]: 
+                        if op in obj: 
+                            if len(obj.split(op)) == 2: 
+                                try: 
+                                    vals = [float(val) for val in obj.split(op)] 
+                                    issafe = True 
+                                except ValueError: 
+                                    break 
+
+            # object is "safe", use eval 
+            if issafe: 
+                newobj = eval(newobj) 
 
         return newobj
 
