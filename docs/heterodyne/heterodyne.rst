@@ -3,8 +3,8 @@ Heterodyning data
 #################
 
 Gravitational-wave strain data is often sampled at 16384 Hz. It is only feasible to perform
-:ref:`parameter estimation <pe>` for a continuous gravitational-wave signal from a particular pulsar
-using data that is heavily downsampled. As described in :ref:`data:heterodyned-data`, this is done
+:ref:`parameter estimation<Known pulsar parameter estimation>` for a continuous gravitational-wave signal from a particular pulsar
+using data that is heavily downsampled. As described in :ref:`Heterodyned data`, this is done
 using the method from [1]_. The pulsar's phase evolution is assumed to be well described by a Taylor
 expansion
 
@@ -49,16 +49,16 @@ not identically) emulates the functionality from the `LALSuite
 <https://lscsoft.docs.ligo.org/lalsuite/>`_ code ``lalapps_heterodyne_pulsar``.
 
 There is also an API for running this analysis from within a Python shell or script as described
-:ref:`below<API>`.
+:ref:`below<heterodyne API>`.
 
 Running the analysis
 --------------------
 
-The ``cwinpy_heterodyne`` script, and :ref:`API`, can be used to process gravitational wave data for
+The ``cwinpy_heterodyne`` script, and :ref:`API<heterodyne API>`, can be used to process gravitational wave data for
 individual pulsars or multiple pulsars. We will cover some examples of running analyses via use of
 command line arguments or a configuration file supplied to ``cwinpy_heterodyne``, or through the
-:ref:`API`. The current command line
-arguments for ``cwinpy_heterodyne`` are given :ref:`below<Command line arguments>`.
+:ref:`API<heterodyne API>`. The current command line
+arguments for ``cwinpy_heterodyne`` are given :ref:`below<heterodyne Command line arguments>`.
 
 If running an analysis for multiple pulsars on a large stretch of data it is recommended
 that you split the analysis up to run as many separate jobs. If you have access to a computer
@@ -70,7 +70,7 @@ of using this.
 In many of the example below we will assume that you are able to access the open LIGO and Virgo data
 available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
 <https://cvmfs.readthedocs.io/>`_. To find out more about accessing this data see the instructions
-`here <https://www.gw-openscience.org/cvmfs/>`)_.
+`here <https://www.gw-openscience.org/cvmfs/>`_.
 
 .. note::
 
@@ -82,12 +82,19 @@ Example: two simulated pulsar signals
 For the first example we will generate some simulated data containing signals from two (fake)
 pulsars. To make the simulation manageable in terms of the amount of data and to have a quick run
 time we will generate only one day of data at a sample rate of 16 Hz (the standard LIGO/Virgo sample
-rate is 16384 Hz). To generate the data we will use the LALSuite programme
-``lalapps_Makefakedata_v5``.
+rate is 16384 Hz).
 
-The fake pulsars have parameters defined in TEMPO(2)-style parameter files (where frequencies, frequency derivatives and phases are the rotational values rather than the gravitational-wave values), as follows:
+Generating the data
+###################
 
- * an isolated pulsar in a file called ``J0123+0123.par``
+To generate the data we will use the LALSuite `programme
+<https://lscsoft.docs.ligo.org/lalsuite/lalapps/makefakedata__v5_8c.html>`_
+``lalapps_Makefakedata_v5`` (skip straight to the heterodyning description :ref:`here<Heterodyning
+the data>`). The fake pulsars have parameters defined in TEMPO(2)-style parameter files (where
+frequencies, frequency derivatives and phases are the rotational values rather than the
+gravitational-wave values), as follows:
+
+* an isolated pulsar in a file called ``J0123+0123.par``
 
 .. code-block:: bash
 
@@ -105,7 +112,7 @@ The fake pulsars have parameters defined in TEMPO(2)-style parameter files (wher
    COSIOTA 0.1
    PSI     0.5
 
- * a pulsar in a binary system in a file called ``J0404-0404.par``
+* a pulsar in a binary system in a file called ``J0404-0404.par``
 
 .. code-block:: bash
 
@@ -129,7 +136,7 @@ The fake pulsars have parameters defined in TEMPO(2)-style parameter files (wher
    COSIOTA 0.6
    PSI     1.1
 
-The simulated data is then created using:
+One way to create the simulated data is as follows:
 
 .. code-block:: python
 
@@ -148,25 +155,25 @@ The simulated data is then created using:
    # create injection files for lalapps_Makefakedata_v5
    # requirements for Makefakedata pulsar input files
    isolatedstr = """\
-Alpha = {alpha}
-Delta = {delta}
-Freq = {f0}
-f1dot = {f1}
-f2dot = {f2}
-refTime = {pepoch}
-h0 = {h0}
-cosi = {cosi}
-psi = {psi}
-phi0 = {phi0}
-"""
+   Alpha = {alpha}
+   Delta = {delta}
+   Freq = {f0}
+   f1dot = {f1}
+   f2dot = {f2}
+   refTime = {pepoch}
+   h0 = {h0}
+   cosi = {cosi}
+   psi = {psi}
+   phi0 = {phi0}
+   """
 
    binarystr = """\
-orbitasini = {asini}
-orbitPeriod = {period}
-orbitTp = {Tp}
-orbitArgp = {argp}
-orbitEcc = {ecc}
-"""
+   orbitasini = {asini}
+   orbitPeriod = {period}
+   orbitTp = {Tp}
+   orbitArgp = {argp}
+   orbitEcc = {ecc}
+   """
 
    injfile = "inj.dat"
    fp = open(injfile, "w")
@@ -175,7 +182,7 @@ orbitEcc = {ecc}
        p = PulsarParametersPy(parfile)
        fp.write("[Pulsar {}]\n".format(i+1))
 
-       # set parameters (multiply freqs by 2)
+       # set parameters (multiply freqs/phase by 2)
        mfddic = {
            "alpha": p["RAJ"],
            "delta": p["DECJ"],
@@ -241,6 +248,11 @@ orbitEcc = {ecc}
        
 This should create the following files XXX in the gwf format.
 
+Heterodyning the data
+#####################
+
+.. _heterodyne Command line arguments:
+
 Command line arguments
 ----------------------
 
@@ -249,6 +261,8 @@ given below:
 
 .. literalinclude:: heterodyne_help.txt
    :language: none
+
+.. _heterodyne API:
 
 API
 ---
