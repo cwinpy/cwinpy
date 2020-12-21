@@ -171,8 +171,8 @@ html_sidebars = {
 htmlhelp_basename = "cwinpydoc"
 
 # add logo
-html_logo = "logo_white.png"
-html_favicon = "logo.svg"
+html_logo = "logo.png"
+html_favicon = "logo_cw.svg"
 
 # -- Options for LaTeX output ---------------------------------------------
 
