@@ -4,6 +4,7 @@ Test script for data.py classes.
 
 import os
 
+import cwinpy
 import lal
 import numpy as np
 import pytest
@@ -346,6 +347,10 @@ PHI0     2.4
                     assert hetnew.par[key] == het.par[key]
                 else:
                     assert np.allclose(hetnew.par[key], het.par[key])
+
+            # check version information is stored
+            assert het.cwinpy_version == hetnew.cwinpy_version
+            assert het.cwinpy_version == cwinpy.__version__
 
             os.remove(datafile)  # clean up file
 
