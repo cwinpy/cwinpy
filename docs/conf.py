@@ -170,6 +170,14 @@ html_sidebars = {
 # Output file base name for HTML help builder.
 htmlhelp_basename = "cwinpydoc"
 
+# add logo
+html_logo = "logo.png"
+html_favicon = "logo_cw.svg"
+
+html_theme_options = {
+    "style_nav_header_background": "#e3e2e1",
+    "logo_only": True,
+}
 
 # -- Options for LaTeX output ---------------------------------------------
 

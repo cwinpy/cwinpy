@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./logo/logo.png" width="350" title="CWInPy logo">
+</p>
+
 # CW Inference in Python
 
 A Python module for performing Bayesian inference for continuous gravitational-wave signals from pulsars
