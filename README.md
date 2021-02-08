@@ -1,4 +1,6 @@
-![CWInPy Logo](./logo/logo.png)
+<p align="center">
+  <img src="./logo/logo.png" width="350" title="CWInPy logo">
+</p>
 
 # CW Inference in Python
 
