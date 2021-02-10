@@ -156,3 +156,4 @@ dependencies:
     - webob==1.8.6
     - webtest==2.0.35
     - zipp==3.4.0
+    - .
