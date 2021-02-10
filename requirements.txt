@@ -5,7 +5,7 @@ bilby_pipe>=1.0.2
 matplotlib
 scipy
 lintegrate>=0.1.0
-lalsuite>=6.74.1.dev20200807
+lalsuite>=6.76
 numba
 gwpy>=2.0.0
 gwosc>=0.5.4
