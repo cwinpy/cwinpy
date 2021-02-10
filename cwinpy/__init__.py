@@ -1,7 +1,3 @@
-"""
-isort:skip_file
-"""
-
 import io
 
 # register reader/writer
