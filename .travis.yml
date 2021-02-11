@@ -27,6 +27,6 @@ install:
   - pip install -e .
 script:
   # run the test script
-  - pytest --cov=cwinpy
+  - pytest -n 1 --cov=cwinpy
 after_success:
   - codecov
