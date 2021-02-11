@@ -19,7 +19,7 @@ python-3.7:
   stage: test
   image: quay.io/bilbydev/v2-dockerfile-test-suite-python37
   before_script:
-    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
+    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgslcblas0 libgsl-dev
     # Install the dependencies specified in the Pipfile
     - pip install --upgrade pip
     - pip install numpy
@@ -46,7 +46,7 @@ python-3.8:
   stage: test
   image: quay.io/bilbydev/v2-dockerfile-test-suite-python38
   before_script:
-    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
+    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgslcblas0 libgsl-dev
     # Install the dependencies specified in the Pipfile
     - pip install --upgrade pip
     - pip install numpy
