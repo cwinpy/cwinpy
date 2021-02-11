@@ -28,7 +28,7 @@ install:
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
   - conda activate test-environment
   - conda install -y numpy"<1.20" matplotlib scipy astropy
-  - conda install -c anaconda coverage configargparse future
+  - conda install -c anaconda coverage configargparse future libopenblas
   - conda install -c numba numba
   - conda install -c conda-forge lintegrate">=0.1.0" bilby">=1.0.2" bilby_pipe">=1.0.2" lalsuite">6.76" gwpy gwosc pycondor dynesty
   - pip install --upgrade pip
