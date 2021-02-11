@@ -14,10 +14,10 @@ stages:
   - comparisons
   #- deploy
 
-# test example on python 3
+# test on python 3.7
 python-3.7:
   stage: test
-  image: python:3.7-stretch
+  image: quay.io/bilbydev/v2-dockerfile-test-suite-python37
   before_script:
     - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
     # Install the dependencies specified in the Pipfile
@@ -40,6 +40,25 @@ python-3.7:
     #  artifacts:
     #paths:
     #  - docs/_build/html/
+
+# test on python 3.8
+python-3.8:
+  stage: test
+  image: quay.io/bilbydev/v2-dockerfile-test-suite-python38
+  before_script:
+    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
+    # Install the dependencies specified in the Pipfile
+    - pip install --upgrade pip
+    - pip install numpy
+    - pip install -r requirements.txt
+    - pip install -r docs-requirements.txt
+    - pip install -r test-requirements.txt
+  script:
+    - pip install .
+
+    # run tests
+    - pytest
+
 
 # test example on python 3
 pre-commit-python-3.7:
