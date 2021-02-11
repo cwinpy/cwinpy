@@ -24,8 +24,10 @@ install:
   # install packages for testing
   - pip install -r test-requirements.txt
   # build cwinpy
-  - python setup.py install
+  - pip install . -e
 script:
+  # just try importing cwinpy!
+  - python -c "import cwinpy"
   # run the test script
   - pytest --cov=cwinpy
 after_success:
