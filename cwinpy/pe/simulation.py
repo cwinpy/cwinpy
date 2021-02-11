@@ -97,7 +97,7 @@ class PEPulsarSimulationDAG(object):
     oridist: ``bilby.core.prior.PriorDict``
         The distribution if the pulsar orientation parameters. This defaults
         to uniform over a hemisphere in inclination and polarisation angle,
-        and uniform over :math:`\pi` radians in rotational phase. The
+        and uniform over :math:`\\pi` radians in rotational phase. The
         dictionary keys must be ``"phi0"`` (initial phase), ``"iota"``
         (inclination angle), and ``"psi"`` (polarisation angle), all in
         radians.
