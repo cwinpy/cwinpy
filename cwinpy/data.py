@@ -1548,7 +1548,7 @@ class HeterodynedData(TimeSeriesBase):
            \\rho = \\sqrt{\\sum_i \\left(\\left[\\frac{\\Re{(s_i)}}{\\sigma_i}\\right]^2 +
            \\left[\\frac{\\Im{(s_i)}}{\\sigma_i}\\right]^2\\right)}
 
-        where and :math:`s` is the pure signal and :math:`\sigma` is the
+        where and :math:`s` is the pure signal and :math:`\\sigma` is the
         estimated noise standard deviation.
         """
 
