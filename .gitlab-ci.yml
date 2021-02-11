@@ -22,7 +22,7 @@ python-3.7:
     - pip install .
 
     # run tests
-    - pytest -n 1
+    - pytest
 
     # Make the documentation
     - cd docs
@@ -41,7 +41,7 @@ python-3.8:
     - pip install .
 
     # run tests
-    - pytest -n 1
+    - pytest
 
 
 # test example on python 3
