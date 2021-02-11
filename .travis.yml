@@ -18,12 +18,13 @@ services:  # see https://docs.travis-ci.com/user/gui-and-headless-browsers/#usin
   - xvfb
 install:
   - pip install --upgrade pip
-  # uninstall numpy to avoid problems with astropy requirements 
+  # uninstall numpy to avoid problems with astropy requirement
+  - pip uninstall -y numpy 
   - pip install -r requirements.txt
   # install packages for testing
   - pip install -r test-requirements.txt
   # build cwinpy
-  - pip install . -e
+  - pip install -e .
 script:
   # run the test script
   - pytest --cov=cwinpy
