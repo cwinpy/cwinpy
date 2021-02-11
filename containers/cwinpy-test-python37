@@ -31,7 +31,7 @@ RUN conda install -n ${conda_env} -c conda-forge black gwpy lalsuite bilby bilby
 
 # Install pip-requirements
 RUN pip install --upgrade pip
-RUN pip install --upgrade setuptools codecov pytest-coverage coverage-badge pytest_socket
+RUN pip install --upgrade setuptools codecov pytest-coverage pytest-cov pytest-xdist coverage-badge pytest_socket
 
 # Install documentation requirements
 RUN pip install sphinx numpydoc nbsphinx sphinx_rtd_theme sphinx-tabs autodoc sphinxcontrib-images recommonmark
