@@ -23,11 +23,10 @@ install:
   - pip install -r requirements.txt
   # install packages for testing
   - pip install -r test-requirements.txt
-  - pip install pytest-xdist
   # build cwinpy
-  - pip install -e .
+  - python setup.py install
 script:
   # run the test script
-  - pytest -n 1 --cov=cwinpy
+  - pytest --cov=cwinpy
 after_success:
   - codecov
