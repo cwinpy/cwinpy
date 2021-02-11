@@ -17,8 +17,21 @@ before_install:
 services:  # see https://docs.travis-ci.com/user/gui-and-headless-browsers/#using-services-xvfb
   - xvfb
 install:
+  # install Miniconda (see https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/use-conda-with-travis-ci.html#the-travis-yml-file)
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - source "$HOME/miniconda/etc/profile.d/conda.sh"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  # create test environment
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
+  - conda activate test-environment
+  - conda install -y numpy"<1.20" matplotlib scipy astropy
+  - conda install -c anaconda coverage configargparse future
+  - conda install -c numba numba
+  - conda install -c conda-forge lintegrate">=0.1.0" bilby">=1.0.2" bilby_pipe">=1.0.2" lalsuite">6.76" gwpy gwosc pycondor dynesty
   - pip install --upgrade pip
-  - pip install -r requirements.txt
   # install packages for testing
   - pip install -r test-requirements.txt
   # build cwinpy
