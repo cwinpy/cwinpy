@@ -1288,12 +1288,6 @@ class PEDAGRunner(object):
         # create and build the dag
         self.create_dag(config, **kwargs)
 
-        if self.submitdag:
-            if self.build:
-                self.dag.build_submit(submit_options=self.submit_options)
-            else:
-                self.dag.submit_dag(self.submit_options)
-
     def create_dag(self, config, **kwargs):
         """
         Create the HTCondor DAG from the configuration parameters.
