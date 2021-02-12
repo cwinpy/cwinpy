@@ -3,10 +3,10 @@ Heterodyning data
 #################
 
 Gravitational-wave strain data is often sampled at 16384 Hz. It is only feasible to perform
-:ref:`parameter estimation<Known pulsar parameter estimation>` for a continuous gravitational-wave signal from a particular pulsar
-using data that is heavily downsampled. As described in :ref:`Heterodyned data`, this is done
-using the method from [1]_. The pulsar's phase evolution is assumed to be well described by a Taylor
-expansion
+:ref:`parameter estimation<Known pulsar parameter estimation>` for a continuous gravitational-wave
+signal from a particular pulsar using data that is heavily downsampled. As described in
+:ref:`Heterodyned data`, this is done using the method from [1]_. The pulsar's phase evolution is
+assumed to be well described by a Taylor expansion
 
 .. math::
 
@@ -54,11 +54,11 @@ There is also an API for running this analysis from within a Python shell or scr
 Running the analysis
 --------------------
 
-The ``cwinpy_heterodyne`` script, and :ref:`API<heterodyne API>`, can be used to process gravitational wave data for
-individual pulsars or multiple pulsars. We will cover some examples of running analyses via use of
-command line arguments or a configuration file supplied to ``cwinpy_heterodyne``, or through the
-:ref:`API<heterodyne API>`. The current command line
-arguments for ``cwinpy_heterodyne`` are given :ref:`below<heterodyne Command line arguments>`.
+The ``cwinpy_heterodyne`` script, and :ref:`API<heterodyne API>`, can be used to process
+gravitational wave data for individual pulsars or multiple pulsars. We will cover some examples of
+running analyses via use of command line arguments or a configuration file supplied to
+``cwinpy_heterodyne``, or through the :ref:`API<heterodyne API>`. The current command line arguments
+for ``cwinpy_heterodyne`` are given :ref:`below<heterodyne Command line arguments>`.
 
 If running an analysis for multiple pulsars on a large stretch of data it is recommended
 that you split the analysis up to run as many separate jobs. If you have access to a computer
@@ -74,7 +74,11 @@ available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
 
 .. note::
 
-   To run a heterodyne analysis as multiple jobs on your own machine you can install HTCondor for a single machine. Installation instructions for various Linux distributions are found `here <https://research.cs.wisc.edu/htcondor/instructions/>`_ and it is recommended to install ``mini[ht]condor``, which configures HTCondor to run on a single node. If you have multiple cores and a large amount of memory this can be a reasonable option.
+   To run a heterodyne analysis as multiple jobs on your own machine you can install HTCondor for a
+   single machine. Installation instructions for various Linux distributions are found `here
+   <https://research.cs.wisc.edu/htcondor/instructions/>`_ and it is recommended to install
+   ``mini[ht]condor``, which configures HTCondor to run on a single node. If you have multiple cores
+   and a large amount of memory this can be a reasonable option.
 
 Example: two simulated pulsar signals
 =====================================

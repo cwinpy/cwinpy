@@ -2635,9 +2635,10 @@ def generate_segments(
             if usegwosc:
                 query = SegmentList(get_segments(dqflag, starttime, endtime))
             else:
+                # use "active" segments
                 query = DataQualityFlag.query(
                     dqflag, starttime, endtime, **serverkwargs
-                )
+                ).active
 
             if segs is None:
                 segs = query.copy()
@@ -2650,9 +2651,10 @@ def generate_segments(
                 if usegwosc:
                     query = SegmentList(get_segments(dqflag, starttime, endtime))
                 else:
+                    # use "active" segments
                     query = DataQualityFlag.query(
                         dqflag, starttime, endtime, **serverkwargs
-                    )
+                    ).active
 
                 segs = segs & ~query
 
@@ -2670,7 +2672,7 @@ def generate_segments(
         # write out segment list
         segments = []
         if segs is not None:
-            for thisseg in segs.active:
+            for thisseg in segs:
                 segments.append((float(thisseg[0]), float(thisseg[1])))
 
                 if isinstance(writesegments, str):
