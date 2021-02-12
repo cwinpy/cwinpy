@@ -3240,7 +3240,7 @@ class HeterodynedData(TimeSeriesBase):
                 counter += 1
 
         # resize
-        hetdata.resize((counter,))
+        hetdata.resize((counter,), refcheck=False)
 
         # create new object (will not contain, e.g., par file, injection info,
         # etc)
