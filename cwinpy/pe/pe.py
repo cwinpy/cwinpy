@@ -1361,7 +1361,7 @@ class PEDAGRunner(object):
                 if is_par_file(pulsar):
                     psr = PulsarParametersPy(pulsar)
 
-                    # try names with order or precedence
+                    # try names with order of precedence
                     names = [
                         psr[name]
                         for name in ["PSRJ", "PSRB", "PSR", "NAME"]
@@ -1772,8 +1772,10 @@ class PEDAGRunner(object):
                 ):
                     raise ValueError("'fake-start' and 'fake-end' must both be set")
                 else:
-                    configdict["fake_start"] = fakestart
-                    configdict["fake_end"] = fakeend
+                    if fakestart is not None:
+                        configdict["fake_start"] = fakestart
+                    if fakeend is not None:
+                        configdict["fake_end"] = fakeend
                 if fakedt is not None:
                     configdict["fake_dt"] = fakedt
 
