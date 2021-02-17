@@ -1,7 +1,7 @@
 # This workflow to run the test suite for CWInPy (based on the default workflow)
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: Python package
+name: build
 
 on:
   push:
@@ -27,11 +27,26 @@ jobs:
       run: |
         sudo apt-get -qq update
         sudo apt-get install -y --no-install-recommends libblas3 libblas-dev liblapack3 liblapack-dev libatlas3-base libatlas-base-dev cmake build-essential gfortran texlive texlive-latex-extra dvipng libgslcblas0 libgsl-dev
+    - name: Install Miniconda
+      run: |
+        wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+        bash miniconda.sh -b -p $HOME/miniconda
+        source "$HOME/miniconda/etc/profile.d/conda.sh"
+        hash -r
+        conda config --set always_yes yes --set changeps1 no
+        conda update -q conda
+        conda create -q -n test-environment-python${{ matrix.python-version }} python=${{ matrix.python-version }}
     - name: Install dependencies
       run: |
+        conda activate test-environment-python${{ matrix.python-version }}
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        conda install -y numpy"<1.20" matplotlib scipy astropy
+        conda install -c anaconda coverage configargparse future libopenblas
+        conda install -c numba numba
+        conda install -c conda-forge black gwpy lalsuite bilby bilby_pipe lintegrate pycondor gwosc dynesty
+        pip install pyerfa
         if [ -f test-requirements.txt ]; then pip install -r test-requirements.txt; fi
+        pip install -e .
     - name: Run test suite
       run: |
         # disable numba jit for code coverage (see https://stackoverflow.com/a/26894553/1862861)
