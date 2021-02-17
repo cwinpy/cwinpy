@@ -38,6 +38,7 @@ jobs:
         conda create -q -n test-environment-python${{ matrix.python-version }} python=${{ matrix.python-version }}
     - name: Install dependencies
       run: |
+        source "$HOME/miniconda/etc/profile.d/conda.sh"
         conda activate test-environment-python${{ matrix.python-version }}
         python -m pip install --upgrade pip
         conda install -y numpy"<1.20" matplotlib scipy astropy
@@ -49,9 +50,13 @@ jobs:
         pip install -e .
     - name: Run test suite
       run: |
+        source "$HOME/miniconda/etc/profile.d/conda.sh"
+        conda activate test-environment-python${{ matrix.python-version }}
         # disable numba jit for code coverage (see https://stackoverflow.com/a/26894553/1862861)
         export NUMBA_DISABLE_JIT=1
         pytest --cov=cwinpy
     - name: Run code cov
       run: |
+        source "$HOME/miniconda/etc/profile.d/conda.sh"
+        conda activate test-environment-python${{ matrix.python-version }}
         codecov
