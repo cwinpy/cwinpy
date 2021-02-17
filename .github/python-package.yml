@@ -1,0 +1,42 @@
+# This workflow to run the test suite for CWInPy (based on the default workflow)
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Python package
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Update Ubuntu packages
+      run: |
+        sudo apt-get -qq update
+        sudo apt-get install -y --no-install-recommends libblas3 libblas-dev liblapack3 liblapack-dev libatlas3-base libatlas-base-dev cmake build-essential gfortran texlive texlive-latex-extra dvipng libgslcblas0 libgsl-dev
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        if [ -f test-requirements.txt ]; then pip install -r test-requirements.txt; fi
+    - name: Run test suite
+      run: |
+        # disable numba jit for code coverage (see https://stackoverflow.com/a/26894553/1862861)
+        export NUMBA_DISABLE_JIT=1
+        pytest --cov=cwinpy
+    - name: Run code cov
+      run: |
+        codecov
