@@ -20,6 +20,7 @@ from bilby_pipe.input import Input
 from bilby_pipe.job_creation.dag import Dag
 from bilby_pipe.job_creation.node import Node
 from bilby_pipe.utils import (
+    CHECKPOINT_EXIT_CODE,
     BilbyPipeError,
     check_directory_exists_and_if_not_mkdir,
     convert_string_to_dict,
@@ -34,9 +35,9 @@ from ..utils import is_par_file
 
 
 def sighandler(signum, frame):
-    # perform periodic eviction with exit code 130
-    # see https://git.ligo.org/lscsoft/bilby_pipe/blob/0b5ca550e3a92494ef3e04801e79a2f9cd902b44/bilby_pipe/parser.py#L270  # noqa: E501
-    sys.exit(130)
+    # perform periodic eviction with exit code 77
+    # see https://git.ligo.org/lscsoft/bilby_pipe/-/commit/c63c3e718f20ce39b0340da27fb696c49409fcd8  # noqa: E501
+    sys.exit(CHECKPOINT_EXIT_CODE)
 
 
 def create_pe_parser():
@@ -62,11 +63,11 @@ continuous gravitational-wave signal from a known pulsar."""
     )
     parser.add(
         "--periodic-restart-time",
-        default=10800,
+        default=43200,
         type=int,
         help=(
-            "Time after which the job will be self-evicted with code 130. "
-            "After this, condor will restart the job. Default is 10800s. "
+            "Time after which the job will be self-evicted with code 77. "
+            "After this, condor will restart the job. Default is 43200s. "
             "This is used to decrease the chance of HTCondor hard evictions."
         ),
     )
@@ -1211,9 +1212,9 @@ def pe(**kwargs):
         The path to a configuration file containing the analysis arguments.
     periodic_restart_time: int
         The number of seconds after which the run will be evicted with a
-        ``130`` exit code. This prevents hard evictions if running under
+        ``77`` exit code. This prevents hard evictions if running under
         HTCondor. For running via the command line interface, this defaults to
-        10800 seconds (3 hours), at which point the job will be stopped (and
+        43200 seconds (12 hours), at which point the job will be stopped (and
         then restarted if running under HTCondor). If running directly within
         Python this defaults to 10000000.
     ephem_earth: str, dict
