@@ -14,18 +14,10 @@ stages:
   - comparisons
   #- deploy
 
-# test example on python 3
+# test on python 3.7
 python-3.7:
   stage: test
-  image: python:3.7-stretch
-  before_script:
-    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
-    # Install the dependencies specified in the Pipfile
-    - pip install --upgrade pip
-    - pip install numpy
-    - pip install -r requirements.txt
-    - pip install -r docs-requirements.txt
-    - pip install -r test-requirements.txt
+  image: quay.io/mattpitkin/cwinpy-testing-python37
   script:
     - pip install .
 
@@ -41,18 +33,22 @@ python-3.7:
     #paths:
     #  - docs/_build/html/
 
+# test on python 3.8
+python-3.8:
+  stage: test
+  image: quay.io/mattpitkin/cwinpy-testing-python38
+  script:
+    - pip install .
+
+    # run tests
+    - pytest
+
+
 # test example on python 3
 pre-commit-python-3.7:
   stage: test
-  image: python:3.7-stretch
+  image: quay.io/mattpitkin/cwinpy-testing-python37
   before_script:
-    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
-    # Install the dependencies specified in the Pipfile
-    - pip install --upgrade pip
-    - pip install numpy
-    - pip install -r requirements.txt
-    - pip install -r docs-requirements.txt
-    - pip install -r test-requirements.txt
     - pip install -r dev-requirements.txt
   script:
     - pip install .
@@ -63,7 +59,7 @@ pre-commit-python-3.7:
 # run comparisons when a new tag is made
 run-comparisons:
   stage: comparisons
-  image: python:3.7-stretch
+  image: quay.io/mattpitkin/cwinpy-testing-python37
   only:
     # only run on tags (I'm assuming I'll only tag new versions!)
     - tags

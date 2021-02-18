@@ -56,11 +56,11 @@ continuous gravitational-wave signal from a known pulsar."""
     )
     parser.add(
         "--periodic-restart-time",
-        default=10800,
+        default=43200,
         type=int,
         help=(
-            "Time after which the job will be self-evicted with code 130. "
-            "After this, condor will restart the job. Default is 10800s. "
+            "Time after which the job will be self-evicted with code 77. "
+            "After this, condor will restart the job. Default is 43200s. "
             "This is used to decrease the chance of HTCondor hard evictions."
         ),
     )
@@ -1205,9 +1205,9 @@ def pe(**kwargs):
         The path to a configuration file containing the analysis arguments.
     periodic_restart_time: int
         The number of seconds after which the run will be evicted with a
-        ``130`` exit code. This prevents hard evictions if running under
+        ``77`` exit code. This prevents hard evictions if running under
         HTCondor. For running via the command line interface, this defaults to
-        10800 seconds (3 hours), at which point the job will be stopped (and
+        43200 seconds (12 hours), at which point the job will be stopped (and
         then restarted if running under HTCondor). If running directly within
         Python this defaults to 10000000.
     ephem_earth: str, dict
@@ -1281,12 +1281,6 @@ class PEDAGRunner(object):
     def __init__(self, config, **kwargs):
         # create and build the dag
         self.create_dag(config, **kwargs)
-
-        if self.submitdag:
-            if self.build:
-                self.dag.build_submit(submit_options=self.submit_options)
-            else:
-                self.dag.submit_dag(self.submit_options)
 
     def create_dag(self, config, **kwargs):
         """
@@ -1364,7 +1358,7 @@ class PEDAGRunner(object):
                 if is_par_file(pulsar):
                     psr = PulsarParametersPy(pulsar)
 
-                    # try names with order or precedence
+                    # try names with order of precedence
                     names = [
                         psr[name]
                         for name in ["PSRJ", "PSRB", "PSR", "NAME"]
@@ -1775,8 +1769,10 @@ class PEDAGRunner(object):
                 ):
                     raise ValueError("'fake-start' and 'fake-end' must both be set")
                 else:
-                    configdict["fake_start"] = fakestart
-                    configdict["fake_end"] = fakeend
+                    if fakestart is not None:
+                        configdict["fake_start"] = fakestart
+                    if fakeend is not None:
+                        configdict["fake_end"] = fakeend
                 if fakedt is not None:
                     configdict["fake_dt"] = fakedt
 

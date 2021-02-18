@@ -5,6 +5,7 @@ Classes for dealing with data products.
 import os
 import warnings
 
+import cwinpy
 import lal
 import lalpulsar
 import numpy as np
@@ -855,6 +856,7 @@ class HeterodynedData(TimeSeriesBase):
         "include_bsb",
         "include_glitch",
         "include_fitwaves",
+        "cwinpy_version",
     )
 
     def __new__(
@@ -1024,7 +1026,14 @@ class HeterodynedData(TimeSeriesBase):
             else:
                 new.inject_signal(injpar=injpar, injtimes=injtimes)
 
-        new.comments = comments
+        # add/update comments if given
+        if comments is not None:
+            if len(comments) > 0:
+                new.comments = comments
+
+        # add CWInPy version used for creation of data if not present
+        if not hasattr(new, "cwinpy_version"):
+            new.cwinpy_version = cwinpy.__version__
 
         return new
 
@@ -1539,7 +1548,7 @@ class HeterodynedData(TimeSeriesBase):
            \\rho = \\sqrt{\\sum_i \\left(\\left[\\frac{\\Re{(s_i)}}{\\sigma_i}\\right]^2 +
            \\left[\\frac{\\Im{(s_i)}}{\\sigma_i}\\right]^2\\right)}
 
-        where and :math:`s` is the pure signal and :math:`\sigma` is the
+        where and :math:`s` is the pure signal and :math:`\\sigma` is the
         estimated noise standard deviation.
         """
 
@@ -3231,7 +3240,7 @@ class HeterodynedData(TimeSeriesBase):
                 counter += 1
 
         # resize
-        hetdata.resize((counter,))
+        hetdata.resize((counter,), refcheck=False)
 
         # create new object (will not contain, e.g., par file, injection info,
         # etc)

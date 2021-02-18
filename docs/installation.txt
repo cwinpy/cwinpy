@@ -24,6 +24,14 @@ First, clone the repository
 
           $ git clone git@github.com:cwinpy/cwinpy.git
 
+   .. tab:: GitHub CLI
+
+      Using the GitHub `CLI <https://cli.github.com/>`_
+
+      .. code-block:: console
+
+          $ gh repo clone cwinpy/cwinpy
+
 then install the requirements and the software using:
 
 
@@ -104,12 +112,12 @@ CWInPy is available through the `PyPI <https://pypi.org/project/cwinpy/>`_ and
 CWInPy is also available within the Conda environment supplied via the `International Gravitational-Wave
 Observatory Network <https://computing.docs.ligo.org/conda/>`_ (IGWN) over CVMFS. To install CVMFS (for Linux and macOS only) you can follow the
 instructions `here <https://wiki.ligo.org/Computing/CvmfsUser>`_. Once this is installed you can enter
-the ``igwn-py37`` Conda environment from a terminal using:
+the ``igwn-py38`` Conda environment from a terminal using:
 
    .. code-block:: console
 
       $ source /cvmfs/oasis.opensciencegrid.org/ligo/sw/conda/etc/profile.d/conda.sh
-      $ conda activate igwn-py37 
+      $ conda activate igwn-py38 
 
 Documentation
 =============

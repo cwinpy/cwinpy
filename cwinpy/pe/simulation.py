@@ -97,7 +97,7 @@ class PEPulsarSimulationDAG(object):
     oridist: ``bilby.core.prior.PriorDict``
         The distribution if the pulsar orientation parameters. This defaults
         to uniform over a hemisphere in inclination and polarisation angle,
-        and uniform over :math:`\pi` radians in rotational phase. The
+        and uniform over :math:`\\pi` radians in rotational phase. The
         dictionary keys must be ``"phi0"`` (initial phase), ``"iota"``
         (inclination angle), and ``"psi"`` (polarisation angle), all in
         radians.
@@ -241,11 +241,8 @@ class PEPulsarSimulationDAG(object):
         self.create_config()
 
         # create the DAG for cwinpy_knope jobs
-        self.runner = pe_dag(config=self.config, build=False)
+        self.runner = pe_dag(config=self.config)
         self.runner.dag.build()
-
-        if self.submit:  # pragma: no cover
-            self.runner.dag.submit_dag()
 
     @property
     def ampdist(self):
@@ -641,6 +638,7 @@ class PEPulsarSimulationDAG(object):
         self.config["run"] = {"basedir": self.basedir}
 
         self.config["dag"] = {"build": False}
+        self.config["dag"] = {"submitdag": self.submit}
 
         self.config["job"] = {}
         self.config["job"]["getenv"] = str(self.getenv)

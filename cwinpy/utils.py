@@ -13,6 +13,7 @@ from math import gcd
 import lalpulsar
 import numpy as np
 from astropy import units as u
+from bilby_pipe.utils import CHECKPOINT_EXIT_CODE
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from numba import jit, njit
 from numba.extending import get_cython_function_address
@@ -354,6 +355,6 @@ def initialise_ephemeris(
 
 
 def sighandler(signum, frame):
-    # perform periodic eviction with exit code 130
-    # see https://git.ligo.org/lscsoft/bilby_pipe/blob/0b5ca550e3a92494ef3e04801e79a2f9cd902b44/bilby_pipe/parser.py#L270  # noqa: E501
-    sys.exit(130)
+    # perform periodic eviction with exit code 77
+    # see https://git.ligo.org/lscsoft/bilby_pipe/-/commit/c63c3e718f20ce39b0340da27fb696c49409fcd8  # noqa: E501
+    sys.exit(CHECKPOINT_EXIT_CODE)

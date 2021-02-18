@@ -3,8 +3,6 @@
 """
 A Python module for Bayesian inferences with continuous gravitational wave
 sources.
-
-isort:skip_file
 """
 
 from setuptools import setup
