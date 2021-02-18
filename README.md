@@ -1,4 +1,4 @@
-<p align="center">
+<p align="left">
   <img src="./logo/logo.png" width="350" title="CWInPy logo">
 </p>
 
