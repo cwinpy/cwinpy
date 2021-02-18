@@ -7,7 +7,7 @@ from itertools import compress
 import bilby
 import numpy as np
 from lintegrate import logtrapz
-from scipy.interpolate import interp1d
+from scipy.interpolate import splev, splrep
 from scipy.stats import expon, gaussian_kde, truncnorm
 
 from .utils import ellipticity_to_q22, q22_to_ellipticity
@@ -1230,9 +1230,9 @@ class MassQuadrupoleDistribution(object):
             prior = result.priors[priorkeys[i]]
             interpvals -= prior.ln_prob(self._grid_interp_values)
 
-            # create and add interpolator
+            # create and add interpolator (the tck tuple for a B-spline)
             self._likelihood_kdes_interp.append(
-                interp1d(self._grid_interp_values, interpvals)
+                splrep(self._grid_interp_values, interpvals)
             )
 
             # append samples
@@ -1494,7 +1494,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
                 # evaluate the interpolated (log) likelihoods on the grid
                 self._likelihoods = []
                 for ll in like:
-                    self._likelihoods.append(ll(self.grid))
+                    self._likelihoods.append(splev(self.grid, ll))
                 self._nsources = len(like)
             else:
                 raise ValueError("Grid must be set to evaluate likelihoods")
