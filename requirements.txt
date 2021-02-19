@@ -4,7 +4,7 @@ bilby>=1.0.2
 bilby_pipe>=1.0.2
 matplotlib
 scipy
-lintegrate>=0.1.0
+lintegrate>=0.1.5
 lalsuite>=6.76
 numba
 gwpy>=2.0.0
