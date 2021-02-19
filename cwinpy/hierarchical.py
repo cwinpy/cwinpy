@@ -1556,7 +1556,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
 
             # log-likelihood numerically integrating over grid
             for logl in self.likelihoods:
-                log_like += logtrapz(logp + logl, self.grid)
+                log_like += logtrapz(logp + logl, self.grid, disable_checks=True)
 
         return log_like
 
