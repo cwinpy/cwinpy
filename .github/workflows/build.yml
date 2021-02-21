@@ -31,7 +31,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install CWInPy
       run: |
-        pip install -e .
+        pip install .
     - name: Run test suite
       run: |
         # disable numba jit for code coverage (see https://stackoverflow.com/a/26894553/1862861)
