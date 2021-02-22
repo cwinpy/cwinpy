@@ -2,18 +2,22 @@
 Test script for utils.py function.
 """
 
+import os
+
 import numpy as np
 import pytest
 from astropy import units as u
 from cwinpy.utils import (
     ellipticity_to_q22,
     gcd_array,
+    get_psr_name,
     initialise_ephemeris,
     int_to_alpha,
     is_par_file,
     logfactorial,
     q22_to_ellipticity,
 )
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
 def test_logfactorial():
@@ -74,6 +78,44 @@ def test_is_par_file():
     """
 
     assert is_par_file("blah_blah_blah") is False
+
+    # test par files that don't contain required attributes
+    brokenpar = "broken.par"
+
+    values = {
+        "F": [100.0],
+        "RAJ": 0.1,
+        "DECJ": -0.1,
+        "PSRJ": "J0101-0101",
+    }
+
+    for leavekey in list(values.keys()):
+        keys = list(values.keys())
+        psr = PulsarParametersPy()
+        for key in keys:
+            if key != leavekey:
+                psr[key] = values[key]
+
+        psr.pp_to_par(brokenpar)
+
+        assert is_par_file(brokenpar) is False
+
+        os.remove(brokenpar)
+
+
+def test_get_psr_name():
+    """
+    Test extraction of pulsar name.
+    """
+
+    for item, name in zip(
+        ["PSRJ", "PSRB", "PSR", "NAME"],
+        ["J0123+1234", "B0124+12", "J0123+1234", "B0124+12"],
+    ):
+        psr = PulsarParametersPy()
+        psr[item] = name
+
+        assert get_psr_name(psr) == name
 
 
 def test_ellipticity_to_q22():
