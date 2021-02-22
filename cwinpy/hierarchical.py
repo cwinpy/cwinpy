@@ -990,6 +990,14 @@ class MassQuadrupoleDistribution(object):
         which uses the :math:`Q_{22}` posterior samples to approximate the
         expectation value of the hyperparameter distribution. At the moment,
         these two additional methods may not be correct/reliable.
+    nsamples: int
+        If using the 'expectation' integration method, this sets the number of
+        posterior samples to store and use from those passed in the data. This
+        allows downsampling of large numbers of samples by randomly drawing a
+        subsection of samples. If the number given is larger than the total
+        number of samples for a given pulsar, then all samples will be used in
+        that case. The default will be to use all samples, but this may lead to
+        memory issues when using large numbers of pulsars.
     use_ellipticity: bool
         If True, work with fiducial ellipticity :math:`\\varepsilon` rather
         than mass quadrupole.
@@ -1021,6 +1029,7 @@ class MassQuadrupoleDistribution(object):
         sampler_kwargs={},
         grid=None,
         integration_method="numerical",
+        nsamples=None,
         use_ellipticity=False,
     ):
         self._posterior_samples = []
@@ -1034,17 +1043,17 @@ class MassQuadrupoleDistribution(object):
         # interpolator
         self.set_range(gridrange, bins)
 
+        # set integration method
+        self.set_integration_method(integration_method)
+
         # set the data
-        self.add_data(data, bw=bw)
+        self.add_data(data, bw=bw, nsamples=nsamples)
 
         # set the sampler
         if grid is None:
             self.set_sampler(sampler, sampler_kwargs)
         else:
             self.set_grid(grid)
-
-        # set integration method
-        self.set_integration_method(integration_method)
 
         # set the distribution
         self.set_distribution(distribution, distkwargs)
@@ -1101,7 +1110,7 @@ class MassQuadrupoleDistribution(object):
 
         return self._likelihood_kdes_interp
 
-    def add_data(self, data, bw="scott"):
+    def add_data(self, data, bw="scott", nsamples=None):
         """
         Set the data, i.e., the individual source posterior distributions, on
         which the hierarchical analysis will be performed.
@@ -1126,6 +1135,15 @@ class MassQuadrupoleDistribution(object):
             The Gaussian KDE bandwidth calculation method as required by
             :class:`scipy.stats.gaussian_kde`. The default is the 'scott'
             method.
+        nsamples: int
+            If using the 'expectation' integration method, this sets the number
+            of posterior samples to store and use from those passed in the
+            data. This allows downsampling of large numbers of samples by
+            randomly drawing a subsection of samples. If the number given is
+            larger than the total number of samples for a given pulsar, then
+            all samples will be used in that case. The default will be to use
+            all samples, but this may lead to memory issues when using large
+            numbers of pulsars.
         """
 
         # check the data is a ResultList
@@ -1194,17 +1212,48 @@ class MassQuadrupoleDistribution(object):
 
             self.set_range(minmax, self._bins)
 
-        # create KDEs
+        if self._integration_method == "expectation":
+            if nsamples is not None:
+                if not isinstance(nsamples, int):
+                    raise TypeError("nsamples must be a positive integer")
+                elif nsamples < 1:
+                    raise ValueError("nsamples must be a positive integer")
+
+            # set number of samples to use
+            if not hasattr(self, "_nsamples") and nsamples is not None:
+                self._nsamples = nsamples
+                numsamps = nsamples
+            elif hasattr(self, "_nsamples") and nsamples is None:
+                numsamps = self._nsamples
+            else:
+                numsamps = nsamples
+
+        # create KDEs/add samples
         for i, result in enumerate(data):
+            if self.use_ellipticity:
+                keystr = "ell" if "ell" in result.posterior.columns else "ELL"
+            else:
+                keystr = "q22" if "q22" in result.posterior.columns else "Q22"
+            samples = result.posterior[keystr]
+
+            # append samples if required
+            if self._integration_method == "expectation":
+                if numsamps is None:
+                    self._posterior_samples.append(np.array(samples))
+                else:
+                    if len(samples) < numsamps:
+                        self._posterior_samples.append(np.array(samples))
+                    else:
+                        # generate random choice of samples to store
+                        sidx = np.random.default_rng().choice(
+                            len(samples), numsamps, replace=False
+                        )
+                        self._posterior_samples.append(np.array(samples)[sidx])
+                continue
+
             self._bw = bw
 
             try:
-                if self.use_ellipticity:
-                    keystr = "ell" if "ell" in result.posterior.columns else "ELL"
-                else:
-                    keystr = "q22" if "q22" in result.posterior.columns else "Q22"
-                samples = result.posterior[keystr]
-
                 # get reflected samples
                 samps = np.concatenate((samples, -samples))
 
@@ -1234,9 +1283,6 @@ class MassQuadrupoleDistribution(object):
             self._likelihood_kdes_interp.append(
                 splrep(self._grid_interp_values, interpvals)
             )
-
-            # append samples
-            self._posterior_samples.append(samples)
 
     def set_distribution(self, distribution, distkwargs={}):
         """
@@ -1548,7 +1594,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
             # log-likelihood using expectation value from samples
             for samps in self.samples:
                 log_like += np.log(
-                    np.mean(self.distribution.pdf(samps, self.parameters, samps))
+                    np.mean(self.distribution.pdf(samps, self.parameters))
                 )
         else:
             # evaluate the hyperparameter distribution
