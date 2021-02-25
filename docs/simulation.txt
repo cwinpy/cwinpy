@@ -8,7 +8,7 @@ source signal model from a rigid triaxial rotator emitting from the :math:`l=m=2
 It is also assumes that the simulated population are known pulsars and therefore the data has been
 :ref:`heterodyned <Heterodyned Data>` using a known phase evolution.
 
-The simulation can either: generate a selection of entirely fake pulsars, with distributions
+The simulation can either: generate a selection of entirely fake pulsars, with distributions for
 amplitude (defined through either the gravitational-wave strain amplitude :math:`h_0`, the mass
 quadrupole :math:`Q_{22}`, or the ellipticity), source location (right ascension, declination and
 distance) and pulsar orientation parameters supplied by the user (or set to defaults for everything
