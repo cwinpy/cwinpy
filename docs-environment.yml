@@ -145,4 +145,5 @@ dependencies:
     - webob==1.8.7
     - webtest==2.0.35
     - zipp==3.4.0
+    - .
 prefix: /home/matt/miniconda3/envs/cwinpydocs
