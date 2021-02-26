@@ -1234,7 +1234,31 @@ class MassQuadrupoleDistribution(object):
                 keystr = "ell" if "ell" in result.posterior.columns else "ELL"
             else:
                 keystr = "q22" if "q22" in result.posterior.columns else "Q22"
-            samples = result.posterior[keystr]
+
+            # reweight samples back to equivalent likelihood samples if prior
+            # on Q22/ELL for PE was not uniform
+            if isinstance(result.priors[keystr], bilby.core.prior.Uniform):
+                samples = result.posterior[keystr]
+            else:
+                # create Result object just containing Q22/ELL samples
+                newres = bilby.core.result.Result(
+                    posterior=result.posterior[keystr],
+                    priors=bilby.core.prior.PriorDict({keystr: result.priors[keystr]}),
+                    search_parameter_keys=[keystr],
+                    log_evidence=result.log_evidence,
+                )
+                # uniform prior to resample to
+                newpriors = bilby.core.prior.PriorDict(
+                    {
+                        keystr: bilby.core.result.Uniform(
+                            name="keystr", minimum=minmax[0], maximum=minmax[1]
+                        )
+                    }
+                )
+                resample = bilby.core.result.reweight(
+                    newres, new_prior=newpriors, old_prior=result.priors
+                )
+                samples = resample.posterior[keystr]
 
             # append samples if required
             if self._integration_method == "expectation":
