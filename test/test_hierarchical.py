@@ -413,7 +413,7 @@ class TestMassQuadrupoleDistribution(object):
         with pytest.raises(RuntimeError):
             MassQuadrupoleDistribution(
                 data=[testdata1, testdata2], distribution=pdist, bw=bw
-            )
+            ).sample()
 
         # wrong type for q22grid
         q22grid = "lsgdgkavbc"
