@@ -1342,33 +1342,36 @@ class MassQuadrupoleDistribution(object):
             grid = self._grid_interp_values
 
             # generate KDEs from samples and create spline interpolants
-            for i, psamples in enumerate(self._posterior_samples):
-                try:
-                    # get reflected samples
-                    samps = np.concatenate((psamples, -psamples))
+            nkdes = len(self._likelihood_kdes_interp)
+            if len(self._posterior_samples) > nkdes:
+                for i in range(nkdes, len(self._posterior_samples)):
+                    psamples = self._posterior_samples[i]
+                    try:
+                        # get reflected samples
+                        samps = np.concatenate((psamples, -psamples))
 
-                    # calculate KDE
-                    kde = gaussian_kde(samps, bw_method=self._bw)
+                        # calculate KDE
+                        kde = gaussian_kde(samps, bw_method=self._bw)
 
-                    # use log pdf for the kde
-                    interpvals = kde.logpdf(self._grid_interp_values) + np.log(
-                        2.0
-                    )  # multiply by 2 so pdf normalises to 1
-                except Exception as e:
-                    raise RuntimeError("Problem creating KDE: {}".format(e))
+                        # use log pdf for the kde
+                        interpvals = kde.logpdf(self._grid_interp_values) + np.log(
+                            2.0
+                        )  # multiply by 2 so pdf normalises to 1
+                    except Exception as e:
+                        raise RuntimeError("Problem creating KDE: {}".format(e))
 
-                # convert posterior to likelihood (if possible)
-                if np.isfinite(self._log_evidence[i]):
-                    # multiply by evidence
-                    interpvals += self._log_evidence[i]
+                    # convert posterior to likelihood (if possible)
+                    if np.isfinite(self._log_evidence[i]):
+                        # multiply by evidence
+                        interpvals += self._log_evidence[i]
 
-                # divide by prior
-                interpvals -= self._pulsar_priors[i].ln_prob(self._grid_interp_values)
+                    # divide by prior
+                    interpvals -= self._pulsar_priors[i].ln_prob(self._grid_interp_values)
 
-                # create and add interpolator (the tck tuple for a B-spline)
-                self._likelihood_kdes_interp.append(
-                    splrep(self._grid_interp_values, interpvals)
-                )
+                    # create and add interpolator (the tck tuple for a B-spline)
+                    self._likelihood_kdes_interp.append(
+                        splrep(self._grid_interp_values, interpvals)
+                    )
 
             likelihoods = self._likelihood_kdes_interp
 
