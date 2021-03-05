@@ -1366,7 +1366,9 @@ class MassQuadrupoleDistribution(object):
                         interpvals += self._log_evidence[i]
 
                     # divide by prior
-                    interpvals -= self._pulsar_priors[i].ln_prob(self._grid_interp_values)
+                    interpvals -= self._pulsar_priors[i].ln_prob(
+                        self._grid_interp_values
+                    )
 
                     # create and add interpolator (the tck tuple for a B-spline)
                     self._likelihood_kdes_interp.append(
