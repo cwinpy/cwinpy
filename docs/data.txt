@@ -140,6 +140,9 @@ exception will be raised. To overwrite a file use:
 
     >>> het.write("data.hdf5", overwrite=True)
 
+API
+---
+
 .. autoclass:: cwinpy.data.MultiHeterodynedData
    :members:
 

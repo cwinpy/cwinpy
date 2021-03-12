@@ -12,7 +12,7 @@ from scipy.stats import expon, gaussian_kde, truncnorm
 
 from .utils import ellipticity_to_q22, q22_to_ellipticity
 
-# allowed distributions and their required hyperparameters
+#: Allowed distributions and their required hyperparameters
 DISTRIBUTION_REQUIREMENTS = {
     "exponential": ["mu"],
     "gaussian": ["mu", "sigma", "weight"],
@@ -893,6 +893,34 @@ def create_distribution(name, distribution, distkwargs={}):
     """
     Function to create a distribution.
 
+    An example of creating an exponential distribution, with a half-Gaussian
+    prior on the mean would be:
+
+    >>> from bilby.core.prior import HalfGaussian
+    >>> sigma = 1e34  # width of half-Gaussian prior on mu
+    >>> distkwargs = {"mu": HalfGaussian(name="mu", sigma=sigma)}
+    >>> expdist = create_distribution("q22", "exponential", distkwargs)
+
+    An example of creating a bimodal-Gaussian distribution, with modes fixed at
+    particular values, fixed weights, but log-uniform priors on the mode
+    widths, would be:
+
+    >>> from bilby.core.prior import LogUniform
+    >>> min = 1e28  # minimum of the width prior
+    >>> max = 1e38  # maximum of the width prior
+    >>> modes = [0.0, 1e32]  # fixed modes
+    >>> weights = [0.7, 0.3]  # fixed weights
+    >>> sigmas = [
+    >>>     LogUniform(name="sigma0", minimum=min, maximum=max),
+    >>>     LogUniform(name="sigma1", minimum=min, maximum=max),
+    >>> ]
+    >>> distkwargs = {
+    >>>     "mu": modes,  # set "mu" for the modes
+    >>>     "sigma": sigmas,  # set "sigma" for the widths
+    >>>     "weight": weights,  # set "weight" for the weights
+    >>> }
+    >>> gaussdist = create_distribution("q22", "gaussian", distkwargs)
+
     Parameters
     ----------
     name: str
@@ -909,6 +937,7 @@ def create_distribution(name, distribution, distkwargs={}):
     -------
     distribution
         The distribution class.
+
     """
 
     if isinstance(distribution, BaseDistribution):
@@ -1121,7 +1150,7 @@ class MassQuadrupoleDistribution(object):
         performed.
 
         If using the "numerical" integration method, upon running the
-        :meth:`~cwinpy.hierarchical.MassQuadrupoleDistribtion.sample` method,
+        :meth:`~cwinpy.hierarchical.MassQuadrupoleDistribution.sample` method,
         these samples will be converted to a KDE (reflected about zero
         to avoid edge effects, and re-normalised), using
         :class:`scipy.stats.gaussian_kde`, which will be used as the
@@ -1499,8 +1528,10 @@ class MassQuadrupoleDistribution(object):
     def posterior_predictive(self, points, nsamples=100):
         """
         Return an iterator that will draw samples from the distribution
-        hyperparameter posterior (once ``sample`` has been run) and returns the
-        associated distribution evaluated at a set of points.
+        hyperparameter posterior (once
+        :meth:`~cwinpy.hierarchical.MassQuadrupoleDistribution.sample` has been
+        run) and returns the associated distribution evaluated at a set of
+        points.
 
         Currently this is only implemented to work using samples from a
         stochastic sampling method rather than posteriors evaluated on a grid.

@@ -81,6 +81,20 @@ comments describing the parameters given inline:
 
 .. literalinclude:: data/example1_config.ini
 
+.. note::
+
+   When using the `dynesty <https://dynesty.readthedocs.io/en/latest/>`_ sampler (as wrapped through
+   `bilby <https://lscsoft.docs.ligo.org/bilby/>`_) it will default to use the ``rwalk`` sampling
+   method. In this example, in the ``sampler-kwargs`` argument the ``'sample'`` method value is
+   instead set to ``'rslice'`` as this is found to be quicker than ``rwalk`` when the other
+   arguemnts are left at their default values. If using ``rwalk`` it is worthwhile exploring
+   different values of the ``walks`` argument to find the most efficient settings. Further
+   information on dynesty settings can be found
+   `here <https://dynesty.readthedocs.io/en/latest/faq.html#sampling-questions>`_.
+
+   Note also that the ``unif`` sampling method of dynesty will often fail due to samples being drawn
+   from outside the prior range.
+
 The analysis can then be run using:
 
 .. code-block:: bash
@@ -124,20 +138,20 @@ those two models, and estimates of the uncertainties on the signal model evidenc
 .. code-block:: none
 
    log_noise_evidence: 869768.909
-   log_evidence: 870014.347 ± 0.181
-   log_bayes_factor: 245.439 ± 0.181
+   log_evidence: 870014.455 ± 0.180
+   log_bayes_factor: 245.547 ± 0.180
 
 If running the example you should find an identical noise evidence value, although the signal model
 evidence, and therefore Bayes factor, and its uncertainty may vary slightly due to the stochastic
 nature of the sampling process. These values can also be extracted from the results file called
-``example1_result.hdf5``.
+``example1_result.json``.
 
 Rather than using the configuration file, all the arguments could be given on the command line
 (although using the configuration file is *highly* recommended), with the following command:
 
 .. code-block:: bash
 
-   cwinpy_pe --detector H1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --outdir example1 --label example1 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example1_prior.txt --show-truths
+   cwinpy_pe --detector H1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --outdir example1 --label example1 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'sample':'rslice','plot':True}" --prior example1_prior.txt --show-truths
 
 where it should be noted that the ``--sampler-kwargs`` dictionary argument must be given within
 quotation marks.
@@ -198,19 +212,19 @@ The natural logarithms of the signal model `evidence
 .. code-block:: none
 
    log_noise_evidence: 1492439.107
-   log_evidence: 1492888.284 ± 0.187
-   log_bayes_factor: 449.177 ± 0.187
+   log_evidence: 1492888.344 ± 0.186
+   log_bayes_factor: 449.237 ± 0.186
 
 If running the example you should find an identical noise evidence value, although the signal model
 evidence, and therefore Bayes factor, and its uncertainty may vary slightly due to the stochastic
 nature of the sampling process. These values can also be extracted from the results file called
-``example2_result.hdf5``.
+``example2_result.json``.
 
 The equivalent full command line arguments that could be used are:
 
 .. code-block:: bash
 
-   cwinpy_pe --detector H1 --detector L1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --data-file fine-L1-PULSAR08.txt.gz --outdir example2 --label example2 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'plot':True}" --prior example2_prior.txt --show-truths
+   cwinpy_pe --detector H1 --detector L1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --data-file fine-L1-PULSAR08.txt.gz --outdir example2 --label example2 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'sample':'rslice','plot':True}" --prior example2_prior.txt --show-truths
 
 
 Running on multiple sources
@@ -333,7 +347,7 @@ API
 .. automodule:: cwinpy.pe.testing
    :members: PEPPPlotsDAG, generate_pp_plots
 
-``cwinpy_pe`` References
+``cwinpy_pe`` references
 ------------------------
 
 .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
