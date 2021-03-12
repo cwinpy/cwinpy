@@ -24,17 +24,16 @@ prior distribution for :math:`Q_{22}` defined by a set of hyperparameters :math:
    p(\vec{\theta}|\mathbf{D}, I) = \left(\prod_{i=1}^N \int^{{Q_{22}}_i} p(\mathbf{d}_i|{Q_{22}}_i,I) p({Q_{22}}_i|\vec{\theta},I) {\textrm d}{Q_{22}}_i\right) p(\vec{\theta}|I),
 
 where :math:`p(\mathbf{d}_i|{Q_{22}}_i,I)` is the marginalised likelihood distribution on
-:math:`Q_{22}` for the an individual pulsar given it's obervations :math:`\mathbf{d}_i`, and
+:math:`Q_{22}` for an individual pulsar given it's obervations :math:`\mathbf{d}_i`, and
 :math:`p(\vec{\theta}|I)` is the prior on the hyperparameters.
 
 The hierarchical module in CWInPy allows the outputs of pulsar :ref:`parameter estimation<Known
 pulsar parameter estimation>` for mutiple sources to be combined to estimate the hyperparameters of
-several different potential distributions :math:`Q_{22}` (or ellipticity) distributions. To do this
-it is required that the parameter estimation has been performed using the :math:`Q_{22}` when
-defining the signal amplitude, rather than :math:`h_0`, and that the distance is either assumed to
-be precisely known, or the parameter estimation has included distance within the estimation via the
-use of a distance prior.
-
+several different potential :math:`Q_{22}` (or ellipticity) distributions. To do this it is required
+that the parameter estimation has been performed using :math:`Q_{22}` when defining the signal
+amplitude, rather than :math:`h_0`, and that the distance is either assumed to be precisely known,
+or the parameter estimation has included distance within the estimation via the use of a distance
+prior.
 
 Evaluating the integral
 -----------------------
@@ -42,7 +41,7 @@ Evaluating the integral
 Within the CWInPy implementation there are two ways provided of evaluating the integrals in the
 equation for :math:`p(\vec{\theta}|\mathbf{D}, I)`.
 
-The first method is to evaluate the integral numerically. A Gaussian kernel density estimate (KDE)
+The first method is to evaluate the integrals numerically. A Gaussian kernel density estimate (KDE)
 of the *posterior* distribution :math:`p({Q_{22}}_i|\mathbf{d}_i,I)` is generated for each pulsar,
 which is converted back into the required *likelihood* distribution via
 
@@ -62,7 +61,7 @@ value of the prior distributuion:
 
 where the term on the right hand side is calculating the mean of the :math:`Q_{22}` distribution
 evaluated at the :math:`M` samples from likelihood. In the case that the prior used for
-:math:`Q_{22}` used during the parameter estimation was not uniform then the
+:math:`Q_{22}` during the parameter estimation was not uniform then the
 :class:`~cwinpy.hierarchical.MassQuadrupoleDistribution` class will attempt to recreate likelihood
 samples by reweighting the posterior samples. In this case the scaling factor from the marginal
 likelihood is not included, however, Bayes factors for different distributions using the same data
@@ -71,7 +70,7 @@ still can still be calculated.
 .. note::
 
    Both these methods should be equivalent, but as discussed in [2]_, for the particular case of
-   esimtating the pulsar mass quadrupole distribution, the "expectation value" method appears to
+   estimtating the pulsar mass quadrupole distribution, the "expectation value" method appears to
    suffer from numerical issues. This is particularly prominent for cases where to are no
    significantly detected signals for any pulsar, although it appears to have some effect even when
    strong signals are present (see the example :ref`below <Sampling the hyperparameters>`). It is
@@ -79,7 +78,7 @@ still can still be calculated.
    reasonably large dynamic range of possible hyperparameters (spanning several orders of magnitude)
    and the finite sampling of posteriors over that range.
 
-   It is therefore, for the moment, recommended to use the numerically evaluted integral based on
+   It is therefore, for the moment, recommended to use the numerically evaluated integral based on
    KDEs of the posteriors.
 
 Available distributions
@@ -87,7 +86,9 @@ Available distributions
 
 The currently allowed distributions are:
 
- * a multi-modal bounded Gaussian distribution: :class:`~cwinpy.hierarchical.BoundedGaussianDistribution`
+ * a mixture model of bounded Gaussian distributions:
+   :class:`~cwinpy.hierarchical.BoundedGaussianDistribution` (where the "bounding" refers to the
+   distributions being constrained to positive values as :math:`Q_{22}` must be positive)
  * an exponential distribution: :class:`~cwinpy.hierarchical.ExponentialDistribution`
  * a power law distribution: :class:`~cwinpy.hierarchical.PowerLawDistribution`
  * a delta function distribution: :class:`~cwinpy.hierarchical.DeltaFunctionDistribution`
@@ -156,11 +157,10 @@ and will assume the distance to each is precisely know and equal to the simulate
 
    If running on `LSC DataGrid computing resources
    <https://computing.docs.ligo.org/lscdatagridweb/>`_ the ``accountuser`` argument may be required
-   to set the HTCondor ``accounting_group_user`` submit variable to your
-   ``albert.einstein@ligo.org`` username, and ``accountgroup`` may be required to set the
-   ``accounting_group`` submit variable to a valid `accounting tag
-   <https://accounting.ligo.org/user>`_. You may also need to run ``ligo-proxy-init -p
-   albert.einstein`` prior to submitting the HTCondor DAG that is generated.
+   to set the HTCondor ``accounting_group_user`` variable to your ``albert.einstein@ligo.org``
+   username, and ``accountgroup`` may be required to set the ``accounting_group`` variable to a
+   valid `accounting tag <https://accounting.ligo.org/user>`_. You may also need to run
+   ``ligo-proxy-init -p albert.einstein`` prior to submitting the HTCondor DAG that is generated.
 
 Once the parameter estimation jobs have completed there should be a ``results`` directory within the
 directory specified by the ``basedir`` argument to
@@ -387,7 +387,7 @@ distribution of :math:`Q_{22}` values. Both these are shown below.
 
    # true mu value
    truth = 1e30
-   scale = 1e30
+   scale = 1e30 # scale values so histogram works with density=True argument
 
    # load in SNRs
    snrfiles = glob.glob("/home/user/exponential/results/J*/*snr")
@@ -418,13 +418,10 @@ distribution of :math:`Q_{22}` values. Both these are shown below.
 
    # plot posterior predictive
    nsamples = 500  # get 500 samples to use for posterior predictive plot
-   musamples = res.posterior["mu"][np.random.choice(len(res.posterior["mu"]), nsamples, replace=False)]
    q22values = np.logspace(28, np.log10(2 * np.max(trueq22)), 10000)
 
-   scale = 1e30  # scale values so histogram works with density=True argument
-   for mu in musamples:
-       pdf = Exponential(mu=mu / scale, name="mu").prob(q22values / scale)
-       ax[1].plot(q22values / scale, pdf, color="orange", alpha=0.05)
+   for pdf in mqd.posterior_predictive(q22values, nsamples=nsamples):
+       ax[1].plot(q22values / scale, pdf * scale, color="orange", alpha=0.05)
    ax[1].plot(  # add "true" distribution 
        q22values / scale,
        Exponential(mu=truth / scale, name="mu").prob(q22values / scale),
@@ -451,10 +448,167 @@ distribution of :math:`Q_{22}` values. Both these are shown below.
 Model comparison
 ^^^^^^^^^^^^^^^^
 
-Show use of a different model, e.g., bounded Gaussian, and compare evidences.
+We can estimate the hyperparameters of a different distribution based on the same simulated pulsar
+population. From this we can use the calculated marginal likelihoods for the two distributions to
+compare which distribution fits the data best.
 
-API
----
+Below, we use chose to try and fit another simple distribution with a single hyperparameter, a
+:class:`~cwinpy.hierarchical.BoundedGaussianDistribution` distribution. This distribution can be
+used to fit a mixture of Gaussian to the data (bounded at zero, so that only positive values are
+allowed), but here we will just assume a single mode. The peaked of the mode will be fixed at zero
+and the width, :math:`\sigma`, will be given a :class:`~bilby.core.prior.HalfNormal` prior.
+
+.. note::
+
+   Within a :class:`~cwinpy.hierarchical.BoundedGaussianDistribution` the distribution modes will be
+   held as parameters called ``muX``, the widths will be held as parameters called ``sigmaX``, and
+   the mode weights will be held as parameters called ``weightX``, where ``X`` will be an index for
+   the mode starting at zero. E.g., for a distribution defined with a single mode, the parameters
+   held will be ``mu0``, ``sigma0`` and ``weight0``.
+
+.. code-block:: python
+
+   # set up a Gaussian distribution (bounded at zero) with one mode at zero and
+   # a width to be fitted using sigma
+   sigma = 1e34
+   distkwargs = {
+       "mus": [0],  # fix the peak of the single mode at zero
+       "sigmas": [HalfNormal(sigma, name="sigma")],  # set prior on width of the mode
+       "weights": [1],
+   }
+   distribution = "gaussian"  # the keyword to use a bounded Gaussian distribution
+   sampler_kwargs = {
+       "sample": "unif",
+       "nlive": 500,
+       "gzip": True,
+       "outdir": "gaussian_distribution",
+       "label": "test",
+       "check_point_plot": False,
+   }
+   bins = 500
+   mqdgauss = MassQuadrupoleDistribution(
+       data=data,
+       distribution=distribution,
+       distkwargs=distkwargs,
+       bins=bins,
+      sampler_kwargs=sampler_kwargs,
+   )
+
+   # sample from the sigma hyperparameters
+   resgauss = mqdgauss.sample()
+
+We can get the `Bayes factor <https://en.wikipedia.org/wiki/Bayes_factor>`_ between the two
+distributions with:
+
+.. code-block:: python
+
+   # get the base-10 log Bayes factor between the two models (exponential
+   # distribution as the numerator and Gaussian as the denominator
+   bayesfactor = res.log_10_evidence - resgauss.log_10_evidence
+
+In this case the ``bayesfactor`` value is -0.75, i.e., the bounded Gaussian distribution is actually
+favoured over the (true) exponential distribution by a factor of :math:`10^0.75 = 5.6`! A Bayes
+factor of ~6 is not `convincing evidence
+<https://en.wikipedia.org/wiki/Bayes_factor#Interpretation>`_ to favour one model over the other,
+but it shows that in some cases it can be tricky to distinguish between distributions.
+
+We can plot the posterior distributions for the hyperparameters from the exponential and Gaussian
+distributions side-by-side:
+
+.. code-block:: python
+
+   # plot posteriors on the exponential distribution hyperparameter mu
+   fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+   scale = 1e30  # scale values so histogram works with density=True argument
+
+   # plot mu from exponential distribution
+   ax[0].hist(
+       res.posterior["mu"] / scale,
+       density=True,
+       histtype="stepfilled",
+       alpha=0.5, color="blue",
+       bins=25,
+   )
+
+   # plot sigma from gaussian distribution
+   ax[1].hist(
+       resgauss.posterior["sigma0"] / scale,
+       density=True,
+       histtype="stepfilled",
+       alpha=0.5, color="purple",
+       bins=25,
+   )
+
+   ax[0].set_xlim([0, 4])
+   ax[0].set_xlabel(r"$\mu$ ($10^{30}\,{\rm kg}\,{\rm m}^2$)", fontsize=18)
+   ax[0].set_ylabel(r"$p(\mu|\mathbf{D}, I)$ ($10^{-30}\,{\rm kg}^{-1}\,{\rm m}^{-2}$)", fontsize=18)
+   ax[0].set_title("Exponential distribution")
+
+   ax[1].set_xlim([0, 4])
+   ax[1].set_xlabel(r"$\sigma_0$ ($10^{30}\,{\rm kg}\,{\rm m}^2$)", fontsize=18)
+   ax[1].set_ylabel(r"$p(\sigma_0|\mathbf{D}, I)$ ($10^{-30}\,{\rm kg}^{-1}\,{\rm m}^{-2}$)", fontsize=18)
+   ax[1].set_title("Bounded Gaussian distribution")
+
+   fig.tight_layout()
+   fig.savefig("musigmaposterior.png", dpi=200)
+
+The trickiness of distinguishing the distributions in this case is highlighted using the posterior
+predictive plots:
+
+.. code-block:: python
+
+   fig, ax = plt.subplots(1, 2, figsize=(12, 6), sharey=True)
+
+   # plot posterior predictive for exponential distribution
+   nsamples = 500  # get 500 samples to use for posterior predictive plot
+   q22values = np.logspace(28, np.log10(2 * np.max(trueq22)), 10000)
+
+   scale = 1e30  # scale values so histogram works with density=True argument
+   for pdf in mqd.posterior_predictive(q22values, nsamples=nsamples):
+       ax[0].plot(q22values / scale, pdf * scale, color="orange", alpha=0.05)
+   ax[0].plot(  # add "true" distribution 
+       q22values / scale,
+       Exponential(mu=truth / scale, name="mu").prob(q22values / scale),
+       color='k',
+       lw=2,
+       ls="--",
+   )
+
+   # add histogram and rug plot of simulated Q22 values
+   ax[0].plot(trueq22 / scale, np.zeros_like(trueq22), '|', color='k', ms=15, alpha=0.5)
+   ax[0].hist(trueq22 / scale, bins=15, histtype="step", density=True)
+   ax[0].set_xlim([0, q22values.max() / scale])
+   ax[0].set_xlabel(r"$Q_{22}$ ($10^{30}\,{\rm kg}\,{\rm m}^2$)", fontsize=16)
+   ax[0].set_ylabel(r"$p(Q_{22}|\mathbf{D}, I)$", fontsize=16)
+   ax[0].set_title("Exponential distribution", fontsize=17)
+
+   # plot posterior predictive for bounded Gaussian distribution
+   for pdf in mqdgauss.posterior_predictive(q22values, nsamples=nsamples):
+       ax[1].plot(q22values / scale, pdf * scale, color="red", alpha=0.05)
+   ax[1].plot(  # add "true" distribution 
+       q22values / scale,
+       Exponential(mu=truth / scale, name="mu").prob(q22values / scale),
+       color='k',
+       lw=2,
+       ls="--",
+   )
+
+   # add histogram and rug plot of simulated Q22 values
+   ax[1].plot(trueq22 / scale, np.zeros_like(trueq22), '|', color='k', ms=15, alpha=0.5)
+   ax[1].hist(trueq22 / scale, bins=15, histtype="step", density=True)
+   ax[1].set_xlim([0, q22values.max() / scale])
+   ax[1].set_xlabel(r"$Q_{22}$ ($10^{30}\,{\rm kg}\,{\rm m}^2$)", fontsize=16)
+   ax[1].set_title("Bounded Gaussian distribution", fontsize=17)
+
+   fig.tight_layout()
+   fig.savefig("musigmaposteriorpredictive.png", dpi=200)
+
+.. thumbnail:: images/musigmaposteriorpredictive.png
+   :width: 600px
+   :align: center
+
+Hierarchical module API
+-----------------------
 
 .. automodule:: cwinpy.hierarchical
    :members:
