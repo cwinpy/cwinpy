@@ -426,10 +426,34 @@ class TestMassQuadrupoleDistribution(object):
         mdist = MassQuadrupoleDistribution(
             data=[testdata1, testdata2], distribution=pdist
         )
+
+        # make sure result is None before sampling
+        assert mdist.result is None
+        with pytest.raises(RuntimeError):
+            _ = [_ for _ in mdist.posterior_predictive([0, 1])]
+
         res = mdist.sample(**{"Nlive": 100, "save": False, "label": "test1"})
 
         assert isinstance(res, Result)
         assert np.all((res.posterior["mu"] > 0.0) & (res.posterior["mu"] < 1e32))
+
+        # check posterior predictive errors
+        with pytest.raises(TypeError):
+            _ = [_ for _ in mdist.posterior_predictive(0)]
+
+        # check error when requesting too many samples
+        with pytest.raises(ValueError):
+            _ = [_ for _ in mdist.posterior_predictive([0, 1], nsamples=10000000000000)]
+
+        points = [1e29, 1e30, 1e31]
+        nsamples = 2
+        for tfunc in [list, tuple, np.array]:
+            assert np.array(
+                [
+                    values
+                    for values in mdist.posterior_predictive(tfunc(points), nsamples)
+                ]
+            ).shape == (nsamples, len(points))
 
         del res
         del mdist
@@ -516,6 +540,9 @@ class TestMassQuadrupoleDistribution(object):
         mdist = MassQuadrupoleDistribution(
             data=[testdata1, testdata2], distribution=pdist, grid=grid
         )
+
+        # make sure result is None before sampling
+        assert mdist.result is None
 
         res = mdist.sample()
         assert isinstance(res, Grid)
