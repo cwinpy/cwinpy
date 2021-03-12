@@ -1535,13 +1535,11 @@ class MassQuadrupoleDistribution(object):
 
         for i in idx:
             # get parameters of distribution for each sample
-            hyper = self._distribution.hyperparameters.copy()
-            hyper.update(
-                {
-                    key: self.result.posterior[key][i]
-                    for key in self._distribution.unknown_parameters
-                }
-            )
+            hyper = {
+                key: self.result.posterior[key][i]
+                for key in self._distribution.unpacked_parameters
+                if key in self.result.posterior.columns
+            }
 
             # evaluate the distribution
             yield self._distribution.pdf(np.asarray(points), hyper)
