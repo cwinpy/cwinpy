@@ -73,7 +73,7 @@ analysis>`. The ``results`` directory will be where a directory for each pulsar'
 will be placed. The ``submit`` directory will contain the files required for running the HTCondor
 DAG. There will be a Condor `submit
 <https://htcondor.readthedocs.io/en/latest/man-pages/condor_submit.html#submit-description-file-commands>`_
-files for each pulsar, which by default will be labelled ``cwinpy_pe_PSRNAME.submit`, where
+file for each pulsar, which by default will be labelled ``cwinpy_pe_PSRNAME.submit`, where
 ``PSRNAME`` will be the pulsar name (note that names based on a positive declination will have ``+``
 replaced with ``plus`` to make them allowable Condor job names). There will also be a
 ``dag_cwinpy_pe.submit`` file containing the HTCondor DAG file. The ``log`` directory will contain
