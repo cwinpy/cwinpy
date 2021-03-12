@@ -73,7 +73,7 @@ still can still be calculated.
    estimtating the pulsar mass quadrupole distribution, the "expectation value" method appears to
    suffer from numerical issues. This is particularly prominent for cases where to are no
    significantly detected signals for any pulsar, although it appears to have some effect even when
-   strong signals are present (see the example :ref`below <Sampling the hyperparameters>`). It is
+   strong signals are present (see the example :ref`below<Sampling the hyperparameters>`). It is
    not yet clear what the cause of the numerical issues is, but it appears to tbe related to the
    reasonably large dynamic range of possible hyperparameters (spanning several orders of magnitude)
    and the finite sampling of posteriors over that range.
@@ -97,8 +97,20 @@ The :class:`~cwinpy.hierarchical.MassQuadrupoleDistribution` can use any of the 
 to define the distribution on the mass quadrupole to be inferred from a set of individual pulsar
 mass quadrupole posteriors.
 
+When creating instances of these distributions via the
+:func:`~cwinpy.hierarchical.create_distribution` function the following shorthand names can be used:
+
+* ``"gaussian"`` for the :class:`~cwinpy.hierarchical.BoundedGaussianDistribution`
+* ``"exponential"`` for the :class:`~cwinpy.hierarchical.ExponentialDistribution`
+* ``"powerlaw"`` for the :class:`~cwinpy.hierarchical.PowerLawDistribution`
+* ``"deltafunction"`` for the :class:`~cwinpy.hierarchical.DeltaFunctionDistribution`
+
+with the required hyperparameters as given by :data:`~cwinpy.hierarchical.DISTRIBUTION_REQUIREMENTS`.
+These names can also be used for the ``distribution`` argument of
+:class:`~cwinpy.hierarchical.MassQuadrupoleDistribution`.
+
 Example
-=======
+-------
 
 In this example we will use the :ref:`simulation<Pulsar simulations>` module to generate a set of
 pulsars with mass quadrupoles drawn from an `exponential distribution
@@ -174,7 +186,7 @@ single dimensional example, but does have the advantage that the range and resol
 required grid does not need to be known a priori.
 
 Sampling the hyperparameters
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+============================
 
 To start with, the results for each pulsar need to be read in. This can be done using a bilby
 :class:`~bilby.core.result.ResultList` object using (assuming the base directory given above):
@@ -192,12 +204,12 @@ To start with, the results for each pulsar need to be read in. This can be done 
 
 Then a :class:`~cwinpy.hierarchical.MassQuadrupoleDistribution` needs to be set up and provided with
 the type of distribution for which the hyperparameters will be estimated, the priors on those
-hyperparameters, the method of :ref:`evaluating the interals<Evaluating the integral>`, and any
+hyperparameters, the method of :ref:`evaluating the integrals<Evaluating the integral>`, and any
 arguments required for the stochastic or grid-based sampling method. In this case the distribution
-is an exponential, and we will use a :class:`~bilby.core.prior.HalfNormal` prior (a Gaussian
-distribution with a mode a zero, but excluding negative values) for the hyperparameter :math:`\mu`,
-with a scale parameter :math:`\sigma = 10^{34}\,{\textrm kg}\,{\textrm m}^2` roughly based on the
-largest sustainable quadrupole deformations as described in [1]_.
+is an exponential, and we will use a :class:`~bilby.core.prior.analytical.HalfNormal` prior (a
+Gaussian distribution with a mode a zero, but excluding negative values) for the hyperparameter
+:math:`\mu`, with a scale parameter :math:`\sigma = 10^{34}\,{\textrm kg}\,{\textrm m}^2` roughly
+based on the largest sustainable quadrupole deformations as described in [1]_.
 
 The first example below uses the integral evalution method that performs the integrals over
 :math:`Q_{22}` numerically with the trapezium rule, which requires the ``"numerical"`` argument, and
@@ -239,13 +251,13 @@ uses the default nested sampling routine to draw the samples from :math:`\mu`.
    res = mqd.sample()
 
 The ``res`` value returned by :meth:`~cwinpy.hierarchical.MassQuadrupoleDistribution.sample` will be
-a :class:`bilby.core.result.Result` object containing the posterior samples for :math:`\mu`.
+a :class:`~bilby.core.result.Result` object containing the posterior samples for :math:`\mu`.
 
 .. note::
 
    If you have a very large number of pulsars it may not be memory efficient to read them all in in
-   one go to a :class:`~bilby.core.result.ResultList` object. They can instead be pass one at a time
-   to the :class:`~cwinpy.hierarchical.MassQuadrupoleDistribution`, using the
+   one go to a :class:`~bilby.core.result.ResultList` object. They can instead be passed one at a
+   time to the :class:`~cwinpy.hierarchical.MassQuadrupoleDistribution`, using the
    :meth:`~cwinpy.hierarchical.MassQuadrupoleDistribution.add_data` method, e.g.:
 
    .. code-block:: python
@@ -265,12 +277,12 @@ a :class:`bilby.core.result.Result` object containing the posterior samples for 
       for resfile in resultfiles[1:]:
           mqd.add_data(resfile)
 
-To instead use the method of approximating the integrals over :math:`Q_{22}` use the expectation
-value of the distribution the ``integration_method`` argument would be set of ``"expectation"``.
+To instead use the method of approximating the integrals over :math:`Q_{22}` using the expectation
+value of the distribution, the ``integration_method`` argument would be set of ``"expectation"``.
 
-Rather than drawing samples from the :math:`\mu` posterior distribution, one can instead evaluate
-the distribution on a grid. To do this the ``grid`` keyword argument can be used to pass a
-dictionary, keyed on the hyperparameter names and with values given the grid points, e.g.,:
+Rather than stochastically drawing samples from the :math:`\mu` posterior distribution, one can
+instead evaluate the distribution on a grid. To do this the ``grid`` keyword argument can be used to
+pass a dictionary, keyed on the hyperparameter names and with values giving the grid points, e.g.,:
 
 .. code-block:: python
 
@@ -296,7 +308,7 @@ dictionary, keyed on the hyperparameter names and with values given the grid poi
 
 In this case the ``resgrid`` value returned by
 :meth:`~cwinpy.hierarchical.MassQuadrupoleDistribution.sample` will be a
-:class:`bilby.core.grid.Grid` object.
+:class:`~bilby.core.grid.Grid` object.
 
 For comparison, we can plot the results from these different methods as below (assuming the
 :class:`~bilby.core.result.Result` output of using the "expectation value" method is stored in
@@ -445,8 +457,11 @@ distribution of :math:`Q_{22}` values. Both these are shown below.
    :width: 600px
    :align: center
 
+It can be seen that the recovered exponential distributions agree well with the true distribution of
+:math:`Q_{22}` values generated in the simulation.
+
 Model comparison
-^^^^^^^^^^^^^^^^
+================
 
 We can estimate the hyperparameters of a different distribution based on the same simulated pulsar
 population. From this we can use the calculated marginal likelihoods for the two distributions to
@@ -454,9 +469,11 @@ compare which distribution fits the data best.
 
 Below, we use chose to try and fit another simple distribution with a single hyperparameter, a
 :class:`~cwinpy.hierarchical.BoundedGaussianDistribution` distribution. This distribution can be
-used to fit a mixture of Gaussian to the data (bounded at zero, so that only positive values are
-allowed), but here we will just assume a single mode. The peaked of the mode will be fixed at zero
-and the width, :math:`\sigma`, will be given a :class:`~bilby.core.prior.HalfNormal` prior.
+used to fit a mixture model of Gaussians to the data (bounded at zero, so that only positive values
+are allowed), but here we will just assume a single mode. The peak of the mode will be fixed at zero
+and the width, :math:`\sigma`, will be given a :class:`~bilby.core.prior.analytical.HalfNormal`
+prior with the same scale of :math:`\sigma = 10^{34}\,{\textrm kg}\,{\textrm m}^2` as used for
+:math:`\mu` previously.
 
 .. note::
 
@@ -507,7 +524,7 @@ distributions with:
    bayesfactor = res.log_10_evidence - resgauss.log_10_evidence
 
 In this case the ``bayesfactor`` value is -0.75, i.e., the bounded Gaussian distribution is actually
-favoured over the (true) exponential distribution by a factor of :math:`10^0.75 = 5.6`! A Bayes
+favoured over the (true) exponential distribution by a factor of :math:`10^{0.75} = 5.6`! A Bayes
 factor of ~6 is not `convincing evidence
 <https://en.wikipedia.org/wiki/Bayes_factor#Interpretation>`_ to favour one model over the other,
 but it shows that in some cases it can be tricky to distinguish between distributions.
@@ -551,6 +568,10 @@ distributions side-by-side:
 
    fig.tight_layout()
    fig.savefig("musigmaposterior.png", dpi=200)
+
+.. thumbnail:: images/musigmaposterior.png
+   :width: 600px
+   :align: center
 
 The trickiness of distinguishing the distributions in this case is highlighted using the posterior
 predictive plots:
@@ -606,6 +627,8 @@ predictive plots:
 .. thumbnail:: images/musigmaposteriorpredictive.png
    :width: 600px
    :align: center
+
+We can see that both models do a reasonable job at recovering the simulated distribution.
 
 Hierarchical module API
 -----------------------
