@@ -1452,13 +1452,20 @@ class MassQuadrupoleDistribution(object):
         Return the ``bilby`` object containing the results. If evaluating the
         posterior over a grid this is a :class:`bilby.core.grid.Grid` object.
         If sampling using a stochastic sampler, this is a
-        :class:`bilby.core.result.Result` object.
+        :class:`bilby.core.result.Result` object. If sampling has not yet been
+        performed this returns ``None``.
         """
 
         if self._use_grid:
-            return self._grid_result
+            if hasattr(self, "_grid_result"):
+                return self._grid_result
+            else:
+                return None
         else:
-            return self._result
+            if hasattr(self, "_result"):
+                return self._result
+            else:
+                return None
 
     def sample(self, **run_kwargs):
         """
@@ -1488,6 +1495,56 @@ class MassQuadrupoleDistribution(object):
             )
 
         return self.result
+
+    def posterior_predictive(self, points, nsamples=100):
+        """
+        Return an iterator that will draw samples from the distribution
+        hyperparameter posterior (once ``sample`` has been run) and returns the
+        associated distribution evaluated at a set of points.
+
+        Currently this is only implemented to work using samples from a
+        stochastic sampling method rather than posteriors evaluated on a grid.
+
+        Parameters
+        ----------
+        points: array_like
+            An array of Q22/ellipticity values at which to evaluate the
+            distribution.
+        nsamples: int
+            The number of samples to draw from the distribution. This defaults
+            to 100, but must be less than the number of posterior samples.
+        """
+
+        if self.result is None:
+            raise RuntimeError("Sampling has not yet been performed")
+
+        if self._use_grid:
+            raise RuntimeError("Posterior predictive check can only use samples")
+
+        # check grid
+        if not isinstance(points, (tuple, list, np.ndarray)):
+            raise TypeError("points must be array_like")
+
+        if nsamples > len(self.result.posterior):
+            raise ValueError(
+                "Requested number of samples is greater than the number of posterior samples"
+            )
+
+        # chose random indexes of samples
+        idx = np.random.choice(len(self.result.posterior), nsamples, replace=False)
+
+        for i in idx:
+            # get parameters of distribution for each sample
+            hyper = self._distribution.hyperparameters.copy()
+            hyper.update(
+                {
+                    key: self.result.posterior[key][i]
+                    for key in self._distribution.unknown_parameters
+                }
+            )
+
+            # evaluate the distribution
+            yield self._distribution.pdf(np.asarray(points), hyper)
 
 
 class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
