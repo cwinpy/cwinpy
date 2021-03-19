@@ -13,6 +13,7 @@ from collections import OrderedDict
 
 import corner
 import h5py
+import matplotlib
 import matplotlib.font_manager as font_manager
 import numpy as np
 from astropy.utils.data import download_file
@@ -27,6 +28,8 @@ from cwinpy.pe import pe
 from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 from lalinference.io import read_samples
 from matplotlib.lines import Line2D
+
+matplotlib.use("Agg")
 
 # URL for ephemeris files
 DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
