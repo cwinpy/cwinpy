@@ -36,7 +36,8 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.mathjax",
     "sphinx.ext.intersphinx",
-    "numpydoc",
+    # "numpydoc",
+    "sphinxcontrib.napoleon",
     "sphinx.ext.autosummary",
     "sphinx.ext.autosectionlabel",
     "sphinx_tabs.tabs",
@@ -136,7 +137,7 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -149,22 +150,6 @@ html_theme = "sphinx_rtd_theme"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-# Custom sidebar templates, must be a dictionary that maps document names
-# to template names.
-#
-# This is required for the alabaster theme
-# refs: http://alabaster.readthedocs.io/en/latest/installation.html#sidebars
-html_sidebars = {
-    "**": [
-        "about.html",
-        "navigation.html",
-        "relations.html",  # needs 'show_related': True theme option to display
-        "searchbox.html",
-        "donate.html",
-    ]
-}
-
-
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
@@ -175,8 +160,20 @@ html_logo = "logo.png"
 html_favicon = "logo_cw.svg"
 
 html_theme_options = {
-    "style_nav_header_background": "#e3e2e1",
-    "logo_only": True,
+    # "style_nav_header_background": "#e3e2e1",
+    # "logo_only": True,
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/cwinpy/cwinpy",
+            "icon": "fab fa-github-square",
+        },
+        {
+            "name": "GitLab",
+            "url": "https://git.ligo.org/CW/software/cwinpy",
+            "icon": "fab fa-gitlab",
+        },
+    ]
 }
 
 # -- Options for LaTeX output ---------------------------------------------

@@ -140,8 +140,8 @@ exception will be raised. To overwrite a file use:
 
     >>> het.write("data.hdf5", overwrite=True)
 
-API
----
+Data API
+--------
 
 .. autoclass:: cwinpy.data.MultiHeterodynedData
    :members:
@@ -149,8 +149,8 @@ API
 .. autoclass:: cwinpy.data.HeterodynedData
    :members:
 
-References
-==========
+Data references
+===============
 
 .. [1] `J. Aasi et al
    <https://ui.adsabs.harvard.edu/#abs/2014ApJ...785..119A/abstract>`_,
@@ -167,3 +167,15 @@ References
 .. [4] `G. Hobbs, R. T. Edwards, R. N. Manchester
    <https://ui.adsabs.harvard.edu/abs/2006MNRAS.369..655H/abstract>`_,
    *Mon. Not. R. Astron. Soc.*, **369**, 655 (2006)
+
+.. [5] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
+    <https:arxiv.org/abs/1705.08978v1>`_, 2017.
+
+.. [6] https://github.com/joferkington/oost_paper_code/blob/master/utilities.py and
+   https://stackoverflow.com/a/22357811/1862861
+
+.. [7] Boris Iglewicz and David Hoaglin (1993), `"Volume 16: How to Detect and
+   Handle Outliers"
+   <https://hwbdocuments.env.nm.gov/Los%20Alamos%20National%20Labs/TA%2054/11587.pdf>`_,
+   The ASQC Basic References in Quality Control:
+   Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.

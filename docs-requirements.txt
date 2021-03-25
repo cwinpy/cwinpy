@@ -1,8 +1,9 @@
 recommonmark
 sphinx>=2.0
 numpydoc
+sphinxcontrib-napoleon
 nbsphinx
 autodoc
-sphinx_rtd_theme
+pydata-sphinx-theme
 sphinx_tabs
 sphinxcontrib-images>=0.9.1

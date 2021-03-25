@@ -8,7 +8,7 @@ Examples
 
 An example usage to generate the complex heterodyned signal time series is:
 
-..code-block::
+.. code-block::
 
     from cwinpy.signal import HeterodynedCWSimulator
     from lalpulsar.PulsarParametersWrapper import PulsarParametersPy

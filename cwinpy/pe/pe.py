@@ -1155,7 +1155,7 @@ def pe(**kwargs):
         The GPS end time for generating fake data. If requiring data at once
         and twice the rotation frequency for the same detector, then the same
         end time will be used for both frequencies.
-    fake_dt: int, list, dict:
+    fake_dt: int, list, dict
         The time step in seconds for generating fake data. If requiring data at
         once and twice the rotation frequency for the same detector, then the
         same time step will be used for both frequencies.
