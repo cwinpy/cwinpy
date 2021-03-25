@@ -1593,7 +1593,7 @@ class HeterodynedData(TimeSeriesBase):
         if self.detector is None:
             raise ValueError("To perform an injection a detector must be supplied")
 
-        from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
+        from .signal import HeterodynedCWSimulator
 
         # initialise the injection
         het = HeterodynedCWSimulator(
