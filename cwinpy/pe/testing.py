@@ -484,4 +484,3 @@ class PEPPPlotsDAG(object):
         job.add_parents(
             self.runner.dag.pycondor_dag.nodes[:-1]
         )  # exclude cwinpy_pe_pp_plots job itself
-
