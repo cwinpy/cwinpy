@@ -36,4 +36,4 @@ RUN pip install --upgrade setuptools codecov pytest-coverage pytest-cov coverage
 RUN pip install pyerfa
 
 # Install documentation requirements
-RUN pip install sphinx numpydoc nbsphinx sphinx_rtd_theme sphinx-tabs autodoc sphinxcontrib-images recommonmark
+RUN pip install sphinx numpydoc nbsphinx sphinx_rtd_theme sphinx-tabs autodoc sphinxcontrib-images recommonmark pydata-sphinx-theme sphinxcontrib-napoleon
