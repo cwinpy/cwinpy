@@ -285,7 +285,6 @@ class PEPPPlotsDAG(object):
         self.accountuser = accountuser
         self.accountgroup = accountgroup
         self.getenv = getenv
-        self.submit = submit
         self.sampler = sampler
         self.sampler_kwargs = sampler_kwargs
         self.outputsnr = outputsnr
@@ -298,8 +297,11 @@ class PEPPPlotsDAG(object):
         # add PP plot creation DAG
         self.ppplots()
 
-        if self.submit:
-            self.runner.dag.submit_dag()
+        # build and submit the DAG
+        if submit:
+            self.runner.dag.pycondor_dag.build_submit(fancyname=False)
+        else:
+            self.runner.dag.pycondor_dag.build(fancyname=False)
 
     def makedirs(self, dir):
         """
@@ -463,7 +465,7 @@ class PEPPPlotsDAG(object):
             log=self.runner.dag.inputs.pe_log_directory,
             output=self.runner.dag.inputs.pe_log_directory,
             submit=self.runner.dag.inputs.submit_directory,
-            universe="vanilla",
+            universe="local",
             request_memory=self.runner.dag.inputs.request_memory,
             getenv=self.getenv,
             queue=1,
@@ -482,4 +484,4 @@ class PEPPPlotsDAG(object):
         job.add_parents(
             self.runner.dag.pycondor_dag.nodes[:-1]
         )  # exclude cwinpy_pe_pp_plots job itself
-        self.runner.dag.build()
+
