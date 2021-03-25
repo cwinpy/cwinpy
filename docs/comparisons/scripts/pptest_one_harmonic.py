@@ -50,4 +50,3 @@ run = PEPPPlotsDAG(
     submit=False,  # submit the DAG
     sampler_kwargs={"sample": "rslice", "Nlive": 1000},
 )
-
