@@ -8,11 +8,11 @@ import bilby
 import lal
 import numpy as np
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 from numba import jit, types
 from numba.typed import Dict as numbadict
 
 from .data import HeterodynedData, MultiHeterodynedData
+from .signal import HeterodynedCWSimulator
 from .utils import logfactorial
 
 
