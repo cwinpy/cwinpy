@@ -236,7 +236,7 @@ class HeterodynedCWSimulator(object):
                 "the response function"
             )
         else:
-            self.__t0 = t0 if t0 is not None else self.times[0]
+            self.__t0 = float(t0) if t0 is not None else float(self.times[0])
 
         if dt is None and self.times is None:
             raise ValueError(
@@ -248,9 +248,9 @@ class HeterodynedCWSimulator(object):
                 if len(self.times) == 1:
                     raise ValueError("Must supply a 'dt' value")
                 else:
-                    self.__dt = self.times[1] - self.times[0]
+                    self.__dt = float(self.times[1] - self.times[0])
             else:
-                self.__dt = dt
+                self.__dt = float(dt)
 
         ra = self.hetpar["RA"] if self.hetpar["RAJ"] is None else self.hetpar["RAJ"]
         dec = self.hetpar["DEC"] if self.hetpar["DECJ"] is None else self.hetpar["DECJ"]
