@@ -112,7 +112,7 @@ class PEPulsarSimulationDAG(object):
         A string, or list of strings, of detector prefixes for the
         simulated data. This defaults to a single detector - the LIGO Hanford
         Observatory - from which the simulated noise will be drawn from the
-        advanced detector design sensitivity curve (e.g., [1]_).
+        advanced detector design sensitivity curve (e.g., [3]_).
     starttime: int, float, dict
         A GPS time, or dictionary of GPS times keyed to detectors, giving the
         start time for any simulated data being generated. If not given the
@@ -148,13 +148,6 @@ class PEPulsarSimulationDAG(object):
     n_parallel: int
         Set the number of parallel sampler jobs to run for each pulsar, which
         will be combined to form the final samplers. Defaults to 1.
-
-    References
-    ----------
-
-    .. [1] L. Barsotti, S. Gras, M. Evans, P. Fritschel, `LIGO T1800044-v5
-       <https://dcc.ligo.org/LIGO-T1800044/public>`_ (2018)
-
     """
 
     def __init__(

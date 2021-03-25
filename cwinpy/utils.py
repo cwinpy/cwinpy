@@ -183,11 +183,6 @@ def ellipticity_to_q22(epsilon, units=False):
     where :math:`I_{38} = 10^{38}` kg m\ :sup:`2` is the canonical moment of
     inertia of the star.
 
-    References
-    ----------
-
-    .. [1] B. Abbott, et al., Ap. J., 879, 10, 2019
-       (`arXiv:1902.08507 <https://arxiv.org/abs/1902.08507>`_)
 
     Parameters
     ----------
@@ -225,12 +220,6 @@ def q22_to_ellipticity(q22):
 
     where :math:`I_{38} = 10^{38}` kg m\ :sup:`2` is the canonical moment of
     inertia of the star.
-
-    References
-    ----------
-
-    .. [1] B. Abbott, et al., Ap. J., 879, 10, 2019
-       (`arXiv:1902.08507 <https://arxiv.org/abs/1902.08507>`_)
 
     Parameters
     ----------

@@ -962,7 +962,7 @@ class MassQuadrupoleDistribution(object):
     """
     A class to infer the hyperparameters of the :math:`l=m=2` mass quadrupole
     distribution (or fiducial ellipticity :math:`\\varepsilon`) for a given
-    selection of known pulsars (see, for example, [1]_).
+    selection of known pulsars (see, for example, [2]_).
 
     The class currently can attempt to fit the hyperparameters for the
     following distributions:
@@ -1038,12 +1038,6 @@ class MassQuadrupoleDistribution(object):
 
     * a Student's t-distributions with unknown mean and number of degrees of
       freedom.
-
-    References
-    ----------
-
-    .. [1] M. Pitkin, C. Messenger & X. Fan, Phys. Rev. D, 98, 063001, 2018
-       (`arXiv:1807.06726 <https://arxiv.org/abs/1807.06726>`_)
     """
 
     def __init__(

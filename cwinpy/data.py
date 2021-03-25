@@ -30,16 +30,16 @@ class MultiHeterodynedData(object):
 
     Parameters
     ----------
-    data: (str, array_like, dict, HeterodynedData)
+    data: str, array_like, dict, HeterodynedData
         The heterodyned data either as a string giving a file path, an array of
         data, or a dictionary of file paths/data arrays, that are keyed on
         valid detector names.
-    times: (array_like, dict)
+    times: array_like, dict
         If `data` is an array, or dictionary of arrays, then `times` must be
         set giving the time stamps for the data values. If `times` is a
         dictionary then it should be keyed on the same detector names as in
         `data`.
-    detector: (str, lal.Detector)
+    detector: str, ``lal.Detector``
         If `data` is a file name or data array then `detector` must be given as
         a string or :class:`lal.Detector`.
 
@@ -90,17 +90,17 @@ class MultiHeterodynedData(object):
 
         Parameters
         ----------
-        data: (str, array_like, dict, HeterodynedData)
+        data: str, array_like, dict, HeterodynedData
             The heterodyned data either as a string giving a file path, an
             array of data, a dictionary of file paths/data arrays that are
             keyed on valid detector names, or a
             :class:`~cwinpy.data.HeterodynedData` object.
-        times: (array_like, dict)
+        times: array_like, dict
             If `data` is an array, or dictionary of arrays, then `times` must
             be set giving the time stamps for the data values. If `times` is
             a dictionary then it should be keyed on the same detector names as
             in `data`.
-        detector: (str, lal.Detector)
+        detector: str, ``lal.Detector``
             If `data` is a file name or data array then `detector` must be
             given as a string or :class:`lal.Detector`.
         """
@@ -498,7 +498,7 @@ class MultiHeterodynedData(object):
         """
         Plot all, or some of, the spectograms of the time series' contained
         in the class. The general arguments can be seen in
-        :meth:`cwinpy.data.HeterodynedData.spectrogram` and additional
+        :meth:`~cwinpy.data.HeterodynedData.spectrogram` and additional
         arguments are given below.
 
         Parameters
@@ -564,8 +564,8 @@ class MultiHeterodynedData(object):
         Parameters
         ----------
         plottype: str
-            The "spectrum" plots that are required: 'power_spectrum',
-            'periodogram', or 'spectrogram'
+            The "spectrum" plots that are required: ``"power_spectrum"``,
+            ``"periodogram"``, or ``"spectrogram"``
         """
 
         from matplotlib import pyplot as pl
@@ -746,19 +746,19 @@ class HeterodynedData(TimeSeriesBase):
 
     Parameters
     ----------
-    data: (str, array_like)
+    data: str, array_like
         A file (plain ascii text, gzipped ascii text, or HDF5 file) containing
         a time series of heterodyned data, or an array containing the complex
         heterodyned data.
     times: array_like
         If the data was passed using the `data` argument, then the associated
         time stamps should be passed using this argument.
-    par: (str, lalpulsar.PulsarParametersPy)
+    par: str, ``lalpulsar.PulsarParametersPy``
         A parameter file, or :class:`lalpulsar.PulsarParametersPy` object
         containing the parameters with which the data was heterodyned.
-    detector: (str, lal.Detector)
-        A string, or lal.Detector object, identifying the detector from which
-        the data was generated.
+    detector: str, ``lal.Detector``
+        A string, or :class:`lal.Detector` object, identifying the detector
+        from which the data was generated.
     window: int, 30
         The length of a window used for calculating a running median over the
         data. If set to zero the running median will just be initialised with
@@ -766,7 +766,7 @@ class HeterodynedData(TimeSeriesBase):
     inject: bool, False
         Set to ``True`` to add a simulated signal to the data based on the
         parameters supplied in `injpar`, or `par` if `injpar` is not given.
-    injpar: (str, lalpulsar.PulsarParametersPy)
+    injpar: str, ``lalpulsar.PulsarParametersPy``
         A parameter file name or :class:`lalpulsar.PulsarParametersPy`
         object containing values for the injected signal. A `par` file must
         also have been provided, and the injected signal will assume that
@@ -779,7 +779,7 @@ class HeterodynedData(TimeSeriesBase):
         The frequency scale factor for the data signal, e.g., a value of two
         for emission from the l=m=2 mode at twice the rotation frequency of the
         source.
-    fakeasd: (float, str)
+    fakeasd: float, str
         A amplitude spectral density value (in 1/sqrt(Hz)) at which to
         generate simulated Gaussian noise to add to the data. Alternatively, if
         a string is passed, and that string represents a known detector, then
@@ -1566,7 +1566,7 @@ class HeterodynedData(TimeSeriesBase):
 
         Note that the antenna response applied to the signal will be that after
         averaging over the data time step (e.g., if a time step of 30 minutes
-        is used then the antenna response will be the average of +/- 15 minutes
+        is used then the antenna response will be the average of ±15 minutes
         around the timestamp). However, it assumes other variations are slower,
         so it does not average out any differences in the phase evolution
         between the heterodyne parameters and any injected parameters (if
@@ -1575,7 +1575,7 @@ class HeterodynedData(TimeSeriesBase):
 
         Parameters
         ----------
-        signalpar: (str, lalpulsar.PulsarParametersPy)
+        signalpar: str, ``lalpulsar.PulsarParametersPy``
             A parameter file or object containing the parameters for the
             simulated signal.
 
@@ -1628,7 +1628,7 @@ class HeterodynedData(TimeSeriesBase):
 
         Parameters
         ----------
-        signalpar: (str, lalpulsar.PulsarParametersPy)
+        signalpar: str, ``lalpulsar.PulsarParametersPy``
             A parameter file or object containing the parameters for the
             simulated signal.
 
@@ -1677,16 +1677,16 @@ class HeterodynedData(TimeSeriesBase):
 
         Parameters
         ----------
-        asd: (float, str)
+        asd: float, str
             The noise amplitude spectral density (1/sqrt(Hz)) at which to
             generate the Gaussian noise, or a string containing a valid
             detector name for which the design sensitivity ASD can be used, or
             a file containing an amplitude spectral density frequency series.
         issigma: bool, False
-            If `issigma` is ``True`` then the value passed to `asd` is assumed
+            If ``issigma`` is ``True`` then the value passed to `asd` is assumed
             to be a dimensionless time domain standard deviation for the noise
             level rather than an amplitude spectral density.
-        seed: (int, :class:`numpy.random.RandomState`), None
+        seed: int, :class:`numpy.random.RandomState`, None
             A seed for the random number generator used to create the fake data
             (see :meth:`numpy.random.seed` and :class:`numpy.random.RandomState`
             for more information).
@@ -1872,7 +1872,7 @@ class HeterodynedData(TimeSeriesBase):
         Apply a Bayesian-Block-style algorithm to cut the data (after
         subtraction of a running median) up into chunks with different
         statistical properties using the formalism described in Section 2.4 of
-        [1]_. Within each chunk the data should be well described by a single
+        [5]_. Within each chunk the data should be well described by a single
         Gaussian distribution with zero mean.
 
         Splitting of the data relies on a threshold on the natural logarithm of
@@ -1884,7 +1884,7 @@ class HeterodynedData(TimeSeriesBase):
         evidences for the split in the data at any point.
 
         The ``'default'`` threshold for splitting is empirically derived in
-        [1]_ for the cases that the prior odds between the two hypotheses is
+        [5]_ for the cases that the prior odds between the two hypotheses is
         equal, and has a 1% false alarm probability for splitting data that is
         actually drawn from a single zero mean Gaussian. The ``'trials'``
         threshold comes from assigning equal priors to the single Gaussian
@@ -1896,19 +1896,13 @@ class HeterodynedData(TimeSeriesBase):
 
         Parameters
         ----------
-        threshold: (str, float)
+        threshold: str, float
             A string giving the method for determining the threshold for
             splitting the data (described above), or a value of the threshold.
         minlength: int
             The minimum length that a chunk can be split into. Defaults to 5.
         maxlength: int
             The maximum length that a chunk can be split into. Defaults to inf.
-
-        References
-        ----------
-
-        .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
-           <https:arxiv.org/abs/1705.08978v1>`_, 2017.
         """
 
         # chop up the data (except if minlength is greater than the data length)
@@ -2191,7 +2185,7 @@ class HeterodynedData(TimeSeriesBase):
         """
         Find, and return the indices of, and "outliers" in the data. This is a
         modified version of the median-absolute-deviation (MAD) function from
-        [1]_, using the algorithm of [2]_.
+        [6]_, using the algorithm of [7]_.
 
         Parameters
         ----------
@@ -2205,18 +2199,6 @@ class HeterodynedData(TimeSeriesBase):
         array_like:
             A boolean :class:`numpy.ndarray` that is ``True`` for values that
             are outliers.
-
-        References
-        ----------
-
-        .. [1] https://github.com/joferkington/oost_paper_code/blob/master/utilities.py and
-           https://stackoverflow.com/a/22357811/1862861
-
-        .. [2] Boris Iglewicz and David Hoaglin (1993), `"Volume 16: How to Detect and
-           Handle Outliers"
-           <https://hwbdocuments.env.nm.gov/Los%20Alamos%20National%20Labs/TA%2054/11587.pdf>`_,
-           The ASQC Basic References in Quality Control:
-           Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
         """
 
         if not isinstance(thresh, float):

@@ -368,7 +368,7 @@ class Heterodyne(object):
     @property
     def laldetector(self):
         """
-        A lal.Detector structure containing the detector information.
+        A ``lal.Detector`` structure containing the detector information.
         """
 
         if hasattr(self, "_laldetector"):
@@ -2136,7 +2136,7 @@ def remote_frame_cache(
         If writing out to a file, this says to append to the file if it already
         exists. The default is False.
     **kwargs:
-        See :method:`gwpy.io.datafind.find_best_frametype` for additional
+        See :meth:`gwpy.io.datafind.find_best_frametype` for additional
         keyword arguments.
 
     Returns

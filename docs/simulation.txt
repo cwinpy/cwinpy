@@ -441,3 +441,6 @@ References
        Proceedings of CIDU, 47-54 (2012) DOI: `10.1109/CIDU.2012.6382200 <https://doi.org/10.1109/CIDU.2012.6382200>`_
 
 .. [2] J. Bovy, D. W. Hogg, S. T. Roweis, Ann. Appl. Stat., 5, 2B, 1657-1677 `arXiv:0905.2979 <https://arxiv.org/abs/0905.2979>`_ (2011)
+
+.. [3] L. Barsotti, S. Gras, M. Evans, P. Fritschel, `LIGO T1800044-v5
+       <https://dcc.ligo.org/LIGO-T1800044/public>`_ (2018)
