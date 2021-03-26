@@ -156,8 +156,8 @@ html_static_path = ["_static"]
 htmlhelp_basename = "cwinpydoc"
 
 # add logo
-html_logo = "logo.png"
-html_favicon = "logo_cw.svg"
+html_logo = "_static/logo.svg"
+html_favicon = "_static/logo_cw.svg"
 
 html_theme_options = {
     # "style_nav_header_background": "#e3e2e1",
