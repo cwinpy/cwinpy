@@ -7,12 +7,12 @@ from itertools import compress
 import bilby
 import numpy as np
 from lintegrate import logtrapz
-from scipy.interpolate import interp1d
+from scipy.interpolate import splev, splrep
 from scipy.stats import expon, gaussian_kde, truncnorm
 
 from .utils import ellipticity_to_q22, q22_to_ellipticity
 
-# allowed distributions and their required hyperparameters
+#: Allowed distributions and their required hyperparameters
 DISTRIBUTION_REQUIREMENTS = {
     "exponential": ["mu"],
     "gaussian": ["mu", "sigma", "weight"],
@@ -893,6 +893,34 @@ def create_distribution(name, distribution, distkwargs={}):
     """
     Function to create a distribution.
 
+    An example of creating an exponential distribution, with a half-Gaussian
+    prior on the mean would be:
+
+    >>> from bilby.core.prior import HalfGaussian
+    >>> sigma = 1e34  # width of half-Gaussian prior on mu
+    >>> distkwargs = {"mu": HalfGaussian(name="mu", sigma=sigma)}
+    >>> expdist = create_distribution("q22", "exponential", distkwargs)
+
+    An example of creating a bimodal-Gaussian distribution, with modes fixed at
+    particular values, fixed weights, but log-uniform priors on the mode
+    widths, would be:
+
+    >>> from bilby.core.prior import LogUniform
+    >>> min = 1e28  # minimum of the width prior
+    >>> max = 1e38  # maximum of the width prior
+    >>> modes = [0.0, 1e32]  # fixed modes
+    >>> weights = [0.7, 0.3]  # fixed weights
+    >>> sigmas = [
+    >>>     LogUniform(name="sigma0", minimum=min, maximum=max),
+    >>>     LogUniform(name="sigma1", minimum=min, maximum=max),
+    >>> ]
+    >>> distkwargs = {
+    >>>     "mu": modes,  # set "mu" for the modes
+    >>>     "sigma": sigmas,  # set "sigma" for the widths
+    >>>     "weight": weights,  # set "weight" for the weights
+    >>> }
+    >>> gaussdist = create_distribution("q22", "gaussian", distkwargs)
+
     Parameters
     ----------
     name: str
@@ -909,6 +937,7 @@ def create_distribution(name, distribution, distkwargs={}):
     -------
     distribution
         The distribution class.
+
     """
 
     if isinstance(distribution, BaseDistribution):
@@ -933,7 +962,7 @@ class MassQuadrupoleDistribution(object):
     """
     A class to infer the hyperparameters of the :math:`l=m=2` mass quadrupole
     distribution (or fiducial ellipticity :math:`\\varepsilon`) for a given
-    selection of known pulsars (see, for example, [1]_).
+    selection of known pulsars (see, for example, [2]_).
 
     The class currently can attempt to fit the hyperparameters for the
     following distributions:
@@ -990,6 +1019,14 @@ class MassQuadrupoleDistribution(object):
         which uses the :math:`Q_{22}` posterior samples to approximate the
         expectation value of the hyperparameter distribution. At the moment,
         these two additional methods may not be correct/reliable.
+    nsamples: int
+        This sets the number of posterior samples to store for either
+        estimating KDEs or calculating expectation values from those passed in
+        the data. This allows downsampling of large numbers of samples by
+        randomly drawing a subsection of samples. If the number given is larger
+        than the total number of samples for a given pulsar, then all samples
+        will be used in that case. The default will be to use all samples, but
+        this may lead to memory issues when using large numbers of pulsars.
     use_ellipticity: bool
         If True, work with fiducial ellipticity :math:`\\varepsilon` rather
         than mass quadrupole.
@@ -1001,12 +1038,6 @@ class MassQuadrupoleDistribution(object):
 
     * a Student's t-distributions with unknown mean and number of degrees of
       freedom.
-
-    References
-    ----------
-
-    .. [1] M. Pitkin, C. Messenger & X. Fan, Phys. Rev. D, 98, 063001, 2018
-       (`arXiv:1807.06726 <https://arxiv.org/abs/1807.06726>`_)
     """
 
     def __init__(
@@ -1021,10 +1052,12 @@ class MassQuadrupoleDistribution(object):
         sampler_kwargs={},
         grid=None,
         integration_method="numerical",
+        nsamples=None,
         use_ellipticity=False,
     ):
         self._posterior_samples = []
-        self._posterior_kdes = []
+        self._pulsar_priors = []
+        self._log_evidence = []
         self._likelihood_kdes_interp = []
 
         # set whether to use ellipticity rather than mass quadrupole
@@ -1034,17 +1067,17 @@ class MassQuadrupoleDistribution(object):
         # interpolator
         self.set_range(gridrange, bins)
 
+        # set integration method
+        self.set_integration_method(integration_method)
+
         # set the data
-        self.add_data(data, bw=bw)
+        self.add_data(data, bw=bw, nsamples=nsamples)
 
         # set the sampler
         if grid is None:
             self.set_sampler(sampler, sampler_kwargs)
         else:
             self.set_grid(grid)
-
-        # set integration method
-        self.set_integration_method(integration_method)
 
         # set the distribution
         self.set_distribution(distribution, distkwargs)
@@ -1101,21 +1134,29 @@ class MassQuadrupoleDistribution(object):
 
         return self._likelihood_kdes_interp
 
-    def add_data(self, data, bw="scott"):
+    def add_data(self, data, bw="scott", nsamples=None):
         """
         Set the data, i.e., the individual source posterior distributions, on
         which the hierarchical analysis will be performed.
 
         The posterior samples must include the ``Q22`` :math:`l=m=2` parameter,
         or the fiducial ellipticity parameter ``ELL``, for this inference to be
-        performed. The samples will be converted to a KDE (reflected about zero
+        performed.
+
+        If using the "numerical" integration method, upon running the
+        :meth:`~cwinpy.hierarchical.MassQuadrupoleDistribution.sample` method,
+        these samples will be converted to a KDE (reflected about zero
         to avoid edge effects, and re-normalised), using
-        :class:`scipy.stats.gaussian_kde`, which ultimately can be used as the
-        data for hierarchical inference. For speed, interpolation functions
-        of the natural logarithm of the KDEs, are stored. If the posterior
+        :class:`scipy.stats.gaussian_kde`, which will be used as the
+        data for hierarchical inference. If the posterior
         samples come with a Bayesian evidence value, and the prior is present,
         then these are used to convert the posterior distribution into a
         likelihood, which is what is then stored in the interpolation function.
+
+        If using the "expectation" integration method, and if the posterior
+        samples were not estimated using a uniform prior on ``Q22``/``ELL``,
+        then the samples will be resampled from a uniform prior to attempt to
+        generate samples from the likelihood.
 
         Parameters
         ----------
@@ -1126,6 +1167,14 @@ class MassQuadrupoleDistribution(object):
             The Gaussian KDE bandwidth calculation method as required by
             :class:`scipy.stats.gaussian_kde`. The default is the 'scott'
             method.
+        nsamples: int
+            This sets the number of posterior samples to store and use from
+            those passed in the data. This allows downsampling of large numbers
+            of samples by randomly drawing a subsection of samples. If the
+            number given is larger than the total number of samples for a given
+            pulsar, then all samples will be used in that case. The default
+            will be to use all samples, but this may lead to memory issues when
+            using large numbers of pulsars.
         """
 
         # check the data is a ResultList
@@ -1140,7 +1189,8 @@ class MassQuadrupoleDistribution(object):
             else:
                 raise TypeError("Data is not a known type")
 
-        priorkeys = []
+        self._bw = bw
+
         for result in data:
             # check all posteriors contain Q22 or ellipticity
             if (
@@ -1166,77 +1216,59 @@ class MassQuadrupoleDistribution(object):
                         result.posterior[priorkey]
                     )
 
-            priorkeys.append(priorkey)
+            self._pulsar_priors.append(result.priors[priorkey])
 
-        if self._grid_interp_values is None:
-            # set parameter range from data
-            if self.use_ellipticity:
-                key = "ell"
-            else:
-                key = "q22"
+        if nsamples is not None:
+            if not isinstance(nsamples, int):
+                raise TypeError("nsamples must be a positive integer")
+            elif nsamples < 1:
+                raise ValueError("nsamples must be a positive integer")
 
-            minmax = [np.inf, -np.inf]
-            for res in data:
-                minval = (
-                    res.posterior[key].min()
-                    if key in res.posterior.columns
-                    else res.posterior[key.upper()].min()
-                )
-                maxval = (
-                    res.posterior[key].max()
-                    if key in res.posterior.columns
-                    else res.posterior[key.upper()].max()
-                )
-                if minval < minmax[0]:
-                    minmax[0] = minval
-                if maxval > minmax[1]:
-                    minmax[1] = maxval
+        # set number of samples to use
+        if not hasattr(self, "_nsamples") and nsamples is not None:
+            self._nsamples = nsamples
+            numsamps = nsamples
+        elif hasattr(self, "_nsamples") and nsamples is None:
+            numsamps = self._nsamples
+        else:
+            numsamps = nsamples
 
-            self.set_range(minmax, self._bins)
-
-        # create KDEs
+        # create KDEs/add samples
+        iniidx = len(self._posterior_samples)
         for i, result in enumerate(data):
-            self._bw = bw
+            if self.use_ellipticity:
+                keystr = "ell" if "ell" in result.posterior.columns else "ELL"
+            else:
+                keystr = "q22" if "q22" in result.posterior.columns else "Q22"
 
-            try:
-                if self.use_ellipticity:
-                    keystr = "ell" if "ell" in result.posterior.columns else "ELL"
-                else:
-                    keystr = "q22" if "q22" in result.posterior.columns else "Q22"
-                samples = result.posterior[keystr]
+            samples = result.posterior[keystr]
 
-                # get reflected samples
-                samps = np.concatenate((samples, -samples))
-
-                # calculate KDE
-                kde = gaussian_kde(samps, bw_method=bw)
-                self._posterior_kdes.append(kde)
-
-                # use log pdf for the kde
-                interpvals = kde.logpdf(self._grid_interp_values) + np.log(
-                    2.0
-                )  # multiply by 2 so pdf normalises to 1
-            except Exception as e:
-                raise RuntimeError("Problem creating KDE: {}".format(e))
-
-            # convert posterior to likelihood (if possible)
-            if np.isfinite(result.log_evidence):
-                # multiply by evidence
-                interpvals += result.log_evidence
-
-            # divide by prior
-            if priorkeys[i] not in [key for key in result.priors]:
-                raise KeyError("Prior contains no {} value".format(priorkeys[i]))
-            prior = result.priors[priorkeys[i]]
-            interpvals -= prior.ln_prob(self._grid_interp_values)
-
-            # create and add interpolator
-            self._likelihood_kdes_interp.append(
-                interp1d(self._grid_interp_values, interpvals)
-            )
+            # reweight samples back to equivalent likelihood samples if prior
+            # on Q22/ELL for PE was not uniform
+            prior = self._pulsar_priors[iniidx + i]
+            if self._integration_method == "expectation" and not isinstance(
+                prior, bilby.core.prior.Uniform
+            ):
+                # resample to uniform prior
+                possamps = result.posterior[keystr]
+                lnweights = prior.log_prob(possamps)
+                weights = np.exp(lnweights - np.max(lnweights))
+                samples = possamps[weights > np.random.rand(len(weights))]
 
             # append samples
-            self._posterior_samples.append(samples)
+            if numsamps is None:
+                self._posterior_samples.append(np.array(samples))
+            else:
+                if len(samples) < numsamps:
+                    self._posterior_samples.append(np.array(samples))
+                else:
+                    # generate random choice of samples to store
+                    sidx = np.random.default_rng().choice(
+                        len(samples), numsamps, replace=False
+                    )
+                    self._posterior_samples.append(np.array(samples)[sidx])
+
+            self._log_evidence.append(result.log_evidence)
 
     def set_distribution(self, distribution, distkwargs={}):
         """
@@ -1284,9 +1316,6 @@ class MassQuadrupoleDistribution(object):
         # set the priors from the distribution
         self._set_priors()
 
-        # set the likelihood function
-        self._set_likelihood()
-
     def _set_priors(self):
         """
         Set the priors based on those supplied via the distribution class.
@@ -1316,12 +1345,59 @@ class MassQuadrupoleDistribution(object):
         grid = None
         likelihoods = None
 
+        # set the grid
         if self._integration_method == "expectation":
             samples = self._posterior_samples
-        elif self._integration_method == "numerical":
-            grid = self._grid_interp_values
-            likelihoods = self._likelihood_kdes_interp
         else:
+            if self._grid_interp_values is None:
+                # set parameter range from data
+                minmax = [np.inf, -np.inf]
+                for psamples in self._posterior_samples:
+                    minval = psamples.min()
+                    maxval = psamples.max()
+                    if minval < minmax[0]:
+                        minmax[0] = minval
+                    if maxval > minmax[1]:
+                        minmax[1] = maxval
+
+                self.set_range(minmax, self._bins)
+
+            grid = self._grid_interp_values
+
+            # generate KDEs from samples and create spline interpolants
+            nkdes = len(self._likelihood_kdes_interp)
+            if len(self._posterior_samples) > nkdes:
+                for i in range(nkdes, len(self._posterior_samples)):
+                    psamples = self._posterior_samples[i]
+                    try:
+                        # get reflected samples
+                        samps = np.concatenate((psamples, -psamples))
+
+                        # calculate KDE
+                        kde = gaussian_kde(samps, bw_method=self._bw)
+
+                        # use log pdf for the kde
+                        interpvals = kde.logpdf(self._grid_interp_values) + np.log(
+                            2.0
+                        )  # multiply by 2 so pdf normalises to 1
+                    except Exception as e:
+                        raise RuntimeError("Problem creating KDE: {}".format(e))
+
+                    # convert posterior to likelihood (if possible)
+                    if np.isfinite(self._log_evidence[i]):
+                        # multiply by evidence
+                        interpvals += self._log_evidence[i]
+
+                    # divide by prior
+                    interpvals -= self._pulsar_priors[i].ln_prob(
+                        self._grid_interp_values
+                    )
+
+                    # create and add interpolator (the tck tuple for a B-spline)
+                    self._likelihood_kdes_interp.append(
+                        splrep(self._grid_interp_values, interpvals)
+                    )
+
             likelihoods = self._likelihood_kdes_interp
 
         self._likelihood = MassQuadrupoleDistributionLikelihood(
@@ -1377,17 +1453,15 @@ class MassQuadrupoleDistribution(object):
         ----------
         integration_method: str
             Default is 'numerical' to perform trapezium rule integration.
-            Other allowed values are: 'sample' to sample over each individual
-            :math:`Q_{22}` parameter for each source; or, 'expectation', which
-            uses the :math:`Q_{22}` posterior samples to approximate the
-            expectation value of the hyperparameter distribution. At the
-            moment, these two additional methods may not be correct/reliable.
+            The ther allowed value is 'expectation', which uses the
+            :math:`Q_{22}` posterior samples to approximate the expectation
+            value of the hyperparameter distribution.
         """
 
         if not isinstance(integration_method, str):
             raise TypeError("integration method must be a string")
 
-        if integration_method.lower() not in ["numerical", "sample", "expectation"]:
+        if integration_method.lower() not in ["numerical", "expectation"]:
             raise ValueError(
                 "Unrecognised integration method type "
                 "'{}'".format(integration_method)
@@ -1401,20 +1475,30 @@ class MassQuadrupoleDistribution(object):
         Return the ``bilby`` object containing the results. If evaluating the
         posterior over a grid this is a :class:`bilby.core.grid.Grid` object.
         If sampling using a stochastic sampler, this is a
-        :class:`bilby.core.result.Result` object.
+        :class:`bilby.core.result.Result` object. If sampling has not yet been
+        performed this returns ``None``.
         """
 
         if self._use_grid:
-            return self._grid_result
+            if hasattr(self, "_grid_result"):
+                return self._grid_result
+            else:
+                return None
         else:
-            return self._result
+            if hasattr(self, "_result"):
+                return self._result
+            else:
+                return None
 
     def sample(self, **run_kwargs):
         """
         Sample the posterior distribution using ``bilby``. This can take
-        keyword argument required by the bilby `run sampler() <https://lscsoft.docs.ligo.org/bilby/samplers.html#bilby.run_sampler>`_  # noqa: E501
-        method.
+        keyword arguments required by the bilby
+        :func:`~bilby.core.sampler.run_sampler` function.
         """
+
+        # set up the likelihood function
+        self._set_likelihood()
 
         # set use_ratio to False by default, i.e., don't use the likelihood
         # ratio
@@ -1434,6 +1518,56 @@ class MassQuadrupoleDistribution(object):
             )
 
         return self.result
+
+    def posterior_predictive(self, points, nsamples=100):
+        """
+        Return an iterator that will draw samples from the distribution
+        hyperparameter posterior (once
+        :meth:`~cwinpy.hierarchical.MassQuadrupoleDistribution.sample` has been
+        run) and returns the associated distribution evaluated at a set of
+        points.
+
+        Currently this is only implemented to work using samples from a
+        stochastic sampling method rather than posteriors evaluated on a grid.
+
+        Parameters
+        ----------
+        points: array_like
+            An array of Q22/ellipticity values at which to evaluate the
+            distribution.
+        nsamples: int
+            The number of samples to draw from the distribution. This defaults
+            to 100, but must be less than the number of posterior samples.
+        """
+
+        if self.result is None:
+            raise RuntimeError("Sampling has not yet been performed")
+
+        if self._use_grid:
+            raise RuntimeError("Posterior predictive check can only use samples")
+
+        # check grid
+        if not isinstance(points, (tuple, list, np.ndarray)):
+            raise TypeError("points must be array_like")
+
+        if nsamples > len(self.result.posterior):
+            raise ValueError(
+                "Requested number of samples is greater than the number of posterior samples"
+            )
+
+        # chose random indexes of samples
+        idx = np.random.choice(len(self.result.posterior), nsamples, replace=False)
+
+        for i in idx:
+            # get parameters of distribution for each sample
+            hyper = {
+                key: self.result.posterior[key][i]
+                for key in self._distribution.unpacked_parameters
+                if key in self.result.posterior.columns
+            }
+
+            # evaluate the distribution
+            yield self._distribution.pdf(np.asarray(points), hyper)
 
 
 class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
@@ -1494,7 +1628,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
                 # evaluate the interpolated (log) likelihoods on the grid
                 self._likelihoods = []
                 for ll in like:
-                    self._likelihoods.append(ll(self.grid))
+                    self._likelihoods.append(splev(self.grid, ll))
                 self._nsources = len(like)
             else:
                 raise ValueError("Grid must be set to evaluate likelihoods")
@@ -1548,7 +1682,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
             # log-likelihood using expectation value from samples
             for samps in self.samples:
                 log_like += np.log(
-                    np.mean(self.distribution.pdf(samps, self.parameters, samps))
+                    np.mean(self.distribution.pdf(samps, self.parameters))
                 )
         else:
             # evaluate the hyperparameter distribution
@@ -1556,7 +1690,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
 
             # log-likelihood numerically integrating over grid
             for logl in self.likelihoods:
-                log_like += logtrapz(logp + logl, self.grid)
+                log_like += logtrapz(logp + logl, self.grid, disable_checks=True)
 
         return log_like
 

@@ -13,7 +13,7 @@ from bilby.core.result import read_in_result
 from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 from lalinference.io import read_samples
 from scipy.spatial.distance import jensenshannon
-from scipy.stats import combine_pvalues, ks_2samp
+from scipy.stats import combine_pvalues, gaussian_kde, ks_2samp
 
 # comparison rst table information
 FILETEXT = """\
@@ -221,15 +221,15 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
         _, pvalue = ks_2samp(post[p.upper()], result.posterior[p])
         pvalues.append(pvalue)
 
-        # calculate J-S divergence
+        # calculate J-S divergence (use Gaussian KDE)
         bins = np.linspace(
             np.min([np.min(post[p.upper()]), np.min(result.posterior[p])]),
             np.max([np.max(post[p.upper()]), np.max(result.posterior[p])]),
             100,
         )
 
-        hp, _ = np.histogram(post[p.upper()], bins=bins, density=True)
-        hq, _ = np.histogram(result.posterior[p], bins=bins, density=True)
+        hp = gaussian_kde(post[p.upper()]).pdf(bins)
+        hq = gaussian_kde(result.posterior[p]).pdf(bins)
         jsvalues.append(jensenshannon(hp, hq) ** 2)
 
     values[idx] = combine_pvalues(pvalues)[1]

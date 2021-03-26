@@ -27,7 +27,7 @@ RUN conda install -n ${conda_env} -c anaconda coverage configargparse future
 RUN conda install -n ${conda_env} -c numba numba
 
 # Install conda-forge-installable programs
-RUN conda install -n ${conda_env} -c conda-forge black gwpy lalsuite bilby bilby_pipe lintegrate pycondor gwosc dynesty
+RUN conda install -n ${conda_env} -c conda-forge black gwpy lalsuite bilby bilby_pipe lintegrate">0.1.6" pycondor gwosc dynesty
 
 # Install pip-requirements
 RUN pip install --upgrade pip
@@ -36,4 +36,4 @@ RUN pip install --upgrade setuptools codecov pytest-coverage pytest-cov coverage
 RUN pip install pyerfa
 
 # Install documentation requirements
-RUN pip install sphinx numpydoc nbsphinx sphinx_rtd_theme sphinx-tabs autodoc sphinxcontrib-images recommonmark
+RUN pip install sphinx numpydoc nbsphinx sphinx_rtd_theme sphinx-tabs autodoc sphinxcontrib-images recommonmark pydata-sphinx-theme sphinxcontrib-napoleon

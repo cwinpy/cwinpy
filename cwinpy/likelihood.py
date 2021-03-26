@@ -8,11 +8,11 @@ import bilby
 import lal
 import numpy as np
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-from lalpulsar.simulateHeterodynedCW import HeterodynedCWSimulator
 from numba import jit, types
 from numba.typed import Dict as numbadict
 
 from .data import HeterodynedData, MultiHeterodynedData
+from .signal import HeterodynedCWSimulator
 from .utils import logfactorial
 
 
@@ -34,7 +34,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
     Parameters
     ----------
-    data: (str, HeterodynedData, MultiHeterodynedData)
+    data: str, HeterodynedData, MultiHeterodynedData
         A :class:`~cwinpy.data.HeterodynedData` or
         :class:`~cwinpy.data.MultiHeterodynedData` object containing all
         required data.
@@ -49,12 +49,6 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
     numba: bool
         Boolean to set whether to use the `numba` JIT compiled version of the
         likelihood function.
-
-    References
-    ----------
-
-    .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
-       <https:arxiv.org/abs/1705.08978v1>`_, 2017.
     """
 
     # a set of parameters that define the "amplitude" of the signal (i.e.,
@@ -331,12 +325,6 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
         For non-GR signals, also involving the vector and scalar modes, there
         are similar products.
-
-        References
-        ----------
-
-        .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
-           <https:arxiv.org/abs/1705.08978v1>`_, 2017.
         """
 
         self.products = []  # list of products for each data set
@@ -823,12 +811,6 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         -------
         float:
             The noise-only log-likelihood
-
-        References
-        ----------
-
-        .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
-           <https:arxiv.org/abs/1705.08978v1>`_, 2017.
         """
 
         if np.isfinite(self._noise_log_likelihood):

@@ -400,7 +400,9 @@ class TestMassQuadrupoleDistribution(object):
             MassQuadrupoleDistribution(data=[testdata1, testdata2], distribution=pdist)
 
         # unknown sampler type
-        pdist = ExponentialDistribution("Q22", mu=Uniform(0.0, 1e32, "mu"))
+        pdist = ExponentialDistribution(
+            "Q22", mu=Uniform(name="mu", minimum=0.0, maximum=1e32)
+        )
         with pytest.raises(ValueError):
             MassQuadrupoleDistribution(
                 data=[testdata1, testdata2], distribution=pdist, sampler="akgkfsfd"
@@ -411,7 +413,7 @@ class TestMassQuadrupoleDistribution(object):
         with pytest.raises(RuntimeError):
             MassQuadrupoleDistribution(
                 data=[testdata1, testdata2], distribution=pdist, bw=bw
-            )
+            ).sample()
 
         # wrong type for q22grid
         q22grid = "lsgdgkavbc"
@@ -424,7 +426,102 @@ class TestMassQuadrupoleDistribution(object):
         mdist = MassQuadrupoleDistribution(
             data=[testdata1, testdata2], distribution=pdist
         )
+
+        # make sure result is None before sampling
+        assert mdist.result is None
+        with pytest.raises(RuntimeError):
+            _ = [_ for _ in mdist.posterior_predictive([0, 1])]
+
         res = mdist.sample(**{"Nlive": 100, "save": False, "label": "test1"})
+
+        assert isinstance(res, Result)
+        assert np.all((res.posterior["mu"] > 0.0) & (res.posterior["mu"] < 1e32))
+
+        # check posterior predictive errors
+        with pytest.raises(TypeError):
+            _ = [_ for _ in mdist.posterior_predictive(0)]
+
+        # check error when requesting too many samples
+        with pytest.raises(ValueError):
+            _ = [_ for _ in mdist.posterior_predictive([0, 1], nsamples=10000000000000)]
+
+        points = [1e29, 1e30, 1e31]
+        nsamples = 2
+        for tfunc in [list, tuple, np.array]:
+            assert np.array(
+                [
+                    values
+                    for values in mdist.posterior_predictive(tfunc(points), nsamples)
+                ]
+            ).shape == (nsamples, len(points))
+
+        del res
+        del mdist
+
+        # test using expectation values
+        postsamples = ResultList([testdata1, testdata2])
+
+        with pytest.raises(TypeError):
+            MassQuadrupoleDistribution(
+                data=[testdata1, testdata2],
+                distribution=pdist,
+                integration_method="expectation",
+                nsamples="blah",
+            )
+
+        with pytest.raises(ValueError):
+            MassQuadrupoleDistribution(
+                data=[testdata1, testdata2],
+                distribution=pdist,
+                integration_method="expectation",
+                nsamples=0,
+            )
+
+        mdist = MassQuadrupoleDistribution(
+            data=[testdata1, testdata2],
+            distribution=pdist,
+            integration_method="expectation",
+        )
+
+        assert len(mdist._posterior_samples[0]) == len(postsamples[0].posterior)
+        assert len(mdist._posterior_samples[1]) == len(postsamples[1].posterior)
+
+        del mdist
+
+        # use all samples (but test passing nsamples a larger number)
+        mdist = MassQuadrupoleDistribution(
+            data=[testdata1, testdata2],
+            distribution=pdist,
+            integration_method="expectation",
+            nsamples=(
+                1
+                + int(
+                    np.max(
+                        [len(postsamples[0].posterior), len(postsamples[1].posterior)]
+                    )
+                )
+            ),
+        )
+
+        assert len(mdist._posterior_samples[0]) == len(postsamples[0].posterior)
+        assert len(mdist._posterior_samples[1]) == len(postsamples[1].posterior)
+
+        del mdist
+
+        # use 500 samples
+        nsamples = 500
+        mdist = MassQuadrupoleDistribution(
+            data=[testdata1, testdata2],
+            distribution=pdist,
+            integration_method="expectation",
+            nsamples=nsamples,
+        )
+
+        assert len(mdist._posterior_samples[0]) == nsamples
+        assert len(mdist._posterior_samples[1]) == nsamples
+
+        # try sampler
+        res = mdist.sample(**{"Nlive": 100, "save": False, "label": "test2"})
 
         assert isinstance(res, Result)
         assert np.all((res.posterior["mu"] > 0.0) & (res.posterior["mu"] < 1e32))
@@ -444,6 +541,9 @@ class TestMassQuadrupoleDistribution(object):
             data=[testdata1, testdata2], distribution=pdist, grid=grid
         )
 
+        # make sure result is None before sampling
+        assert mdist.result is None
+
         res = mdist.sample()
         assert isinstance(res, Grid)
 
@@ -462,7 +562,7 @@ class TestMassQuadrupoleDistribution(object):
         mdist = MassQuadrupoleDistribution(
             data=[testdata1, testdata2], distribution=pdist, use_ellipticity=True
         )
-        res = mdist.sample(**{"Nlive": 100, "save": False, "label": "test2"})
+        res = mdist.sample(**{"Nlive": 100, "save": False, "label": "test3"})
 
         assert isinstance(res, Result)
         assert "mu" in res.posterior.columns

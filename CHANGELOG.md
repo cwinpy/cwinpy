@@ -1,5 +1,14 @@
 # Notable changes between versions
 
+## [0.5.0] 2021-03-15
+
+Changes for this release:
+
+- Added a logo (!29).
+- Add Python implementation of data heterodyning (!25).
+- Fixes and changes to the hierarchical analysis (!35, !40, !41, !43).
+- Add example of hierarchical analysis to the documentation page (!42).
+
 ## [0.4.3] 2020-11-18
 
 Changes for this release:

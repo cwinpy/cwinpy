@@ -1,3 +1,5 @@
 include LICENSE README.md requirements.txt
 include versioneer.py
 include cwinpy/_version.py
+recursive-include test/ *.py
+recursive-include test/data *

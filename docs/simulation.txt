@@ -8,7 +8,7 @@ source signal model from a rigid triaxial rotator emitting from the :math:`l=m=2
 It is also assumes that the simulated population are known pulsars and therefore the data has been
 :ref:`heterodyned <Heterodyned Data>` using a known phase evolution.
 
-The simulation can either: generate a selection of entirely fake pulsars, with distributions
+The simulation can either: generate a selection of entirely fake pulsars, with distributions for
 amplitude (defined through either the gravitational-wave strain amplitude :math:`h_0`, the mass
 quadrupole :math:`Q_{22}`, or the ellipticity), source location (right ascension, declination and
 distance) and pulsar orientation parameters supplied by the user (or set to defaults for everything
@@ -73,7 +73,7 @@ analysis>`. The ``results`` directory will be where a directory for each pulsar'
 will be placed. The ``submit`` directory will contain the files required for running the HTCondor
 DAG. There will be a Condor `submit
 <https://htcondor.readthedocs.io/en/latest/man-pages/condor_submit.html#submit-description-file-commands>`_
-files for each pulsar, which by default will be labelled ``cwinpy_pe_PSRNAME.submit`, where
+file for each pulsar, which by default will be labelled ``cwinpy_pe_PSRNAME.submit`, where
 ``PSRNAME`` will be the pulsar name (note that names based on a positive declination will have ``+``
 replaced with ``plus`` to make them allowable Condor job names). There will also be a
 ``dag_cwinpy_pe.submit`` file containing the HTCondor DAG file. The ``log`` directory will contain
@@ -441,3 +441,6 @@ References
        Proceedings of CIDU, 47-54 (2012) DOI: `10.1109/CIDU.2012.6382200 <https://doi.org/10.1109/CIDU.2012.6382200>`_
 
 .. [2] J. Bovy, D. W. Hogg, S. T. Roweis, Ann. Appl. Stat., 5, 2B, 1657-1677 `arXiv:0905.2979 <https://arxiv.org/abs/0905.2979>`_ (2011)
+
+.. [3] L. Barsotti, S. Gras, M. Evans, P. Fritschel, `LIGO T1800044-v5
+       <https://dcc.ligo.org/LIGO-T1800044/public>`_ (2018)

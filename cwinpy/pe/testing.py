@@ -23,7 +23,7 @@ from .pe import pe_dag
 
 def generate_pp_plots(**kwargs):  # pragma: no cover
     """
-    Script entry point, or function, to generate P-P plots (see, e.g., [1]_): a
+    Script entry point, or function, to generate P-P plots (see, e.g., [6]_): a
     frequentist-style evaluation to test that the true value of a parameter
     falls with a given Bayesian credible interval the "correct" amount of
     times, provided the trues values are drawn from the same prior as used when
@@ -41,12 +41,6 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
     snrs: bool
         Create a plot of the injected signal-to-noise ratio distribution.
         Defaults to False.
-
-    References
-    ----------
-
-    .. [1] `T. Sidery et al. <https://arxiv.org/abs/1312.6013>`_,
-       *PRD*, **89**, 084060 (2014)
     """
 
     if "path" in kwargs:
@@ -206,7 +200,7 @@ class PEPPPlotsDAG(object):
         A string, or list of strings, of detector prefixes for the simulated
         data. This defaults to a single detector - the LIGO Hanford
         Observatory - from which the simulated noise will be drawn from the
-        advanced detector design sensitivity curve (e.g., [1]_).
+        advanced detector design sensitivity curve (e.g., [5]_).
     submit: bool
         Set whether to submit the Condor DAG or not.
     accountuser: str
@@ -230,13 +224,6 @@ class PEPPPlotsDAG(object):
         ratios. Defaults to True.
     numba: bool
         Set whether or not to use the likelihood with numba enabled.
-
-    References
-    ----------
-
-    .. [1] L. Barsotti, S. Gras, M. Evans, P. Fritschel,
-       `LIGO T1800044-v5 <https://dcc.ligo.org/LIGO-T1800044/public>`_ (2018)
-
     """
 
     def __init__(
@@ -298,7 +285,6 @@ class PEPPPlotsDAG(object):
         self.accountuser = accountuser
         self.accountgroup = accountgroup
         self.getenv = getenv
-        self.submit = submit
         self.sampler = sampler
         self.sampler_kwargs = sampler_kwargs
         self.outputsnr = outputsnr
@@ -311,8 +297,11 @@ class PEPPPlotsDAG(object):
         # add PP plot creation DAG
         self.ppplots()
 
-        if self.submit:
-            self.runner.dag.submit_dag()
+        # build and submit the DAG
+        if submit:
+            self.runner.dag.pycondor_dag.build_submit(fancyname=False)
+        else:
+            self.runner.dag.pycondor_dag.build(fancyname=False)
 
     def makedirs(self, dir):
         """
@@ -476,7 +465,7 @@ class PEPPPlotsDAG(object):
             log=self.runner.dag.inputs.pe_log_directory,
             output=self.runner.dag.inputs.pe_log_directory,
             submit=self.runner.dag.inputs.submit_directory,
-            universe="vanilla",
+            universe="local",
             request_memory=self.runner.dag.inputs.request_memory,
             getenv=self.getenv,
             queue=1,
@@ -495,4 +484,3 @@ class PEPPPlotsDAG(object):
         job.add_parents(
             self.runner.dag.pycondor_dag.nodes[:-1]
         )  # exclude cwinpy_pe_pp_plots job itself
-        self.runner.dag.build()

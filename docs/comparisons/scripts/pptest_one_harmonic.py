@@ -27,7 +27,7 @@ prior["psi"] = bilby.core.prior.Uniform(
 maxamp = 2.5e-24
 det = "H1"  # detector and noise ASD
 ninj = 250  # number of simulated signals
-basedir = "/home/sismp2/pptest/fourparameters"  # base directory
+basedir = "/home/matthew.pitkin/pptest/fourparameters"  # base directory
 accuser = "matthew.pitkin"
 accgroup = "aluk.dev.o3.cw.targeted"
 sampler = "dynesty"
@@ -47,5 +47,6 @@ run = PEPPPlotsDAG(
     getenv=getenv,
     freqrange=freqrange,
     basedir=basedir,
-    submit=True,  # submit the DAG
+    submit=False,  # submit the DAG
+    sampler_kwargs={"sample": "rslice", "Nlive": 1000},
 )
