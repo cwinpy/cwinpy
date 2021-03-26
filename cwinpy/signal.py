@@ -338,8 +338,8 @@ class HeterodynedCWSimulator(object):
                     times.data[i].gpsSeconds + 1e-9 * times.data[i].gpsNanoSeconds
                 )
             return
-        elif isinstance(times, (int, float, list, tuple, np.ndarray)):
-            self.__times = np.atleast_1d(times).astype(np.float128)
+        elif isinstance(times, (int, float, np.float128, list, tuple, np.ndarray)):
+            self.__times = np.atleast_1d(np.array(times, dtype=np.float128))
         elif isinstance(times, Time):
             self.__times = np.atleast_1d(times.gps).astype(np.float128)
         else:
