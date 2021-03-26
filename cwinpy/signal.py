@@ -338,15 +338,10 @@ class HeterodynedCWSimulator(object):
                     times.data[i].gpsSeconds + 1e-9 * times.data[i].gpsNanoSeconds
                 )
             return
-        elif isinstance(times, (int, float)):
-            self.__times = np.array([times], dtype=np.float128)
-        elif isinstance(times, (list, np.ndarray)):
-            self.__times = np.array(times, dtype=np.float128)
+        elif isinstance(times, (int, float, list, tuple, np.ndarray)):
+            self.__times = np.atleast_1d(times).astype(np.float128)
         elif isinstance(times, Time):
-            if len(times.shape) == 0:
-                self.__times = np.array([times.gps], dtype=np.float128)
-            else:
-                self.__times = np.array(times.gps, dtype=np.float128)
+            self.__times = np.atleast_1d(times.gps).astype(np.float128)
         else:
             raise TypeError("Unknown data type for times")
 
