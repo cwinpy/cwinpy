@@ -12,9 +12,10 @@ import pytest
 from astropy.utils.data import download_file
 from cwinpy import HeterodynedData
 from cwinpy.heterodyne import Heterodyne, heterodyne
+from cwinpy.signal import HeterodynedCWSimulator
+from cwinpy.utils import LAL_EPHEMERIS_URL
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-from lalpulsar.simulateHeterodynedCW import DOWNLOAD_URL, HeterodynedCWSimulator
 
 
 class TestHeterodyne(object):
@@ -314,9 +315,11 @@ transientTau = {tau}
 
         # set ephemeris files
         efile = download_file(
-            DOWNLOAD_URL.format("earth00-40-DE405.dat.gz"), cache=True
+            LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz"), cache=True
         )
-        sfile = download_file(DOWNLOAD_URL.format("sun00-40-DE405.dat.gz"), cache=True)
+        sfile = download_file(
+            LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz"), cache=True
+        )
 
         for datastart in cls.fakedatastarts:
             for i in range(len(cls.fakedatachannels)):

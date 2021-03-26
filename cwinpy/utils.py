@@ -18,6 +18,9 @@ from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from numba import jit, njit
 from numba.extending import get_cython_function_address
 
+# URL for LALSuite solar system ephemeris files
+LAL_EPHEMERIS_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
+
 # create a numba-ified version of scipy's gammaln function (see, e.g.
 # https://github.com/numba/numba/issues/3086#issuecomment-403469308)
 addr = get_cython_function_address("scipy.special.cython_special", "gammaln")
@@ -294,8 +297,6 @@ def initialise_ephemeris(
         The LAL EphemerisData object and TimeCorrectionData object.
     """
 
-    DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
-
     earth = "earth00-40-{}.dat.gz".format(ephem) if earthfile is None else earthfile
     sun = "sun00-40-{}.dat.gz".format(ephem) if sunfile is None else sunfile
 
@@ -307,8 +308,8 @@ def initialise_ephemeris(
             try:
                 from astropy.utils.data import download_file
 
-                efile = download_file(DOWNLOAD_URL.format(earth), cache=True)
-                sfile = download_file(DOWNLOAD_URL.format(sun), cache=True)
+                efile = download_file(LAL_EPHEMERIS_URL.format(earth), cache=True)
+                sfile = download_file(LAL_EPHEMERIS_URL.format(sun), cache=True)
                 edat = lalpulsar.InitBarycenter(efile, sfile)
             except Exception as e:
                 raise IOError("Could not read in ephemeris files: {}".format(e))
@@ -332,7 +333,7 @@ def initialise_ephemeris(
             # try downloading the time coordinate file
             from astropy.utils.data import download_file
 
-            tfile = download_file(DOWNLOAD_URL.format(time), cache=True)
+            tfile = download_file(LAL_EPHEMERIS_URL.format(time), cache=True)
             tdat = lalpulsar.InitTimeCorrections(tfile)
         except Exception as e:
             raise IOError("Could not read in time correction file: {}".format(e))

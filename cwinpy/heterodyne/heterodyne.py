@@ -230,6 +230,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
     pulsarparser = parser.add_argument_group("Pulsar inputs")
     pulsarparser.add(
         "--pulsarfiles",
+        action="append",
         help=(
             "This specifies the pulsars for which to heterodyne the data. It "
             "can be either i) a string giving the path to an individual "
@@ -250,7 +251,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "You can analyse only particular pulsars from those specified by "
             'parameter files found through the "--pulsarfiles" argument by '
             "passing a string, or list of strings, with particular pulsars "
-            "names to use. "
+            "names to use."
         ),
     )
 
@@ -467,12 +468,18 @@ def heterodyne(**kwargs):
         elif value is not None:
             hetkwargs[attr] = value
 
+    signal.signal(signal.SIGALRM, handler=sighandler)
+    signal.alarm(hetkwargs.pop("periodic_restart_time"))
+
+    # remove any None values
+    for key in hetkwargs.copy():
+        if hetkwargs[key] is None:
+            hetkwargs.pop(key)
+
     # set up the run
     het = Heterodyne(**hetkwargs)
 
     # heterodyne the data
-    signal.signal(signal.SIGALRM, handler=sighandler)
-    signal.alarm(hetkwargs.pop("periodic_restart_time"))
     het.heterodyne()
 
     return het
@@ -1060,28 +1067,28 @@ class HeterodyneDAGRunner(object):
             # try evaluating expressions such as "1/60" or "[1., 1./60.],
             # which fail for recent versions of ast in Python 3.7+
 
-            # if expression contains a list strip the brackets to start 
-            objlist = newobj.strip("[").strip("]").split(",") 
-            issafe = False 
-            for obj in objlist: 
-                try: 
-                    # check if value is just a number 
-                    _ = float(obj) 
-                    issafe = True 
-                except ValueError: 
-                    issafe = False 
-                    for op in ["/", "*", "+", "-"]: 
-                        if op in obj: 
-                            if len(obj.split(op)) == 2: 
-                                try: 
-                                    vals = [float(val) for val in obj.split(op)] 
-                                    issafe = True 
-                                except ValueError: 
-                                    break 
+            # if expression contains a list strip the brackets to start
+            objlist = newobj.strip("[").strip("]").split(",")
+            issafe = False
+            for obj in objlist:
+                try:
+                    # check if value is just a number
+                    _ = float(obj)
+                    issafe = True
+                except ValueError:
+                    issafe = False
+                    for op in ["/", "*", "+", "-"]:
+                        if op in obj:
+                            if len(obj.split(op)) == 2:
+                                try:
+                                    _ = [float(val) for val in obj.split(op)]
+                                    issafe = True
+                                except ValueError:
+                                    break
 
-            # object is "safe", use eval 
-            if issafe: 
-                newobj = eval(newobj) 
+            # object is "safe", use eval
+            if issafe:
+                newobj = eval(newobj)
 
         return newobj
 

@@ -32,13 +32,13 @@ The raw real time series of :math:`h(t)` from a detector is "heterodyned",
    h'(t) = h(t) e^{-2\pi i \phi(t + \Delta t(t))},
 
 to remove the high-frequency variation of the potential source signal, where :math:`\Delta t(t)` is
-a time- and source-and-position-dependent delay term that accounts for the Doppler and relativistic
-delays between the time at the detector and the pulsar proper time (see, e.g., Equation 1 of [3]_).
-The resulting complex series :math:`h'(t)` is low-pass filtered (effectively a band-pass filter on
-the two-sided complex data) using a high order Butterworth filter, with a given knee frequency, and
-down-sampled, via averaging, to a far lower sample rate than the original raw data. In general
-gravitational-wave detector data is sampled at 16384 Hz, and often the heterodyned data is
-downsampled to 1/60 Hz (one sample per minute).
+a time- and source- and detection-position-dependent delay term that accounts for the Doppler and
+relativistic delays between the time at the detector and the pulsar proper time (see, e.g., Equation
+1 of [3]_). The resulting complex series :math:`h'(t)` is low-pass filtered (effectively a band-pass
+filter on the two-sided complex data) using a high order Butterworth filter, with a given knee
+frequency, and down-sampled, via averaging, to a far lower sample rate than the original raw data.
+In general, gravitational-wave detector data is sampled at 16384 Hz, and often the heterodyned data
+is downsampled to 1/60 Hz (one sample per minute).
 
 CWInPy can be used to perform this heterodyning, taking files containing raw gravitational-wave
 strain and returning the complex, filtered, down-sampled time series in a form that can be read in
@@ -55,20 +55,20 @@ Running the analysis
 --------------------
 
 The ``cwinpy_heterodyne`` script, and :ref:`API<heterodyne API>`, can be used to process
-gravitational wave data for individual pulsars or multiple pulsars. We will cover some examples of
+gravitational-wave data for individual pulsars or multiple pulsars. We will cover some examples of
 running analyses via use of command line arguments or a configuration file supplied to
 ``cwinpy_heterodyne``, or through the :ref:`API<heterodyne API>`. The current command line arguments
 for ``cwinpy_heterodyne`` are given :ref:`below<heterodyne Command line arguments>`.
 
-If running an analysis for multiple pulsars on a large stretch of data it is recommended
-that you split the analysis up to run as many separate jobs. If you have access to a computer
-cluster (such as those available to the LVK, or via the OSG), or individual machine (see below),
-running the `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ job scheduler system, the analysis
-can be split up using the ``cwinpy_heterodyne_dag`` pipeline script. We will also describe examples
-of using this.
+If running an analysis for multiple pulsars on a large stretch of data it is recommended that you
+split the analysis up to run as many separate jobs. If you have access to a computer cluster (such
+as those available to the LVK, or via the OSG), or an individual machine (see below), running the
+`HTCondor <https://research.cs.wisc.edu/htcondor/>`_ job scheduler system, the analysis can be split
+up using the ``cwinpy_heterodyne_dag`` pipeline script. We will also describe examples of using
+this.
 
-In many of the example below we will assume that you are able to access the open LIGO and Virgo data
-available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
+In many of the examples below we will assume that you are able to access the open LIGO and Virgo
+data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
 <https://cvmfs.readthedocs.io/>`_. To find out more about accessing this data see the instructions
 `here <https://www.gw-openscience.org/cvmfs/>`_.
 
@@ -94,166 +94,93 @@ Generating the data
 To generate the data we will use the LALSuite `programme
 <https://lscsoft.docs.ligo.org/lalsuite/lalapps/makefakedata__v5_8c.html>`_
 ``lalapps_Makefakedata_v5`` (skip straight to the heterodyning description :ref:`here<Heterodyning
-the data>`). The fake pulsars have parameters defined in TEMPO(2)-style parameter files (where
+the data>`). The two fake pulsars have parameters defined in TEMPO(2)-style parameter files (where
 frequencies, frequency derivatives and phases are the rotational values rather than the
 gravitational-wave values), as follows:
 
 * an isolated pulsar in a file called ``J0123+0123.par``
 
-.. code-block:: bash
-
-   PSRJ    J0123+0123
-   RAJ     01:23:00.0
-   DECJ    01:23:00.0
-   F0      3.4728
-   F1      -4.93827e-11
-   F2      1.17067e-18
-   PEPOCH  55818.074666481479653
-   EPHEM   DE405
-   UNITS   TDB
-   H0      3.0e-24
-   PHI0    0.5
-   COSIOTA 0.1
-   PSI     0.5
+.. literalinclude:: examples/J0123+0123.par
 
 * a pulsar in a binary system in a file called ``J0404-0404.par``
 
-.. code-block:: bash
+.. literalinclude:: examples/J0404-0404.par
 
-   PSRJ    J0404-0404
-   RAJ     04:04:00.0
-   DECJ    -04:04:00.0
-   F0      1.93271605
-   F1      4.93827e-13
-   F2      -6.7067e-21
-   PEPOCH  55818.074666481479653
-   A1      1.4
-   ECC     0.09
-   OM      0.0
-   T0      55817.9830345370355644263
-   PB      0.1
-   BINARY  BT
-   EPHEM   DE405
-   UNITS   TDB
-   H0      7.5e-25
-   PHI0    0.35
-   COSIOTA 0.6
-   PSI     1.1
+One way to create the simulated data is as follows (where in this case we generate data with a very
+low level of simulated noise, so that the signals can be seen prominently):
 
-One way to create the simulated data is as follows:
+.. literalinclude:: examples/example_mfd_1.py
+   :language: python
 
-.. code-block:: python
-
-   import shutil
-   import subprocess as sp
-   from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-   from astropy.utils.data import download_file
-
-   # set data start, duration and bandwidth
-   fakedatastart = 1000000000
-   fakedataduration = 86400  # 1 day in seconds
-   fakedatabandwidth = 8  # 8 Hz
-
-   parfiles = ["J0123+0123.par", "J0404-0404.par"]
-
-   # create injection files for lalapps_Makefakedata_v5
-   # requirements for Makefakedata pulsar input files
-   isolatedstr = """\
-   Alpha = {alpha}
-   Delta = {delta}
-   Freq = {f0}
-   f1dot = {f1}
-   f2dot = {f2}
-   refTime = {pepoch}
-   h0 = {h0}
-   cosi = {cosi}
-   psi = {psi}
-   phi0 = {phi0}
-   """
-
-   binarystr = """\
-   orbitasini = {asini}
-   orbitPeriod = {period}
-   orbitTp = {Tp}
-   orbitArgp = {argp}
-   orbitEcc = {ecc}
-   """
-
-   injfile = "inj.dat"
-   fp = open(injfile, "w")
-
-   for i, enumerate(parfile) in parfiles:
-       p = PulsarParametersPy(parfile)
-       fp.write("[Pulsar {}]\n".format(i+1))
-
-       # set parameters (multiply freqs/phase by 2)
-       mfddic = {
-           "alpha": p["RAJ"],
-           "delta": p["DECJ"],
-           "f0": 2 * p["F0"],
-           "f1": 2 * p["F1"],
-           "f2": 2 * p["F2"],
-           "pepoch": p["PEPOCH"],
-           "h0": p["H0"],
-           "cosi": p["COSIOTA"],
-           "psi": p["PSI"],
-           "phi0": 2 * p["PHI0"],
-       }
-       fp.write(isolatedstr.format(**mfddic))
-
-       if p["BINARY"] is not None:
-           mfdbindic = {
-               "asini": p["A1"],
-               "Tp": p["T0"],
-               "period": p["PB"],
-               "argp": p["OM"],
-               "ecc": p["ECC"],
-           }
-           fp.write(binarystr.format(**mfdbindic))
-
-       fp.write("\n")
-   fp.close()
-
-   # set ephemeris files
-   efile = download_file(
-       DOWNLOAD_URL.format("earth00-40-DE405.dat.gz"), cache=True
-   )
-   sfile = download_file(DOWNLOAD_URL.format("sun00-40-DE405.dat.gz"), cache=True)
-
-   # set detector
-   detector = "H1"
-   channel = "{}:FAKE_DATA".format(detector)
-
-   # set noise amplitude spectral density (use a small value to see the signal clearly)
-   sqrtSn = 1e-29
-
-   # set Makefakedata commands
-   cmds = [
-       "-F",
-       ".",
-       "--outFrChannels={}".format(channel),
-       "-I",
-       detector,
-       "--sqrtSX={0:.1e}".format(sqrtSn),
-       "-G",
-       str(fakedatastart),
-       "--duration={}".format(fakedataduration),
-       "--Band={}".format(fakedatabandwidth),
-       "--fmin",
-       "0",
-       '--injectionSources="{}"'.format(injfile),
-       "--outLabel={FAKEDATA}",
-       '--ephemEarth="{}"'.format(efile),
-       '--ephemSun="{}"'.format(sfile),
-   ]
-
-   # run makefakedata
-   sp.run([shutil.which("lalapps_Makefakedata_v5")] + cmds)
-       
-This should create the following files XXX in the gwf format.
+This should create the file ``H-H1_FAKEDATA-1000000000-86400.gwf`` in the gwf format.
 
 Heterodyning the data
 #####################
+
+We will show how to heterodyning the data in ``H-H1_FAKEDATA-1000000000-86400.gwf`` for the two
+different pulsars by using i) a configuration file for the ``cwinpy_heterodyne`` script, ii) the
+Python API.
+
+Using the script
+^^^^^^^^^^^^^^^^
+
+For most inputs we will use the default values as described in the API for
+:class:`~cwinpy.heterodyne.Heterodyne`, but otherwise we can set the heterodyne parameters via a
+configuration file, in this case called ``example1_config.ini``, containing:
+
+.. literalinclude:: examples/example1_config.ini 
+
+Running the ``cwinpy_heterodyne`` script is done with:
+
+.. code-block:: bash
+
+   cwinpy_heterodyne --config example1_config.ini
+
+In this case the outputs (HDF5 files containing :class:`~cwinpy.data.HeterodynedData` objects) will
+be placed in the ``heterodyneddata`` directory as specified by the ``output`` option in the
+configration file. The default output file name format follows the convention
+``heterodyne_{pulsarname}_{detector}_{frequencyfactor}_{starttime}_{endtime}.hdf5``. Therefore, the
+above command creates the two files:
+
+* ``heterodyne_J0123+0123_H1_2_1000000000-1000086400.hdf5``
+* ``heterodyne_J0404-0404_H1_2_1000000000-1000086400.hdf5``
+
+We can now show the signals in the data, and compare them to purely simulated heterodyned data (the
+original frame files were created with code that is largely independent of CWInPy), with, e.g.:
+
+.. code-block:: python
+
+   from cwinpy import HeterodynedData
+
+   h1 = HeterodynedData.read("heterodyne_J0123+0123_H1_2_1000000000-1000086400.hdf5")
+   fig = h1.plot(which="both")  # "both" specifies plotting real and imaginary data
+   
+   # create simulated heterodyned signal purely with CWInPy
+   fakeh1 = HeterodynedData(
+       times=h1.times,
+       fakeasd=1e-48,  # add very small amount of noise
+       detector="H1",
+       inject=True,
+       par=h1.par
+   )
+
+   ax = fig.gca()
+   ax.plot(fakeh1.times, fakeh1.data.real, "k--")
+   ax.plot(fakeh1.times, fakeh1.data.imag, "k--")
+   ax.set_title(h1.par["PSRJ"])
+   fig.tight_layout()
+
+   fig.show()
+
+.. thumbnail:: examples/example1_plot.png
+   :width: 600px
+   :align: center
+
+The coloured lines show the data as heterodyned from the frame data for J0123+0123, while the
+overplotted dashed lines show fake heterodyned signals produced by CWInPy.
+
+Using the Python API
+^^^^^^^^^^^^^^^^^^^^
 
 .. _heterodyne Command line arguments:
 
@@ -268,10 +195,8 @@ given below:
 
 .. _heterodyne API:
 
-API
----
-
-.. automodule
+Heterodyne API
+--------------
 
 .. automodule:: cwinpy.heterodyne
    :members: Heterodyne, heterodyne, heterodyne_dag

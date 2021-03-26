@@ -107,7 +107,7 @@ class Heterodyne(object):
         the GPS end time. The extension should be given as ".hdf", ".h5", or
         ".hdf5". E.g., the default is
         ``"heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf"``.
-    pulsarfiles: str, dict
+    pulsarfiles: str, list, dict
         This specifies the pulsars for which to heterodyne the data. It can be
         either i) a string giving the path to an individual pulsar
         TEMPO(2)-style parameter file, ii) a string giving the path to a
@@ -683,6 +683,12 @@ class Heterodyne(object):
                         )
                         if len(cache) > 0:
                             break
+                elif os.path.isfile(framecache) and os.path.splitext(framecache)[1] in [
+                    ".gwf",
+                    ".hdf5",
+                ]:
+                    # check if cache is a single frame file
+                    cache = [framecache]
                 else:
                     # read in frame files from cache file
                     if is_cache(framecache):
@@ -817,9 +823,6 @@ class Heterodyne(object):
         The list of data segments to analyse, within start and end times.
         """
 
-        if self._segments is None:
-            return None
-
         if self.starttime is None:
             st = -np.inf
         else:
@@ -836,7 +839,8 @@ class Heterodyne(object):
                     return self._segments
 
         segments = []
-        for segment in self._segments:
+
+        for segment in self._segments if self._segments is not None else [[st, et]]:
             if segment[1] < st or segment[0] > et:
                 continue
 
@@ -1284,7 +1288,11 @@ class Heterodyne(object):
             raise ValueError("No output destination has been set!")
 
         # get segment list
-        if self.segments is None and not self.heterodyneddata:
+        if (
+            self._segments is None
+            and not self.heterodyneddata
+            and self.includeflags is not None
+        ):
             self.get_segment_list(**kwargs)
 
         ttype = {
