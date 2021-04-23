@@ -74,7 +74,7 @@ still can still be calculated.
    suffer from numerical issues. This is particularly prominent for cases where to are no
    significantly detected signals for any pulsar, although it appears to have some effect even when
    strong signals are present (see the example :ref:`below<Sampling the hyperparameters>`). It is
-   not yet clear what the cause of the numerical issues is, but it appears to tbe related to the
+   not yet clear what the cause of the numerical issues is, but it appears to be related to the
    reasonably large dynamic range of possible hyperparameters (spanning several orders of magnitude)
    and the finite sampling of posteriors over that range.
 
