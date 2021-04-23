@@ -14,6 +14,7 @@ from cwinpy.hierarchical import (
     BoundedGaussianDistribution,
     DeltaFunctionDistribution,
     ExponentialDistribution,
+    HistogramDistribution,
     MassQuadrupoleDistribution,
     PowerLawDistribution,
     create_distribution,
@@ -300,6 +301,55 @@ class TestDistributionObjects(object):
         with pytest.raises(KeyError):
             dist.log_pdf(value, hyper)
 
+    def test_histogram(self):
+        """
+        Test the HistogramDistribution class.
+        """
+
+        name = "test"
+
+        low = 0.0
+        high = 10.0
+
+        # test with invalid bin type
+        nbins = "ksgdk"
+        with pytest.raises(TypeError):
+            HistogramDistribution(name, low, high, nbins=nbins)
+
+        # test with invalid bin value
+        nbins = -3
+        with pytest.raises(ValueError):
+            HistogramDistribution(name, low, high, nbins=nbins)
+
+        nbins = 4
+        dist = HistogramDistribution(name, low, high, nbins=nbins)
+
+        assert isinstance(dist, HistogramDistribution)
+        assert dist.nbins == nbins
+        assert np.array_equal(dist.binedges, np.linspace(low, high, nbins + 1))
+        assert len(dist.hyperparameters["weight"]) == nbins - 1
+        assert dist.fixed["weight"] is False
+
+        hp = {"weight{}".format(i - 1): 0.1 * i for i in range(1, nbins + 1)}
+
+        assert np.sum([hp[w] for w in hp]) == 1.0
+
+        # check log(pdf) values
+        values = [1.25, 3.75, 6.25, 8.75]
+        p = dist.log_pdf(values, hyperparameters=hp)
+        assert np.allclose(p, np.log([hp[w] for w in hp]))
+
+        value = 1.25
+        p = dist.log_pdf(value, hyperparameters=hp)
+        assert p == np.log(hp["weight0"])
+
+        # check values drawn from distribution
+        values = dist.sample(hp, size=1000)
+        assert np.all((values > low) & (values < high))
+
+        value = dist.sample(hp)
+        assert low < value < high
+
     def test_create_distribution(self):
         """
         Test the create_distribution() function.
@@ -350,6 +400,20 @@ class TestDistributionObjects(object):
         assert dist["alpha"] == powerlawkwargs["alpha"]
         assert dist["minimum"] == powerlawkwargs["minimum"]
         assert dist["maximum"] == powerlawkwargs["maximum"]
+
+        histkwargs = {
+            "low": 0.0,
+            "high": 10.0,
+            "nbins": 5,
+        }
+        dist = create_distribution(name, "Histogram", histkwargs)
+        assert isinstance(dist, HistogramDistribution)
+        assert dist.nbins == histkwargs["nbins"]
+        assert np.array_equal(
+            dist.binedges,
+            np.linspace(histkwargs["low"], histkwargs["high"], histkwargs["nbins"] + 1),
+        )
+        assert len(dist.hyperparameters["weight"]) == histkwargs["nbins"] - 1
 
 
 class TestMassQuadrupoleDistribution(object):

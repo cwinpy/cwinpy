@@ -18,6 +18,7 @@ DISTRIBUTION_REQUIREMENTS = {
     "gaussian": ["mu", "sigma", "weight"],
     "deltafunction": ["peak"],
     "powerlaw": ["alpha", "minimum", "maximum"],
+    "histogram": ["weight"],
 }
 
 
@@ -59,7 +60,7 @@ class BaseDistribution(object):
     @disttype.setter
     def disttype(self, disttype):
         if disttype.lower() not in DISTRIBUTION_REQUIREMENTS.keys():
-            raise ValueError('Distribution name "{}" is not ' "known".format(disttype))
+            raise ValueError('Distribution name "{}" is not known'.format(disttype))
         else:
             self._disttype = disttype.lower()
 
@@ -889,6 +890,168 @@ class DeltaFunctionDistribution(BaseDistribution):
             return peak * np.ones(size)
 
 
+class HistogramDistribution(BaseDistribution):
+    """
+    A distribution to define estimating the bin weights of a non-parameteric
+    histogram-type distribution. The priors for the bin weights will be a
+    Dirichlet prior.
+
+    An example of using this distribution for a 10 bin histogram would be:
+
+    >>> # set the number of bins and bounds
+    >>> nbins = 20
+    >>> lowerbound = 0.0
+    >>> upperbound = 10.0
+    >>> dist = HistogramDistribution("x", low=lowerbound, high=upperbound, nbins=nbins)
+
+    Parameters
+    ----------
+    name: str
+        See :class:`~cwinpy.hierarchical.BaseDistribution`
+    low: float
+        The lower bound of the distribution (required).
+    high: float
+        The upper bound of the distribution (required).
+    nbins: int
+        An integer number of histogram bins to use (defaults to 10).
+
+    """
+
+    def __init__(self, name, low, high, nbins=10):
+        binparameters = {"weight": []}
+
+        if isinstance(nbins, int):
+            if nbins < 1:
+                raise ValueError("Histogram must have at least one bin.")
+            self.nbins = nbins
+        else:
+            raise TypeError("Number of bins must be an integer")
+
+        # set the histogram bin edges
+        self.binedges = np.linspace(low, high, nbins + 1)
+
+        # set Dirichlet priors on weights
+        binparameters["weight"] = bilby.core.prior.DirichletPriorDict(
+            n_dim=self.nbins,
+            label="weight",
+        )
+
+        # initialise
+        super().__init__(
+            name, "histogram", hyperparameters=binparameters, low=low, high=high
+        )
+
+    def log_pdf(self, value, hyperparameters={}):
+        """
+        The natural logarithm of the pdf of a histogrammed distribution.
+
+        Parameters
+        ----------
+        value: float
+            The value at which the probability is to be evaluated.
+        hyperparameters: dict
+            A dictionary containing the current values of the hyperparameters
+            that need to be inferred. For a histogram with ``n`` bins, the
+            hyperparameters should include ``n-1`` weights values.
+
+        Returns
+        -------
+        logpdf:
+            The natural logarithm of the probability density at the given
+            value.
+        """
+
+        if np.any((np.asarray(value) < self.low) | (np.asarray(value) >= self.high)):
+            return -np.inf
+
+        weights = np.zeros(self.nbins)
+
+        for i in range(self.nbins):
+            param = "weight{}".format(i)
+            if i < (self.nbins - 1):
+                weights[i] = hyperparameters[param]
+            else:
+                # set final weight
+                weights[i] = 1.0 - np.sum(weights[:-1])
+
+        if np.any(np.asarray(weights) <= 0.0):
+            return -np.inf
+
+        # normalise weights
+        lweights = np.log(np.asarray(weights) / np.sum(weights))
+
+        # get log pdf
+        if isinstance(value, (float, int)):
+            logpdf = -np.inf
+        elif isinstance(value, (list, np.ndarray)):
+            logpdf = np.full_like(value, -np.inf)
+        else:
+            raise TypeError("value must be a float or array-like")
+
+        binidxs = np.digitize(value, self.binedges)
+
+        if isinstance(value, (float, int)):
+            logpdf = lweights[binidxs - 1]
+        else:
+            for i in range(len(value)):
+                logpdf[i] = lweights[binidxs[i] - 1]
+
+        return logpdf
+
+    def sample(self, hyperparameters={}, size=1):
+        """
+        Draw a sample from the histogram distribution as defined by the
+        given hyperparameters.
+
+        Parameters
+        ----------
+        hyperparameters: dict
+            A dictionary of the hyperparameter values that define the current
+            state of the distribution. If there are ``n`` bins in the
+            histogram, then the hyperparameters should include ``n-1`` weights
+            values.
+        size: int
+            The number of samples to draw. Default is 1.
+
+        Returns
+        -------
+        sample:
+            A sample, or set of samples, from the distribution.
+        """
+
+        rng = np.random.default_rng()
+        weights = np.zeros(self.nbins)
+
+        # get current weights
+        for i in range(self.nbins):
+            param = "weight{}".format(i)
+            if i < (self.nbins - 1):
+                weights[i] = hyperparameters[param]
+            else:
+                # set final weight
+                weights[i] = 1.0 - np.sum(weights[:-1])
+
+        # cumulative normalised weights
+        cweights = np.cumsum(np.asarray(weights) / np.sum(weights))
+
+        # pick bin and draw sample
+        if self.nbins == 1:
+            sample = rng.uniform(self.low, self.high, size=size)
+        else:
+            sample = np.zeros(size)
+            for i in range(size):
+                bin = np.argwhere(cweights - rng.uniform() > 0)[0][0]
+
+                sample[i] = rng.uniform(
+                    self.binedges[bin], self.binedges[bin + 1], size=1
+                )
+
+            if size == 1:
+                sample = sample[0]
+
+        return sample
+
+
 def create_distribution(name, distribution, distkwargs={}):
     """
     Function to create a distribution.
@@ -954,6 +1117,8 @@ def create_distribution(name, distribution, distkwargs={}):
             return DeltaFunctionDistribution(name, **distkwargs)
         elif distribution.lower() == "powerlaw":
             return PowerLawDistribution(name, **distkwargs)
+        elif distribution.lower() == "histogram":
+            return HistogramDistribution(name, **distkwargs)
     else:
         raise TypeError("Unknown distribution")
 
