@@ -102,6 +102,9 @@ class BaseDistribution(object):
             if isinstance(value, (list, np.ndarray)):
                 for i in range(len(value)):
                     params.append("{0}{1:d}".format(key, i))
+            elif isinstance(value, dict):
+                for ikey in value:
+                    params.append(ikey)
             else:
                 params.append(key)
         return params
@@ -113,6 +116,9 @@ class BaseDistribution(object):
             if isinstance(value, (list, np.ndarray)):
                 for i in range(len(value)):
                     values.append(value[i])
+            elif isinstance(value, dict):
+                for ikey in value:
+                    values.append(value[ikey])
             else:
                 values.append(value)
         return values
