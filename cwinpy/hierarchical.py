@@ -102,9 +102,6 @@ class BaseDistribution(object):
             if isinstance(value, (list, np.ndarray)):
                 for i in range(len(value)):
                     params.append("{0}{1:d}".format(key, i))
-            elif isinstance(value, dict):
-                for ikey in value:
-                    params.append(ikey)
             else:
                 params.append(key)
         return params
@@ -116,9 +113,6 @@ class BaseDistribution(object):
             if isinstance(value, (list, np.ndarray)):
                 for i in range(len(value)):
                     values.append(value[i])
-            elif isinstance(value, dict):
-                for ikey in value:
-                    values.append(value[ikey])
             else:
                 values.append(value)
         return values
@@ -348,7 +342,8 @@ class BoundedGaussianDistribution(BaseDistribution):
         if isinstance(weights, bilby.core.prior.DirichletPriorDict):
             # DirichletPriorDict has length one less than the number of weights
             nweights = len(weights) + 1
-            gaussianparameters["weight"] = weights
+            for wv in weights.values():
+                gaussianparameters["weight"].append(wv)
         else:
             nweights = len(weights)
 
@@ -937,9 +932,11 @@ class HistogramDistribution(BaseDistribution):
         self.binedges = np.linspace(low, high, nbins + 1)
 
         # set Dirichlet priors on weights
-        binparameters["weight"] = bilby.core.prior.DirichletPriorDict(
-            n_dim=self.nbins,
-            label="weight",
+        binparameters["weight"] = list(
+            bilby.core.prior.DirichletPriorDict(
+                n_dim=self.nbins,
+                label="weight",
+            ).values()
         )
 
         # initialise
@@ -980,7 +977,7 @@ class HistogramDistribution(BaseDistribution):
                 # set final weight
                 weights[i] = 1.0 - np.sum(weights[:-1])
 
-        if np.any(np.asarray(weights) <= 0.0):
+        if np.any(weights <= 0.0):
             return -np.inf
 
         # normalise weights
@@ -1201,6 +1198,9 @@ class MassQuadrupoleDistribution(object):
     use_ellipticity: bool
         If True, work with fiducial ellipticity :math:`\\varepsilon` rather
         than mass quadrupole.
+    prependzero: bool
+        If setting an upper and lower range, this will prepend zero at the
+        start of the range. Default is True.
 
     To do
     -----
@@ -1225,6 +1225,7 @@ class MassQuadrupoleDistribution(object):
         integration_method="numerical",
         nsamples=None,
         use_ellipticity=False,
+        prependzero=True,
     ):
         self._posterior_samples = []
         self._pulsar_priors = []
@@ -1236,7 +1237,7 @@ class MassQuadrupoleDistribution(object):
 
         # set the values of q22/ellipticity at which to calculate the KDE
         # interpolator
-        self.set_range(gridrange, bins)
+        self.set_range(gridrange, bins, prependzero=prependzero)
 
         # set integration method
         self.set_integration_method(integration_method)
@@ -1276,6 +1277,7 @@ class MassQuadrupoleDistribution(object):
         """
 
         self._bins = bins
+        self.prependzero = prependzero
 
         if gridrange is None:
             self._grid_interp_values = None
@@ -1288,7 +1290,7 @@ class MassQuadrupoleDistribution(object):
                 np.log10(gridrange[0]), np.log10(gridrange[1]), self._bins
             )
 
-            if prependzero:
+            if self.prependzero:
                 self._grid_interp_values = np.insert(self._grid_interp_values, 0, 0)
         elif len(gridrange) > 2:
             self._grid_interp_values = gridrange
@@ -1497,14 +1499,25 @@ class MassQuadrupoleDistribution(object):
             raise ValueError("Distribution has no parameters to infer")
 
         # add priors as PriorDict
-        self._prior = bilby.core.prior.ConditionalPriorDict()
+        self._prior = None
+
+        # check for Dirichlet priors
+        for param, prior in zip(
+            self._distribution.unknown_parameters, self._distribution.unknown_priors
+        ):
+            if isinstance(prior, bilby.core.prior.DirichletElement):
+                self._prior = bilby.core.prior.DirichletPriorDict(
+                    n_dim=prior.n_dimensions, label=prior.label
+                )
+                break
+
+        if self._prior is None:
+            self._prior = bilby.core.prior.ConditionalPriorDict()
 
         for param, prior in zip(
             self._distribution.unknown_parameters, self._distribution.unknown_priors
         ):
-            if isinstance(prior, bilby.core.prior.PriorDict):
-                self._prior.update(prior)
-            else:
+            if param not in self._prior:
                 self._prior[param] = prior
 
     def _set_likelihood(self):
@@ -1531,7 +1544,7 @@ class MassQuadrupoleDistribution(object):
                     if maxval > minmax[1]:
                         minmax[1] = maxval
 
-                self.set_range(minmax, self._bins)
+                self.set_range(minmax, self._bins, prependzero=self.prependzero)
 
             grid = self._grid_interp_values
 
@@ -1775,6 +1788,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         if len(distribution.unknown_parameters) < 1:
             raise ValueError("Distribution has no parameters to infer")
 
+        # set parameters to be inferred
         inferred_parameters = {param: None for param in distribution.unknown_parameters}
         self.distribution = distribution
         self.grid = grid
