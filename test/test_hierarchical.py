@@ -328,7 +328,7 @@ class TestDistributionObjects(object):
         assert dist.nbins == nbins
         assert np.array_equal(dist.binedges, np.linspace(low, high, nbins + 1))
         assert len(dist.hyperparameters["weight"]) == nbins - 1
-        assert dist.fixed["weight"] is False
+        assert dist.fixed["weight"] == [False] * (nbins - 1)
 
         hp = {"weight{}".format(i - 1): 0.1 * i for i in range(1, nbins + 1)}
 

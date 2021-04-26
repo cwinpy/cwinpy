@@ -297,6 +297,9 @@ class BoundedGaussianDistribution(BaseDistribution):
     >>> weights = DirichletPriorDict(n_dim=2, label="weight")
     >>> dist = BoundedGaussianDistribution("x", mus=mus, sigmas=sigmas, weights=weights)
 
+    Note that if usind a Dirichlet prior on the weights all weights must be
+    included and none can be set as fixed.
+
     Parameters
     ----------
     name: str
@@ -397,7 +400,11 @@ class BoundedGaussianDistribution(BaseDistribution):
         sigmas = self["sigma"]
 
         if isinstance(self.fixed["weight"], (list, np.ndarray)):
-            weights = self["weight"]
+            if np.any(np.asarray(self.fixed["weight"]) == True):  # noqa: E712
+                weights = self["weight"]
+            else:
+                # all should be False for Dirichlet priors
+                weights = np.zeros(self.nmodes)
         else:
             weights = np.zeros(self.nmodes)
 
@@ -423,9 +430,9 @@ class BoundedGaussianDistribution(BaseDistribution):
                         "value '{}' is not given".format(param)
                     )
 
-            if not isinstance(self.fixed["weight"], (list, np.ndarray)):
-                param = "weight{}".format(i)
-                if i < (self.nmodes - 1):
+            if i < (self.nmodes - 1):
+                if not self.fixed["weight"][i]:
+                    param = "weight{}".format(i)
                     try:
                         weights[i] = hyperparameters[param]
                     except KeyError:
@@ -433,9 +440,10 @@ class BoundedGaussianDistribution(BaseDistribution):
                             "Cannot calculate log probability when "
                             "value '{}' is not given".format(param)
                         )
-                else:
-                    # set final weight
-                    weights[i] = 1.0 - np.sum(weights[:-1])
+
+        if weights[self.nmodes - 1] == 0.0:
+            # set final weight
+            weights[self.nmodes - 1] = 1.0 - np.sum(weights[:-1])
 
         if np.any(np.asarray(sigmas) <= 0.0):
             return -np.inf
@@ -491,7 +499,11 @@ class BoundedGaussianDistribution(BaseDistribution):
         sigmas = self["sigma"]
 
         if isinstance(self.fixed["weight"], (list, np.ndarray)):
-            weights = self["weight"]
+            if np.any(np.asarray(self.fixed["weight"]) == True):  # noqa: E712
+                weights = self["weight"]
+            else:
+                # all should be False for Dirichlet priors
+                weights = np.zeros(self.nmodes)
         else:
             weights = np.zeros(self.nmodes)
 
@@ -517,9 +529,9 @@ class BoundedGaussianDistribution(BaseDistribution):
                         "value '{}' is not given".format(param)
                     )
 
-            if not isinstance(self.fixed["weight"], (list, np.ndarray)):
-                param = "weight{}".format(i)
-                if i < (self.nmodes - 1):
+            if i < (self.nmodes - 1):
+                if not self.fixed["weight"][i]:
+                    param = "weight{}".format(i)
                     try:
                         weights[i] = hyperparameters[param]
                     except KeyError:
@@ -527,9 +539,10 @@ class BoundedGaussianDistribution(BaseDistribution):
                             "Cannot calculate log probability when "
                             "value '{}' is not given".format(param)
                         )
-                else:
-                    # set final weight
-                    weights[i] = 1.0 - np.sum(weights[:-1])
+
+        if weights[self.nmodes - 1] == 0.0:
+            # set final weight
+            weights[self.nmodes - 1] = 1.0 - np.sum(weights[:-1])
 
         # cumulative normalised weights
         cweights = np.cumsum(np.asarray(weights) / np.sum(weights))
