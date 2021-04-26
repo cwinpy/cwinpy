@@ -993,8 +993,8 @@ class HistogramDistribution(BaseDistribution):
         if np.any(weights <= 0.0):
             return -np.inf
 
-        # normalise weights
-        lweights = np.log(np.asarray(weights) / np.sum(weights))
+        # get log of weights
+        lweights = np.log(weights)
 
         # get log pdf
         if isinstance(value, (float, int)):
