@@ -1146,7 +1146,8 @@ class MassQuadrupoleDistribution(object):
         If using the "numerical" integration method, upon running the
         :meth:`~cwinpy.hierarchical.MassQuadrupoleDistribution.sample` method,
         these samples will be converted to a KDE (reflected about zero
-        to avoid edge effects, and re-normalised), using
+        to avoid edge effects, and re-normalised, although the bandwidth will
+        be calculated using the unreflected samples), using
         :class:`scipy.stats.gaussian_kde`, which will be used as the
         data for hierarchical inference. If the posterior
         samples come with a Bayesian evidence value, and the prior is present,
@@ -1373,8 +1374,15 @@ class MassQuadrupoleDistribution(object):
                         # get reflected samples
                         samps = np.concatenate((psamples, -psamples))
 
-                        # calculate KDE
-                        kde = gaussian_kde(samps, bw_method=self._bw)
+                        # calculate the KDE initially using the unreflected
+                        # samples to get a better bandwidth and prevent
+                        # artificially broadened distributions
+                        kdeorig = gaussian_kde(psamples, bw_method=self._bw)
+
+                        # calculate KDE (using new bandwidth equivalent to that
+                        # for unreflected samples)
+                        bw = np.sqrt(kdeorig.covariance[0][0] / np.var(samps))
+                        kde = gaussian_kde(samps, bw_method=bw)
 
                         # use log pdf for the kde
                         interpvals = kde.logpdf(self._grid_interp_values) + np.log(
