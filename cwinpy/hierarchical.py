@@ -941,8 +941,9 @@ class HistogramDistribution(BaseDistribution):
         else:
             raise TypeError("Number of bins must be an integer")
 
-        # set the histogram bin edges
-        self.binedges = np.linspace(low, high, nbins + 1)
+        # set the histogram bin edges (add small buffer on upper bin to allow
+        # points on the edge)
+        self.binedges = np.linspace(low, high + 1e-8 * high, nbins + 1)
 
         # set Dirichlet priors on weights
         binparameters["weight"] = list(
@@ -977,7 +978,7 @@ class HistogramDistribution(BaseDistribution):
             value.
         """
 
-        if np.any((np.asarray(value) < self.low) | (np.asarray(value) >= self.high)):
+        if np.any((np.asarray(value) < self.low) | (np.asarray(value) > self.high)):
             return -np.inf
 
         weights = np.zeros(self.nbins)
@@ -1167,11 +1168,19 @@ class MassQuadrupoleDistribution(object):
         A list of values at which the :math:`Q_{22}` parameter posteriors
         should be interpolated, or a lower and upper bound in the range of
         values, which will be split into ``bins`` points spaced linearly in
-        log-space. If not supplied this will instead be set using the posterior
-        samples, with a minimum value at zero and a maximum given by the
-        maximum of all posterior samples.
+        log-space (unless ``gridtype'' is set to a value other than ``"log"``).
+        If not supplied this will instead be set using the posterior samples,
+        with a minimum value at zero and a maximum given by the maximum of all
+        posterior samples.
     bins: int
         The number of bins at which the posterior will be interpolated.
+    gridtype: str
+        This sets the grid bin spacing used for assigning the interpolation
+        grid. It defaults to spacings that are uniform in log-space for
+        distributions other than
+        :class:`cwinpy.hierarchical.HistogramDistribution` for which case the
+        spacing defaults to linear. Values can either be ``"log"`` or
+        ``"linear"`` to force one or other spacing.
     distribution: :class:`cwinpy.hierarchical.BaseDistribution`, str
         A predefined distribution, or string giving a valid distribution name.
         This is the distribution for which the hyperparameters are going to be
@@ -1229,6 +1238,7 @@ class MassQuadrupoleDistribution(object):
         data=None,
         gridrange=None,
         bins=100,
+        gridtype=None,
         distribution=None,
         distkwargs=None,
         bw="scott",
@@ -1244,13 +1254,14 @@ class MassQuadrupoleDistribution(object):
         self._pulsar_priors = []
         self._log_evidence = []
         self._likelihood_kdes_interp = []
+        self._distribution = None
 
         # set whether to use ellipticity rather than mass quadrupole
         self.use_ellipticity = use_ellipticity
 
         # set the values of q22/ellipticity at which to calculate the KDE
         # interpolator
-        self.set_range(gridrange, bins, prependzero=prependzero)
+        self.set_range(gridrange, bins, prependzero=prependzero, gridtype=gridtype)
 
         # set integration method
         self.set_integration_method(integration_method)
@@ -1267,7 +1278,7 @@ class MassQuadrupoleDistribution(object):
         # set the distribution
         self.set_distribution(distribution, distkwargs)
 
-    def set_range(self, gridrange, bins=100, prependzero=True):
+    def set_range(self, gridrange, bins=100, prependzero=True, gridtype=None):
         """
         Set the values of :math:`Q_{22}`, or ellipticity :math:`\\varepsilon`,
         either directly, or as a set of points linear in log-space defined by
@@ -1287,6 +1298,11 @@ class MassQuadrupoleDistribution(object):
         prependzero: bool
             If setting an upper and lower range, this will prepend zero at the
             start of the range. Default is True.
+        gridtype: str
+            Set whether to have grid-spacing be ``"linear"`` or linear in
+            log-10 space (``"log"``). By default, for distribution's other than
+            :class:`cwinpy.hierarchical.HistogramDistribution` the default will
+            be linear in log-10 space.
         """
 
         self._bins = bins
@@ -1299,9 +1315,20 @@ class MassQuadrupoleDistribution(object):
         if len(gridrange) == 2:
             if gridrange[1] < gridrange[0]:
                 raise ValueError("Grid range is badly defined")
-            self._grid_interp_values = np.logspace(
-                np.log10(gridrange[0]), np.log10(gridrange[1]), self._bins
-            )
+
+            # set grid spacing (either linear or linear in log10-space)
+            lower, upper = gridrange
+            if (
+                gridtype is None
+                and not isinstance(self._distribution, HistogramDistribution)
+            ) or gridtype == "log":
+                self._grid_interp_values = np.logspace(
+                    np.log10(gridrange[0]), np.log10(gridrange[1]), self._bins
+                )
+            else:
+                self._grid_interp_values = np.linspace(
+                    gridrange[0], gridrange[1], self._bins
+                )
 
             if self.prependzero:
                 self._grid_interp_values = np.insert(self._grid_interp_values, 0, 0)
@@ -1472,7 +1499,6 @@ class MassQuadrupoleDistribution(object):
             inferred.
         """
 
-        self._distribution = None
         self._prior = None
         self._likelihood = None
 
