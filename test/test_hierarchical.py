@@ -326,7 +326,7 @@ class TestDistributionObjects(object):
 
         assert isinstance(dist, HistogramDistribution)
         assert dist.nbins == nbins
-        assert np.array_equal(dist.binedges, np.linspace(low, high, nbins + 1))
+        assert np.allclose(dist.binedges, np.linspace(low, high, nbins + 1))
         assert len(dist.hyperparameters["weight"]) == nbins - 1
         assert dist.fixed["weight"] == [False] * (nbins - 1)
 
@@ -409,7 +409,7 @@ class TestDistributionObjects(object):
         dist = create_distribution(name, "Histogram", histkwargs)
         assert isinstance(dist, HistogramDistribution)
         assert dist.nbins == histkwargs["nbins"]
-        assert np.array_equal(
+        assert np.allclose(
             dist.binedges,
             np.linspace(histkwargs["low"], histkwargs["high"], histkwargs["nbins"] + 1),
         )
