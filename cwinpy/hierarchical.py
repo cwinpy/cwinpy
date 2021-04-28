@@ -1220,9 +1220,6 @@ class MassQuadrupoleDistribution(object):
     use_ellipticity: bool
         If True, work with fiducial ellipticity :math:`\\varepsilon` rather
         than mass quadrupole.
-    prependzero: bool
-        If setting an upper and lower range, this will prepend zero at the
-        start of the range. Default is True.
 
     To do
     -----
@@ -1248,7 +1245,6 @@ class MassQuadrupoleDistribution(object):
         integration_method="numerical",
         nsamples=None,
         use_ellipticity=False,
-        prependzero=True,
     ):
         self._posterior_samples = []
         self._pulsar_priors = []
@@ -1261,7 +1257,7 @@ class MassQuadrupoleDistribution(object):
 
         # set the values of q22/ellipticity at which to calculate the KDE
         # interpolator
-        self.set_range(gridrange, bins, prependzero=prependzero, gridtype=gridtype)
+        self.set_range(gridrange, bins, gridtype=gridtype)
 
         # set integration method
         self.set_integration_method(integration_method)
@@ -1278,7 +1274,7 @@ class MassQuadrupoleDistribution(object):
         # set the distribution
         self.set_distribution(distribution, distkwargs)
 
-    def set_range(self, gridrange, bins=100, prependzero=True, gridtype=None):
+    def set_range(self, gridrange, bins=100, gridtype=None):
         """
         Set the values of :math:`Q_{22}`, or ellipticity :math:`\\varepsilon`,
         either directly, or as a set of points linear in log-space defined by
@@ -1295,9 +1291,6 @@ class MassQuadrupoleDistribution(object):
             are the values for :math:`Q_{22}` or :math:`\\varepsilon`.
         bins: int
             The number of bins the range is split into.
-        prependzero: bool
-            If setting an upper and lower range, this will prepend zero at the
-            start of the range. Default is True.
         gridtype: str
             Set whether to have grid-spacing be ``"linear"`` or linear in
             log-10 space (``"log"``). By default, for distribution's other than
@@ -1306,7 +1299,6 @@ class MassQuadrupoleDistribution(object):
         """
 
         self._bins = bins
-        self.prependzero = prependzero
 
         if gridrange is None:
             self._grid_interp_values = None
@@ -1329,9 +1321,6 @@ class MassQuadrupoleDistribution(object):
                 self._grid_interp_values = np.linspace(
                     gridrange[0], gridrange[1], self._bins
                 )
-
-            if self.prependzero:
-                self._grid_interp_values = np.insert(self._grid_interp_values, 0, 0)
         elif len(gridrange) > 2:
             self._grid_interp_values = gridrange
         else:
@@ -1584,7 +1573,7 @@ class MassQuadrupoleDistribution(object):
                     if maxval > minmax[1]:
                         minmax[1] = maxval
 
-                self.set_range(minmax, self._bins, prependzero=self.prependzero)
+                self.set_range(minmax, self._bins)
 
             grid = self._grid_interp_values
 
@@ -1611,6 +1600,15 @@ class MassQuadrupoleDistribution(object):
                         interpvals = kde.logpdf(self._grid_interp_values) + np.log(
                             2.0
                         )  # multiply by 2 so pdf normalises to 1
+
+                        # replace any infinity values with small number (logpdf
+                        # returns inf rather than -inf, so we need to flip the
+                        # sign)
+                        infvals = ~np.isfinite(interpvals)
+                        if np.any(infvals):
+                            interpvals[infvals] = -np.inf
+                            interpvals = np.nan_to_num(interpvals)
+
                     except Exception as e:
                         raise RuntimeError("Problem creating KDE: {}".format(e))
 
