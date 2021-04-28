@@ -18,6 +18,7 @@ DISTRIBUTION_REQUIREMENTS = {
     "gaussian": ["mu", "sigma", "weight"],
     "deltafunction": ["peak"],
     "powerlaw": ["alpha", "minimum", "maximum"],
+    "histogram": ["weight"],
 }
 
 
@@ -59,7 +60,7 @@ class BaseDistribution(object):
     @disttype.setter
     def disttype(self, disttype):
         if disttype.lower() not in DISTRIBUTION_REQUIREMENTS.keys():
-            raise ValueError('Distribution name "{}" is not ' "known".format(disttype))
+            raise ValueError('Distribution name "{}" is not known'.format(disttype))
         else:
             self._disttype = disttype.lower()
 
@@ -296,6 +297,9 @@ class BoundedGaussianDistribution(BaseDistribution):
     >>> weights = DirichletPriorDict(n_dim=2, label="weight")
     >>> dist = BoundedGaussianDistribution("x", mus=mus, sigmas=sigmas, weights=weights)
 
+    Note that if usind a Dirichlet prior on the weights all weights must be
+    included and none can be set as fixed.
+
     Parameters
     ----------
     name: str
@@ -341,7 +345,8 @@ class BoundedGaussianDistribution(BaseDistribution):
         if isinstance(weights, bilby.core.prior.DirichletPriorDict):
             # DirichletPriorDict has length one less than the number of weights
             nweights = len(weights) + 1
-            gaussianparameters["weight"] = weights
+            for wv in weights.values():
+                gaussianparameters["weight"].append(wv)
         else:
             nweights = len(weights)
 
@@ -395,7 +400,11 @@ class BoundedGaussianDistribution(BaseDistribution):
         sigmas = self["sigma"]
 
         if isinstance(self.fixed["weight"], (list, np.ndarray)):
-            weights = self["weight"]
+            if np.any(np.asarray(self.fixed["weight"]) == True):  # noqa: E712
+                weights = self["weight"]
+            else:
+                # all should be False for Dirichlet priors
+                weights = np.zeros(self.nmodes)
         else:
             weights = np.zeros(self.nmodes)
 
@@ -421,9 +430,9 @@ class BoundedGaussianDistribution(BaseDistribution):
                         "value '{}' is not given".format(param)
                     )
 
-            if not isinstance(self.fixed["weight"], (list, np.ndarray)):
-                param = "weight{}".format(i)
-                if i < (self.nmodes - 1):
+            if i < (self.nmodes - 1):
+                if not self.fixed["weight"][i]:
+                    param = "weight{}".format(i)
                     try:
                         weights[i] = hyperparameters[param]
                     except KeyError:
@@ -431,9 +440,10 @@ class BoundedGaussianDistribution(BaseDistribution):
                             "Cannot calculate log probability when "
                             "value '{}' is not given".format(param)
                         )
-                else:
-                    # set final weight
-                    weights[i] = 1.0 - np.sum(weights[:-1])
+
+        if weights[self.nmodes - 1] == 0.0:
+            # set final weight
+            weights[self.nmodes - 1] = 1.0 - np.sum(weights[:-1])
 
         if np.any(np.asarray(sigmas) <= 0.0):
             return -np.inf
@@ -489,7 +499,11 @@ class BoundedGaussianDistribution(BaseDistribution):
         sigmas = self["sigma"]
 
         if isinstance(self.fixed["weight"], (list, np.ndarray)):
-            weights = self["weight"]
+            if np.any(np.asarray(self.fixed["weight"]) == True):  # noqa: E712
+                weights = self["weight"]
+            else:
+                # all should be False for Dirichlet priors
+                weights = np.zeros(self.nmodes)
         else:
             weights = np.zeros(self.nmodes)
 
@@ -515,9 +529,9 @@ class BoundedGaussianDistribution(BaseDistribution):
                         "value '{}' is not given".format(param)
                     )
 
-            if not isinstance(self.fixed["weight"], (list, np.ndarray)):
-                param = "weight{}".format(i)
-                if i < (self.nmodes - 1):
+            if i < (self.nmodes - 1):
+                if not self.fixed["weight"][i]:
+                    param = "weight{}".format(i)
                     try:
                         weights[i] = hyperparameters[param]
                     except KeyError:
@@ -525,9 +539,10 @@ class BoundedGaussianDistribution(BaseDistribution):
                             "Cannot calculate log probability when "
                             "value '{}' is not given".format(param)
                         )
-                else:
-                    # set final weight
-                    weights[i] = 1.0 - np.sum(weights[:-1])
+
+        if weights[self.nmodes - 1] == 0.0:
+            # set final weight
+            weights[self.nmodes - 1] = 1.0 - np.sum(weights[:-1])
 
         # cumulative normalised weights
         cweights = np.cumsum(np.asarray(weights) / np.sum(weights))
@@ -889,6 +904,171 @@ class DeltaFunctionDistribution(BaseDistribution):
             return peak * np.ones(size)
 
 
+class HistogramDistribution(BaseDistribution):
+    """
+    A distribution to define estimating the bin weights of a non-parameteric
+    histogram-type distribution. The priors for the bin weights will be a
+    Dirichlet prior.
+
+    An example of using this distribution for a 10 bin histogram would be:
+
+    >>> # set the number of bins and bounds
+    >>> nbins = 20
+    >>> lowerbound = 0.0
+    >>> upperbound = 10.0
+    >>> dist = HistogramDistribution("x", low=lowerbound, high=upperbound, nbins=nbins)
+
+    Parameters
+    ----------
+    name: str
+        See :class:`~cwinpy.hierarchical.BaseDistribution`
+    low: float
+        The lower bound of the distribution (required).
+    high: float
+        The upper bound of the distribution (required).
+    nbins: int
+        An integer number of histogram bins to use (defaults to 10).
+
+    """
+
+    def __init__(self, name, low, high, nbins=10):
+        binparameters = {"weight": []}
+
+        if isinstance(nbins, int):
+            if nbins < 1:
+                raise ValueError("Histogram must have at least one bin.")
+            self.nbins = nbins
+        else:
+            raise TypeError("Number of bins must be an integer")
+
+        # set the histogram bin edges (add small buffer on upper bin to allow
+        # points on the edge)
+        self.binedges = np.linspace(low, high + 1e-8 * high, nbins + 1)
+
+        # set Dirichlet priors on weights
+        binparameters["weight"] = list(
+            bilby.core.prior.DirichletPriorDict(
+                n_dim=self.nbins,
+                label="weight",
+            ).values()
+        )
+
+        # initialise
+        super().__init__(
+            name, "histogram", hyperparameters=binparameters, low=low, high=high
+        )
+
+    def log_pdf(self, value, hyperparameters={}):
+        """
+        The natural logarithm of the pdf of a histogrammed distribution.
+
+        Parameters
+        ----------
+        value: float
+            The value at which the probability is to be evaluated.
+        hyperparameters: dict
+            A dictionary containing the current values of the hyperparameters
+            that need to be inferred. For a histogram with ``n`` bins, the
+            hyperparameters should include ``n-1`` weights values.
+
+        Returns
+        -------
+        logpdf:
+            The natural logarithm of the probability density at the given
+            value.
+        """
+
+        if np.any((np.asarray(value) < self.low) | (np.asarray(value) > self.high)):
+            return -np.inf
+
+        weights = np.zeros(self.nbins)
+
+        for i in range(self.nbins):
+            param = "weight{}".format(i)
+            if i < (self.nbins - 1):
+                weights[i] = hyperparameters[param]
+            else:
+                # set final weight
+                weights[i] = 1.0 - np.sum(weights[:-1])
+
+        if np.any(weights <= 0.0):
+            return -np.inf
+
+        # get log of weights
+        lweights = np.log(weights)
+
+        # get log pdf
+        if isinstance(value, (float, int)):
+            logpdf = -np.inf
+        elif isinstance(value, (list, np.ndarray)):
+            logpdf = np.full_like(value, -np.inf)
+        else:
+            raise TypeError("value must be a float or array-like")
+
+        binidxs = np.digitize(value, self.binedges)
+
+        if isinstance(value, (float, int)):
+            logpdf = lweights[binidxs - 1]
+        else:
+            for i in range(len(value)):
+                logpdf[i] = lweights[binidxs[i] - 1]
+
+        return logpdf
+
+    def sample(self, hyperparameters={}, size=1):
+        """
+        Draw a sample from the histogram distribution as defined by the
+        given hyperparameters.
+
+        Parameters
+        ----------
+        hyperparameters: dict
+            A dictionary of the hyperparameter values that define the current
+            state of the distribution. If there are ``n`` bins in the
+            histogram, then the hyperparameters should include ``n-1`` weights
+            values.
+        size: int
+            The number of samples to draw. Default is 1.
+
+        Returns
+        -------
+        sample:
+            A sample, or set of samples, from the distribution.
+        """
+
+        rng = np.random.default_rng()
+        weights = np.zeros(self.nbins)
+
+        # get current weights
+        for i in range(self.nbins):
+            param = "weight{}".format(i)
+            if i < (self.nbins - 1):
+                weights[i] = hyperparameters[param]
+            else:
+                # set final weight
+                weights[i] = 1.0 - np.sum(weights[:-1])
+
+        # cumulative normalised weights
+        cweights = np.cumsum(np.asarray(weights) / np.sum(weights))
+
+        # pick bin and draw sample
+        if self.nbins == 1:
+            sample = rng.uniform(self.low, self.high, size=size)
+        else:
+            sample = np.zeros(size)
+            for i in range(size):
+                bin = np.argwhere(cweights - rng.uniform() > 0)[0][0]
+
+                sample[i] = rng.uniform(
+                    self.binedges[bin], self.binedges[bin + 1], size=1
+                )
+
+            if size == 1:
+                sample = sample[0]
+
+        return sample
+
+
 def create_distribution(name, distribution, distkwargs={}):
     """
     Function to create a distribution.
@@ -954,6 +1134,8 @@ def create_distribution(name, distribution, distkwargs={}):
             return DeltaFunctionDistribution(name, **distkwargs)
         elif distribution.lower() == "powerlaw":
             return PowerLawDistribution(name, **distkwargs)
+        elif distribution.lower() == "histogram":
+            return HistogramDistribution(name, **distkwargs)
     else:
         raise TypeError("Unknown distribution")
 
@@ -986,11 +1168,19 @@ class MassQuadrupoleDistribution(object):
         A list of values at which the :math:`Q_{22}` parameter posteriors
         should be interpolated, or a lower and upper bound in the range of
         values, which will be split into ``bins`` points spaced linearly in
-        log-space. If not supplied this will instead be set using the posterior
-        samples, with a minimum value at zero and a maximum given by the
-        maximum of all posterior samples.
+        log-space (unless ``gridtype'' is set to a value other than ``"log"``).
+        If not supplied this will instead be set using the posterior samples,
+        with a minimum value at zero and a maximum given by the maximum of all
+        posterior samples.
     bins: int
         The number of bins at which the posterior will be interpolated.
+    gridtype: str
+        This sets the grid bin spacing used for assigning the interpolation
+        grid. It defaults to spacings that are uniform in log-space for
+        distributions other than
+        :class:`cwinpy.hierarchical.HistogramDistribution` for which case the
+        spacing defaults to linear. Values can either be ``"log"`` or
+        ``"linear"`` to force one or other spacing.
     distribution: :class:`cwinpy.hierarchical.BaseDistribution`, str
         A predefined distribution, or string giving a valid distribution name.
         This is the distribution for which the hyperparameters are going to be
@@ -1030,6 +1220,9 @@ class MassQuadrupoleDistribution(object):
     use_ellipticity: bool
         If True, work with fiducial ellipticity :math:`\\varepsilon` rather
         than mass quadrupole.
+    prependzero: bool
+        If setting an upper and lower range, this will prepend zero at the
+        start of the range. Default is True.
 
     To do
     -----
@@ -1045,6 +1238,7 @@ class MassQuadrupoleDistribution(object):
         data=None,
         gridrange=None,
         bins=100,
+        gridtype=None,
         distribution=None,
         distkwargs=None,
         bw="scott",
@@ -1054,18 +1248,20 @@ class MassQuadrupoleDistribution(object):
         integration_method="numerical",
         nsamples=None,
         use_ellipticity=False,
+        prependzero=True,
     ):
         self._posterior_samples = []
         self._pulsar_priors = []
         self._log_evidence = []
         self._likelihood_kdes_interp = []
+        self._distribution = None
 
         # set whether to use ellipticity rather than mass quadrupole
         self.use_ellipticity = use_ellipticity
 
         # set the values of q22/ellipticity at which to calculate the KDE
         # interpolator
-        self.set_range(gridrange, bins)
+        self.set_range(gridrange, bins, prependzero=prependzero, gridtype=gridtype)
 
         # set integration method
         self.set_integration_method(integration_method)
@@ -1082,7 +1278,7 @@ class MassQuadrupoleDistribution(object):
         # set the distribution
         self.set_distribution(distribution, distkwargs)
 
-    def set_range(self, gridrange, bins=100, prependzero=True):
+    def set_range(self, gridrange, bins=100, prependzero=True, gridtype=None):
         """
         Set the values of :math:`Q_{22}`, or ellipticity :math:`\\varepsilon`,
         either directly, or as a set of points linear in log-space defined by
@@ -1102,9 +1298,15 @@ class MassQuadrupoleDistribution(object):
         prependzero: bool
             If setting an upper and lower range, this will prepend zero at the
             start of the range. Default is True.
+        gridtype: str
+            Set whether to have grid-spacing be ``"linear"`` or linear in
+            log-10 space (``"log"``). By default, for distribution's other than
+            :class:`cwinpy.hierarchical.HistogramDistribution` the default will
+            be linear in log-10 space.
         """
 
         self._bins = bins
+        self.prependzero = prependzero
 
         if gridrange is None:
             self._grid_interp_values = None
@@ -1113,11 +1315,22 @@ class MassQuadrupoleDistribution(object):
         if len(gridrange) == 2:
             if gridrange[1] < gridrange[0]:
                 raise ValueError("Grid range is badly defined")
-            self._grid_interp_values = np.logspace(
-                np.log10(gridrange[0]), np.log10(gridrange[1]), self._bins
-            )
 
-            if prependzero:
+            # set grid spacing (either linear or linear in log10-space)
+            lower, upper = gridrange
+            if (
+                gridtype is None
+                and not isinstance(self._distribution, HistogramDistribution)
+            ) or gridtype == "log":
+                self._grid_interp_values = np.logspace(
+                    np.log10(gridrange[0]), np.log10(gridrange[1]), self._bins
+                )
+            else:
+                self._grid_interp_values = np.linspace(
+                    gridrange[0], gridrange[1], self._bins
+                )
+
+            if self.prependzero:
                 self._grid_interp_values = np.insert(self._grid_interp_values, 0, 0)
         elif len(gridrange) > 2:
             self._grid_interp_values = gridrange
@@ -1286,7 +1499,6 @@ class MassQuadrupoleDistribution(object):
             inferred.
         """
 
-        self._distribution = None
         self._prior = None
         self._likelihood = None
 
@@ -1327,14 +1539,25 @@ class MassQuadrupoleDistribution(object):
             raise ValueError("Distribution has no parameters to infer")
 
         # add priors as PriorDict
-        self._prior = bilby.core.prior.ConditionalPriorDict()
+        self._prior = None
+
+        # check for Dirichlet priors
+        for param, prior in zip(
+            self._distribution.unknown_parameters, self._distribution.unknown_priors
+        ):
+            if isinstance(prior, bilby.core.prior.DirichletElement):
+                self._prior = bilby.core.prior.DirichletPriorDict(
+                    n_dim=prior.n_dimensions, label=prior.label
+                )
+                break
+
+        if self._prior is None:
+            self._prior = bilby.core.prior.ConditionalPriorDict()
 
         for param, prior in zip(
             self._distribution.unknown_parameters, self._distribution.unknown_priors
         ):
-            if isinstance(prior, bilby.core.prior.PriorDict):
-                self._prior.update(prior)
-            else:
+            if param not in self._prior:
                 self._prior[param] = prior
 
     def _set_likelihood(self):
@@ -1361,7 +1584,7 @@ class MassQuadrupoleDistribution(object):
                     if maxval > minmax[1]:
                         minmax[1] = maxval
 
-                self.set_range(minmax, self._bins)
+                self.set_range(minmax, self._bins, prependzero=self.prependzero)
 
             grid = self._grid_interp_values
 
@@ -1612,6 +1835,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         if len(distribution.unknown_parameters) < 1:
             raise ValueError("Distribution has no parameters to infer")
 
+        # set parameters to be inferred
         inferred_parameters = {param: None for param in distribution.unknown_parameters}
         self.distribution = distribution
         self.grid = grid

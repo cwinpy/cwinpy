@@ -92,6 +92,7 @@ The currently allowed distributions are:
  * an exponential distribution: :class:`~cwinpy.hierarchical.ExponentialDistribution`
  * a power law distribution: :class:`~cwinpy.hierarchical.PowerLawDistribution`
  * a delta function distribution: :class:`~cwinpy.hierarchical.DeltaFunctionDistribution`
+ * a non-parametric histogram-type distribution :class:`~cwinpy.hierarchical.HistogramDistribution` (see, e.g., 
 
 The :class:`~cwinpy.hierarchical.MassQuadrupoleDistribution` can use any of the above distributions
 to define the distribution on the mass quadrupole to be inferred from a set of individual pulsar
@@ -104,6 +105,7 @@ When creating instances of these distributions via the
 * ``"exponential"`` for the :class:`~cwinpy.hierarchical.ExponentialDistribution`
 * ``"powerlaw"`` for the :class:`~cwinpy.hierarchical.PowerLawDistribution`
 * ``"deltafunction"`` for the :class:`~cwinpy.hierarchical.DeltaFunctionDistribution`
+* ``"histogram"`` for the :class:`~cwinpy.hierarchical.HistogramDistribution`
 
 with the required hyperparameters as given by :data:`~cwinpy.hierarchical.DISTRIBUTION_REQUIREMENTS`.
 These names can also be used for the ``distribution`` argument of
@@ -642,6 +644,9 @@ Hierarchical analysis references
 .. [1] `N. K. Johnson-McDaniel & B. J. Owen
    <https://ui.adsabs.harvard.edu/abs/2013PhRvD..88d4004J/abstract>`_, *PRD*,
    **88**, 044004 (2013).
-.. [2] `M. Pitkin, C. Messenger, X. Fan
+.. [2] `M. Pitkin, C. Messenger & X. Fan
    <https://ui.adsabs.harvard.edu/abs/2018PhRvD..98f3001P/abstract>`_, *PRD*,
    **98**, 063001 (2018).
+.. [3] `D. W. Hogg, A. D. Myers & J. Bovy
+   <https://ui.adsabs.harvard.edu/abs/2010ApJ...725.2166H/abstract>`_, *ApJ*,
+   **725**,  2166-2175 (2010).
