@@ -86,7 +86,9 @@ reshist = mqdhist.sample()
 # https://github.com/JohannesBuchner/PosteriorStacker/blob/main/posteriorstacker.py)
 distkwargs = {
     "mus": Uniform(low, low + ((high - low) * 3), name="mu"),
-    "sigmas": Uniform(0.0, (high - low) * 3, name="sigma"),
+    "sigmas": Uniform(
+        0.5, (high - low) * 3, name="sigma"
+    ),  # allowing this to have a minimum at zero causes issues when using the "numerical" method
 }
 
 sampler_kwargs = {
@@ -120,7 +122,7 @@ for m in mqdgauss.posterior_predictive(q22values, nsamples=100):
 
 # get maximum a-posteriori value
 idxmax = np.argmax(
-    (res.posterior["log_likelihood"] + res.posterior["log_prior"]).values
+    (resgauss.posterior["log_likelihood"] + resgauss.posterior["log_prior"]).values
 )
 mumax = resgauss.posterior["mu0"][idxmax]
 sigmamax = resgauss.posterior["sigma0"][idxmax]

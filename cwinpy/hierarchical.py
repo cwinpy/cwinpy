@@ -1911,9 +1911,11 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         if self.samples is not None:
             # log-likelihood using expectation value from samples
             for samps in self.samples:
-                log_like += np.log(
-                    np.mean(self.distribution.pdf(samps, self.parameters))
-                )
+                with np.errstate(divide="ignore"):
+                    log_like += np.log(
+                        np.mean(self.distribution.pdf(samps, self.parameters))
+                    )
+            log_like = np.nan_to_num(log_like)
         else:
             # evaluate the hyperparameter distribution
             logp = self.distribution.log_pdf(self.grid, self.parameters)
