@@ -182,6 +182,73 @@ overplotted dashed lines show fake heterodyned signals produced by CWInPy.
 Using the Python API
 ^^^^^^^^^^^^^^^^^^^^
 
+There are two ways that the same thing can be acheived within Python via the API. Both use the
+:func:`~cwinpy.heterodyne.heterodyne` function, which is just a wrapper to the
+:class:`~cwinpy.heterodyne.Heterodyne`, but also runs the heterodyne via
+:meth:`~cwinpy.heterodyne.Heterodyne.heterodyne`.
+
+The first option is to use a configuration file as above with:
+
+.. code-block:: python
+
+   from cwinpy.heterodyne import heterodyne
+
+   het = heterodyne(config="example1_config.ini")
+
+The second way is to explicitly pass all the options as arguments, e.g.,
+
+.. code-block:: python
+
+   from cwinpy.heterodyne import heterodyne
+
+   het = heterodyne(
+       starttime=1000000000,
+       endtime=1000086400,
+       detector="H1",
+       channel="H1:FAKE_DATA",
+       framecache="H-H1_FAKEDATA-1000000000-86400.gwf",
+       pulsarfiles=["J0123+0123.par", "J0404-0404.par"],
+       output="heterodyneddata",
+       resamplerate=1.0 / 60.0,
+       includessb=True,  # correct to solar system barycentre
+       includebsb=True,  # correct to binary system barycentre
+   )
+
+Example: hardware injections in LIGO O1 data
+============================================
+
+In this example we will heterodyne the data for several `hardware injection
+<https://www.gw-openscience.org/o1_inj/>`_ signals in LIGO Handford (H1) data during a day of the
+first observing run `O1 <https://www.gw-openscience.org/O1/>`_. This will require access to the data
+via `CVMFS <https://www.gw-openscience.org/cvmfs/>`_. The data time span will be from 1132478127 to
+1132564527.
+
+The example assumes that you have a directory called ``pulsars`` containing TEMPO-style parameter
+files for the injections labelled ``0``, ``3``, ``5``, ``6`` and ``8`` in the table `here
+<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`_ (note that the table
+contains the signal frequency and frequency derivative, which must be halved to give equivalent
+"rotational" values in the parameter files). These files can be found in :download:`this tarball
+<examples/hardware_injections.tar.gz>`.
+
+For this we can use the following configuration file:
+
+.. literalinclude:: examples/example2_config.ini
+
+In the above file the base CVMFS directory containing the strain data files has been specified,
+which will be recursively searched for corresponding data. The ``includeflags`` and ``excludeflags``
+values have been used to set the valid `time segments
+<https://www.gw-openscience.org/archive/dataset/O1/>`_ of data to use, with ``H1_CBC_CAT2``
+specifying to use all available valid science quality data for the H1 detector (using ``H1_DATA``
+can still have gaps), and ``H1_NO_CW_HW_INJ`` specifying the exclusion of times when no
+continuous-wave hardware injections were being carried out.
+
+Running this analysis can then be achieved with:
+
+.. code-block:: bash
+
+   cwinpy_heterodyne --config example1_config.ini
+
+
 .. _heterodyne Command line arguments:
 
 Command line arguments

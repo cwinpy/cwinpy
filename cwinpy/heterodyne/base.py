@@ -80,7 +80,8 @@ class Heterodyne(object):
         documentation
         `here <https://gwpy.github.io/docs/stable/segments/index.html>`_ and
         the :func:`cwinpy.heterodyne.generate_segments` function. Use, e.g.,
-        "H1_DATA" to get segments from GWOSC for open data.
+        "H1_DATA" (or e.g., "H1_CBC_CAT2") to get segments from GWOSC for open
+        data.
     excludeflags: str, list
         A string, or list of string giving data DQ flags to exclude when
         generating a segment list if not provided in ``segmentlist``. See
@@ -729,7 +730,9 @@ class Heterodyne(object):
                         end=endread,
                         pad=kwargs.get("pad", 0.0),
                     )
-                    data.append(thisdata)
+
+                    # zero pad any gaps in the data
+                    data.append(thisdata, pad=0.0, gap="pad")
 
                 # extract channel from dictionary
                 data = data[channel]
@@ -808,8 +811,12 @@ class Heterodyne(object):
 
             # check whether include flags looks like it wants GWOSC data
             if len(self.includeflags) == 1:
-                # GWOSC segments look like DET_DATA
-                if "{}_DATA".format(self.detector) == self.includeflags[0]:
+                # GWOSC segments look like DET_DATA or DET_*_CAT*
+                if (
+                    "{}_DATA".format(self.detector) == self.includeflags[0]
+                    or "CBC_CAT" in self.includeflags[0]
+                    or "BURST_CAT" in self.includeflags[0]
+                ):
                     kwargs.setdefault("usegwosc", True)
 
         segments = generate_segments(**kwargs)
@@ -992,6 +999,15 @@ class Heterodyne(object):
             elif isinstance(pfiles, dict):
                 pfilelist = list(pfiles.values())
                 pnames = list(pfiles.keys())
+            else:
+                pfilelist = []
+                for pf in pfiles:
+                    if os.path.isfile(pf):
+                        pfilelist.append(pf)
+                    elif os.path.isdir(pf):
+                        pfilelist += [
+                            os.path.realpath(pfp) for pfp in Path(pf).rglob("*.par")
+                        ]
 
             for i, pf in enumerate(pfilelist):
                 if is_par_file(pf):
@@ -2470,6 +2486,8 @@ def local_frame_cache(
                 print("Warning: cannot check conditions for file '{}".format(frfile))
 
         cache.append("file://localhost{}".format(os.path.realpath(frfile)))
+
+    cache = sorted(cache)  # sort cache file
 
     # write output to file
     if write is not None:

@@ -469,7 +469,7 @@ def heterodyne(**kwargs):
             hetkwargs[attr] = value
 
     signal.signal(signal.SIGALRM, handler=sighandler)
-    signal.alarm(hetkwargs.pop("periodic_restart_time"))
+    signal.alarm(hetkwargs.pop("periodic_restart_time", 43200))
 
     # remove any None values
     for key in hetkwargs.copy():
