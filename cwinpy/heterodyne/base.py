@@ -3,11 +3,11 @@ Classes for heterodyning strain data.
 """
 
 import os
+import re
 import signal
 from pathlib import Path
 
 import lal
-import lalframe
 import lalpulsar
 import numpy as np
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
@@ -703,8 +703,11 @@ class Heterodyne(object):
                 data = TimeSeriesDict()
                 startread = starttime
                 for frfile in cache:
-                    frt0, frdur = frame_time_duration(frfile)
+                    _, _, frt0, frdur = frame_information(frfile)
 
+                    if frt0 >= endtime:
+                        # found frame files, so break out of loop
+                        break
                     if starttime < frt0 and endtime >= frt0:
                         startread = frt0
 
@@ -712,7 +715,7 @@ class Heterodyne(object):
                             endread = frt0 + frdur
                         else:
                             endread = endtime
-                    elif starttime >= frt0 and endtime >= frt0:
+                    elif (frt0 <= starttime < frt0 + frdur) and endtime >= frt0:
                         startread = starttime
 
                         if endtime > frt0 + frdur:
@@ -1591,7 +1594,10 @@ class Heterodyne(object):
 
                     # download/read data
                     datakwargs = kwargs.copy()
-                    datakwargs.update(dict(starttime=curstarttime, endtime=curendtime))
+                    datakwargs.update(
+                        dict(starttime=int(curstarttime), endtime=int(curendtime))
+                    )
+
                     data = self.get_frame_data(**datakwargs)
 
                     # check for consistent sample rate
@@ -1796,6 +1802,7 @@ class Heterodyne(object):
             self._write_current_pulsars()
 
     def _write_current_pulsars(self):
+        print("Writing output")
         # output heterodyned data
         for pulsar in self._datadict:
             # get time stamps
@@ -2440,13 +2447,12 @@ def local_frame_cache(
         raise TypeError("endtime must be an integer")
 
     cache = []
+    filetimes = []
     for frfile in files:
         if not os.path.isfile(os.path.realpath(frfile)):
             continue
 
-        basefile = os.path.basename(frfile)
-
-        fileparts = basefile.rstrip(".{}".format(extension)).split("-")
+        fileparts = frame_information(frfile)
 
         if len(fileparts) == 4:
             # file is in standard format
@@ -2463,31 +2469,24 @@ def local_frame_cache(
                     # types do not match
                     continue
 
-            try:
-                filetime = int(fileparts[2])
-                filedur = int(fileparts[3])
-            except Exception:
-                if np.isfinite(starttime) or np.isfinite(endtime):
-                    print("Warning: cannot check times for file '{}'".format(frfile))
-                filetime = None
+            filetime = fileparts[2]
+            filedur = fileparts[3]
 
-            if filetime is not None:
-                if not (starttime < filetime + filedur and endtime > filetime):
-                    # times do not match
-                    continue
+            if not (starttime < filetime + filedur and endtime > filetime):
+                # times do not match
+                continue
+
+            # store file start times for sorting
+            filetimes.append(filetime)
         else:
             # cannot check conditions
-            if (
-                np.isfinite(starttime)
-                or np.isfinite(endtime)
-                or site is not None
-                or frametype is not None
-            ):
-                print("Warning: cannot check conditions for file '{}".format(frfile))
+            raise IOError(
+                "Frame file name '{}' is not the correct format".format(frfile)
+            )
 
         cache.append("file://localhost{}".format(os.path.realpath(frfile)))
 
-    cache = sorted(cache)  # sort cache file
+    cache = [x[1] for x in sorted(zip(filetimes, cache))]  # sort cache files om time
 
     # write output to file
     if write is not None:
@@ -2505,9 +2504,13 @@ def local_frame_cache(
     return cache
 
 
-def frame_time_duration(framefile):
+def frame_information(framefile):
     """
-    Get the start time and duration of a given frame file.
+    Get the site name, frame type, start time and duration of a given frame
+    file. It is assumed that the provided the file names are of the standard
+    format as described in
+    `LIGO-T010150 <https://dcc.ligo.org/LIGO-T010150/public>`_, e.g.:
+    ``SITE-TYPE-GPSSTART-DURATION.gwf``.
 
     Parameters
     ----------
@@ -2517,18 +2520,22 @@ def frame_time_duration(framefile):
     Returns
     -------
     info: tuple
-        A tuple containing the frame start time and duration
+        A tuple containing the site, frame start time and duration
     """
 
-    try:
-        frp = lalframe.FrFileOpenURL(framefile)
-        frt0 = lal.LIGOTimeGPS()
-        frt0 = lalframe.FrFileQueryGTime(frt0, frp, 0)
-        frdur = lalframe.lalframe.FrFileQueryDt(frp, 0)
-    except RuntimeError:
+    frameinfo = re.compile(
+        r"(?P<site>[A-Z])-(?P<frtype>\S+)-(?P<frt0>[0-9]+)-(?P<frdur>[0-9]+).(gwf|hdf5|hdf|h5)"
+    )
+    match = frameinfo.match(os.path.basename(framefile))
+    if match is None:
         raise IOError("Could not check frame file information")
 
-    return int(frt0), frdur
+    site = match.groupdict()["site"]
+    frtype = match.groupdict()["frtype"]
+    frt0 = int(match.groupdict()["frt0"])
+    frdur = int(match.groupdict()["frdur"])
+
+    return site, frtype, int(frt0), frdur
 
 
 def generate_segments(
