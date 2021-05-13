@@ -27,6 +27,16 @@ setup(
     author="Matthew Pitkin",
     author_email="matthew.pitkin@ligo.org",
     packages=["cwinpy", "cwinpy.pe", "cwinpy.heterodyne", "cwinpy.iostream"],
+    package_dir={"cwinpy": "cwinpy"},
+    package_data={
+        "cwinpy": [
+            "data/S5/hw_inj/*.par",
+            "data/S6/hw_inj/*.par",
+            "data/O1/hw_inj/*.par",
+            "data/O2/hw_inj/*.par",
+            "data/O3/hw_inj/*.par",
+        ]
+    },
     url="http://git.ligo.org/CW/software/cwinpy",
     license="MIT",
     description="A Python module for Bayesian inferences with continuous gravitational-wave sources",

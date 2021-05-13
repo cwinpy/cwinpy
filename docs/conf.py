@@ -120,6 +120,7 @@ exclude_patterns = [
     "pe/data/example2/*.pickle",
     "pe/data/example2/*_trace.png",
     "heterodyne/heterodyne_help.txt",
+    "heterodyne/examples/segments.txt",
 ]
 
 add_function_parentheses = True

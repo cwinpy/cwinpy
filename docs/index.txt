@@ -22,6 +22,7 @@ API interface
    hierarchical
    signal
    simulation
+   information
    utils
 
 Code comparisons

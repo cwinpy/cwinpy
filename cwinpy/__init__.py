@@ -4,6 +4,7 @@ import io
 from . import iostream
 from .data import HeterodynedData, MultiHeterodynedData
 from .likelihood import TargetedPulsarLikelihood
+from .info import *
 
 from ._version import get_versions
 

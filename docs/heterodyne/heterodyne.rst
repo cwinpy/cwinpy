@@ -246,7 +246,7 @@ Running this analysis can then be achieved with:
 
 .. code-block:: bash
 
-   cwinpy_heterodyne --config example1_config.ini
+   cwinpy_heterodyne --config example2_config.ini
 
 
 .. _heterodyne Command line arguments:
