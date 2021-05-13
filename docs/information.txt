@@ -1,0 +1,6 @@
+###############
+Run information
+###############
+
+.. automodule:: cwinpy.info
+   :members:
