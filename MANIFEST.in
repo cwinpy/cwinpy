@@ -1,5 +1,7 @@
 include LICENSE README.md requirements.txt
 include versioneer.py
 include cwinpy/_version.py
+include cwinpy/heterodyne/*.c
+include cwinpy/heterodyne/*.h
 recursive-include test/ *.py
 recursive-include test/data *

@@ -6,8 +6,10 @@ sources.
 """
 
 from setuptools import setup
+from setuptools import Extension
 
 import os
+import numpy
 
 import versioneer
 
@@ -16,6 +18,48 @@ def readfile(filename):
     with open(filename, encoding="utf-8") as fp:
         filecontents = fp.read()
     return filecontents
+
+
+# check whether user has Cython
+try:
+    import Cython  # noqa: F401
+except ImportError:
+    have_cython = False
+else:
+    have_cython = True
+
+extra_compile_args = [
+    "-Wall",
+    "-O3",
+    "-Wextra",
+    "-m64",
+    "-ffast-math",
+    "-fno-finite-math-only",
+    "-march=native",
+    "-funroll-loops",
+]
+
+ext = "pyx" if have_cython else "c"
+ext_modules = [
+    Extension(
+        "cwinpy.heterodyne.fastfunctions",
+        sources=[
+            "cwinpy/heterodyne/fastfunctions.{}".format(ext),
+            "cwinpy/heterodyne/filter_core.c",
+        ],
+        include_dirs=[
+            numpy.get_include(),
+            "cwinpy/heterodyne",
+        ],
+        libraries=["m"],
+        extra_compile_args=extra_compile_args,
+    )
+]
+
+if have_cython:
+    from Cython.Build import cythonize
+
+    ext_modules = cythonize(ext_modules)
 
 
 VERSION = versioneer.get_version()
@@ -42,6 +86,8 @@ setup(
     description="A Python module for Bayesian inferences with continuous gravitational-wave sources",
     long_description=readfile(os.path.join(os.path.dirname(__file__), "README.md")),
     long_description_content_type="text/markdown",
+    setup_requires=["numpy", "cython"],
+    ext_modules=ext_modules,
     install_requires=readfile(
         os.path.join(os.path.dirname(__file__), "requirements.txt")
     ),

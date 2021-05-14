@@ -20,6 +20,7 @@ from scipy.interpolate import splev, splrep
 
 from ..data import HeterodynedData
 from ..utils import get_psr_name, initialise_ephemeris, is_par_file
+from .fastfunctions import fast_filter, fast_heterodyne
 
 
 class Heterodyne(object):
@@ -1756,9 +1757,7 @@ class Heterodyne(object):
                         )
 
                         # heterodyne data
-                        datahet = data.heterodyne(
-                            -2.0 * np.pi * phase.data, stride=data.dt.value
-                        )
+                        datahet = fast_heterodyne(data, -phase.data)
 
                         # filter data
                         self._filter_data(pulsar, datahet)
@@ -1985,9 +1984,9 @@ class Heterodyne(object):
             elif os.path.isdir(hetfile):
                 # glob for file types
                 curhetfiles = [
-                    f
+                    str(f.resolve())
                     for ext in self.extensions
-                    for f in Path(hetdata).rglob("*{}".format(ext))
+                    for f in Path(hetfile).rglob("*{}".format(ext))
                 ]
 
                 if len(curhetfiles) > 0:
@@ -2071,40 +2070,7 @@ class Heterodyne(object):
         if pulsar not in self._filters:
             raise KeyError("No filter set for pulsar '{}'".format(pulsar))
 
-        # filter data in the forward direction
-        for i in range(len(data)):
-            for idx in range(3):
-                data.value[i] = lal.IIRFilterREAL8(
-                    data.value[i].real, self._filters[pulsar][idx][0]
-                ) + 1j * lal.IIRFilterREAL8(
-                    data.value[i].imag, self._filters[pulsar][idx][1]
-                )
-
-        if not forwardsonly:
-            history = []
-
-            # save filter history from the forward pass
-            for idx in range(3):
-                history.append(
-                    (
-                        self._filters[pulsar][idx][0].history.data.copy(),
-                        self._filters[pulsar][idx][1].history.data.copy(),
-                    )
-                )
-
-            # filter the data in the backwards direction
-            for i in range(len(data) - 1, -1, -1):
-                for idx in range(3):
-                    data.value[i] = lal.IIRFilterREAL8(
-                        data.value[i].real, self._filters[pulsar][idx][0]
-                    ) + 1j * lal.IIRFilterREAL8(
-                        data.value[i].imag, self._filters[pulsar][idx][1]
-                    )
-
-            # restore the history to that from the forward pass
-            for idx in range(3):
-                self._filters[pulsar][idx][0].history.data = history[idx][0]
-                self._filters[pulsar][idx][1].history.data = history[idx][1]
+        fast_filter(pulsar, data, self._filters, forwardsonly=forwardsonly)
 
     @property
     def includessb(self):
