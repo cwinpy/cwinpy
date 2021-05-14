@@ -3185,7 +3185,7 @@ class HeterodynedData(TimeSeriesBase):
         if datasegments is not None:
             # get times within segments and data time span
             segments = (segments & SegmentList(datasegments)) & SegmentList(
-                [self.times.value[0] - dt / 2, self.times.value[-1] + dt / 2]
+                [(self.times.value[0] - dt / 2, self.times.value[-1] + dt / 2)]
             )
 
         # check that some data is within the segments

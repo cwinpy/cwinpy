@@ -21,8 +21,8 @@ python-3.7:
   script:
     - pip install .
 
-    # run tests
-    - pytest
+    # run tests (have to use this form due to Cython code - see https://stackoverflow.com/a/48331262/1862861)
+    - python setup.py pytest
 
     # Make the documentation
     - cd docs
@@ -40,8 +40,8 @@ python-3.8:
   script:
     - pip install .
 
-    # run tests
-    - pytest
+    # run tests (have to use this form due to Cython code)
+    - python setup.py pytest
 
 
 # test example on python 3
