@@ -23,7 +23,7 @@ texlive texlive-latex-extra dvipng libgslcblas0 libgsl-dev
 
 # Install conda-installable programs
 RUN conda install -n ${conda_env} -y numpy"<1.20" matplotlib scipy astropy
-RUN conda install -n ${conda_env} -c anaconda coverage configargparse future
+RUN conda install -n ${conda_env} -c anaconda coverage configargparse future cython
 RUN conda install -n ${conda_env} -c numba numba
 
 # Install conda-forge-installable programs
@@ -31,7 +31,7 @@ RUN conda install -n ${conda_env} -c conda-forge black gwpy lalsuite bilby bilby
 
 # Install pip-requirements
 RUN pip install --upgrade pip
-RUN pip install --upgrade setuptools codecov pytest-coverage pytest-cov coverage-badge pytest_socket
+RUN pip install --upgrade setuptools codecov pytest-coverage pytest-cov pytest-runner coverage-badge pytest_socket
 
 RUN pip install pyerfa
 
