@@ -42,10 +42,9 @@ extra_compile_args = [
 ext = "pyx" if have_cython else "c"
 ext_modules = [
     Extension(
-        "cwinpy.heterodyne.fastfunctions",
+        "cwinpy.heterodyne.fastheterodyne",
         sources=[
-            "cwinpy/heterodyne/fastfunctions.{}".format(ext),
-            "cwinpy/heterodyne/filter_core.c",
+            "cwinpy/heterodyne/fastheterodyne.{}".format(ext),
         ],
         include_dirs=[
             numpy.get_include(),
