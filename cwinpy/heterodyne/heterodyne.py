@@ -1406,7 +1406,7 @@ class HeterodyneNode(Node):
 
     @property
     def result_directory(self):
-        """ The path to the directory where result output will be stored """
+        """The path to the directory where result output will be stored"""
         check_directory_exists_and_if_not_mkdir(self.resdir)
         return self.resdir
 
