@@ -2075,30 +2075,23 @@ class Heterodyne(object):
         di = lal.CreateREAL8Vector(len(data))
         di.data = data.value.imag
 
-        # run filter forwards
+        # apply filters (3 passes of the third order Butterworth filters)
         for idx in range(3):
+            # run filter forwards
             lal.IIRFilterREAL8Vector(dr, self._filters[pulsar][idx][0])
             lal.IIRFilterREAL8Vector(di, self._filters[pulsar][idx][1])
 
-        # run filter in reverse
-        if not forwardsonly:
-            history = []
-
-            for idx in range(3):
-                history.append(
-                    (
-                        self._filters[pulsar][idx][0].history.data.copy(),
-                        self._filters[pulsar][idx][1].history.data.copy(),
-                    )
-                )
+            if not forwardsonly:
+                # run filter backwards
+                historyr = self._filters[pulsar][idx][0].history.data.copy()
+                historyi = self._filters[pulsar][idx][1].history.data.copy()
 
                 lal.IIRFilterReverseREAL8Vector(dr, self._filters[pulsar][idx][0])
                 lal.IIRFilterReverseREAL8Vector(di, self._filters[pulsar][idx][1])
 
-            # restore the history to that from the forward pass
-            for idx in range(3):
-                self._filters[pulsar][idx][0].history.data = history[idx][0]
-                self._filters[pulsar][idx][1].history.data = history[idx][1]
+                # restore the history to that from the forward pass
+                self._filters[pulsar][idx][0].history.data = historyr
+                self._filters[pulsar][idx][1].history.data = historyi
 
         data.value.real = dr.data
         data.value.imag = di.data

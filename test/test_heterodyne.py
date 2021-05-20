@@ -1011,14 +1011,15 @@ transientTau = {tau}
             assert het2.resamplerate == 1 / hetdata.dt.value
             assert len(hetdata) == int(length * het2.resamplerate)
 
+            # check output matches model to within 2%
             if psr == "J0000+0000":  # isolated pulsar
                 assert np.all(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 5e-3
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 0.02
                 )
             else:
                 # without inclusion of BSB/glitch phase model should not match
                 assert np.any(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 5e-3
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 0.02
                 )
 
         # now heterodyne with SSB and BSB
@@ -1052,12 +1053,12 @@ transientTau = {tau}
                 "J1111+1111",
             ]:  # isolated and binary pulsar (non-glitching)
                 assert np.all(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 1e-2
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 0.02
                 )
             else:
                 # without inclusion glitch phase model should not match
                 assert np.any(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 1e-2
+                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 0.02
                 )
 
         # now heterodyne with SSB, BSB and glitch phase
@@ -1087,9 +1088,7 @@ transientTau = {tau}
             assert het2.resamplerate == 1 / hetdata.dt.value
             assert len(hetdata) == int(length * het2.resamplerate)
 
-            # increase tolerance for acceptance due to small outliers (still
-            # equivalent at the ~2% level)
-            assert np.all(np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 2e-2)
+            assert np.all(np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 0.02)
 
     def test_full_heterodyne(self):
         """
