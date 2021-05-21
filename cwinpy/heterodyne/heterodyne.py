@@ -24,7 +24,7 @@ from bilby_pipe.utils import (
 from configargparse import DefaultConfigFileParser
 
 from ..utils import sighandler
-from .base import Heterodyne
+from .base import Heterodyne, generate_segments
 
 
 def create_heterodyne_parser():
@@ -743,14 +743,39 @@ class HeterodyneDAGRunner(object):
                     if segmentlists is not None:
                         seginfo["segmentlist"] = segmentlists[det][i]
                     else:
-                        seginfo["includeflags"] = (
-                            None if includeflags is None else includeflags[det][i]
+                        # GWOSC segments look like DET_DATA or DET_*_CAT*
+                        usegwosc = False
+                        if (
+                            "{}_DATA".format(det) == includeflags[det][i]
+                            or "CBC_CAT" in includeflags[det][i]
+                            or "BURST_CAT" in includeflags[det][i]
+                        ):
+                            usegwosc = True
+
+                        # if segment list files are not provided create the lists
+                        # now rather than relying on each job doing it
+                        seginfo[
+                            "segmentlist"
+                        ] = "segments_{0:d}_{1:d}_{2}_{3}.txt".format(
+                            starttimes[det][i],
+                            endtimes[det][i],
+                            det,
+                            includeflags[det][i],
                         )
-                        seginfo["excludeflags"] = (
-                            None
-                            if excludeflags is None
-                            else excludeflags[det][i].split(",")
+                        _ = generate_segments(
+                            starttime=starttimes[det][i],
+                            endtime=endtimes[det][i],
+                            includeflags=includeflags[det][i],
+                            excludeflags=(
+                                None
+                                if excludeflags is None
+                                else excludeflags[det][i].split(",")
+                            ),
+                            writesegments=seginfo["segmentlist"],
+                            usegwosc=usegwosc,
+                            server=segmentserver,
                         )
+
                     segmentdata[det].append(seginfo.copy())
         elif ntimejobs > 1:
             starttimes = {det: [] for det in detectors}
@@ -769,6 +794,46 @@ class HeterodyneDAGRunner(object):
                 idx = 0
                 for starttime, endtime in zip(fullstarttimes[det], fullendtimes[det]):
                     curstart = starttime
+
+                    # if segment list files are not provided create the lists
+                    # now rather than relying on each job doing it
+                    seginfo = {}
+                    if segmentlists is not None:
+                        seginfo["segmentlist"] = segmentlists[det][idx]
+                    else:
+                        # GWOSC segments look like DET_DATA or DET_*_CAT*
+                        usegwosc = False
+                        if (
+                            "{}_DATA".format(det) == includeflags[det][idx]
+                            or "CBC_CAT" in includeflags[det][idx]
+                            or "BURST_CAT" in includeflags[det][idx]
+                        ):
+                            usegwosc = True
+
+                        # if segment list files are not provided create the lists
+                        # now rather than relying on each job doing it
+                        seginfo[
+                            "segmentlist"
+                        ] = "segments_{0:d}_{1:d}_{2}_{3}.txt".format(
+                            starttime,
+                            endtime,
+                            det,
+                            includeflags[det][idx],
+                        )
+                        _ = generate_segments(
+                            starttime=starttime,
+                            endtime=endtime,
+                            includeflags=includeflags[det][idx],
+                            excludeflags=(
+                                None
+                                if excludeflags is None
+                                else excludeflags[det][idx].split(",")
+                            ),
+                            writesegments=seginfo["segmentlist"],
+                            usegwosc=usegwosc,
+                            server=segmentserver,
+                        )
+
                     while curstart < endtime:
                         curend = curstart + tstep
                         starttimes[det].append(curstart)
@@ -783,18 +848,6 @@ class HeterodyneDAGRunner(object):
                         frinfo["channel"] = channels[det][idx]
                         framedata[det].append(frinfo.copy())
 
-                        seginfo = {}
-                        if segmentlists is not None:
-                            seginfo["segmentlist"] = segmentlists[det][idx]
-                        else:
-                            seginfo["includeflags"] = (
-                                None if includeflags is None else includeflags[det][idx]
-                            )
-                            seginfo["excludeflags"] = (
-                                None
-                                if excludeflags is None
-                                else excludeflags[det][idx].split(",")
-                            )
                         segmentdata[det].append(seginfo.copy())
                     idx += 1
         else:
@@ -936,7 +989,6 @@ class HeterodyneDAGRunner(object):
                         )
 
                         # set segment data info
-                        configdict["segmentserver"] = segmentserver
                         configdict.update(segmentdata[det][idx])
 
                         configdict["pulsarfiles"] = {
