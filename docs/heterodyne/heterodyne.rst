@@ -223,12 +223,12 @@ first observing run `O1 <https://www.gw-openscience.org/O1/>`_. This will requir
 via `CVMFS <https://www.gw-openscience.org/cvmfs/>`_. The data time span will be from 1132478127 to
 1132564527.
 
-The example assumes that you have a directory called ``pulsars`` containing TEMPO-style parameter
-files for the injections labelled ``0``, ``3``, ``5``, ``6`` and ``8`` in the table `here
+The example will look for the hardware injection signals ``5`` and ``6`` from the table `here
 <https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`_ (note that the table
 contains the signal frequency and frequency derivative, which must be halved to give equivalent
-"rotational" values in the parameter files). These files can be found in :download:`this tarball
-<examples/hardware_injections.tar.gz>`.
+"rotational" values in the parameter files). Files containing the parameters for all these
+injections for each observing run are packaged with CWInPy with locations given in the
+:obj:`~cwinpy.info.HW_INJ` dictionary.
 
 For this we can use the following configuration file:
 
@@ -237,17 +237,25 @@ For this we can use the following configuration file:
 In the above file the base CVMFS directory containing the strain data files has been specified,
 which will be recursively searched for corresponding data. The ``includeflags`` and ``excludeflags``
 values have been used to set the valid `time segments
-<https://www.gw-openscience.org/archive/dataset/O1/>`_ of data to use, with ``H1_CBC_CAT2``
-specifying to use all available valid science quality data for the H1 detector (using ``H1_DATA``
-can still have gaps), and ``H1_NO_CW_HW_INJ`` specifying the exclusion of times when no
-continuous-wave hardware injections were being carried out.
+<https://www.gw-openscience.org/archive/dataset/O1/>`_ of data to use, with ``H1_DATA`` specifying
+to use all available valid science quality data for the H1 detector, and ``H1_NO_CW_HW_INJ``
+specifying the exclusion of times when no continuous-wave hardware injections were being carried
+out.
 
-Running this analysis can then be achieved with:
+Running this analysis can then be achieved with the following code, where the first two lines
+just substitute the location of the parameter files into the configuration file:
 
 .. code-block:: bash
 
+   basepath=`python -c "from cwinpy.info import HW_INJ_BASE_PATH; print(HW_INJ_BASE_PATH)"`
+   sed -i "s|{hwinjpath}|$basepath|g" example2_config.ini
    cwinpy_heterodyne --config example2_config.ini
 
+Depending on whether 
+
+If running on data spanning a whole observing run it makes sense to split up the analysis into many
+individual jobs and run them in parallel. This can be achieved by creating a HTCondor DAG, which can
+be run on a computer cluster (or on multiple cores on a single machine), as described below [TO DO].
 
 .. _heterodyne Command line arguments:
 
