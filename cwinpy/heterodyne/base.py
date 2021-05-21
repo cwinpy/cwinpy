@@ -1618,7 +1618,7 @@ class Heterodyne(object):
                     # get times for interpolation if required
                     if self.interpolationstep > 0 and self.includessb:
                         idxstep = int(data.sample_rate.value * self.interpolationstep)
-                        ntimes = int(data.size // idxstep) + 1
+                        ntimes = int(np.ceil(data.size / idxstep)) + 1
                         gpstimesint = lalpulsar.CreateTimestampVector(ntimes)
                         for i, time in enumerate(data.times.value[::idxstep]):
                             gpstimesint.data[i] = lal.LIGOTimeGPS(time)
@@ -1801,7 +1801,6 @@ class Heterodyne(object):
             self._write_current_pulsars()
 
     def _write_current_pulsars(self):
-        print("Writing output")
         # output heterodyned data
         for pulsar in self._datadict:
             # get time stamps
