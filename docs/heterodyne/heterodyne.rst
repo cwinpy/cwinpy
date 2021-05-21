@@ -65,7 +65,12 @@ split the analysis up to run as many separate jobs. If you have access to a comp
 as those available to the LVK, or via the OSG), or an individual machine (see below), running the
 `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ job scheduler system, the analysis can be split
 up using the ``cwinpy_heterodyne_dag`` pipeline script. We will also describe examples of using
-this.
+this. In some cases you may need to generate a proxy certificate to allow the analysis script to
+access frame files, e.g.,:
+
+.. code:: bash
+
+   ligo-proxy-init -p albert.einstein
 
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
 data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS

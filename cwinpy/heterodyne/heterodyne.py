@@ -1421,6 +1421,9 @@ class HeterodyneNode(Node):
                 "accounting_group_user = {}".format(self.inputs.accounting_user)
             )
 
+        # add use_x509userproxy = true to pass on proxy certificate to jobs
+        self.extra_lines.append("use_x509userproxy = true")
+
         parseobj = DefaultConfigFileParser()
         with open(configfile, "w") as fp:
             fp.write(parseobj.serialize(configdict))
