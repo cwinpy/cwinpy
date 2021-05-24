@@ -140,6 +140,46 @@ exception will be raised. To overwrite a file use:
 
     >>> het.write("data.hdf5", overwrite=True)
 
+Combining data
+--------------
+
+Merging data
+^^^^^^^^^^^^
+
+If you have multiple heterodyned data files for a given detector and pulsar it might make sense to
+combine them in one :class:`~cwinpy.data.HeterodynedData` object. The
+:meth:`~cwinpy.data.HeterodynedData.read` method can in fact be passed a list of heterodyned data
+files, and provided that they are compatible (i.e., they are for the same detector, the same pulsar,
+and the same frequency scale factor) they will be merged into one. By default the resulting object
+will be sorted in ascending time order even if the input files where not sorted in time order. If
+you had two files ``data1.hdf5`` and ``data2.hdf5`` they could be read in and merged with:
+
+
+.. code-block:: python
+
+    >>> from cwinpy.data import HeterodynedData
+    >>> data = HeterodynedData.read(["data1.hdf5", "data2.hdf5"])
+
+Data from multiple detectors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You may want to store data for one pulsar, but from multiple detectors, or multiple frequency scale
+factor data streams. This can be done using the :class:`~cwinpy.data.MultiHeterodynedData` class.
+You can use the :meth:`~cwinpy.data.MultiHeterodynedData.add_data` method to add in multiple data
+sets, which are stored in a dictionary-like format keyed by the detectors. If you had heterodyned
+data files for H1 and L1 called ``dataH1.hdf5`` and ``dataL1.hdf5``, respectively, they could be
+stored with:
+
+.. code-block:: python
+
+    >>> from cwinpy.data import MultiHeterodynedData
+    >>> data = MultiHeterodynedData()
+    >>> data.add_data("dataH1.hdf5")
+    >>> data.add_data("dataL1.hdf5")
+
+This type of object is used when performing parameter estimation for a single pulsar with data from
+multiple detectors.
+
 Data API
 --------
 
