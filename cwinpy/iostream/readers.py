@@ -4,7 +4,6 @@ import numpy as np
 from gwpy.io import hdf5 as io_hdf5
 from gwpy.io import registry as io_registry
 from gwpy.io.utils import identify_factory
-from gwpy.timeseries import TimeSeriesBase
 from gwpy.types.io.hdf5 import write_hdf5_series as gwpy_write_hdf5_series
 
 from ..data import HeterodynedData
@@ -68,6 +67,11 @@ def read_hdf5_series(
     dataset = io_hdf5.find_dataset(source, path=path)
     kwargs = dict(dataset.attrs)
 
+    # remove any None attributes
+    for key in list(kwargs.keys()):
+        if str(kwargs[key]) == "None":
+            kwargs.pop(key)
+
     parfiles = {}
     for par in ["par", "injpar"]:
         if par in kwargs:
@@ -78,9 +82,6 @@ def read_hdf5_series(
             with open(parfiles[par], "w") as fp:
                 fp.write(kwargs[par])
             kwargs[par] = parfiles[par]
-
-    # check whether injected signal is given
-    injdata = kwargs.pop("inj_data", None)
 
     # make sure certain values are integers
     for key in kwargs:
@@ -109,6 +110,10 @@ def read_hdf5_series(
 
     # extract data variances if contained in the file
     vars = kwargs.pop("vars", None)
+
+    # extract injection times if contained in the file
+    injtimes = kwargs.pop("injtimes", None)
+
     if vars is None:
         array = array_type(data, **kwargs)
     else:
@@ -116,22 +121,34 @@ def read_hdf5_series(
             np.column_stack((data.real, data.imag, np.sqrt(vars))), **kwargs
         )
 
-    # re-add noise-free injected signal
-    if injdata is not None:
-        array._inj_data = TimeSeriesBase(
-            injdata, times=array.times, channel=array.channel
-        )
-        array.injection = True
-        array.injpar = parfiles["injpar"]
-
     # add filter history
     if filter_history is not None:
         array.filter_history = filter_history
+
+    # re-add in injection times
+    if injtimes is not None:
+        array.injtimes = injtimes
+
+        # add injection parameters as these will not be added when reading in
+        # data that contains an injection
+        if kwargs.get("injpar", None) is not None:
+            array.injpar = kwargs["injpar"]
+        else:
+            array.injpar = array.par
 
     for par in ["par", "injpar"]:
         if par in parfiles:
             # remove temporary parameter file
             os.remove(parfiles[par])
+
+    # set CWInPy version from read in file rather than
+    array.cwinpy_version = kwargs["cwinpy_version"]
+
+    # set heterodyne parameters
+    array.include_ssb = kwargs.get("include_ssb", False)
+    array.include_bsb = kwargs.get("include_bsb", False)
+    array.include_glitch = kwargs.get("include_glitch", False)
+    array.include_fitwaves = kwargs.get("include_fitwaves", False)
 
     return array
 
@@ -158,9 +175,8 @@ def write_ascii_series(series, output, **kwargs):
     yarri = series.value.imag
 
     stds = None
-    if kwargs.pop("includestds", False):
-        if hasattr(series, "vars"):
-            stds = series.stds
+    if series._input_stds:
+        stds = series.stds
 
     try:
         comments = series.comments
@@ -223,7 +239,7 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
     origslots = tuple(series._metadata_slots)
     badslots = ["par", "injpar", "laldetector", "running_median", "vars", "xindex"]
 
-    if kwargs.pop("includestds", False):
+    if series._input_stds:
         # allow vars to be included
         badslots.remove("vars")
 

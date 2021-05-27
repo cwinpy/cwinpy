@@ -19,7 +19,7 @@ from gwpy.types import Series
 from numba import jit
 
 # import utility functions
-from .utils import gcd_array, is_par_file, logfactorial
+from .utils import gcd_array, get_psr_name, is_par_file, logfactorial
 
 
 class MultiHeterodynedData(object):
@@ -746,10 +746,11 @@ class HeterodynedData(TimeSeriesBase):
 
     Parameters
     ----------
-    data: str, array_like
+    data: str, list, array_like
         A file (plain ascii text, gzipped ascii text, or HDF5 file) containing
-        a time series of heterodyned data, or an array containing the complex
-        heterodyned data.
+        a time series of heterodyned data, or list of files names (from the
+        same detector/frequency scale factor/pulsar) to be concatenated, or an
+        array containing the complex heterodyned data.
     times: array_like
         If the data was passed using the `data` argument, then the associated
         time stamps should be passed using this argument.
@@ -846,10 +847,9 @@ class HeterodynedData(TimeSeriesBase):
         "bbmaxlength",
         "outlier_thresh",
         "injtimes",
-        "freq_factor",
+        "freqfactor",
         "filter_history",
         "running_median",
-        "inj_data",
         "input_stds",
         "outlier_mask",
         "include_ssb",
@@ -886,7 +886,7 @@ class HeterodynedData(TimeSeriesBase):
         stds = None  # initialise standard deviations
 
         # read/parse data
-        if isinstance(data, str):
+        if isinstance(data, (str, list)):
             try:
                 new = cls.read(data)
             except Exception as e:
@@ -989,7 +989,10 @@ class HeterodynedData(TimeSeriesBase):
                 warnings.warn("Your data is only one data point long!")
                 new.dt = None
 
-        # don't recompute values on data that has been read in
+        # don't recompute values on data that has been read in or have had outliers
+        # removed (the remove method already does this). Note: if data was a list
+        # of files then this does get run to compute the running median/change points
+        # for any merged data files.
         if not isinstance(data, str) or remove_outliers:
             # initialise the running median
             _ = new.compute_running_median(N=new.window)
@@ -1018,8 +1021,7 @@ class HeterodynedData(TimeSeriesBase):
         new.set_ephemeris(ephemearth, ephemsun)
 
         # set and add a simulated signal
-        new.injection = bool(inject)
-        if new.injection:
+        if bool(inject):
             # inject the signal
             if injpar is None:
                 new.inject_signal(injtimes=injtimes)
@@ -1032,32 +1034,165 @@ class HeterodynedData(TimeSeriesBase):
                 new.comments = comments
 
         # add CWInPy version used for creation of data if not present
-        if not hasattr(new, "cwinpy_version"):
+        if not hasattr(new, "_cwinpy_version"):
             new.cwinpy_version = cwinpy.__version__
 
         return new
 
+    @property
+    def cwinpy_version(self):
+        """
+        Return the version of CWInPy used to produce the dataset.
+        """
+
+        return self._cwinpy_version
+
+    @cwinpy_version.setter
+    def cwinpy_version(self, version):
+        self._cwinpy_version = version
+
     @classmethod
     def read(cls, source, *args, **kwargs):
         """
-        Read in a time series of data from a given file. Currently this only
-        supports ascii text files as described for the
-        :class:`~cwinpy.data.HeterodynedData` class.
+        Read in a time series of data from a given file or list of files.
+        Currently this supports ascii text files as described for the
+        :class:`~cwinpy.data.HeterodynedData` class or HDF5 files.
 
         See :meth:`gwpy.timeseries.TimeSeries.read` for more information.
         """
 
-        return read_multi(lambda x: x[0], cls, source, *args, **kwargs)
+        if isinstance(source, str):
+            datafiles = [source]
+        else:
+            datafiles = list(source)
+
+        hetdata = read_multi(lambda x: x[0], cls, datafiles[0], *args, **kwargs)
+
+        for dfile in datafiles[1:]:
+            moredata = read_multi(lambda x: x[0], cls, dfile, *args, **kwargs)
+            hetdata.merge(moredata)
+
+        return hetdata
 
     def write(self, target, *args, **kwargs):
         """
         Write this :class:`~cwinpy.data.HeterodynedData` object to a file.
         """
 
-        if self._input_stds:
-            kwargs["includestds"] = True
-
         return io_registry.write(self, target, *args, **kwargs)
+
+    def merge(self, other, sort=True):
+        """
+        Merge another class:`~cwinpy.data.HeterodynedData` with the current one
+        in-place. The times series will be sorted to be in ascending order if
+        required.
+
+        Parameters
+        ----------
+        other: class:`~cwinpy.data.HeterodynedData`
+            Another class:`~cwinpy.data.HeterodynedData` object.
+        sort: bool
+            Sort the merged data in ascending time order.
+        """
+
+        # check compatibility
+        self.is_compatible(other)
+
+        # check data does not overlap
+        start0 = self.times[0]
+        end0 = self.times[-1]
+
+        startother = other.times[0]
+        endother = other.times[0]
+
+        if start0 <= startother <= end0 or start0 <= endother <= end0:
+            raise ValueError("Cannot merge overlapping data")
+
+        M = len(self) + len(other)
+        N = len(other)
+
+        # get indices of sorted array
+        if sort:
+            sortidx = np.argsort(np.concatenate((self.times.value, other.times.value)))
+
+        # resize times series
+        self.resize(M, refcheck=False)
+        self.value[-N:] = other.value
+        if sort:
+            self.value[:] = self.value[sortidx]
+
+        # resize of time values
+        try:
+            self.xindex.resize(M, refcheck=False)
+        except ValueError as exc:
+            if "cannot resize" in str(exc):
+                self._xindex = self.xindex.copy()
+                self._xindex.resize((M,))
+            else:
+                raise
+        self.xindex[-N:] = other._xindex
+        if sort:
+            self.xindex[:] = self.xindex[sortidx]
+
+        # resize the variances if given
+        if self.vars is not None and other.vars is not None:
+            self._vars.resize(M, refcheck=False)
+            self._vars[-N:] = other.vars
+            if sort:
+                self._vars[:] = self._vars[sortidx]
+
+        # resize the injection times if given
+        if self.injtimes is not None:
+            # sort injection times
+            injtimes = np.vstack((self._injtimes, other._injtimes))
+            injtimes = np.array(sorted(zip(injtimes[:, 0], injtimes[:, 1])))
+
+            self._injtimes.resize(injtimes.shape, refcheck=False)
+            self._injtimes[:, :] = injtimes
+
+    def is_compatible(self, other):
+        """
+        Check if another class:`~cwinpy.data.HeterodynedData` object is
+        "compatible", i.e., contains data for the same detector, pulsar and
+        frequency scale, as the current object.
+
+        Parameters
+        ----------
+        other: class:`~cwinpy.data.HeterodynedData`
+            Another class:`~cwinpy.data.HeterodynedData` object.
+
+        Returns
+        -------
+        bool:
+            Returns True if compatible otherwise it will raise an exception.
+        """
+
+        # check compatible detectors
+        if self.detector is not None and other.detector is not None:
+            if self.detector != other.detector:
+                raise ValueError("Incompatible detectors")
+
+        # check for compatible pulsars
+        if self.par is not None and other.par is not None:
+            if get_psr_name(self.par) != get_psr_name(other.par):
+                raise ValueError("Incompatible pulsars")
+
+        # check for compatible frequency scale factors
+        if self.freq_factor is not None and other.freq_factor is not None:
+            if self.freq_factor != other.freq_factor:
+                raise ValueError("Incompatible frequency factors")
+
+        # check variances either are all set or not set
+        if self._input_stds != other._input_stds:
+            raise ValueError("Incompatible setting of variances")
+
+        # check injection times are all set or not set
+        if (self.injtimes is not None and other.injtimes is None) or (
+            self.injtimes is None and other.injtimes is not None
+        ):
+            raise ValueError("Incompatible injection times")
+
+        return super().is_compatible(other)
 
     @property
     def dt(self):
@@ -1428,7 +1563,7 @@ class HeterodynedData(TimeSeriesBase):
 
         return self.vars
 
-    def inject_signal(self, injpar=None, injtimes=None):
+    def inject_signal(self, injpar=None, injtimes=None, inject=True):
         """
         Inject a simulated signal into the data.
 
@@ -1439,6 +1574,10 @@ class HeterodynedData(TimeSeriesBase):
             simulated signal.
         injtimes: list
             A list of pairs of time values between which to inject the signal.
+        inject: bool
+            If True (default) the simulated signal will be generated and added
+            to the data. If False the signal will be created and returned, but
+            not added into the data.
         """
 
         # create the signal to inject
@@ -1464,13 +1603,13 @@ class HeterodynedData(TimeSeriesBase):
             inj_data[timeidxs] = signal[timeidxs]
 
         # add injection to data
-        self += inj_data
+        if inject:
+            self += inj_data
 
-        # save injection data
-        self._inj_data = inj_data
-
-        # (re)compute the running median
-        _ = self.compute_running_median(N=self.window)
+            # (re)compute the running median
+            _ = self.compute_running_median(N=self.window)
+        else:
+            return inj_data
 
     @property
     def injtimes(self):
@@ -1478,6 +1617,8 @@ class HeterodynedData(TimeSeriesBase):
         A list of times at which an injection was added to the data.
         """
 
+        if not hasattr(self, "_injtimes"):
+            self._injtimes = None
         return self._injtimes
 
     @injtimes.setter
@@ -1498,6 +1639,18 @@ class HeterodynedData(TimeSeriesBase):
                 raise ValueError("Injection time ranges are incorrect")
 
         self._injtimes = timelist
+
+    @property
+    def injection(self):
+        """
+        Return a boolean to describe whether the data contains a user-generated
+        injection or not.
+        """
+
+        if self.injpar is not None and self.injtimes is not None:
+            return True
+        else:
+            return False
 
     def set_ephemeris(self, earth=None, sun=None):
         """
@@ -1535,7 +1688,12 @@ class HeterodynedData(TimeSeriesBase):
         The pure simulated signal that was added to the data.
         """
 
-        return self._inj_data.value
+        if self.injection:
+            return self.inject_signal(
+                injpar=self.injpar, injtimes=self.injtimes, inject=False
+            ).value
+        else:
+            return None
 
     @property
     def injection_snr(self):
@@ -1654,7 +1812,7 @@ class HeterodynedData(TimeSeriesBase):
         was heterodyned.
         """
 
-        return self._freq_factor
+        return self._freqfactor
 
     @freq_factor.setter
     def freq_factor(self, freqfactor):
@@ -1664,7 +1822,16 @@ class HeterodynedData(TimeSeriesBase):
         if freqfactor <= 0.0:
             raise ValueError("Frequency scale factor must be a positive number")
 
-        self._freq_factor = float(freqfactor)
+        self._freqfactor = float(freqfactor)
+
+    @property
+    def freqfactor(self):
+        """
+        Alias for ``freq_factor`` to be consistent with input keyword
+        arguments.
+        """
+
+        return self.freq_factor
 
     def add_noise(self, asd, issigma=False, seed=None):
         """
@@ -2361,7 +2528,7 @@ class HeterodynedData(TimeSeriesBase):
         ax=None,
         remove_outliers=False,
         thresh=3.5,
-        zero_time=True,
+        zero_time=False,
         labelsize=None,
         fontsize=None,
         legendsize=None,
@@ -2388,7 +2555,7 @@ class HeterodynedData(TimeSeriesBase):
         thresh: float, 3.5
             The threshold for outlier removal (see
             :meth:`~cwinpy.data.HeterodynedData.find_outliers`).
-        zero_time: bool, True
+        zero_time: bool, False
             Start the time axis at zero.
         labelsize: int
             Set the fontsize for the axes tick labels.
@@ -2439,25 +2606,30 @@ class HeterodynedData(TimeSeriesBase):
             # set marker to a circle
             plotkwargs["marker"] = "o"
 
+        times = self.times[idx] - (0 if not zero_time else self.times[0])
+        if "xscale" not in plotkwargs and zero_time:
+            # switch from auto-gps to linear scale if zeroing x-axis
+            plotkwargs["xscale"] = "linear"
+
         # set the data to use
         if which.lower() in ["abs", "absolute"]:
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$|B_k|$"
-            plot = super(HeterodynedData, self.take(idx).abs()).plot(**plotkwargs)
+            plot = TimeSeries(self.take(idx).abs(), times=times).plot(**plotkwargs)
         elif which.lower() in ["real", "re"]:
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$\\Re{(B_k)}$"
-            plot = super(HeterodynedData, self.take(idx).real).plot(**plotkwargs)
+            plot = TimeSeries(self.take(idx).real, times=times).plot(**plotkwargs)
         elif which.lower() in ["im", "imag", "imaginary"]:
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$\\Im{(B_k)}$"
-            plot = super(HeterodynedData, self.take(idx).imag).plot(**plotkwargs)
+            plot = TimeSeries(self.take(idx).imag, times=times).plot(**plotkwargs)
         elif which.lower() == "both":
             from gwpy.timeseries import TimeSeriesDict
 
             pldata = TimeSeriesDict()
-            pldata["Real"] = self.take(idx).real
-            pldata["Imag"] = self.take(idx).imag
+            pldata["Real"] = TimeSeries(self.take(idx).real, times=times)
+            pldata["Imag"] = TimeSeries(self.take(idx).imag, times=times)
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$B_k$"
             plot = pldata.plot(**plotkwargs)
@@ -2560,6 +2732,8 @@ class HeterodynedData(TimeSeriesBase):
 
         speckwargs = {}
         speckwargs["dt"] = dt
+        speckwargs["plot"] = plot
+        speckwargs["ax"] = ax
         speckwargs["window"] = window
         speckwargs["overlap"] = overlap
         speckwargs["remove_outliers"] = remove_outliers
