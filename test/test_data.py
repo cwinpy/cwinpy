@@ -417,6 +417,218 @@ PHI0     2.4
 
         os.remove(parfile)
 
+    def test_merge_data(self):
+        """
+        Test merging multiple data sets during reading.
+        """
+
+        # create three sets of data
+        times1 = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data1 = np.random.normal(0.0, 1e-25, size=(len(times1), 2))
+        stds = 1e-25 * np.ones_like(times1)
+        data1 = np.column_stack((data1, stds))
+
+        times2 = np.linspace(999913600.0, 999999940.0, 1440)
+        data2 = np.random.normal(0.0, 1e-25, size=(len(times2), 2))
+        stds = 1e-25 * np.ones_like(times2)
+        data2 = np.column_stack((data2, stds))
+
+        # don't add standard deviations to third data set for now
+        times3 = np.linspace(1000186400.0, 1000359140.0, 2880)
+        data3 = np.random.normal(0.0, 1e-25, size=(len(times3), 2))
+
+        parcontent1 = """\
+PSRJ     J0123+3456
+RAJ      01:23:45.6789
+DECJ     34:56:54.321
+F0       567.89
+F1       -1.2e-12
+PEPOCH   56789
+H0       9.87e-26
+COSIOTA  0.3
+PSI      1.1
+PHI0     2.4
+"""
+
+        parfile1 = "J0123+3456.par"
+
+        parcontent2 = """\
+PSRJ     J0123+3457
+RAJ      01:23:45.6789
+DECJ     34:56:54.321
+F0       567.89
+F1       -1.2e-12
+PEPOCH   56789
+H0       9.87e-26
+COSIOTA  0.3
+PSI      1.1
+PHI0     2.4
+"""
+
+        parfile2 = "J0123+3457.par"
+
+        # add content to the par file
+        for parfile, parcontent in zip(
+            [parfile1, parfile2], [parcontent1, parcontent2]
+        ):
+            with open(parfile, "w") as fp:
+                fp.write(parcontent)
+
+        # test for overlapping times
+        datafiles = []
+        datalist = [data1, data2, data1]
+        timeslist = [times1, times2, times1]
+
+        N = len(datalist)
+
+        for i in range(N):
+            datafile = "testdata_H1_{}.hdf5".format(i)
+            datafiles.append(datafile)
+
+            # write out data
+            het = HeterodynedData(
+                datalist[i], times=timeslist[i], detector="H1", par=parfile1
+            )
+            het.write(datafile, overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Cannot merge overlapping data" in str(e)
+
+        datalist = [data1, data2, data3]
+        timeslist = [times1, times2, times3]
+
+        # test for inconsistent detectors when merging
+        for i, det in enumerate(["H1", "H1", "L1"]):
+            # write out data
+            het = HeterodynedData(
+                datalist[i], times=timeslist[i], detector=det, par=parfile1
+            )
+            het.write(datafiles[i], overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Incompatible detectors" in str(e)
+
+        # test for inconsistent pulsars
+        for i in range(N):
+            # write out data
+            het = HeterodynedData(
+                datalist[i],
+                times=timeslist[i],
+                detector="H1",
+                par=(parfile1 if i == 0 else parfile2),
+            )
+            het.write(datafiles[i], overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Incompatible pulsars" in str(e)
+
+        # test for inconsistent frequency scale factors
+        for i in range(N):
+            # write out data
+            het = HeterodynedData(
+                datalist[i],
+                times=timeslist[i],
+                detector="H1",
+                par=parfile1,
+                freqfactor=(2 if i == 0 else 1),
+            )
+            het.write(datafiles[i], overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Incompatible frequency factors" in str(e)
+
+        # check for inconsistencies in whether variances were set or not
+        for i in range(N):
+            # write out data
+            het = HeterodynedData(
+                datalist[i],
+                times=timeslist[i],
+                detector="H1",
+                par=parfile1,
+                freqfactor=2,
+            )
+            het.write(datafiles[i], overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Incompatible setting of variances" in str(e)
+
+        # make data sets have compatible variances settings
+        stds = 1e-25 * np.ones_like(times3)
+        data3 = np.column_stack((data3, stds))
+        datalist[-1] = data3
+
+        # check for inconsistent injection of a signal
+        for i in range(N):
+            # write out data
+            het = HeterodynedData(
+                datalist[i],
+                times=timeslist[i],
+                detector="H1",
+                par=parfile1,
+                freqfactor=2,
+                inject=(True if i < (N - 1) else False),
+            )
+            het.write(datafiles[i], overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Incompatible injection times" in str(e)
+
+        # create consistent files for merging and check the output
+        hets = []
+        for i in range(N):
+            # write out data
+            het = HeterodynedData(
+                datalist[i],
+                times=timeslist[i],
+                detector="H1",
+                par=parfile1,
+                freqfactor=2,
+                inject=True,
+            )
+            het.write(datafiles[i], overwrite=True)
+            hets.append(het)  # store for comparisons
+
+        # read in data
+        newhet = HeterodynedData.read(datafiles)
+
+        # test times are correct and sorted
+        times = np.concatenate((times2, times1, times3))  # correct time order
+        assert len(newhet) == len(times)
+        assert np.array_equal(times, newhet.times.value)
+        assert newhet.dt.value == np.min(np.diff(times))
+
+        # test data is correct
+        assert np.array_equal(
+            newhet.data, np.concatenate([hets[i].data for i in [1, 0, 2]])
+        )
+
+        # test injection data
+        assert newhet.injtimes.shape == (N, 2)
+        assert np.allclose(
+            newhet.injection_data,
+            np.concatenate([hets[i].injection_data for i in [1, 0, 2]]),
+        )
+
+        # remove par files
+        for parfile in [parfile1, parfile2]:
+            os.remove(parfile)
+
+        # remove data files
+        for datafile in datafiles:
+            os.remove(datafile)
+
     def test_zero_data(self):
         """
         Test that data containing zeros is produced if only time stamps are
