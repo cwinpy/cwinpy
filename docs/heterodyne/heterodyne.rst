@@ -141,9 +141,9 @@ Running the ``cwinpy_heterodyne`` script is done with:
 
    cwinpy_heterodyne --config example1_config.ini
 
-In this case the outputs (HDF5 files containing :class:`~cwinpy.data.HeterodynedData` objects) will
-be placed in the ``heterodyneddata`` directory as specified by the ``output`` option in the
-configration file. The default output file name format follows the convention
+The outputs (HDF5 files containing :class:`~cwinpy.data.HeterodynedData` objects) will be placed in
+the ``heterodyneddata`` directory as specified by the ``output`` option in the configration file.
+The default output file name format follows the convention
 ``heterodyne_{pulsarname}_{detector}_{frequencyfactor}_{starttime}_{endtime}.hdf5``. Therefore, the
 above command creates the two files:
 
@@ -256,11 +256,55 @@ just substitute the location of the parameter files into the configuration file:
    sed -i "s|{hwinjpath}|$basepath|g" example2_config.ini
    cwinpy_heterodyne --config example2_config.ini
 
-Depending on whether 
+If the CVMFS data is being downloaded on-the-fly then (depending on your internet connection speed)
+this may take on the order of tens of minutes to run.
+
+The outputs (HDF5 files containing :class:`~cwinpy.data.HeterodynedData` objects) will be placed in
+the ``heterodyneddata`` directory as specified by the ``output`` option in the configration file.
+The default output file name format follows the convention
+``heterodyne_{pulsarname}_{detector}_{frequencyfactor}_{starttime}_{endtime}.hdf5``. Therefore, the
+above command creates the two files:
+
+* ``heterodyne_JPULSAR05_H1_2_1132478127-1132564527.hdf5``
+* ``heterodyne_JPULSAR06_H1_2_1132478127-1132564527.hdf5``
+
+We can take a look at the heterodyned data for the hardware injection with:
+
+.. code-block: python
+
+   from cwinpy import HeterodynedData
+
+   hwinj = HeterodynedData.read("heterodyne_JPULSAR05_H1_2_1132478127-1132564527.hdf5")
+   # "both" specifies plotting real and imaginary data, "remove_outliers" removes outliers!
+   fig = hwinj.plot(which="both", remove_outliers=True)
+   fig.show()
+
+.. thumbnail:: examples/example2_plot.png
+   :width: 600px
+   :align: center
+
+   We can see the signal in the data by taking a spectrum:
+
+.. code-block: python
+
+   figspec = hwinj.periodogram(remove_outliers=True)
+   figspec.show()
+
+.. thumbnail:: examples/example2_spectrum_plot.png
+   :width: 600px
+   :align: center
 
 If running on data spanning a whole observing run it makes sense to split up the analysis into many
 individual jobs and run them in parallel. This can be achieved by creating a HTCondor DAG, which can
-be run on a computer cluster (or on multiple cores on a single machine), as described below [TO DO].
+be run on a computer cluster (or on multiple cores on a single machine), as described
+:ref:`below<Running using HTCondor>`.
+
+Running using HTCondor
+######################
+
+When heterodyning long stretches of data it is preferable to split the observations up into more
+manageable chunks of time.
+
 
 .. _heterodyne Command line arguments:
 
@@ -274,6 +318,7 @@ given below:
    :language: none
 
 .. _heterodyne API:
+
 
 Heterodyne API
 --------------

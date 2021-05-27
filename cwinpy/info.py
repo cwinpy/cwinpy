@@ -243,11 +243,11 @@ RUNTIMES["O3a"] = {
 #    "L1": [1253977218, 1269363618],
 #    "V1": [1253977218, 1269363618],
 # }
-# RUNTIMES["O3"] = {
-#    "H1": [1238166018, 1269363618],
-#    "L1": [1238166018, 1269363618],
-#    "V1": [1238166018, 1269363618],
-# }
+RUNTIMES["O3"] = {
+    "H1": [1238166018, 1269363618],
+    "L1": [1238166018, 1269363618],
+    "V1": [1238166018, 1269363618],
+}
 
 
 #: Start and end run times for continuous wave hardware injections
@@ -276,9 +276,10 @@ for run in HW_INJ:
     ]
 
 
+#: Base CVMFS directory open GWOSC frame data
 CVMFS_GWOSC_BASE = "/cvmfs/gwosc.osgstorage.org/gwdata/"
-#: CVMFS frame data locations for each run
-CVMFS_FRAME_DATA_LOCATIONS = {
+#: CVMFS frame data locations for each run for open GWOSC frame data
+CVMFS_GWOSC_FRAME_DATA_LOCATIONS = {
     run: {
         rate: {
             det: os.path.join(
@@ -291,8 +292,59 @@ CVMFS_FRAME_DATA_LOCATIONS = {
     for run in RUNTIMES
 }
 
+#: data channel names in the GWOSC data frames
+CVMFS_GWOSC_FRAME_CHANNELS = {
+    "S5": {
+        "4k": {
+            "H1": "H1:LOSC-STRAIN",
+            "H2": "H2:LOSC-STRAIN",
+            "L1": "L1:LOSC-STRAIN",
+        },
+    },
+    "S6": {
+        "4k": {
+            "H1": "H1:LOSC-STRAIN",
+            "L1": "L1:LOSC-STRAIN",
+        },
+    },
+    "O1": {
+        "4k": {
+            "H1": "H1:LOSC_STRAIN",
+            "L1": "L1:LOSC_STRAIN",
+        },
+        "16k": {
+            "H1": "H1:GWOSC-16KHZ_R1_STRAIN",
+            "L1": "L1:GWOSC-16KHZ_R1_STRAIN",
+        },
+    },
+    "O2": {
+        "4k": {
+            "H1": "H1:GWOSC-4KHZ_R1_STRAIN",
+            "L1": "L1:GWOSC-4KHZ_R1_STRAIN",
+            "V1": "V1:GWOSC-4KHZ_R1_STRAIN",
+        },
+        "16k": {
+            "H1": "H1:GWOSC-16KHZ_R1_STRAIN",
+            "L1": "L1:GWOSC-16KHZ_R1_STRAIN",
+            "V1": "V1:GWOSC-16KHZ_R1_STRAIN",
+        },
+    },
+    "O3a": {
+        "4k": {
+            "H1": "H1:GWOSC-4KHZ_R1_STRAIN",
+            "L1": "L1:GWOSC-4KHZ_R1_STRAIN",
+            "V1": "V1:GWOSC-4KHZ_R1_STRAIN",
+        },
+        "16k": {
+            "H1": "H1:GWOSC-16KHZ_R1_STRAIN",
+            "L1": "L1:GWOSC-16KHZ_R1_STRAIN",
+            "V1": "V1:GWOSC-16KHZ_R1_STRAIN",
+        },
+    },
+}
+
 #: CVMFS HDF5 data locations for each run
-CVMFS_HDF5_DATA_LOCATIONS = {
+CVMFS_GWOSC_HDF5_DATA_LOCATIONS = {
     run: {
         rate: {
             det: os.path.join(
