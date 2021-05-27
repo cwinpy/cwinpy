@@ -847,10 +847,9 @@ class HeterodynedData(TimeSeriesBase):
         "bbmaxlength",
         "outlier_thresh",
         "injtimes",
-        "freq_factor",
+        "freqfactor",
         "filter_history",
         "running_median",
-        "inj_data",
         "input_stds",
         "outlier_mask",
         "include_ssb",
@@ -990,7 +989,10 @@ class HeterodynedData(TimeSeriesBase):
                 warnings.warn("Your data is only one data point long!")
                 new.dt = None
 
-        # don't recompute values on data that has been read in
+        # don't recompute values on data that has been read in or have had outliers
+        # removed (the remove method already does this). Note: if data was a list
+        # of files then this does get run to compute the running median/change points
+        # for any merged data files.
         if not isinstance(data, str) or remove_outliers:
             # initialise the running median
             _ = new.compute_running_median(N=new.window)
@@ -1019,8 +1021,7 @@ class HeterodynedData(TimeSeriesBase):
         new.set_ephemeris(ephemearth, ephemsun)
 
         # set and add a simulated signal
-        new.injection = bool(inject)
-        if new.injection:
+        if bool(inject):
             # inject the signal
             if injpar is None:
                 new.inject_signal(injtimes=injtimes)
@@ -1033,10 +1034,22 @@ class HeterodynedData(TimeSeriesBase):
                 new.comments = comments
 
         # add CWInPy version used for creation of data if not present
-        if not hasattr(new, "cwinpy_version"):
+        if not hasattr(new, "_cwinpy_version"):
             new.cwinpy_version = cwinpy.__version__
 
         return new
+
+    @property
+    def cwinpy_version(self):
+        """
+        Return the version of CWInPy used to produce the dataset.
+        """
+
+        return self._cwinpy_version
+
+    @cwinpy_version.setter
+    def cwinpy_version(self, version):
+        self._cwinpy_version = version
 
     @classmethod
     def read(cls, source, *args, **kwargs):
@@ -1066,9 +1079,6 @@ class HeterodynedData(TimeSeriesBase):
         Write this :class:`~cwinpy.data.HeterodynedData` object to a file.
         """
 
-        if self._input_stds:
-            kwargs["includestds"] = True
-
         return io_registry.write(self, target, *args, **kwargs)
 
     def merge(self, other, sort=True):
@@ -1088,6 +1098,16 @@ class HeterodynedData(TimeSeriesBase):
         # check compatibility
         self.is_compatible(other)
 
+        # check data does not overlap
+        start0 = self.times[0]
+        end0 = self.times[-1]
+
+        startother = other.times[0]
+        endother = other.times[0]
+
+        if start0 <= startother <= end0 or start0 <= endother <= end0:
+            raise ValueError("Cannot merge overlapping data")
+
         M = len(self) + len(other)
         N = len(other)
 
@@ -1099,43 +1119,63 @@ class HeterodynedData(TimeSeriesBase):
         self.resize(M, refcheck=False)
         self.value[-N:] = other.value
         if sort:
-            self.value[sortidx] = self.value
+            self.value[:] = self.value[sortidx]
 
         # resize of time values
-        self.xindex.resize(M, refcheck=False)
+        try:
+            self.xindex.resize(M, refcheck=False)
+        except ValueError as exc:
+            if "cannot resize" in str(exc):
+                self._xindex = self.xindex.copy()
+                self._xindex.resize((M,))
+            else:
+                raise
         self.xindex[-N:] = other._xindex
         if sort:
-            self.xindex[sortidx] = self.xindex
+            self.xindex[:] = self.xindex[sortidx]
 
         # resize the variances if given
         if self.vars is not None and other.vars is not None:
             self._vars.resize(M, refcheck=False)
             self._vars[-N:] = other.vars
             if sort:
-                self._vars[sortidx] = self._vars
+                self._vars[:] = self._vars[sortidx]
 
-        # resize the injection data if given
-        if self.injection_data is not None and other.injection_data is not None:
-            self._inj_data.value.resize(M, refcheck=False)
-            self._inj_data._xindex.resize(M, refcheck=False)
-            self._inj_data.value[-N:] = other._inj_data.value
-            if sort:
-                self._inj_data.value[sortidx] = self._inj_data.value
-            self._inj_data._xindex = self.xindex
+        # resize the injection times if given
+        if self.injtimes is not None:
+            # sort injection times
+            injtimes = np.vstack((self._injtimes, other._injtimes))
+            injtimes = np.array(sorted(zip(injtimes[:, 0], injtimes[:, 1])))
 
-        # recompute change points/variances
-        self.bayesian_blocks()
+            self._injtimes.resize(injtimes.shape, refcheck=False)
+            self._injtimes[:, :] = injtimes
 
     def is_compatible(self, other):
+        """
+        Check if another class:`~cwinpy.data.HeterodynedData` object is
+        "compatible", i.e., contains data for the same detector, pulsar and
+        frequency scale, as the current object.
+
+        Parameters
+        ----------
+        other: class:`~cwinpy.data.HeterodynedData`
+            Another class:`~cwinpy.data.HeterodynedData` object.
+
+        Returns
+        -------
+        bool:
+            Returns True if compatible otherwise it will raise an exception.
+        """
+
         # check compatible detectors
         if self.detector is not None and other.detector is not None:
-            if other.detector != other.detector:
-                raise ValueError("Incompatible detectors.")
+            if self.detector != other.detector:
+                raise ValueError("Incompatible detectors")
 
         # check for compatible pulsars
         if self.par is not None and other.par is not None:
             if get_psr_name(self.par) != get_psr_name(other.par):
-                raise ValueError("Incompatible pulsars.")
+                raise ValueError("Incompatible pulsars")
 
         # check for compatible frequency scale factors
         if self.freq_factor is not None and other.freq_factor is not None:
@@ -1143,15 +1183,14 @@ class HeterodynedData(TimeSeriesBase):
                 raise ValueError("Incompatible frequency factors")
 
         # check variances either are all set or not set
-        if (self.vars is None and other.vars is not None) or (
-            self.vars is not None and other.vars is None
-        ):
+        if self._input_stds != other._input_stds:
             raise ValueError("Incompatible setting of variances")
 
-        if (self.injection_data is None and other.injection_data is not None) or (
-            self.injection_data is not None and other.injection_data is None
+        # check injection times are all set or not set
+        if (self.injtimes is not None and other.injtimes is None) or (
+            self.injtimes is None and other.injtimes is not None
         ):
-            raise ValueError("Incompatible injection data")
+            raise ValueError("Incompatible injection times")
 
         return super().is_compatible(other)
 
@@ -1524,7 +1563,7 @@ class HeterodynedData(TimeSeriesBase):
 
         return self.vars
 
-    def inject_signal(self, injpar=None, injtimes=None):
+    def inject_signal(self, injpar=None, injtimes=None, inject=True):
         """
         Inject a simulated signal into the data.
 
@@ -1535,6 +1574,10 @@ class HeterodynedData(TimeSeriesBase):
             simulated signal.
         injtimes: list
             A list of pairs of time values between which to inject the signal.
+        inject: bool
+            If True (default) the simulated signal will be generated and added
+            to the data. If False the signal will be created and returned, but
+            not added into the data.
         """
 
         # create the signal to inject
@@ -1560,13 +1603,13 @@ class HeterodynedData(TimeSeriesBase):
             inj_data[timeidxs] = signal[timeidxs]
 
         # add injection to data
-        self += inj_data
+        if inject:
+            self += inj_data
 
-        # save injection data
-        self._inj_data = inj_data
-
-        # (re)compute the running median
-        _ = self.compute_running_median(N=self.window)
+            # (re)compute the running median
+            _ = self.compute_running_median(N=self.window)
+        else:
+            return inj_data
 
     @property
     def injtimes(self):
@@ -1574,6 +1617,8 @@ class HeterodynedData(TimeSeriesBase):
         A list of times at which an injection was added to the data.
         """
 
+        if not hasattr(self, "_injtimes"):
+            self._injtimes = None
         return self._injtimes
 
     @injtimes.setter
@@ -1594,6 +1639,18 @@ class HeterodynedData(TimeSeriesBase):
                 raise ValueError("Injection time ranges are incorrect")
 
         self._injtimes = timelist
+
+    @property
+    def injection(self):
+        """
+        Return a boolean to describe whether the data contains a user-generated
+        injection or not.
+        """
+
+        if self.injpar is not None and self.injtimes is not None:
+            return True
+        else:
+            return False
 
     def set_ephemeris(self, earth=None, sun=None):
         """
@@ -1631,8 +1688,10 @@ class HeterodynedData(TimeSeriesBase):
         The pure simulated signal that was added to the data.
         """
 
-        if hasattr(self, "_inj_data"):
-            return self._inj_data.value
+        if self.injection:
+            return self.inject_signal(
+                injpar=self.injpar, injtimes=self.injtimes, inject=False
+            ).value
         else:
             return None
 
@@ -1753,7 +1812,7 @@ class HeterodynedData(TimeSeriesBase):
         was heterodyned.
         """
 
-        return self._freq_factor
+        return self._freqfactor
 
     @freq_factor.setter
     def freq_factor(self, freqfactor):
@@ -1763,7 +1822,16 @@ class HeterodynedData(TimeSeriesBase):
         if freqfactor <= 0.0:
             raise ValueError("Frequency scale factor must be a positive number")
 
-        self._freq_factor = float(freqfactor)
+        self._freqfactor = float(freqfactor)
+
+    @property
+    def freqfactor(self):
+        """
+        Alias for ``freq_factor`` to be consistent with input keyword
+        arguments.
+        """
+
+        return self.freq_factor
 
     def add_noise(self, asd, issigma=False, seed=None):
         """

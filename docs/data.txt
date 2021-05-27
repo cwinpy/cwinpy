@@ -110,6 +110,11 @@ or
 
     >>> data = HeterodynedData.read("data.hdf5")
 
+If you want to apply non-default keyword arguments for processing the data after it's read in, e.g.,
+setting a window for the :meth:`~cwinpy.data.HeterodynedData.compute_running_median` method, then
+the former method is recommended as the standard keywords can be passed to the class. Otherwise, you
+have to explicitly run the processing methods that you require.
+
 If you have an instance of a :class:`~cwinpy.data.HeterodynedData` class called, e.g., ``het``, then
 writing to a HDF5 file can be done using the :meth:`~cwinpy.data.HeterodynedData.write` method
 with:
@@ -147,13 +152,13 @@ Merging data
 ^^^^^^^^^^^^
 
 If you have multiple heterodyned data files for a given detector and pulsar it might make sense to
-combine them in one :class:`~cwinpy.data.HeterodynedData` object. The
+combine them into one :class:`~cwinpy.data.HeterodynedData` object. The
 :meth:`~cwinpy.data.HeterodynedData.read` method can in fact be passed a list of heterodyned data
 files, and provided that they are compatible (i.e., they are for the same detector, the same pulsar,
-and the same frequency scale factor) they will be merged into one. By default the resulting object
-will be sorted in ascending time order even if the input files where not sorted in time order. If
-you had two files ``data1.hdf5`` and ``data2.hdf5`` they could be read in and merged with:
-
+and the same frequency scale factor) they will be merged into one using the
+:meth:`~cwinpy.data.HeterodynedData.merge` method. By default the resulting object will be sorted in
+ascending time order even if the input files where not sorted in time order. If you had two files
+``data1.hdf5`` and ``data2.hdf5`` they could be read in and merged with:
 
 .. code-block:: python
 
