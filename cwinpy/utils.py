@@ -18,8 +18,24 @@ from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from numba import jit, njit
 from numba.extending import get_cython_function_address
 
-# URL for LALSuite solar system ephemeris files
+#: URL for LALSuite solar system ephemeris files
 LAL_EPHEMERIS_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
+
+#: the current solar system ephemeris types in LALSuite
+LAL_EPHEMERIS_TYPES = ["DE200", "DE405", "DE421", "DE430"]
+
+#: the current TEMPO-compatible binary system model types provided in LALSuite
+LAL_BINARY_MODELS = [
+    "BT",
+    "BT1P",
+    "BT2P",
+    "BTX",
+    "ELL1",
+    "DD",
+    "DDS",
+    "MSS",
+    "T2",
+]
 
 # create a numba-ified version of scipy's gammaln function (see, e.g.
 # https://github.com/numba/numba/issues/3086#issuecomment-403469308)
@@ -257,6 +273,7 @@ def initialise_ephemeris(
     timefile=None,
     ssonly=False,
     timeonly=False,
+    filenames=False,
 ):
     """
     Download/read and return solar system ephemeris and time coordinate data.
@@ -290,19 +307,24 @@ def initialise_ephemeris(
     timeonly: bool
         If True only return the initialised time correction ephemeris data.
         Default is False.
+    filenames: bool
+        If True return the paths to the ephemeris files. Default is False.
 
     Returns
     -------
-    edat, sdat:
+    edat, sdat, filenames:
         The LAL EphemerisData object and TimeCorrectionData object.
     """
 
     earth = "earth00-40-{}.dat.gz".format(ephem) if earthfile is None else earthfile
     sun = "sun00-40-{}.dat.gz".format(ephem) if sunfile is None else sunfile
 
+    filepaths = []
+
     if not timeonly:
         try:
             edat = lalpulsar.InitBarycenter(earth, sun)
+            filepaths = [earth, sun]
         except RuntimeError:
             # try downloading the ephemeris files
             try:
@@ -311,11 +333,12 @@ def initialise_ephemeris(
                 efile = download_file(LAL_EPHEMERIS_URL.format(earth), cache=True)
                 sfile = download_file(LAL_EPHEMERIS_URL.format(sun), cache=True)
                 edat = lalpulsar.InitBarycenter(efile, sfile)
+                filepaths = [efile, sfile]
             except Exception as e:
                 raise IOError("Could not read in ephemeris files: {}".format(e))
 
         if ssonly:
-            return edat
+            return (edat, filepaths) if filenames else edat
 
     unit = None
     if timefile is None:
@@ -328,6 +351,7 @@ def initialise_ephemeris(
 
     try:
         tdat = lalpulsar.InitTimeCorrections(time)
+        filepaths.append(time)
     except RuntimeError:
         try:
             # try downloading the time coordinate file
@@ -335,13 +359,14 @@ def initialise_ephemeris(
 
             tfile = download_file(LAL_EPHEMERIS_URL.format(time), cache=True)
             tdat = lalpulsar.InitTimeCorrections(tfile)
+            filepaths.append(tfile)
         except Exception as e:
             raise IOError("Could not read in time correction file: {}".format(e))
 
     if timeonly:
-        return tdat
+        return (tdat, filepaths) if filenames else tdat
     else:
-        return edat, tdat
+        return (edat, tdat, filepaths) if filenames else tdat
 
 
 def sighandler(signum, frame):

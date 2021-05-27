@@ -22,8 +22,14 @@ from bilby_pipe.utils import (
     parse_args,
 )
 from configargparse import DefaultConfigFileParser
+from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
-from ..utils import sighandler
+from ..utils import (
+    LAL_BINARY_MODELS,
+    LAL_EPHEMERIS_TYPES,
+    initialise_ephemeris,
+    sighandler,
+)
 from .base import Heterodyne, generate_segments
 
 
@@ -724,6 +730,17 @@ class HeterodyneDAGRunner(object):
                 else:
                     raise TypeError("{} should be a dictionary".format(sname))
 
+        # get ephemeris information
+        earthephemeris = self.eval(
+            config.get("heterodyne", "earthephemeris", fallback=None)
+        )
+        sunephemeris = self.eval(
+            config.get("heterodyne", "sunephemeris", fallback=None)
+        )
+        timeephemeris = self.eval(
+            config.get("heterodyne", "timeephemeris", fallback=None)
+        )
+
         # get all the split times
         if ntimejobs == 1:
             starttimes = fullstarttimes
@@ -926,6 +943,55 @@ class HeterodyneDAGRunner(object):
             # filter knee frequency (default to 0.5 Hz for two stage heterodyne)
             filterknee = config.getfloat("heterodyne", "filterknee", fallback=0.5)
 
+        # get the required solar system ephemeris types and binary model for
+        # the given pulsars
+        etypes = []
+        binarymodels = []
+        for pf in het.pulsarfiles:
+            par = PulsarParametersPy(pf)
+            etypes.append(par["EPHEM"] if par["EPHEM"] is not None else "DE405")
+            if par["BINARY"] is not None:
+                binarymodels.append(par["BINARY"])
+
+        # remove duplicates
+        etypes = set(etypes)
+        binarymodels = set(binarymodels)
+
+        # if ephemeris information is None download/extract information
+        if earthephemeris is None or sunephemeris is None:
+            earthephemeris = {} if earthephemeris is None else earthephemeris
+            sunephemeris = {} if sunephemeris is None else sunephemeris
+            for etype in LAL_EPHEMERIS_TYPES:
+                if etype not in earthephemeris:
+                    edat = initialise_ephemeris(ephem=etype, ssonly=True)
+                    earthephemeris[etype] = edat.filenameE
+                    sunephemeris[etype] = edat.finenameS
+
+        if timeephemeris is None:
+            timeephemeris = {} if timeephemeris is None else timeephemeris
+            for unit in ["TCB", "TDB"]:
+                if unit not in timeephemeris:
+                    _, fnames = initialise_ephemeris(
+                        ephem=etype, timeonly=True, filenames=True
+                    )
+                    timeephemeris[unit] = fnames[0]
+
+        # check that ephemeris files exist for all required types
+        for etype in etypes:
+            if etype not in earthephemeris or etype not in sunephemeris:
+                raise ValueError(
+                    f"Pulsar(s) require ephemeris '{etype}' which has not been supplied"
+                )
+
+        # check that binary models exist for all required types
+        # NOTE: in the future, if libstempo can be used for phase generation,
+        # this can be relaxed
+        for bmodel in binarymodels:
+            if bmodel not in LAL_BINARY_MODELS:
+                raise ValueError(
+                    f"Pulsar(s) require binary model type '{bmodel}' which is not available in LALSuite"
+                )
+
         # check output directories and labels lists are correct length
         if stages == 1:
             if label is not None:
@@ -1003,6 +1069,11 @@ class HeterodyneDAGRunner(object):
                         configdict["includefitwaves"] = includefitwaves[0]
                         configdict["interpolationstep"] = interpolationstep
 
+                        # include ephemeris files
+                        configdict["earthephemeris"] = earthephemeris
+                        configdict["sunephemeris"] = sunephemeris
+                        configdict["timeephemeris"] = timeephemeris
+
                         # temporary Heterodyne object to get the output file names
                         tmphet = Heterodyne(
                             starttime=starttime,
@@ -1067,6 +1138,11 @@ class HeterodyneDAGRunner(object):
                             configdict["includebsb"] = includebsb[-1]
                             configdict["includeglitch"] = includeglitch[-1]
                             configdict["includefitwaves"] = includefitwaves[-1]
+
+                            # include ephemeris files
+                            configdict["earthephemeris"] = earthephemeris
+                            configdict["sunephemeris"] = sunephemeris
+                            configdict["timeephemeris"] = timeephemeris
 
                             # input the data
                             configdict["heterodyneddata"] = {
@@ -1371,6 +1447,19 @@ class HeterodyneNode(Node):
                 configdict["pulsarfiles"][psr] = os.path.basename(
                     configdict["pulsarfiles"][psr]
                 )
+
+            # transfer ephemeris files
+            for ephem in ["earthephemeris", "sunephemeris", "timeephemeris"]:
+                for etype in configdict[ephem].copy():
+                    input_files_to_transfer.append(
+                        self._relative_topdir(
+                            configdict[ephem][etype], self.inputs.initialdir
+                        ),
+                    )
+
+                    configdict[ephem][etype] = os.path.basename(
+                        configdict[ephem][etype]
+                    )
 
             # transfer frame cache files
             if "framecache" in configdict:
