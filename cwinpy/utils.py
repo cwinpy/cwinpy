@@ -323,7 +323,8 @@ def initialise_ephemeris(
 
     if not timeonly:
         try:
-            edat = lalpulsar.InitBarycenter(earth, sun)
+            with MuteStream():
+                edat = lalpulsar.InitBarycenter(earth, sun)
             filepaths = [earth, sun]
         except RuntimeError:
             # try downloading the ephemeris files
@@ -350,7 +351,8 @@ def initialise_ephemeris(
     time = "{}_2000-2040.dat.gz".format(unit) if timefile is None else timefile
 
     try:
-        tdat = lalpulsar.InitTimeCorrections(time)
+        with MuteStream():
+            tdat = lalpulsar.InitTimeCorrections(time)
         filepaths.append(time)
     except RuntimeError:
         try:
@@ -373,3 +375,59 @@ def sighandler(signum, frame):
     # perform periodic eviction with exit code 77
     # see https://git.ligo.org/lscsoft/bilby_pipe/-/commit/c63c3e718f20ce39b0340da27fb696c49409fcd8  # noqa: E501
     sys.exit(CHECKPOINT_EXIT_CODE)
+
+
+class MuteStream(object):
+    """
+    Class used to mute the output from a stream, e.g., ``stderr`` or
+    ``stdout``.
+
+    This is heavily based on the StackOverflow answer at
+    https://stackoverflow.com/a/29834357/1862861, but only mutes and doesn't
+    capture the output from the given stream.
+
+    Parameters
+    ----------
+    stream:
+        The stream to be muted. Defaults to ``sys.stderr``.
+    """
+
+    def __init__(self, stream=None):
+        self.origstream = None
+        if self.origstream is None:
+            self.origstream = sys.stderr
+        self.origstream = sys.stderr
+        self.origstreamfd = self.origstream.fileno()
+        # Create a pipe so the stream can be captured:
+        self.pipe_out, self.pipe_in = os.pipe()
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.stop()
+
+    def start(self):
+        """
+        Start capturing the stream data.
+        """
+
+        # Save a copy of the stream:
+        self.streamfd = os.dup(self.origstreamfd)
+        # Replace the original stream with our write pipe:
+        os.dup2(self.pipe_in, self.origstreamfd)
+
+    def stop(self):
+        """
+        Stop capturing the stream data.
+        """
+        # Flush the streams
+        self.origstream.flush()
+        # Close the pipe:
+        os.close(self.pipe_in)
+        os.close(self.pipe_out)
+        # Restore the original stream:
+        os.dup2(self.streamfd, self.origstreamfd)
+        # Close the duplicate stream:
+        os.close(self.streamfd)
