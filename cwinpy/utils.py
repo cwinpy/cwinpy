@@ -368,7 +368,7 @@ def initialise_ephemeris(
     if timeonly:
         return (tdat, filepaths) if filenames else tdat
     else:
-        return (edat, tdat, filepaths) if filenames else tdat
+        return (edat, tdat, filepaths) if filenames else (edat, tdat)
 
 
 def sighandler(signum, frame):
