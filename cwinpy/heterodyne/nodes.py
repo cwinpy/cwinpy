@@ -214,12 +214,15 @@ class HeterodyneNode(Node):
 
             # transfer frame cache files
             if "framecache" in configdict:
-                input_files_to_transfer.append(
-                    self._relative_topdir(
-                        configdict["framecache"], self.inputs.initialdir
+                if os.path.isfile(configdict["framecache"]):
+                    input_files_to_transfer.append(
+                        self._relative_topdir(
+                            configdict["framecache"], self.inputs.initialdir
+                        )
                     )
-                )
-                configdict["framecache"] = os.path.basename(configdict["framecache"])
+                    configdict["framecache"] = os.path.basename(
+                        configdict["framecache"]
+                    )
 
             # transfer segment list files
             if "segmentlist" in configdict:
@@ -261,8 +264,10 @@ class HeterodyneNode(Node):
                 "accounting_group_user = {}".format(self.inputs.accounting_user)
             )
 
-        # add use_x509userproxy = true to pass on proxy certificate to jobs
-        self.extra_lines.append("use_x509userproxy = True")
+        # add use_x509userproxy = True to pass on proxy certificate to jobs if
+        # needing access to proprietory data
+        if not self.inputs.require_gwosc:
+            self.extra_lines.append("use_x509userproxy = True")
 
         parseobj = DefaultConfigFileParser()
         with open(configfile, "w") as fp:
