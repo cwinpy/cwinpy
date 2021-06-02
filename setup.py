@@ -97,6 +97,7 @@ setup(
             "cwinpy_pe_generate_pp_plots=cwinpy.pe.testing:generate_pp_plots",
             "cwinpy_heterodyne=cwinpy.heterodyne.heterodyne:heterodyne_cli",
             "cwinpy_heterodyne_dag=cwinpy.heterodyne.heterodyne:heterodyne_dag_cli",
+            "cwinpy_heterodyne_merge=cwinpy.heterodyne.heterodyne:heterodyne_merge_cli",
         ]
     },
     cmdclass=CMDCLASS,

@@ -1963,6 +1963,9 @@ class PEInput(Input):
 
 
 class PulsarPENode(Node):
+    # If --osg, run analysis nodes on the OSG
+    run_node_on_osg = True
+
     def __init__(
         self, inputs, configdict, psrname, parallel_idx, dag, generation_node=None
     ):

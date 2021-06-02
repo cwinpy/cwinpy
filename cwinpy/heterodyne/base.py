@@ -815,9 +815,10 @@ class Heterodyne(object):
 
             # check whether include flags looks like it wants GWOSC data
             if len(self.includeflags) == 1:
-                # GWOSC segments look like DET_DATA or DET_*_CAT*
+                # GWOSC segments look like DET_DATA, DET_CW* or DET_*_CAT*
                 if (
                     "{}_DATA".format(self.detector) == self.includeflags[0]
+                    or "{}_CW".format(self.detector) in self.includeflags[0]
                     or "CBC_CAT" in self.includeflags[0]
                     or "BURST_CAT" in self.includeflags[0]
                 ):

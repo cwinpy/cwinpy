@@ -6,24 +6,37 @@ import ast
 import configparser
 import copy
 import os
+import shutil
 import signal
 import sys
+import tempfile
 from argparse import ArgumentParser
 
 import cwinpy
 import numpy as np
+import pycondor
 from bilby_pipe.bilbyargparser import BilbyArgParser
 from bilby_pipe.input import Input
 from bilby_pipe.job_creation.dag import Dag
-from bilby_pipe.job_creation.node import Node
+from bilby_pipe.job_creation.node import Node, _log_output_error_submit_lines
 from bilby_pipe.utils import (
     BilbyPipeError,
     check_directory_exists_and_if_not_mkdir,
+    logger,
     parse_args,
 )
-from configargparse import DefaultConfigFileParser
+from configargparse import ArgumentError, DefaultConfigFileParser
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
+from ..info import (
+    ANALYSIS_SEGMENTS,
+    CVMFS_GWOSC_FRAME_CHANNELS,
+    CVMFS_GWOSC_FRAME_DATA_LOCATIONS,
+    HW_INJ,
+    HW_INJ_RUNTIMES,
+    HW_INJ_SEGMENTS,
+    RUNTIMES,
+)
 from ..utils import (
     LAL_BINARY_MODELS,
     LAL_EPHEMERIS_TYPES,
@@ -501,6 +514,127 @@ def heterodyne_cli(**kwargs):  # pragma: no cover
     _ = heterodyne(**kwargs)
 
 
+def create_heterodyne_merge_parser():
+    """
+    Create the argument parser for merging script.
+    """
+
+    description = "A script to merge multiple heterodyned data files."
+
+    parser = BilbyArgParser(
+        prog=sys.argv[0],
+        description=description,
+        ignore_unknown_config_file_keys=False,
+        allow_abbrev=False,
+    )
+    parser.add("--config", type=str, is_config_file=True, help="Configuration ini file")
+    parser.add(
+        "--version",
+        action="version",
+        version="%(prog)s {version}".format(version=cwinpy.__version__),
+    )
+    parser.add(
+        "--heterodynedfiles",
+        action="append",
+        type=str,
+        help=(
+            "A path, or list of paths, to heterodyned data files to merge " "together."
+        ),
+    )
+    parser.add(
+        "--output",
+        type=str,
+        help=("The output file for the merged heterodyned data."),
+    )
+    parser.add(
+        "--overwrite",
+        action="store_true",
+        help=("Set if wanting to overwrite an existing merged file."),
+    )
+    parser.add(
+        "--remove",
+        action="store_true",
+        help=("Set if wanting to delete individual files being merged."),
+    )
+
+
+def heterodyne_merge(**kwargs):
+    """
+    Merge the output of multiple heterodynes for a specific pulsar.
+
+    Parameters
+    ----------
+    heterodynedfiles: str, list
+        A string, or list of strings, giving the paths to heterodyned data
+        files to be read in and merged
+    output: str
+        The output file name to write the data to. If not given then the data
+        will not be output.
+    overwrite: bool
+        Set whether to overwrite an existing file. Defaults to False.
+    remove: bool
+        Set whether to remove the individual files that form the merged file.
+        Defaults to False.
+
+    Returns
+    -------
+    het: `class::~cwinpy.heterodyne.Heterodyne`
+        The merged heterodyning class object.
+    """
+
+    if "cli" in kwargs:
+        # get command line arguments
+        parser = create_heterodyne_merge_parser()
+        cliargs = sys.argv[1:]
+
+        try:
+            args, _ = parse_args(cliargs, parser)
+        except BilbyPipeError as e:
+            raise IOError("{}".format(e))
+
+        # convert args to a dictionary
+        mergekwargs = vars(args)
+    else:
+        mergekwargs = kwargs
+
+    if "heterodynedfiles" not in mergekwargs:
+        raise ArgumentError("'heterodynedfiles' is a required argument")
+
+    heterodynedfiles = mergekwargs["heterodynedfiles"]
+    filelist = (
+        heterodynedfiles if isinstance(heterodynedfiles, list) else [heterodynedfiles]
+    )
+    filelist = [hf for hf in filelist if os.path.isfile(hf)]
+
+    if len(filelist) == 0:
+        raise ValueError("None of the heterodyned files given exists!")
+
+    # read in and merge all the files
+    het = Heterodyne.read(filelist)
+
+    # write out the merged data file
+    if "output" in mergekwargs:
+        het.write(mergekwargs["output"], overwrite=mergekwargs.get("overwrite", False))
+
+    if mergekwargs.get("remove", False):
+        # remove the inidividual files
+        for hf in filelist:
+            os.remove(hf)
+
+    return het
+
+
+def heterodyne_merge_cli(**kwargs):  # pragme: no cover
+    """
+    Entry point to ``cwinpy_heterodyne_merge`` script. This just calls
+    :func:`cwinpy.heterodyne.heterodyne_merge`, but does not return any
+    objects.
+    """
+
+    kwargs["cli"] = True  # set to show use of CLI
+    _ = heterodyne_merge(**kwargs)
+
+
 class HeterodyneDAGRunner(object):
     """
     Set up and run the heterodyne DAG.
@@ -515,12 +649,6 @@ class HeterodyneDAGRunner(object):
     def __init__(self, config, **kwargs):
         # create and build the dag
         self.create_dag(config, **kwargs)
-
-        if self.submitdag:
-            if self.build:
-                self.dag.build_submit(submit_options=self.submit_options)
-            else:
-                self.dag.submit_dag(self.submit_options)
 
     def create_dag(self, config, **kwargs):
         """
@@ -566,7 +694,7 @@ class HeterodyneDAGRunner(object):
             raise ValueError("At least one detector must be supplied")
 
         # get pulsar information
-        pulsarfiles = config.get("heterodyne", "pulsarfiles", fallback=None)
+        pulsarfiles = self.eval(config.get("heterodyne", "pulsarfiles", fallback=None))
         pulsars = config.get("heterodyne", "pulsars", fallback=None)
         if pulsarfiles is None:
             raise ValueError("A set of pulsar parameter files must be supplied")
@@ -760,23 +888,22 @@ class HeterodyneDAGRunner(object):
                     if segmentlists is not None:
                         seginfo["segmentlist"] = segmentlists[det][i]
                     else:
-                        # GWOSC segments look like DET_DATA or DET_*_CAT*
+                        # GWOSC segments look like DET_DATA, DET_CW* or DET_*_CAT*
                         usegwosc = False
                         if (
                             "{}_DATA".format(det) == includeflags[det][i]
+                            or "{}_CW".format(self.detector) in self.includeflags[0]
                             or "CBC_CAT" in includeflags[det][i]
                             or "BURST_CAT" in includeflags[det][i]
                         ):
                             usegwosc = True
+                            inputs.require_gwosc = True
 
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
-                        seginfo[
-                            "segmentlist"
-                        ] = "segments_{0:d}_{1:d}_{2}_{3}.txt".format(
+                        seginfo["segmentlist"] = "segments_{0:d}-{1:d}_{2}.txt".format(
                             starttimes[det][i],
                             endtimes[det][i],
-                            det,
                             includeflags[det][i],
                         )
                         _ = generate_segments(
@@ -826,15 +953,13 @@ class HeterodyneDAGRunner(object):
                             or "BURST_CAT" in includeflags[det][idx]
                         ):
                             usegwosc = True
+                            inputs.require_gwosc = True
 
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
-                        seginfo[
-                            "segmentlist"
-                        ] = "segments_{0:d}_{1:d}_{2}_{3}.txt".format(
+                        seginfo["segmentlist"] = "segments_{0:d}-{1:d}_{2}.txt".format(
                             starttime,
                             endtime,
-                            det,
                             includeflags[det][idx],
                         )
                         _ = generate_segments(
@@ -948,7 +1073,7 @@ class HeterodyneDAGRunner(object):
         etypes = []
         binarymodels = []
         for pf in het.pulsarfiles:
-            par = PulsarParametersPy(pf)
+            par = PulsarParametersPy(het.pulsarfiles[pf])
             etypes.append(par["EPHEM"] if par["EPHEM"] is not None else "DE405")
             if par["BINARY"] is not None:
                 binarymodels.append(par["BINARY"])
@@ -965,7 +1090,7 @@ class HeterodyneDAGRunner(object):
                 if etype not in earthephemeris:
                     edat = initialise_ephemeris(ephem=etype, ssonly=True)
                     earthephemeris[etype] = edat.filenameE
-                    sunephemeris[etype] = edat.finenameS
+                    sunephemeris[etype] = edat.filenameS
 
         if timeephemeris is None:
             timeephemeris = {} if timeephemeris is None else timeephemeris
@@ -975,6 +1100,18 @@ class HeterodyneDAGRunner(object):
                         ephem=etype, timeonly=True, filenames=True
                     )
                     timeephemeris[unit] = fnames[0]
+
+        # create copy of file to a unique name in case of identical filenames
+        # from astropy cache, which causes problems if requiring files be
+        # transferred
+        for edat, ename in zip(
+            [earthephemeris, sunephemeris, timeephemeris], ["earth", "sun", "time"]
+        ):
+            if len(set([os.path.basename(edat[etype]) for etype in edat])) == 1:
+                for etype in edat:
+                    tmpephem = os.path.join(tempfile.gettempdir(), f"{ename}_{etype}")
+                    shutil.copy(edat[etype], tmpephem)
+                    edat[etype] = tmpephem
 
         # check that ephemeris files exist for all required types
         for etype in etypes:
@@ -1014,14 +1151,33 @@ class HeterodyneDAGRunner(object):
         crop = config.getint("heterodyne", "crop", fallback=60)
         resume = config.getboolean("heterodyne", "resume", fallback=False)
 
+        merge = config.getboolean("merge", "merge", fallback=False) and ntimejobs > 1
+
         # create jobs
         self.hetnodes = []
-        self.pulsar_nodes = {
-            psr: [] for psr in het.pulsars
-        }  # dictionary to contain all nodes for a given pulsar
+
+        # dictionary to contain all nodes for a given pulsar (for passing on to
+        # cwinpy_pe if required)
+        self.pulsar_nodes = {psr: [] for psr in het.pulsars}
+
+        if merge:
+            # dictionary containing child nodes for each merge job
+            mergechildren = {
+                det: {ff: {psr: [] for psr in het.pulsars} for ff in freqfactors}
+                for det in detectors
+            }
+
+            # dictionary containing the output files for the merge results
+            mergeoutputs = {
+                det: {ff: {psr: None for psr in het.pulsars} for ff in freqfactors}
+                for det in detectors
+            }
 
         # dictionary to contain all the heterodyned data files for each pulsar
-        self.heterodyned_files = {psr: [] for psr in het.pulsars}
+        self.heterodyned_files = {
+            det: {ff: {psr: [] for psr in het.pulsars} for ff in freqfactors}
+            for det in detectors
+        }
 
         # loop over sets of pulsars
         for pgroup in pulsargroups:
@@ -1093,9 +1249,19 @@ class HeterodyneDAGRunner(object):
                                 "freqfactor": int(tmphet.freqfactor),
                                 "psr": psr,
                             }
-                            self.heterodyned_files[psr].append(
+                            self.heterodyned_files[det][ff][psr].append(
                                 tmphet.outputfiles[psr].format(**labeldict)
                             )
+
+                            if merge and mergeoutputs[det][ff][psr] is None:
+                                # use full start and end times
+                                labeldict["gpsstart"] = starttimes[det][0]
+                                labeldict["gpsend"] = endtimes[det][-1]
+                                mergeoutputs[det][ff][psr] = os.path.join(
+                                    outputdirs[0][det],
+                                    tmphet.outputfiles[psr].format(**labeldict),
+                                )
+
                         configdict["output"] = outputdirs[0][det]
                         configdict["label"] = label[0] if label is not None else None
 
@@ -1103,7 +1269,7 @@ class HeterodyneDAGRunner(object):
                             HeterodyneNode(
                                 inputs,
                                 {
-                                    key: value
+                                    key: copy.deepcopy(value)
                                     for key, value in configdict.items()
                                     if value is not None
                                 },
@@ -1113,8 +1279,14 @@ class HeterodyneDAGRunner(object):
 
                         # put nodes into dictionary for each pulsar
                         if stages == 1:
-                            for psr in pgroup:
-                                self.pulsar_nodes[psr].append(self.hetnodes[-1][-1])
+                            if not merge:
+                                for psr in pgroup:
+                                    self.pulsar_nodes[psr].append(self.hetnodes[-1][-1])
+                            else:
+                                for psr in pgroup:
+                                    mergechildren[det][ff][psr].append(
+                                        self.hetnodes[-1][-1]
+                                    )
 
                         idx += 1
 
@@ -1146,7 +1318,7 @@ class HeterodyneDAGRunner(object):
 
                             # input the data
                             configdict["heterodyneddata"] = {
-                                psr: self.heterodyned_files[psr]
+                                psr: self.heterodyned_files[det][ff][psr]
                             }
 
                             # output structure
@@ -1159,12 +1331,36 @@ class HeterodyneDAGRunner(object):
                                 HeterodyneNode(
                                     inputs,
                                     {
-                                        key: value
+                                        key: copy.deepcopy(value)
                                         for key, value in configdict.items()
                                         if value is not None
                                     },
                                     self.dag,
                                     generation_node=self.hetnodes[i],
+                                )
+                            )
+        elif merge:
+            # set output merge jobs
+            for i, pgroup in enumerate(pulsargroups):
+                for psr in pgroup:
+                    for ff in freqfactors:
+                        for det in detectors:
+                            self.pulsar_nodes[psr].append(
+                                MergeHeterodyneNode(
+                                    inputs,
+                                    {
+                                        "heterodynedfiles": copy.deepcopy(
+                                            self.heterodyned_files[det][ff][psr]
+                                        ),
+                                        "freqfactor": ff,
+                                        "detector": det,
+                                        "pulsar": psr,
+                                        "output": copy.deepcopy(
+                                            mergeoutputs[det][ff][psr]
+                                        ),
+                                    },
+                                    self.dag,
+                                    generation_node=mergechildren[det][ff][psr],
                                 )
                             )
 
@@ -1192,7 +1388,7 @@ class HeterodyneDAGRunner(object):
         try:
             newobj = ast.literal_eval(newobj)
         except (ValueError, SyntaxError):
-            # try evaluating expressions such as "1/60" or "[1., 1./60.],
+            # try evaluating expressions such as "1/60" or "[1., 1./60.]"",
             # which fail for recent versions of ast in Python 3.7+
 
             # if expression contains a list strip the brackets to start
@@ -1232,6 +1428,12 @@ def heterodyne_dag(**kwargs):
         A configuration file, or :class:`configparser:ConfigParser` object,
         for the analysis.
 
+    Optional parameters
+    -------------------
+    run: str
+        The name of an observing run for which open data exists, which will be
+        heterodyned, e.g., "O1".
+
     Returns
     -------
     dag:
@@ -1248,10 +1450,203 @@ def heterodyne_dag(**kwargs):
                 "phase evolution for a selection of pulsars."
             )
         )
-        parser.add_argument("config", help=("The configuration file for the analysis"))
+        parser.add_argument(
+            "config",
+            nargs="?",
+            help=("The configuration file for the analysis"),
+            default=None,
+        )
+
+        optional = parser.add_argument_group(
+            "Quick setup arguments (this assumes CVMFS open data access)"
+        )
+        optional.add_argument(
+            "--run",
+            help=(
+                "Set an observing run name for which to heterodyne the data. "
+                "This can be one of {} for which open data exists".format(
+                    list(RUNTIMES.keys())
+                )
+            ),
+        )
+        optional.add_argument(
+            "--detector",
+            action="append",
+            help=(
+                "The detector for which the data will be heterodyned. This can "
+                "be used multiple times to specify multiple detectors. If not "
+                "set then all detectors available for a given run will be "
+                "used."
+            ),
+        )
+        optional.add_argument(
+            "--hwinj",
+            action="store_true",
+            help=(
+                "Set this flag to analyse the continuous hardware injections "
+                "for a given run. No '--pulsar' arguments are required in "
+                "this case."
+            ),
+        )
+        optional.add_argument(
+            "--pulsar",
+            action="append",
+            help=(
+                "The path to a TEMPO(2)-style pulsar parameter file, or "
+                "directory containing multiple parameter files, to "
+                "heterodyne. This can be used multiple times to specify "
+                "multiple pulsar inputs."
+            ),
+        )
+        optional.add_argument(
+            "--osg",
+            action="store_true",
+            help=(
+                "Set this flag to run on the Open Science Grid rather than a "
+                "local computer cluster."
+            ),
+        )
+        optional.add_argument(
+            "--output",
+            help=(
+                "The location for outputting the heterodyned data. By default "
+                "the current directory will be used. Within this directory, "
+                "subdirectories for each detector will be created."
+            ),
+            default=os.getcwd(),
+        )
+        optional.add_argument(
+            "--nchunks",
+            type=int,
+            help=(
+                "The number of 'chunks' the data will be split into for each "
+                "detector. The total number of cwinpy_heterodyne jobs will be "
+                "(nchunks x no. detectors). Default is to split the run into "
+                "one day long chunks."
+            ),
+        )
+        optional.add_argument(
+            "--accounting-group-tag",
+            dest="accgroup",
+            help=("For LVK users this sets the computing accounting group tag"),
+        )
 
         args = parser.parse_args()
-        configfile = args.config
+        if args.config is not None:
+            configfile = args.config
+        else:
+            # use the "Quick setup" arguments
+            configfile = configparser.ConfigParser()
+
+            run = args.run
+            if run not in RUNTIMES:
+                raise ValueError("Requested run '{}' is not available".format(args.run))
+
+            pulsars = []
+            if args.hwinj:
+                # use hardware injections for the run
+                runtimes = HW_INJ_RUNTIMES
+                segments = HW_INJ_SEGMENTS
+                pulsars.extend(HW_INJ[run]["hw_inj_files"])
+            else:
+                # use pulsars provided
+                runtimes = RUNTIMES
+                segments = ANALYSIS_SEGMENTS
+
+                if args.pulsar is None:
+                    raise ValueError("No pulsar parameter files have be provided")
+
+                pulsars.extend(args.pulsar)
+
+            # check pulsar files/directories exist
+            pulsars = [
+                pulsar
+                for pulsar in pulsars
+                if (os.path.isfile(pulsar) or os.path.idir(pulsar))
+            ]
+            if len(pulsars) == 0:
+                raise ValueError("No valid pulsar parameter files have be provided")
+
+            if args.detector is None:
+                detectors = list(runtimes[run].keys())
+            else:
+                detectors = [det for det in args.detector if det in runtimes[run]]
+                if len(detectors) == 0:
+                    raise ValueError(
+                        "Provided detectors '{}' are not valid for the given run".format(
+                            args.detector
+                        )
+                    )
+
+            # create required settings
+            configfile["run"] = {}
+            configfile["run"]["basedir"] = args.output
+
+            configfile["dag"] = {}
+            configfile["dag"]["submitdag"] = "True"
+            if args.osg:
+                configfile["dag"]["osg"] = "True"
+
+            configfile["job"] = {}
+            configfile["job"]["getenv"] = "True"
+            if args.accgroup is not None:
+                configfile["job"]["accounting_group"] = args.accgroup
+
+            # add heterodyne settings
+            configfile["heterodyne"] = {}
+            configfile["heterodyne"]["detectors"] = str(detectors)
+            configfile["heterodyne"]["pulsarfiles"] = str(pulsars)
+            configfile["heterodyne"]["starttimes"] = str(
+                {det: runtimes[run][det][0] for det in detectors}
+            )
+            configfile["heterodyne"]["endtimes"] = str(
+                {det: runtimes[run][det][1] for det in detectors}
+            )
+
+            configfile["heterodyne"]["framecaches"] = str(
+                {
+                    det: CVMFS_GWOSC_FRAME_DATA_LOCATIONS[run]["4k"][det]
+                    for det in detectors
+                }
+            )
+            configfile["heterodyne"]["channels"] = str(
+                {det: CVMFS_GWOSC_FRAME_CHANNELS[run]["4k"][det] for det in detectors}
+            )
+            if args.hwinj:
+                configfile["heterodyne"]["includeflags"] = str(
+                    {det: segments[run][det]["includesegments"] for det in detectors}
+                )
+                configfile["heterodyne"]["excludeflags"] = str(
+                    {det: segments[run][det]["excludesegments"] for det in detectors}
+                )
+            else:
+                configfile["heterodyne"]["includeflags"] = str(
+                    {det: segments[run][det] for det in detectors}
+                )
+            configfile["heterodyne"]["outputdir"] = str(
+                {det: os.path.join(args.output, det) for det in detectors}
+            )
+            configfile["heterodyne"]["resume"] = "True"
+
+            # split the analysis into on average day long chunks
+            if args.nchunks is None:
+                configfile["heterodyne"]["ntimejobs"] = str(
+                    int(
+                        (
+                            runtimes[run][detectors[0]][1]
+                            - runtimes[run][detectors[0]][0]
+                        )
+                        / 86400
+                    )
+                )
+            else:
+                configfile["heterodyne"]["ntimejobs"] = str(args.nchunks)
+
+            # merge the resulting files and remove individual files
+            configfile["merge"] = {}
+            configfile["merge"]["merge"] = "True"
+            configfile["merge"]["remove"] = "True"
+            configfile["merge"]["overwrite"] = "True"
 
     if isinstance(configfile, configparser.ConfigParser):
         config = configfile
@@ -1292,6 +1687,7 @@ class HeterodyneInput(Input):
         self.submit = cf.getboolean("dag", "submitdag", fallback=False)
         self.transfer_files = cf.getboolean("dag", "transfer_files", fallback=True)
         self.osg = cf.getboolean("dag", "osg", fallback=False)
+        self.require_gwosc = False
         self.label = cf.get("dag", "name", fallback="cwinpy_heterodyne")
 
         # see bilby_pipe MainInput class
@@ -1306,7 +1702,7 @@ class HeterodyneInput(Input):
         self.outdir = cf.get("run", "basedir", fallback=os.getcwd())
 
         self.universe = cf.get("job", "universe", fallback="vanilla")
-        self.getenv = cf.getboolean("job", "getenv", fallback=False)
+        self.getenv = cf.getboolean("job", "getenv", fallback=True)
         self.heterodyne_log_directory = cf.get(
             "job", "log", fallback=os.path.join(os.path.abspath(self._outdir), "log")
         )
@@ -1322,12 +1718,6 @@ class HeterodyneInput(Input):
         self.notification = cf.get("job", "notification", fallback="Never")
         self.email = cf.get("job", "email", fallback=None)
         self.condor_job_priority = cf.getint("job", "condor_job_priority", fallback=0)
-
-        # needs to be set for the bilby_pipe Node initialisation, but is not a
-        # requirement for cwinpy_heterodyne
-        self.online_pe = False
-        self.extra_lines = []
-        self.run_local = False
 
     @property
     def submit_directory(self):
@@ -1356,8 +1746,20 @@ class HeterodyneInput(Input):
 
 
 class HeterodyneNode(Node):
+    # If --osg, run analysis nodes on the OSG
+    run_node_on_osg = True
+
     def __init__(self, inputs, configdict, dag, generation_node=None):
-        super().__init__(inputs)
+        self.inputs = inputs
+        self.request_disk = None
+        self.notification = inputs.notification
+        self.verbose = 0
+        self.condor_job_priority = inputs.condor_job_priority
+        self.extra_lines = []
+        self.requirements = (
+            [self.inputs.requirements] if self.inputs.requirements else []
+        )
+
         self.dag = dag
 
         self.request_cpus = inputs.request_cpus
@@ -1383,7 +1785,7 @@ class HeterodyneNode(Node):
         # job name prefix
         jobname = inputs.config.get("job", "name", fallback="cwinpy_heterodyne")
         self.base_job_name = "{}_{}{}_{}_{}-{}".format(
-            jobname, psrstring, detector, freqfactor, starttime, endtime
+            jobname, psrstring, detector, int(freqfactor), starttime, endtime
         )
         self.job_name = self.base_job_name
 
@@ -1394,7 +1796,7 @@ class HeterodyneNode(Node):
         configfile = os.path.join(
             configlocation,
             "{}{}_{}_{}-{}.ini".format(
-                psrstring, detector, freqfactor, starttime, endtime
+                psrstring, detector, int(freqfactor), starttime, endtime
             ),
         )
 
@@ -1421,14 +1823,21 @@ class HeterodyneNode(Node):
                 tmphet = Heterodyne(
                     output=configdict["output"],
                     label=configdict.get("label", None),
-                    pulsarfiles=configdict["pulsarfiles"],
-                    pulsars=configdict["pulsars"],
+                    pulsarfiles=copy.deepcopy(configdict["pulsarfiles"]),
+                    pulsars=copy.deepcopy(configdict["pulsars"]),
                 )
 
+                labeldict = {
+                    "det": detector,
+                    "gpsstart": int(starttime),
+                    "gpsend": int(endtime),
+                    "freqfactor": int(freqfactor),
+                }
                 for psr in tmphet.outputfiles.copy():
+                    labeldict["psr"] = psr
                     input_files_to_transfer.append(
                         self._relative_topdir(
-                            tmphet.outputfiles[psr],
+                            tmphet.outputfiles[psr].format(**labeldict),
                             self.inputs.initialdir,
                         )
                     )
@@ -1511,13 +1920,13 @@ class HeterodyneNode(Node):
             )
 
         # add use_x509userproxy = true to pass on proxy certificate to jobs
-        self.extra_lines.append("use_x509userproxy = true")
+        self.extra_lines.append("use_x509userproxy = True")
 
         parseobj = DefaultConfigFileParser()
         with open(configfile, "w") as fp:
             fp.write(parseobj.serialize(configdict))
 
-        self.process_node()
+        self.create_pycondor_job()
 
         # reset initial directory
         if tmpinitialdir is not None:
@@ -1531,6 +1940,74 @@ class HeterodyneNode(Node):
                 self.job.add_parents(
                     [gnode.job for gnode in generation_node if isinstance(gnode, Node)]
                 )
+
+    def create_pycondor_job(self):
+        """
+        Overwritten version of create_pycondor_job from the bilby_pipe Node
+        class to allow for proprietory LIGO frames to be used over the OSG.
+        """
+
+        job_name = self.job_name
+        self.extra_lines.extend(
+            _log_output_error_submit_lines(self.log_directory, job_name)
+        )
+
+        if self.inputs.scheduler.lower() == "condor":
+            self.add_accounting()
+
+        self.extra_lines.append(f"priority = {self.condor_job_priority}")
+        if self.inputs.email is not None:
+            self.extra_lines.append(f"notify_user = {self.inputs.email}")
+
+        if self.universe != "local" and self.inputs.osg:
+            if self.run_node_on_osg:
+                # if using LIGO accounting tag use proprietory frames on CVMFS
+                has_ligo_frames = False
+                if not self.inputs.require_gwosc and self.inputs.accounting:
+                    if self.inputs.accounting[0:5] == "ligo.":
+                        has_ligo_frames = True
+
+                _osg_lines, _osg_reqs = self._osg_submit_options(
+                    self.executable, has_ligo_frames=has_ligo_frames
+                )
+
+                # check if using GWOSC frames from CVMFS
+                if self.inputs.require_gwosc:
+                    _osg_reqs.append("HAS_CVMFS_gwosc_osgstorage_org =?= TRUE")
+
+                self.extra_lines.extend(_osg_lines)
+                self.requirements.append(_osg_reqs)
+            else:
+                osg_local_node_lines = [
+                    "+flock_local = True",
+                    '+DESIRED_Sites = "nogrid"',
+                    "+should_transfer_files = NO",
+                ]
+                self.extra_lines.extend(osg_local_node_lines)
+
+        self.job = pycondor.Job(
+            name=job_name,
+            executable=self.executable,
+            submit=self.inputs.submit_directory,
+            request_memory=self.request_memory,
+            request_disk=self.request_disk,
+            request_cpus=self.request_cpus,
+            getenv=self.getenv,
+            universe=self.universe,
+            initialdir=self.inputs.initialdir,
+            notification=self.notification,
+            requirements=" && ".join(self.requirements),
+            extra_lines=self.extra_lines,
+            dag=self.dag.pycondor_dag,
+            arguments=self.arguments.print(),
+            retry=self.retry,
+            verbose=self.verbose,
+        )
+
+        # Hack to allow passing walltime down to slurm
+        setattr(self.job, "slurm_walltime", self.slurm_walltime)
+
+        logger.debug(f"Adding job: {job_name}")
 
     @property
     def executable(self):
@@ -1550,17 +2027,117 @@ class HeterodyneNode(Node):
 
     @property
     def result_directory(self):
-        """The path to the directory where result output will be stored"""
+        """
+        The path to the directory where result output will be stored.
+        """
         check_directory_exists_and_if_not_mkdir(self.resdir)
         return self.resdir
 
     @staticmethod
     def _relative_topdir(path, reference):
-        """Returns the top-level directory name of a path relative
-        to a reference
+        """
+        Returns the top-level directory name of a path relative to a reference.
         """
         try:
             return os.path.relpath(path, reference)
         except ValueError as exc:
-            exc.args = ("cannot format {} relative to {}".format(path, reference),)
+            exc.args = (f"cannot format {path} relative to {reference}",)
             raise
+
+
+class MergeHeterodyneNode(Node):
+    def __init__(self, inputs, configdict, dag, generation_node=None):
+        self.inputs = inputs
+        self.request_disk = None
+        self.notification = inputs.notification
+        self.verbose = 0
+        self.condor_job_priority = inputs.condor_job_priority
+        self.extra_lines = []
+        self.requirements = (
+            [self.inputs.requirements] if self.inputs.requirements else []
+        )
+
+        self.dag = dag
+
+        self.retry = inputs.retry
+        self.getenv = inputs.getenv
+        self.request_cpus = 1
+
+        # run merge jobs locally
+        self._universe = "local"
+
+        self.setup_arguments(
+            add_command_line_args=False,
+            add_ini=False,
+            add_unknown_args=False,
+        )
+
+        detector = configdict["detector"]
+        freqfactor = configdict["freqfactor"]
+        pulsar = configdict["pulsar"]
+        output = configdict["output"]
+        heterodynedfiles = configdict["heterodynedfiles"]
+
+        configdir = self.inputs.config.get("heterodyne", "config", fallback="configs")
+        configlocation = os.path.join(self.inputs.outdir, configdir)
+        check_directory_exists_and_if_not_mkdir(configlocation)
+        configfile = os.path.join(
+            configlocation,
+            "{}_{}_{}_merge.ini".format(
+                pulsar,
+                detector,
+                int(freqfactor),
+            ),
+        )
+
+        self.arguments.add("config", configfile)
+
+        # add accounting user
+        if self.inputs.accounting_user is not None:
+            self.extra_lines.append(
+                "accounting_group_user = {}".format(self.inputs.accounting_user)
+            )
+
+        # output merge job configuration
+        configs = {}
+        configs["remove"] = self.inputs.config.getboolean(
+            "merge", "remove", fallback=False
+        )
+        configs["heterodynedfiles"] = heterodynedfiles
+        configs["output"] = output
+        configs["overwrite"] = self.inputs.config.getboolean(
+            "merge", "overwrite", fallback=True
+        )
+
+        parseobj = DefaultConfigFileParser()
+        with open(configfile, "w") as fp:
+            fp.write(parseobj.serialize(configs))
+
+        # job name prefix
+        jobname = "cwinpy_heterodyne_merge"
+        self.base_job_name = "{}_{}_{}_{}".format(
+            jobname, pulsar, detector, int(freqfactor)
+        )
+        self.job_name = self.base_job_name
+
+        self.online_pe = False  # required for create_pycondor_job()
+        self.create_pycondor_job()
+
+        if generation_node is not None:
+            self.job.add_parents(
+                [gnode.job for gnode in generation_node if isinstance(gnode, Node)]
+            )
+
+    @property
+    def executable(self):
+        jobexec = "cwinpy_heterodyne_merge"
+        return self._get_executable_path(jobexec)
+
+    @property
+    def request_memory(self):
+        return self.inputs.request_memory
+
+    @property
+    def log_directory(self):
+        check_directory_exists_and_if_not_mkdir(self.inputs.heterodyne_log_directory)
+        return self.inputs.heterodyne_log_directory

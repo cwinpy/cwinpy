@@ -103,12 +103,6 @@ The analysis can then be run using:
 
 which should only take a few minutes, with information on the run output to the terminal.
 
-.. note::
-
-   You can hopefully ignore errors related to ``XLALReadEphemerisFile`` and ``XLALInitBarycenter``
-   as the code should attempt to download the appropriate solar system ephemeris files if they
-   cannot be found.
-
 This will create a directory called ``example1`` containing: the results as a bilby ``Results``
 object saved, by default, in a `JSON <https://www.json.org/>`_ format file called
 ``example1_result.json`` (see `here
