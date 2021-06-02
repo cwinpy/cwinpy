@@ -16,7 +16,11 @@ import cwinpy
 import numpy as np
 from bilby_pipe.bilbyargparser import BilbyArgParser
 from bilby_pipe.job_creation.dag import Dag
-from bilby_pipe.utils import BilbyPipeError, parse_args
+from bilby_pipe.utils import (
+    BilbyPipeError,
+    check_directory_exists_and_if_not_mkdir,
+    parse_args,
+)
 from configargparse import ArgumentError
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
@@ -676,6 +680,9 @@ class HeterodyneDAGRunner(object):
         # get any additional submission options
         self.submit_options = config.get("dag", "submit_options", fallback=None)
 
+        # get the base directory
+        self.basedir = config.get("run", "basedir", fallback=os.getcwd())
+
         # create configurations for each cwinpy_heterodyne job
         if not config.has_section("heterodyne"):
             raise IOError("Configuration file must have a [heterodyne] section.")
@@ -895,10 +902,15 @@ class HeterodyneDAGRunner(object):
 
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
-                        seginfo["segmentlist"] = "segments_{0:d}-{1:d}_{2}.txt".format(
-                            starttimes[det][i],
-                            endtimes[det][i],
-                            includeflags[det][i],
+                        segdir = os.path.join(self.basedir, "segments")
+                        check_directory_exists_and_if_not_mkdir(segdir)
+                        seginfo["segmentlist"] = os.path.join(
+                            segdir,
+                            "segments_{0:d}-{1:d}_{2}.txt".format(
+                                starttimes[det][i],
+                                endtimes[det][i],
+                                includeflags[det][i],
+                            ),
                         )
                         _ = generate_segments(
                             starttime=starttimes[det][i],
@@ -951,10 +963,15 @@ class HeterodyneDAGRunner(object):
 
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
-                        seginfo["segmentlist"] = "segments_{0:d}-{1:d}_{2}.txt".format(
-                            starttime,
-                            endtime,
-                            includeflags[det][idx],
+                        segdir = os.path.join(self.basedir, "segments")
+                        check_directory_exists_and_if_not_mkdir(segdir)
+                        seginfo["segmentlist"] = os.path.join(
+                            segdir,
+                            "segments_{0:d}-{1:d}_{2}.txt".format(
+                                starttime,
+                                endtime,
+                                includeflags[det][idx],
+                            ),
                         )
                         _ = generate_segments(
                             starttime=starttime,
@@ -1452,7 +1469,7 @@ def heterodyne_dag(**kwargs):
         )
 
         optional = parser.add_argument_group(
-            "Quick setup arguments (this assumes CVMFS open data access)"
+            "Quick setup arguments (this assumes CVMFS open data access)."
         )
         optional.add_argument(
             "--run",
