@@ -1019,8 +1019,8 @@ class HeterodyneDAGRunner(object):
                             # use end value
                             curend = segmentlist[-1][1]
 
-                        starttimes[det].append(curstart)
-                        endtimes[det].append(curend)
+                        starttimes[det].append(int(curstart))
+                        endtimes[det].append(int(curend))
 
                         frinfo = {}
                         if frametypes is not None:
