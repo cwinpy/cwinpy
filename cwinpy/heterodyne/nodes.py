@@ -160,7 +160,7 @@ class HeterodyneNode(Node):
             outputdir = "heterodyneddata"
 
             # if resume is set transfer any created files
-            if configdict["resume"]:
+            if not configdict["overwrite"]:
                 # create temporary Heterodyne object to get output files
                 tmphet = Heterodyne(
                     output=configdict["output"],
