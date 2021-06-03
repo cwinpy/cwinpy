@@ -177,6 +177,12 @@ class HeterodyneNode(Node):
                 }
                 for psr in tmphet.outputfiles.copy():
                     labeldict["psr"] = psr
+
+                    # create empty dummy files, so Condor doesn't complain about files not existing
+                    # see https://stackoverflow.com/a/12654798/1862861
+                    with open(tmphet.outputfiles[psr].format(**labeldict), "a"):
+                        pass
+
                     input_files_to_transfer.append(
                         self._relative_topdir(
                             tmphet.outputfiles[psr].format(**labeldict),
