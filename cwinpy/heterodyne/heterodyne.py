@@ -496,7 +496,7 @@ def heterodyne(**kwargs):
             hetkwargs.pop(key)
 
     # convert "overwrite" to "resume"
-    hetkwargs["resume"] = not hetkwargs.pop("overwrite")
+    hetkwargs["resume"] = not hetkwargs.pop("overwrite", False)
 
     # set up the run
     het = Heterodyne(**hetkwargs)
