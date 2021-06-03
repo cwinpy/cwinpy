@@ -1009,6 +1009,10 @@ class HeterodyneDAGRunner(object):
                             curend = segmentlist[segidx][1] - overlap
                             segmentlist[segidx][0] = curend
                         else:
+                            # ignore final segment if it's less than 30 mins
+                            if sumseg < 30 * 60:
+                                break
+
                             # use end value
                             curend = segmentlist[-1][1]
 
