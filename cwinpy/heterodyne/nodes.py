@@ -156,19 +156,21 @@ class HeterodyneNode(Node):
                 self._relative_topdir(configfile, self.inputs.initialdir)
             ]
 
+            output_files_to_transfer = []
+
             # set a directory for heterodyned data to be output to on the node
             outputdir = "heterodyneddata"
 
+            # create temporary Heterodyne object to get output files
+            tmphet = Heterodyne(
+                output=configdict["output"],
+                label=configdict.get("label", None),
+                pulsarfiles=copy.deepcopy(configdict["pulsarfiles"]),
+                pulsars=copy.deepcopy(configdict["pulsars"]),
+            )
+
             # if resume is set transfer any created files
             if not configdict["overwrite"]:
-                # create temporary Heterodyne object to get output files
-                tmphet = Heterodyne(
-                    output=configdict["output"],
-                    label=configdict.get("label", None),
-                    pulsarfiles=copy.deepcopy(configdict["pulsarfiles"]),
-                    pulsars=copy.deepcopy(configdict["pulsars"]),
-                )
-
                 labeldict = {
                     "det": detector,
                     "gpsstart": int(starttime),
@@ -177,20 +179,26 @@ class HeterodyneNode(Node):
                 }
                 for psr in tmphet.outputfiles.copy():
                     labeldict["psr"] = psr
+                    psrfile = tmphet.outputfiles[psr].format(**labeldict)
 
                     # create empty dummy files, so Condor doesn't complain about files not existing
                     # see https://stackoverflow.com/a/12654798/1862861
-                    with open(tmphet.outputfiles[psr].format(**labeldict), "a"):
+                    with open(psrfile, "a"):
                         pass
 
                     input_files_to_transfer.append(
-                        self._relative_topdir(
-                            tmphet.outputfiles[psr].format(**labeldict),
-                            self.inputs.initialdir,
-                        )
+                        self._relative_topdir(psrfile, self.inputs.initialdir)
                     )
 
             configdict["output"] = outputdir
+
+            # set output files to transfer back
+            for psr in tmphet.outputfiles.copy():
+                labeldict["psr"] = psr
+                psrfile = tmphet.outputfiles[psr].format(**labeldict)
+                output_files_to_transfer.append(
+                    os.path.join(outputdir, os.path.basename(psrfile))
+                )
 
             # transfer pulsar parameter files
             for psr in configdict["pulsarfiles"].copy():
@@ -253,7 +261,7 @@ class HeterodyneNode(Node):
 
             self.extra_lines.extend(
                 self._condor_file_transfer_lines(
-                    list(set(input_files_to_transfer)), [configdict["output"]]
+                    list(set(input_files_to_transfer)), output_files_to_transfer
                 )
             )
 
