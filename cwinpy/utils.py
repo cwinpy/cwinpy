@@ -326,7 +326,7 @@ def initialise_ephemeris(
             with MuteStream():
                 # get full file path
                 earthf = lalpulsar.PulsarFileResolvePath(earth)
-                sunf = lalpulsar.PulsarFileResolvePath(earth)
+                sunf = lalpulsar.PulsarFileResolvePath(sun)
                 edat = lalpulsar.InitBarycenter(earthf, sunf)
             filepaths = [edat.filenameE, edat.filenameS]
         except RuntimeError:
