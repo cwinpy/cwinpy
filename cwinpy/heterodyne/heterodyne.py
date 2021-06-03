@@ -773,7 +773,7 @@ class HeterodyneDAGRunner(object):
                 raise ValueError("Inconsistent numbers of start and end times")
 
         stride = config.getint("heterodyne", "stride", fallback=None)
-        ntimejobs = config.getint("heterodyne", "ntimejobs", fallback=1)
+        joblength = config.getint("heterodyne", "joblength", fallback=86400)
 
         # get frame data information
         frametypes = self.eval(config.get("heterodyne", "frametypes", fallback=None))
@@ -874,7 +874,7 @@ class HeterodyneDAGRunner(object):
         )
 
         # get all the split times
-        if ntimejobs == 1:
+        if joblength == 0:
             starttimes = fullstarttimes
             endtimes = fullendtimes
 
@@ -930,29 +930,24 @@ class HeterodyneDAGRunner(object):
                         )
 
                     segmentdata[det].append(seginfo.copy())
-        elif ntimejobs > 1:
+        elif joblength > 0:
             starttimes = {det: [] for det in detectors}
             endtimes = {det: [] for det in detectors}
 
-            totaltimes = {
-                det: sum(
-                    fullendtimes[det][i] - fullstarttimes[det][i]
-                    for i in range(len(fullendtimes[det]))
-                )
-                for det in detectors
-            }
             for det in detectors:
-                tstep = int(np.ceil(totaltimes[det] / ntimejobs))
-
                 idx = 0
                 for starttime, endtime in zip(fullstarttimes[det], fullendtimes[det]):
-                    curstart = starttime
-
                     # if segment list files are not provided create the lists
                     # now rather than relying on each job doing it
                     seginfo = {}
                     if segmentlists is not None:
                         seginfo["segmentlist"] = segmentlists[det][idx]
+
+                        segmentlist = generate_segments(
+                            starttime=starttime,
+                            endtime=endtime,
+                            segmentfile=seginfo["segmentlist"],
+                        )
                     else:
                         # GWOSC segments look like DET_DATA or DET_*_CAT*
                         usegwosc = False
@@ -976,7 +971,7 @@ class HeterodyneDAGRunner(object):
                                 includeflags[det][idx],
                             ),
                         )
-                        _ = generate_segments(
+                        segmentlist = generate_segments(
                             starttime=starttime,
                             endtime=endtime,
                             includeflags=includeflags[det][idx],
@@ -990,11 +985,35 @@ class HeterodyneDAGRunner(object):
                             server=segmentserver,
                         )
 
-                    while curstart < endtime:
-                        curend = curstart + tstep
+                        if len(segmentlist) == 0:
+                            raise ValueError(
+                                f"No science data segments exist for {det}"
+                            )
+
+                    segidx = 0
+                    while segidx < len(segmentlist):
+                        curstart = segmentlist[segidx][0]
+
+                        # get segments containing up to joblength of data
+                        sumseg = 0
+                        while sumseg < joblength:
+                            sumseg += segmentlist[segidx][1] - segmentlist[segidx][0]
+                            segidx += 1
+
+                            if segidx == len(segmentlist):
+                                break
+
+                        if segidx < len(segmentlist):
+                            overlap = sumseg - joblength
+                            segidx -= 1
+                            curend = segmentlist[segidx][1] - overlap
+                            segmentlist[segidx][0] = curend
+                        else:
+                            # use end value
+                            curend = segmentlist[-1][1]
+
                         starttimes[det].append(curstart)
-                        endtimes[det].append(min([curend, endtime]))
-                        curstart = curend
+                        endtimes[det].append(curend)
 
                         frinfo = {}
                         if frametypes is not None:
@@ -1007,7 +1026,7 @@ class HeterodyneDAGRunner(object):
                         segmentdata[det].append(seginfo.copy())
                     idx += 1
         else:
-            raise ValueError("Number of jobs must be a positive integer")
+            raise ValueError("Length of each job must be a positive integer")
 
         # create Heterodyne object to get pulsar parameter file information
         het = Heterodyne(
@@ -1168,7 +1187,7 @@ class HeterodyneDAGRunner(object):
         crop = config.getint("heterodyne", "crop", fallback=60)
         overwrite = config.getboolean("heterodyne", "overwrite", fallback=False)
 
-        merge = config.getboolean("merge", "merge", fallback=False) and ntimejobs > 1
+        merge = config.getboolean("merge", "merge", fallback=False) and joblength > 0
 
         # create jobs
         self.hetnodes = []
@@ -1533,13 +1552,13 @@ def heterodyne_dag(**kwargs):
             default=os.getcwd(),
         )
         optional.add_argument(
-            "--nchunks",
+            "--joblength",
             type=int,
             help=(
-                "The number of 'chunks' the data will be split into for each "
-                "detector. The total number of cwinpy_heterodyne jobs will be "
-                "(nchunks x no. detectors). Default is to split the run into "
-                "one day long chunks."
+                "The length of data (in seconds) into which to split the "
+                "individual analysis jobs. By default this is set to 86400, "
+                "i.e., one day. If this is set to 0, then the whole dataset "
+                "is treated as a single job."
             ),
         )
         optional.add_argument(
@@ -1646,18 +1665,10 @@ def heterodyne_dag(**kwargs):
             configfile["heterodyne"]["overwrite"] = "False"
 
             # split the analysis into on average day long chunks
-            if args.nchunks is None:
-                configfile["heterodyne"]["ntimejobs"] = str(
-                    int(
-                        (
-                            runtimes[run][detectors[0]][1]
-                            - runtimes[run][detectors[0]][0]
-                        )
-                        / 86400
-                    )
-                )
+            if args.joblength is None:
+                configfile["heterodyne"]["joblength"] = "86400"
             else:
-                configfile["heterodyne"]["ntimejobs"] = str(args.nchunks)
+                configfile["heterodyne"]["joblength"] = str(args.joblength)
 
             # merge the resulting files and remove individual files
             configfile["merge"] = {}
