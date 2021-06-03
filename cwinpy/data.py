@@ -3045,7 +3045,7 @@ class HeterodynedData(TimeSeriesBase):
                     raise ValueError("'fraction_label_num' must be positive")
 
                 df = Fs / fraction_label_num
-                ticks = np.linspace(-2 / Fs, 2 / Fs, int(Fs / df) + 1)
+                ticks = np.linspace(-Fs / 2, Fs / 2, int(Fs / df) + 1)
                 labels = []
                 for tick in ticks:
                     if tick == 0.0:
@@ -3053,13 +3053,13 @@ class HeterodynedData(TimeSeriesBase):
                     else:
                         # set the fraction label
                         sign = "-" if tick < 0.0 else ""
-                        label = "${0}^{{{1}}}\u2044_{{{2}}}$".format(
-                            sign, 1, int(np.abs(tick))
-                        )
-                        labels.append(label)
-
-                if ptype != "spectrogram":
-                    ticks = np.linspace(-Fs / 2, Fs / 2, int(Fs / df) + 1)
+                        if np.abs(tick) == 1.0:
+                            label = f"{sign}1"
+                        else:
+                            label = "${0}^{{{1}}}\u2044_{{{2}}}$".format(
+                                sign, 1, round(1 / np.abs(tick))
+                            )
+                            labels.append(label)
 
             if ptype == "spectrogram":
                 from matplotlib import colors
