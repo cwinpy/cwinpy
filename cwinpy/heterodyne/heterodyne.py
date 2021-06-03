@@ -990,6 +990,9 @@ class HeterodyneDAGRunner(object):
                                 f"No science data segments exist for {det}"
                             )
 
+                    # make segment list a list of lists, so values are not immutable
+                    segmentlist = [list(seg) for seg in segmentlist]
+
                     segidx = 0
                     while segidx < len(segmentlist):
                         curstart = segmentlist[segidx][0]
