@@ -495,6 +495,9 @@ def heterodyne(**kwargs):
         if hetkwargs[key] is None:
             hetkwargs.pop(key)
 
+    # convert "overwrite" to "resume"
+    hetkwargs["resume"] = not hetkwargs.pop("overwrite")
+
     # set up the run
     het = Heterodyne(**hetkwargs)
 
@@ -1209,7 +1212,7 @@ class HeterodyneDAGRunner(object):
                         configdict["resamplerate"] = resamplerate[0]
                         configdict["filterknee"] = filterknee
                         configdict["crop"] = crop
-                        configdict["resume"] = not overwrite
+                        configdict["overwrite"] = overwrite
 
                         # set frame data/heterodyned data info
                         configdict.update(framedata[det][idx])
