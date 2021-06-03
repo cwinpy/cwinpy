@@ -324,8 +324,11 @@ def initialise_ephemeris(
     if not timeonly:
         try:
             with MuteStream():
-                edat = lalpulsar.InitBarycenter(earth, sun)
-            filepaths = [earth, sun]
+                # get full file path
+                earthf = lalpulsar.PulsarFileResolvePath(earth)
+                sunf = lalpulsar.PulsarFileResolvePath(earth)
+                edat = lalpulsar.InitBarycenter(earthf, sunf)
+            filepaths = [edat.filenameE, edat.filenameS]
         except RuntimeError:
             # try downloading the ephemeris files
             try:
@@ -352,8 +355,10 @@ def initialise_ephemeris(
 
     try:
         with MuteStream():
-            tdat = lalpulsar.InitTimeCorrections(time)
-        filepaths.append(time)
+            # get full file path
+            timef = lalpulsar.PulsarFileResolvePath(time)
+            tdat = lalpulsar.InitTimeCorrections(timef)
+        filepaths.append(timef)
     except RuntimeError:
         try:
             # try downloading the time coordinate file
