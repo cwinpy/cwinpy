@@ -319,6 +319,12 @@ submitted with:
 
    condor_submit_dag /root/submit/dag_cwinpy_pe.submit
 
+.. note::
+
+   If running on LIGO Scientific Collaboration computing clusters the ``acounting_group`` value must
+   be specified and be a valid tag. Valid tag names can be found `here
+   <https://accounting.ligo.org/user>`_ unless custom values for a specfic cluster are allowed.
+
 Command line arguments
 ----------------------
 

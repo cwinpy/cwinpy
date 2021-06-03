@@ -1123,7 +1123,7 @@ class HeterodyneDAGRunner(object):
         ):
             if (
                 len(set([os.path.basename(edat[etype]) for etype in edat])) == 1
-                and len(edat[etype]) > 1
+                and len(edat) > 1
             ):
                 for etype in edat:
                     tmpephem = os.path.join(tempfile.gettempdir(), f"{ename}_{etype}")

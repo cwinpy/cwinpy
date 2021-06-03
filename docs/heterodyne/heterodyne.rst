@@ -440,6 +440,20 @@ directories will be:
 ``heterodyne_{pulsarname}_{detector}_{frequencyfactor}_{gpsstart}-{gpsend}.hdf5`` although this can
 be altered using the ``label`` option.
 
+.. note::
+
+   If running on LIGO Scientific Collaboration computing clusters the ``acounting_group`` value must
+   be specified and be a valid tag. Valid tag names can be found `here
+   <https://accounting.ligo.org/user>`_ unless custom values for a specfic cluster are allowed.
+
+Open Science Grid
+^^^^^^^^^^^^^^^^^
+
+If you have access to resources on the Open Science Grid (OSG) then the analysis can be run on them.
+This can be achieved by setting the ``osg`` value in the configuration file to be ``True``. Before
+launching the script you should make sure that you are using CWInPy from within an `IGWN conda environment
+<https://computing.docs.ligo.org/conda/>`_ as distributed over CVMFS.
+
 Two stage approach
 ^^^^^^^^^^^^^^^^^^
 
@@ -475,7 +489,9 @@ performed in each run, so if you wanted the analyse the these in, say, the LIGO 
     cwinpy_heterodyne_dag --run S6 --hwinj --output /home/usr/hwinjections
 
 Other command line arguments for ``cwinpy_heterodyne_dag``, e.g., for setting specific detectors,
-can be found :ref:`below<heterodyne Command line arguments>`.
+can be found :ref:`below<heterodyne Command line arguments>`. If running on a LIGO Scientific
+Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid `accounting tag
+<https://accounting.ligo.org/user>`_.
 
 .. note::
 
