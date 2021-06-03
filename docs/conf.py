@@ -120,6 +120,7 @@ exclude_patterns = [
     "pe/data/example2/*.pickle",
     "pe/data/example2/*_trace.png",
     "heterodyne/heterodyne_help.txt",
+    "heterodyne/heterodyne_dag_help.txt",
     "heterodyne/examples/segments.txt",
 ]
 
@@ -252,3 +253,8 @@ with open("pe/pe_help.txt", "w") as fp:
 heterodyne_help = subprocess.getoutput("cwinpy_heterodyne --help")
 with open("heterodyne/heterodyne_help.txt", "w") as fp:
     fp.write(heterodyne_help)
+
+# generate cwinpy_heterodyne_dag help string for docs
+heterodyne_dag_help = subprocess.getoutput("cwinpy_heterodyne_dag --help")
+with open("heterodyne/heterodyne_dag_help.txt", "w") as fp:
+    fp.write(heterodyne_dag_help)

@@ -219,8 +219,8 @@ ANALYSIS_SEGMENTS = {
 }
 
 
-#: Base CVMFS directory open GWOSC frame data
-CVMFS_GWOSC_BASE = "/cvmfs/gwosc.osgstorage.org/gwdata/"
+#: Base CVMFS directory for open GWOSC frame data
+CVMFS_GWOSC_BASE = "/cvmfs/gwosc.osgstorage.org/gwdata"
 #: CVMFS frame data locations for each run for open GWOSC frame data
 CVMFS_GWOSC_FRAME_DATA_LOCATIONS = {
     run: {
@@ -299,3 +299,6 @@ CVMFS_GWOSC_HDF5_DATA_LOCATIONS = {
     }
     for run in RUNTIMES
 }
+
+#: Base CVMFS directory for proprietory LVK frame data
+CVMFS_LVK_BASE = "/cvmfs/oasis.opensciencegrid.org/ligo/frames"

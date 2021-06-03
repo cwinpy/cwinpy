@@ -68,9 +68,9 @@ signals. The ``EPHEM`` value defines the JPL solar system ephemeris used to crea
 is either ``DE200`` or ``DE405`` for the injections.
 
 In some cases the gravitational-wave polarisation angle ``PSI`` has been rotated to be positive
-valued compared to the values from the GWOSC tables: :math:`\psi \\rightarrow \psi + \pi/2`, which
-also requires an equivalent rotation of the initial phase: :math:`\phi_0 \\rightarrow (\phi_0 +
-\pi/2) \\text{~mod~} \pi`.
+valued compared to the values from the GWOSC tables: :math:`\psi \rightarrow \psi + \pi/2`, which
+also requires an equivalent rotation of the initial phase: :math:`\phi_0 \rightarrow (\phi_0 +
+\pi/2) \text{ mod } \pi`.
 
 The names of the GWOSC analysis segments used for each run are given in
 :obj:`~cwinpy.info.HW_INJ_SEGMENTS`, which include the time segments to include and those to exclude
@@ -126,8 +126,8 @@ observing run and each detector, with strain data sampled at 4096 Hz in the ``"4
 for all observing runs) and data sampled at 16384 Hz in the ``"16k"`` key (available for all
 *advanced detector* runs, starting with the ``O`` prefix).
 
-Packaged data references
-------------------------
+Run information references
+--------------------------
 
 .. [1] `C. Biwer et al <https://ui.adsabs.harvard.edu/abs/2017PhRvD..95f2002B/abstract>`_, *PRD*,
    **95**, 062002 (2017)

@@ -62,7 +62,8 @@ for ``cwinpy_heterodyne`` are given :ref:`below<heterodyne Command line argument
 
 If running an analysis for multiple pulsars on a large stretch of data it is recommended that you
 split the analysis up to run as many separate jobs. If you have access to a computer cluster (such
-as those available to the LVK, or via the OSG), or an individual machine (see below), running the
+as those available to the LVK, or via the `Open Science Grid <https://opensciencegrid.org/>`_),
+or an individual machine (see below), running the
 `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ job scheduler system, the analysis can be split
 up using the ``cwinpy_heterodyne_dag`` pipeline script. We will also describe examples of using
 this. In some cases you may need to generate a proxy certificate to allow the analysis script to
@@ -122,7 +123,7 @@ This should create the file ``H-H1_FAKEDATA-1000000000-86400.gwf`` in the gwf fo
 Heterodyning the data
 #####################
 
-We will show how to heterodyning the data in ``H-H1_FAKEDATA-1000000000-86400.gwf`` for the two
+We will show how to heterodyne the data in ``H-H1_FAKEDATA-1000000000-86400.gwf`` for the two
 different pulsars by using i) a configuration file for the ``cwinpy_heterodyne`` script, ii) the
 Python API.
 
@@ -230,9 +231,9 @@ via `CVMFS <https://www.gw-openscience.org/cvmfs/>`_. The data time span will be
 
 The example will look for the hardware injection signals ``5`` and ``6`` from the table `here
 <https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`_ (note that the table
-contains the signal frequency and frequency derivative, which must be halved to give equivalent
-"rotational" values in the parameter files). Files containing the parameters for all these
-injections for each observing run are packaged with CWInPy with locations given in the
+contains the gravitational-wave signal frequency and frequency derivative, which must be halved to
+give equivalent "rotational" values in the parameter files). Files containing the parameters for all
+these injections for each observing run are packaged with CWInPy with locations given in the
 :obj:`~cwinpy.info.HW_INJ` dictionary.
 
 For this we can use the following configuration file:
@@ -257,7 +258,7 @@ just substitute the location of the parameter files into the configuration file:
    cwinpy_heterodyne --config example2_config.ini
 
 If the CVMFS data is being downloaded on-the-fly then (depending on your internet connection speed)
-this may take on the order of tens of minutes to run.
+this may take on the order of ten minutes to run.
 
 The outputs (HDF5 files containing :class:`~cwinpy.data.HeterodynedData` objects) will be placed in
 the ``heterodyneddata`` directory as specified by the ``output`` option in the configration file.
@@ -283,12 +284,12 @@ We can take a look at the heterodyned data for the hardware injection with:
    :width: 600px
    :align: center
 
-   We can see the signal in the data by taking a spectrum:
+We can see the signal in the data by taking a spectrum:
 
 .. code-block: python
 
    figspec = hwinj.periodogram(remove_outliers=True)
-   figspec.show()
+   figspec[-1].show()
 
 .. thumbnail:: examples/example2_spectrum_plot.png
    :width: 600px
@@ -299,12 +300,188 @@ individual jobs and run them in parallel. This can be achieved by creating a HTC
 be run on a computer cluster (or on multiple cores on a single machine), as described
 :ref:`below<Running using HTCondor>`.
 
+Example: two stage heterodyne
+=============================
+
+As described in, e.g., [1]_, the heterodyne can be performed in two stages. For example, the first
+stage could account for the signal's phase evolution, but neglecting Doppler and relativistic
+solar/binary system effects, while still low-pass filtering and heavily downsampling the data. The
+second stage would then apply the solar/binary system effects at the lower sample rate. In the past,
+with ``lalapps_heterodyne_pulsar``, this two stage approach provided speed advantages, although with
+CWInPy that advantage is negligible. However, the two stage approach can be useful if you want to
+analyse data with a preliminary source ephemeris, and then re-heterodyne the same data with an
+updated source ephemeris. In most cases it is recommended to heterodyne in a single stage, which
+also allows slightly more agressive filtering to be applied.
+
+To perform the run from :ref:`the above example<Example: hardware injections in LIGO O1 data>` in
+two stages one could use the following configuration (called, e.g., ``example3_stage1_config.ini``)
+file for stage 1:
+
+.. literalinclude:: examples/example3_stage1_config.ini
+
+and then run the commands:
+
+.. code-block:: bash
+
+   basepath=`python -c "from cwinpy.info import HW_INJ_BASE_PATH; print(HW_INJ_BASE_PATH)"`
+   sed -i "s|{hwinjpath}|$basepath|g" example3_stage1_config.ini
+   cwinpy_heterodyne --config example3_stage1_config.ini
+
+The stage 2 configuration file (called, e.g, ``example3_stage2_config.ini``) would then be:
+
+.. literalinclude:: example/example3_stage2_config.ini
+
+which could be run with:
+
+.. code-block:: bash
+
+   sed -i "s|{hwinjpath}|$basepath|g" example3_stage2_config.ini
+   cwinpy_heterodyne --config example3_stage2_config.ini
+
+In this case the intermediate heterodyned data will be store in the ``heterodyneddata`` directory
+and the final heterodyned data will be in the ``heterodyneddata_stage2`` directory. We can plot
+spectra of these outputs for comparison with, e.g.:
+
+.. code-block:: python
+
+   from matplotlib import pyplot as plt
+   from cwinpy import HeterodynedData
+
+   # read in stage 1 and stage 2 data
+   stage1 = HeterodynedData.read(
+      "heterodyneddata/heterodyne_JPULSAR05_H1_2_1132478127-1132564527.hdf5"
+   )
+   stage2 = HeterodynedData.read(
+      "heterodyneddata_stage2/heterodyne_JPULSAR05_H1_2_1132478127-1132564527.hdf5"
+   )
+
+   # create figure
+   fig, ax = plt.subplots(1, 2, figsize=(8,5))
+
+   # plot periodogram of the stage 1 data on the left
+   stage1.periodogram(remove_outliers=True, ax=ax[0])
+   ax[0].set_title("Stage 1 (full band)")
+
+   # plot zoom of stage 1 on the right
+   stage1.periodogram(remove_outliers=True, ax=ax[1], label="Stage 1 (zoom)")
+
+   # plot stage 2 over the zoom of stage 1
+   stage2.periodogram(remove_outliers=True, ax=ax[1], linestyle="--", color="g", label="Stage 2")
+
+   fig.show()
+
+.. thumbnail:: examples/example3_spectrum_plot.png
+   :width: 600px
+   :align: center
+
+From the right panel it can be seen that the second stage of the heterodyne shifts the signal peak
+to approximately zero Hz, as expected, and increases the power in the peak, which will be slightly
+spread out over several frequency bins after only the first heterodyne stage.
+
 Running using HTCondor
-######################
+----------------------
 
 When heterodyning long stretches of data it is preferable to split the observations up into more
-manageable chunks of time.
+manageable chunks of time. The can be achieved by splitting up the analysis and running it as
+multiple independent jobs on a machine/cluster, or over the
+`Open Science Grid <https://opensciencegrid.org/>`_, using the
+`HTCondor <https://research.cs.wisc.edu/htcondor/>`_ job scheduler system. This can be done using
+the ``cwinpy_heterodyne_dag`` script (or the :func:`~cwinpy.heterodyne.heterodyne_dag` API).
 
+This can be run using a configuration script containing the information as described in the example
+below:
+
+.. literalinclude:: cwipny_heterodyne_dag.ini
+
+where this contains information for heterodyning data from the O1 and O2 observing runs for the two
+LIGO detectors, H1 and L1. Comments about each input parameter, and different potential input
+options are given inline; some input parameters are also commented out using a ``;`` in which case
+the default values would be used. For more information on the various HTCondor options see the `user
+manual <https://htcondor.readthedocs.io/en/v8_8_4/users-manual/index.html>`_.
+
+This could then be run to generate the HTCondor DAG using:
+
+.. code-block:: bash
+
+   cwinpy_heterodyne_dag cwinpy_heterodyne_dag.ini
+
+and the generated DAG then submitted (if the ``submitdag`` option is set to ``False`` in the
+configuration file) using:
+
+.. code-block:: bash
+
+   condor_submit_dag /home/username/heterodyne/submit/dag_cwinpy_heterodyne.submit
+
+.. note::
+
+   When running ``condor_submit_dag`` you need to make sure you call it from the same directory that
+   you ran ``cwinpy_heterodyne_dag`` from and make sure the path to the DAG file is relative to the
+   current directory.
+
+This example will generate the following directory tree structure:
+
+.. code-block:: bash
+
+   /home/username/heterodyne
+                   ├── configs  # directory containing configuration files for individual cwinpy_heterodyne runs
+                   ├── submit   # directory containing the Condor submit and DAG files
+                   ├── log      # directory containing the Condor log files
+                   ├── H1       # directory containing the heterodyned data files for the H1 detector
+                   └── L1       # directory containing the heterodyned data files for the L1 detector
+
+By default the multiple heterodyned data files for each pulsar due to the splitting will be merged
+using the ``cwinpy_heterodyne_merge`` script (see the :func:`~cwinpy.heterodyne.heterodyne_merge`
+API). If the ``remove`` option is set in the configuration file then the individial unmerged files
+will be removed, but by default they will be kept (although not for the :ref`"Quick setup"<Quick
+setup example>`).
+
+The default naming format of the output heterodyned data files in their respective detector
+directories will be:
+``heterodyne_{pulsarname}_{detector}_{frequencyfactor}_{gpsstart}-{gpsend}.hdf5`` although this can
+be altered using the ``label`` option.
+
+Two stage approach
+^^^^^^^^^^^^^^^^^^
+
+
+
+Quick setup example
+===================
+
+The ``cwinpy_heterodyne_dag`` script has some quick setup options that allow an analysis to be
+launched in one line without the need to define a configuration file. These options **require** that
+the machine/cluster that you are running HTCondor on has access to open data from GWOSC available
+via CVMFS. It is also recommended that you run CWInPy from within an `IGWN conda environment
+<https://computing.docs.ligo.org/conda/>`_ 
+
+For example, if you have a TEMPO(2)-style pulsar parameter file, e.g., ``J0740+6620.par``, and you
+want to analysis the open `O1 data <https://www.gw-openscience.org/O1/>`_ for the two LIGO detectors
+you can simply run:
+
+.. code-block:: bash
+
+   cwinpy_heterodyne_dag --run O1 --pulsar J0740+6620.par --output /home/usr/heterodyneddata
+
+where ``/home/usr/heterodyneddata`` is the name of the directory where the run information and
+results will be stored. This command will automatically submit the Condor DAG for the job. To
+specify multiple pulsars you can just use the ``--pulsar`` option multiple times.
+
+CWInPy also contains information on the continuous :ref:`hardware injections<Hardware Injections>`
+performed in each run, so if you wanted the analyse the these in, say, the LIGO `sixth science run
+<https://www.gw-openscience.org/archive/S6/>`_, you could do:
+
+.. code-block:: bash
+
+    cwinpy_heterodyne_dag --run S6 --hwinj --output /home/usr/hwinjections
+
+Other command line arguments for ``cwinpy_heterodyne_dag``, e.g., for setting specific detectors,
+can be found :ref:`below<heterodyne Command line arguments>`.
+
+.. note::
+
+   The quick setup will only be able to use default parameter values for the heterodyne. For
+   "production" analyses, or if you want more control over the parameters, it is recommended that
+   you use a configuration file to set up the run.
 
 .. _heterodyne Command line arguments:
 
@@ -317,14 +494,19 @@ given below:
 .. literalinclude:: heterodyne_help.txt
    :language: none
 
-.. _heterodyne API:
+The command line arguments for ``cwinpy_heterodyne_dag`` (as extracted using
+``cwinpy_heterodyne_dag --help``) are:
 
+.. literalinclude:: heterodyne_dag_help.txt
+   :language: none
+
+.. _heterodyne API:
 
 Heterodyne API
 --------------
 
 .. automodule:: cwinpy.heterodyne
-   :members: Heterodyne, heterodyne, heterodyne_dag
+   :members: Heterodyne, heterodyne, heterodyne_dag, heterodyne_merge
 
 References
 ==========
