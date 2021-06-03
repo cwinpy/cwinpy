@@ -1111,7 +1111,7 @@ class HeterodyneDAGRunner(object):
             for unit in ["TCB", "TDB"]:
                 if unit not in timeephemeris:
                     _, fnames = initialise_ephemeris(
-                        ephem=etype, timeonly=True, filenames=True
+                        units=unit, timeonly=True, filenames=True
                     )
                     timeephemeris[unit] = fnames[0]
 
@@ -1121,7 +1121,10 @@ class HeterodyneDAGRunner(object):
         for edat, ename in zip(
             [earthephemeris, sunephemeris, timeephemeris], ["earth", "sun", "time"]
         ):
-            if len(set([os.path.basename(edat[etype]) for etype in edat])) == 1:
+            if (
+                len(set([os.path.basename(edat[etype]) for etype in edat])) == 1
+                and len(edat[etype]) > 1
+            ):
                 for etype in edat:
                     tmpephem = os.path.join(tempfile.gettempdir(), f"{ename}_{etype}")
                     shutil.copy(edat[etype], tmpephem)
