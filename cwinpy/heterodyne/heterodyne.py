@@ -490,7 +490,7 @@ def heterodyne(**kwargs):
     # make sure pulsar files is not a single entry list containing a dictionary
     if isinstance(hetkwargs["pulsarfiles"], list):
         if len(hetkwargs["pulsarfiles"]) == 1:
-            value = ast.literal_eval(hetkwargs["pulsarfiles"])
+            value = ast.literal_eval(hetkwargs["pulsarfiles"][0])
 
             if isinstance(value, dict):
                 # swicth to passing the dictionary
