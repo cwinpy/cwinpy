@@ -1069,6 +1069,10 @@ class Heterodyne(object):
                         pulsarlist
                     )
                 )
+
+            # check if there are still any pulsars left
+            if len(self.pulsars) == 0:
+                raise ValueError("There are no pulsars to analyse")
         else:
             raise TypeError("pulsars must be a list or string")
 
