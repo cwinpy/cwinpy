@@ -487,6 +487,15 @@ def heterodyne(**kwargs):
         elif value is not None:
             hetkwargs[attr] = value
 
+    # make sure pulsar files is not a single entry list containing a dictionary
+    if isinstance(hetkwargs["pulsarfiles"], list):
+        if len(hetkwargs["pulsarfiles"]) == 1:
+            value = ast.literal_eval(hetkwargs["pulsarfiles"])
+
+            if isinstance(value, dict):
+                # swicth to passing the dictionary
+                hetkwargs["pulsarfiles"] = value
+
     signal.signal(signal.SIGALRM, handler=sighandler)
     signal.alarm(hetkwargs.pop("periodic_restart_time", 14400))
 
@@ -699,7 +708,7 @@ class HeterodyneDAGRunner(object):
 
         # get pulsar information
         pulsarfiles = self.eval(config.get("heterodyne", "pulsarfiles", fallback=None))
-        pulsars = config.get("heterodyne", "pulsars", fallback=None)
+        pulsars = self.eval(config.get("heterodyne", "pulsars", fallback=None))
         if pulsarfiles is None:
             raise ValueError("A set of pulsar parameter files must be supplied")
 
@@ -1037,8 +1046,8 @@ class HeterodyneDAGRunner(object):
 
         # create Heterodyne object to get pulsar parameter file information
         het = Heterodyne(
-            pulsarfiles=self.eval(pulsarfiles),
-            pulsars=self.eval(pulsars),
+            pulsarfiles=pulsarfiles,
+            pulsars=pulsars,
             heterodyneddata=heterodyneddata,
         )
 
