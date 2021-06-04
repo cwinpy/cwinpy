@@ -252,8 +252,8 @@ CVMFS_GWOSC_FRAME_CHANNELS = {
     },
     "O1": {
         "4k": {
-            "H1": "H1:LOSC_STRAIN",
-            "L1": "L1:LOSC_STRAIN",
+            "H1": "H1:LOSC-STRAIN",
+            "L1": "L1:LOSC-STRAIN",
         },
         "16k": {
             "H1": "H1:GWOSC-16KHZ_R1_STRAIN",
