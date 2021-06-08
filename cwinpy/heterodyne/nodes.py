@@ -1,5 +1,6 @@
 import copy
 import os
+import pathlib
 
 import pycondor
 from bilby_pipe.input import Input
@@ -400,7 +401,9 @@ class HeterodyneNode(Node):
         Returns the top-level directory name of a path relative to a reference.
         """
         try:
-            return os.path.relpath(path, reference)
+            return os.path.relpath(
+                pathlib.Path(path).resolve(), pathlib.Path(reference).resolve()
+            )
         except ValueError as exc:
             exc.args = (f"cannot format {path} relative to {reference}",)
             raise

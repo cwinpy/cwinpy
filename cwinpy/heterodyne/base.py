@@ -677,7 +677,7 @@ class Heterodyne(object):
                             starttime=starttime,
                             endtime=endtime,
                             frametype=frametype,
-                            recursive=kwargs.get("recursive", False),
+                            recursive=kwargs.get("recursive", True),
                             site=kwargs.get("site", self.detector),
                             extension=extension,
                             write=outputframecache,
@@ -997,7 +997,7 @@ class Heterodyne(object):
             if isinstance(pfiles, str):
                 if os.path.isdir(pfiles):
                     pfilelist = [
-                        os.path.realpath(pf) for pf in Path(pfiles).rglob("*.par")
+                        str(pf.resolve()) for pf in Path(pfiles).rglob("*.par")
                     ]
                 else:
                     pfilelist = [pfiles]
@@ -1011,7 +1011,7 @@ class Heterodyne(object):
                         pfilelist.append(pf)
                     elif os.path.isdir(pf):
                         pfilelist += [
-                            os.path.realpath(pfp) for pfp in Path(pf).rglob("*.par")
+                            str(pfp.resolve()) for pfp in Path(pf).rglob("*.par")
                         ]
 
             for i, pf in enumerate(pfilelist):
@@ -2371,7 +2371,7 @@ def remote_frame_cache(
 
 def local_frame_cache(
     path,
-    recursive=False,
+    recursive=True,
     starttime=None,
     endtime=None,
     extension="gwf",
@@ -2395,7 +2395,7 @@ def local_frame_cache(
         The directory path containing the frame files.
     recursive: bool
         The sets whether or not subdirectories within the main path are also
-        searched for files.
+        searched for files. Defaults to True.
     starttime: int
         A GPS time giving the start time of the data required. If not set the
         earliest frame files found will be returned.
@@ -2426,7 +2426,10 @@ def local_frame_cache(
     """
 
     try:
-        files = Path(path).rglob("*.{}".format(extension))
+        if recursive:
+            files = Path(path).rglob("*.{}".format(extension))
+        else:
+            files = Path(path).glob("*.{}".format(extension))
     except Exception as e:
         raise IOError("Could not parse the path: {}".format(e))
 
@@ -2443,7 +2446,7 @@ def local_frame_cache(
     cache = []
     filetimes = []
     for frfile in files:
-        if not os.path.isfile(os.path.realpath(frfile)):
+        if not frfile.resolve().is_file():
             continue
 
         fileparts = frame_information(frfile)
@@ -2478,7 +2481,7 @@ def local_frame_cache(
                 "Frame file name '{}' is not the correct format".format(frfile)
             )
 
-        cache.append("file://localhost{}".format(os.path.realpath(frfile)))
+        cache.append("file://localhost{}".format(str(frfile.resolve())))
 
     cache = [x[1] for x in sorted(zip(filetimes, cache))]  # sort cache files om time
 
