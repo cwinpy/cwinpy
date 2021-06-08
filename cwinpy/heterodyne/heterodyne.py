@@ -882,7 +882,7 @@ class HeterodyneDAGRunner(object):
             config.get("heterodyne", "timeephemeris", fallback=None)
         )
 
-        # get all the split times
+        # get all the split segment times and frame caches
         if joblength == 0:
             starttimes = fullstarttimes
             endtimes = fullendtimes
