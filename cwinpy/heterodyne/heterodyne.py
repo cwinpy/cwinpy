@@ -921,7 +921,7 @@ class HeterodyneDAGRunner(object):
                             "segments_{0:d}-{1:d}_{2}.txt".format(
                                 starttimes[det][i],
                                 endtimes[det][i],
-                                includeflags[det][i],
+                                includeflags[det][i].replace(":", "_"),
                             ),
                         )
                         _ = generate_segments(

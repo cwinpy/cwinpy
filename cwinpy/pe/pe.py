@@ -7,6 +7,7 @@ import configparser
 import glob
 import json
 import os
+import pathlib
 import signal
 import sys
 import warnings
@@ -892,7 +893,7 @@ class PERunner(object):
                                 fakeasd=asdval,
                                 detector=thisdet,
                                 times=ftime,
-                                **self.datakwargs
+                                **self.datakwargs,
                             )
                         )
                 else:
@@ -1014,7 +1015,7 @@ class PERunner(object):
             sampler=self.sampler,
             priors=self.prior,
             likelihood=self.likelihood,
-            **self.sampler_kwargs
+            **self.sampler_kwargs,
         )
 
         # output SNRs
@@ -1793,7 +1794,7 @@ class PEDAGRunner(object):
                 parallel_node_list.append(penode)
 
             if inputs.n_parallel > 1:
-                _ = MergeNode(inputs, parallel_node_list, self.dag)
+                _ = MergePENode(inputs, parallel_node_list, self.dag)
 
         if self.build:
             self.dag.build()
@@ -2129,17 +2130,19 @@ class PulsarPENode(Node):
 
     @staticmethod
     def _relative_topdir(path, reference):
-        """Returns the top-level directory name of a path relative
-        to a reference
+        """
+        Returns the top-level directory name of a path relative to a reference.
         """
         try:
-            return os.path.relpath(path, reference)
+            return os.path.relpath(
+                pathlib.Path(path).resolve(), pathlib.Path(reference).resolve()
+            )
         except ValueError as exc:
-            exc.args = ("cannot format {} relative to {}".format(path, reference),)
+            exc.args = (f"cannot format {path} relative to {reference}",)
             raise
 
 
-class MergeNode(Node):
+class MergePENode(Node):
     def __init__(self, inputs, parallel_node_list, dag):
         super().__init__(inputs)
         self.dag = dag
