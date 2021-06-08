@@ -391,7 +391,7 @@ the ``cwinpy_heterodyne_dag`` script (or the :func:`~cwinpy.heterodyne.heterodyn
 This can be run using a configuration script containing the information as described in the example
 below:
 
-.. literalinclude:: cwipny_heterodyne_dag.ini
+.. literalinclude:: cwinpy_heterodyne_dag.ini
 
 where this contains information for heterodyning data from the O1 and O2 observing runs for the two
 LIGO detectors, H1 and L1. Comments about each input parameter, and different potential input
