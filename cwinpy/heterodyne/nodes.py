@@ -443,13 +443,19 @@ class MergeHeterodyneNode(Node):
         output = configdict["output"]
         heterodynedfiles = configdict["heterodynedfiles"]
 
+        psrstring = (
+            ""
+            if not isinstance(pulsar, str)
+            else "{}_".format(pulsar.replace("+", "plus"))
+        )
+
         configdir = self.inputs.config.get("heterodyne", "config", fallback="configs")
         configlocation = os.path.join(self.inputs.outdir, configdir)
         check_directory_exists_and_if_not_mkdir(configlocation)
         configfile = os.path.join(
             configlocation,
-            "{}_{}_{}_merge.ini".format(
-                pulsar,
+            "{}{}_{}_merge.ini".format(
+                psrstring,
                 detector,
                 int(freqfactor),
             ),
@@ -480,8 +486,8 @@ class MergeHeterodyneNode(Node):
 
         # job name prefix
         jobname = "cwinpy_heterodyne_merge"
-        self.base_job_name = "{}_{}_{}_{}".format(
-            jobname, pulsar, detector, int(freqfactor)
+        self.base_job_name = "{}_{}{}_{}".format(
+            jobname, psrstring, detector, int(freqfactor)
         )
         self.job_name = self.base_job_name
 
