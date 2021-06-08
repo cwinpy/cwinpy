@@ -48,10 +48,8 @@ python-3.8:
 pre-commit-python-3.7:
   stage: test
   image: quay.io/mattpitkin/cwinpy-testing-python37
-  before_script:
-    - pip install -r dev-requirements.txt
   script:
-    - pip install .
+    - pip install .[dev]
 
     # run pre-commit checks
     - pre-commit run --all-files --verbose --show-diff-on-failure
@@ -85,10 +83,8 @@ run-comparisons:
     - cd ~
     - git clone git@git.ligo.org:CW/software/cwinpy.git
     - cd cwinpy
-    # Install the dependencies specified in the Pipfile
-    - pip install -r requirements.txt
     # install CWInPy
-    - python setup.py install
+    - pip install .
     # run the comparison scripts
     - cd docs/comparisons/scripts
     - COMPFILES=`ls *.py`
