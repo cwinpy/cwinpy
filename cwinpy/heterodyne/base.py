@@ -2650,7 +2650,12 @@ def generate_segments(
                 if isinstance(excludeflags, str):
                     excludeflags = [excludeflags]
 
-            excludetypes = [flag for flags in excludeflags for flag in flags.split(",")]
+            excludetypes = [
+                flag
+                for flags in excludeflags
+                if len(flags) > 0
+                for flag in flags.split(",")
+            ]
 
         segs = None
         serverkwargs = {}
@@ -2673,7 +2678,7 @@ def generate_segments(
                 segs = segs & query
 
         # remove excluded segments
-        if excludeflags is not None and segs is not None:
+        if excludeflags is not None and segs is not None and len(excludetypes) > 0:
             for dqflag in excludetypes:
                 if usegwosc:
                     query = SegmentList(get_segments(dqflag, starttime, endtime))
