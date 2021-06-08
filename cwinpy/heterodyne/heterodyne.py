@@ -39,7 +39,7 @@ from ..utils import (
     initialise_ephemeris,
     sighandler,
 )
-from .base import Heterodyne, generate_segments
+from .base import Heterodyne, generate_segments, remote_frame_cache
 from .nodes import HeterodyneInput, HeterodyneNode, MergeHeterodyneNode
 
 
@@ -891,7 +891,23 @@ class HeterodyneDAGRunner(object):
                 for i in range(len(fullstarttimes[det])):
                     frinfo = {}
                     if frametypes is not None:
-                        frinfo["frametype"] = frametypes[det][i]
+                        # generate the frame caches now rather than relying on
+                        # each job doing it
+                        frcachedir = os.path.join(self.basedir, "cache")
+                        frinfo["framecache"] = os.path.join(
+                            frcachedir,
+                            "frcache_{0:d}-{1:d}_{2}.txt".format(
+                                starttimes[det][i], endtimes[det][i], frametypes[det][i]
+                            ),
+                        )
+                        _ = remote_frame_cache(
+                            starttimes[det][i],
+                            endtimes[det][i],
+                            channels[det][i],
+                            frametype=frametypes[det][i],
+                            host=config.get("heterodyne", "host", fallback=None),
+                            write=frinfo["framecache"],
+                        )
                     else:
                         frinfo["framecache"] = framecaches[det][i]
                     frinfo["channel"] = channels[det][i]
@@ -1002,6 +1018,29 @@ class HeterodyneDAGRunner(object):
                     # make segment list a list of lists, so values are not immutable
                     segmentlist = [list(seg) for seg in segmentlist]
 
+                    frinfo = {}
+                    if frametypes is not None:
+                        # generate the frame caches now rather than relying on
+                        # each job doing it
+                        frcachedir = os.path.join(self.basedir, "cache")
+                        frinfo["framecache"] = os.path.join(
+                            frcachedir,
+                            "frcache_{0:d}-{1:d}_{2}.txt".format(
+                                starttime, endtime, frametypes[det][idx]
+                            ),
+                        )
+                        _ = remote_frame_cache(
+                            starttime,
+                            endtime,
+                            channels[det][i],
+                            frametype=frametypes[det][idx],
+                            host=config.get("heterodyne", "host", fallback=None),
+                            write=frinfo["framecache"],
+                        )
+                    else:
+                        frinfo["framecache"] = framecaches[det][idx]
+                    frinfo["channel"] = channels[det][idx]
+
                     segidx = 0
                     while segidx < len(segmentlist):
                         curstart = segmentlist[segidx][0]
@@ -1031,12 +1070,7 @@ class HeterodyneDAGRunner(object):
                         starttimes[det].append(int(curstart))
                         endtimes[det].append(int(curend))
 
-                        frinfo = {}
-                        if frametypes is not None:
-                            frinfo["frametype"] = frametypes[det][idx]
-                        else:
-                            frinfo["framecache"] = framecaches[det][idx]
-                        frinfo["channel"] = channels[det][idx]
+                        # append frame data for jobs
                         framedata[det].append(frinfo.copy())
 
                         segmentdata[det].append(seginfo.copy())
