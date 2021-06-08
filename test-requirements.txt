@@ -1,7 +1,0 @@
-pytest>=4.6
-pytest_socket
-coverage
-pytest-runner
-pytest-coverage
-coverage-badge
-codecov
