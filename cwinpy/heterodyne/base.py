@@ -2673,7 +2673,7 @@ def generate_segments(
                 ).active
 
             if segs is None:
-                segs = query.copy()
+                segs = SegmentList(query.copy())
             else:
                 segs = segs & query
 
