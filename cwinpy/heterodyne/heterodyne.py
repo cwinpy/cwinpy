@@ -1203,7 +1203,7 @@ class HeterodyneDAGRunner(object):
         crop = config.getint("heterodyne", "crop", fallback=60)
         overwrite = config.getboolean("heterodyne", "overwrite", fallback=False)
 
-        merge = config.getboolean("merge", "merge", fallback=False) and joblength > 0
+        merge = config.getboolean("merge", "merge", fallback=True) and joblength > 0
 
         # create jobs
         self.hetnodes = []
