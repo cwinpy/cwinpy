@@ -894,6 +894,7 @@ class HeterodyneDAGRunner(object):
                         # generate the frame caches now rather than relying on
                         # each job doing it
                         frcachedir = os.path.join(self.basedir, "cache")
+                        check_directory_exists_and_if_not_mkdir(frcachedir)
                         frinfo["framecache"] = os.path.join(
                             frcachedir,
                             "frcache_{0:d}-{1:d}_{2}.txt".format(
@@ -1023,6 +1024,7 @@ class HeterodyneDAGRunner(object):
                         # generate the frame caches now rather than relying on
                         # each job doing it
                         frcachedir = os.path.join(self.basedir, "cache")
+                        check_directory_exists_and_if_not_mkdir(frcachedir)
                         frinfo["framecache"] = os.path.join(
                             frcachedir,
                             "frcache_{0:d}-{1:d}_{2}.txt".format(
