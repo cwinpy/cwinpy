@@ -1684,7 +1684,8 @@ class Heterodyne(object):
                                 )
 
                                 # create interpolation function
-                                tckssb = splrep(timesint, ssbdelay.data)
+                                k = (len(timesint) - 1) if len(timesint) < 4 else 3
+                                tckssb = splrep(timesint, ssbdelay.data, k=k)
                                 ssbdelayint = lal.CreateREAL8Vector(data.size)
                                 ssbdelayint.data = splev(data.times.value, tckssb)
 
@@ -1698,7 +1699,7 @@ class Heterodyne(object):
                                     )
 
                                     # create interpolation function
-                                    tckbsb = splrep(timesint, bsbdelay.data)
+                                    tckbsb = splrep(timesint, bsbdelay.data, k=k)
                                     bsbdelayint = lal.CreateREAL8Vector(data.size)
                                     bsbdelayint.data = splev(data.times.value, tckbsb)
                                 else:
@@ -1715,7 +1716,7 @@ class Heterodyne(object):
 
                                     # create interpolation function (note due to the minus sign in
                                     # the heterodyne the glitch phase sign needs to be flipped)
-                                    tckglph = splrep(timesint, -1.0 * glphase.data)
+                                    tckglph = splrep(timesint, -1.0 * glphase.data, k=k)
                                     glphaseint = lal.CreateREAL8Vector(data.size)
                                     glphaseint.data = splev(data.times.value, tckglph)
                                 else:
@@ -1734,7 +1735,7 @@ class Heterodyne(object):
 
                                     # create interpolation function (note due to the minus sign in
                                     # the heterodyne the fitwaves phase sign needs to be flipped)
-                                    tckfwph = splrep(timesint, -1.0 * fwphase.data)
+                                    tckfwph = splrep(timesint, -1.0 * fwphase.data, k=k)
                                     fwphaseint = lal.CreateREAL8Vector(data.size)
                                     fwphaseint.data = splev(data.times.value, tckfwph)
                                 else:
