@@ -107,7 +107,7 @@ CWInPy is available through the `PyPI <https://pypi.org/project/cwinpy/>`_ and
 CWInPy is also available within the Conda environment supplied via the `International
 Gravitational-Wave Observatory Network <https://computing.docs.ligo.org/conda/>`_ (IGWN) over CVMFS.
 To install CVMFS (for Linux and macOS only) you can follow the instructions `here
-<https://wiki.ligo.org/Computing/CvmfsUser>`_. Once this is installed you can enter the, e.g.,
+<https://computing.docs.ligo.org/guide/cvmfs/>`_. Once this is installed you can enter the, e.g.,
 ``igwn-py38`` Conda environment from a terminal using:
 
    .. code-block:: console
