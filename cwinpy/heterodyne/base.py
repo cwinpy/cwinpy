@@ -100,7 +100,8 @@ class Heterodyne(object):
         To specify explicit directory paths for individual pulsars this can be
         a dictionary of directory paths keyed to the pulsar name (in which
         case the ``label`` argument will be used to set the file name), or full
-        file paths, which will be used in place of the ``label`` argument.
+        file paths, which will be used in place of the ``label`` argument. If
+        not given this defaults to the current working directory.
     label: str
         The output format for the heterodyned data files. These can be format
         strings containing the keywords ``psr`` for the pulsar name, ``det``
@@ -1121,6 +1122,10 @@ class Heterodyne(object):
     @outputfiles.setter
     def outputfiles(self, outputfiles):
         self._outputfiles = {}
+
+        if outputfiles is None:
+            # set to current working directory
+            outputfiles = os.getcwd()
 
         if isinstance(outputfiles, str):
             if not os.path.isdir(outputfiles):

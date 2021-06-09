@@ -159,9 +159,6 @@ class HeterodyneNode(Node):
 
             output_files_to_transfer = []
 
-            # set a directory for heterodyned data to be output to on the node
-            outputdir = "heterodyneddata"
-
             # create temporary Heterodyne object to get output files
             tmphet = Heterodyne(
                 output=configdict["output"],
@@ -191,15 +188,14 @@ class HeterodyneNode(Node):
                         self._relative_topdir(psrfile, self.inputs.initialdir)
                     )
 
-            configdict["output"] = outputdir
+            # remove "output" so result files get written to the cwd
+            configdict.pop("output")
 
             # set output files to transfer back
             for psr in tmphet.outputfiles.copy():
                 labeldict["psr"] = psr
                 psrfile = tmphet.outputfiles[psr].format(**labeldict)
-                output_files_to_transfer.append(
-                    os.path.join(outputdir, os.path.basename(psrfile))
-                )
+                output_files_to_transfer.append(os.path.basename(psrfile))
 
             # transfer pulsar parameter files
             for psr in configdict["pulsarfiles"].copy():

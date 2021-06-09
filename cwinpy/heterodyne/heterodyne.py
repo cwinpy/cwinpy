@@ -283,7 +283,8 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "pulsars this can be a dictionary of directory paths keyed to the "
             'pulsar name (in which case the "--label" argument will be used '
             "to set the file name), or full file paths, which will be used in "
-            'place of the "--label" argument.'
+            'place of the "--label" argument. If not given then the current'
+            "working directory will be used."
         ),
     )
     outputparser.add(
