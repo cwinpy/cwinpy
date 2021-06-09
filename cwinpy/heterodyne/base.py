@@ -1541,8 +1541,14 @@ class Heterodyne(object):
                         "psr": pulsar,
                     }
                     pfile = self.outputfiles[pulsar].format(**labeldict)
-                    if os.path.isfile(pfile):
-                        prevdata = HeterodynedData.read(pfile)
+                    if os.path.isfile(pfile) and os.path.getsize(pfile) > 0:
+                        try:
+                            prevdata = HeterodynedData.read(pfile)
+                        except OSError:
+                            # could not read file, so ignore this pulsar
+                            minend = self.starttime
+                            continue
+
                         endtime = prevdata.times.value[-1]
 
                         if endtime >= self.endtime - self.resamplerate / 2 - self.crop:
