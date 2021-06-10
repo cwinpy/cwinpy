@@ -40,6 +40,7 @@ from ..utils import (
     sighandler,
 )
 from .base import Heterodyne, generate_segments, remote_frame_cache
+from .data import HeterodynedData
 from .nodes import HeterodyneInput, HeterodyneNode, MergeHeterodyneNode
 
 
@@ -627,7 +628,7 @@ def heterodyne_merge(**kwargs):
         raise ValueError("None of the heterodyned files given exists!")
 
     # read in and merge all the files
-    het = Heterodyne.read(filelist)
+    het = HeterodynedData.read(filelist)
 
     # write out the merged data file
     if "output" in mergekwargs:
