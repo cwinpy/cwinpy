@@ -24,6 +24,7 @@ from bilby_pipe.utils import (
 from configargparse import ArgumentError
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
+from ..data import HeterodynedData
 from ..info import (
     ANALYSIS_SEGMENTS,
     CVMFS_GWOSC_FRAME_CHANNELS,
@@ -40,7 +41,6 @@ from ..utils import (
     sighandler,
 )
 from .base import Heterodyne, generate_segments, remote_frame_cache
-from .data import HeterodynedData
 from .nodes import HeterodyneInput, HeterodyneNode, MergeHeterodyneNode
 
 
