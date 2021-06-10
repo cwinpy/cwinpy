@@ -5,7 +5,6 @@ A selection of general utility functions.
 import ctypes
 import os
 import string
-import subprocess
 import sys
 from functools import reduce
 from math import gcd
@@ -104,29 +103,22 @@ def is_par_file(parfile):
         Returns True is if it is a valid parameter file.
     """
 
-    # check that the file is ASCII text (see, e.g.,
-    # https://stackoverflow.com/a/1446571/1862861)
+    try:
+        psr = PulsarParametersPy(parfile)
+    except (ValueError, IOError):
+        return False
 
-    if os.path.isfile(parfile):
-        msg = subprocess.Popen(
-            ["file", "--mime", "--dereference", parfile], stdout=subprocess.PIPE
-        ).communicate()[0]
-        if "text/plain" in msg.decode():
-            psr = PulsarParametersPy(parfile)
-            # file must contain a frequency, right ascension, declination and
-            # pulsar name
-            # file must contain right ascension and declination
-            if (
-                psr["F"] is None
-                or (psr["RAJ"] is None and psr["RA"] is None)
-                or (psr["DECJ"] is None and psr["DEC"] is None)
-                or get_psr_name(psr) is None
-            ):
-                return False
-
-            return True
-
-    return False
+    # file must contain a frequency, right ascension, declination and
+    # pulsar name
+    if (
+        psr["F"] is None
+        or (psr["RAJ"] is None and psr["RA"] is None)
+        or (psr["DECJ"] is None and psr["DEC"] is None)
+        or get_psr_name(psr) is None
+    ):
+        return False
+    else:
+        return True
 
 
 def get_psr_name(psr):
