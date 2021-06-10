@@ -817,6 +817,22 @@ transientTau = {tau}
         assert het.pulsarfiles == {"J0000+0000": os.path.realpath(self.fakeparfile[0])}
         assert het.pulsars == ["J0000+0000"]
 
+    def test_download_pulsar(self, capsys):
+        """
+        Test downloading a pulsar from the ATNF pulsar catalogue.
+        """
+
+        psr = "J0534+2200"
+        het = Heterodyne(pulsarfiles=psr)
+        captured = capsys.readouterr()
+
+        assert (
+            captured.out
+            == f"Ephemeris for '{psr}' has been obtained from the ATNF pulsar catalogue\n"
+        )
+        assert len(het.pulsarfiles) == 1
+        assert het.pulsars == ["J0534+2200"]
+
     def test_crop(self):
         """
         Test setting of crop.

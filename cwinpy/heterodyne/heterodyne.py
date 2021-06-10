@@ -259,8 +259,12 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             'the extension ".par"), iii) a list of paths to individual '
             "pulsar parameter files, iv) a dictionary containing paths to "
             "individual pulsars parameter files keyed to their names. If "
-            "providing a list or dictionary it should be surrounded by "
-            "quotation marks."
+            "instead, pulsar names are given rather than parameter files it "
+            "will attempt to extract an ephemeris for those pulsars from the "
+            "ATNF pulsar catalogue. If such ephemerides are available then "
+            "they will be used (notification will be given when this is "
+            "these cases). If providing a list or dictionary it should be "
+            "surrounded by quotation marks."
         ),
     )
     pulsarparser.add(
@@ -1584,7 +1588,10 @@ def heterodyne_dag(**kwargs):
                 "The path to a TEMPO(2)-style pulsar parameter file, or "
                 "directory containing multiple parameter files, to "
                 "heterodyne. This can be used multiple times to specify "
-                "multiple pulsar inputs."
+                "multiple pulsar inputs. If a pulsar name is given instead "
+                "of a parameter file then an attempt will be made to find the "
+                "pulsar's ephemeris from the ATNF pulsar catalogue, which "
+                "will then be used."
             ),
         )
         optional.add_argument(

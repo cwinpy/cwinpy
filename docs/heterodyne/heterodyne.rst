@@ -478,7 +478,18 @@ you can simply run:
 
 where ``/home/usr/heterodyneddata`` is the name of the directory where the run information and
 results will be stored. This command will automatically submit the Condor DAG for the job. To
-specify multiple pulsars you can just use the ``--pulsar`` option multiple times.
+specify multiple pulsars you can just use the ``--pulsar`` option multiple times. If you do not have
+a parameter file for a pulsar you can instead use the ephemeris given by the `ATNF pulsar catalogue
+<https://www.atnf.csiro.au/research/pulsar/psrcat/>`_. To do this you need to instead supply a
+pulsar name (as recognised by the catalogue), for example, to run the analysis using O2 data for the
+pulsar `J0737-3039A <https://en.wikipedia.org/wiki/PSR_J0737%E2%88%923039>`_ you could do:
+
+.. code-block:: bash
+
+   cwinpy_heterodyne_dag --run O2 --pulsar J0737-3039A --output /home/usr/heterodyneddata
+
+Internally the ephemeris information is obtained using the :class:`~psrqpy.search.QueryATNF` class
+from `psrqpy <https://psrqpy.readthedocs.io/en/latest/>`_.
 
 CWInPy also contains information on the continuous :ref:`hardware injections<Hardware Injections>`
 performed in each run, so if you wanted the analyse the these in, say, the LIGO `sixth science run
