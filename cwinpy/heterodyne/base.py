@@ -1058,6 +1058,10 @@ class Heterodyne(object):
                 [pulsars] if isinstance(pulsars, (str, PulsarParametersPy)) else pulsars
             )
 
+            # check if any supplied pulsars have associated parameter files
+            if len([pulsar for pulsar in pulsarlist if pulsar in self.pulsars]) == 0:
+                raise ValueError("No parameters are provided for the supplied pulsars")
+
             for pulsar in self.pulsars:
                 if pulsar not in list(pulsarlist):
                     del self._pulsars[pulsar]
@@ -1070,10 +1074,6 @@ class Heterodyne(object):
                         pulsarlist
                     )
                 )
-
-            # check if there are still any pulsars left
-            if len(self.pulsars) == 0:
-                raise ValueError("There are no pulsars to analyse")
         else:
             raise TypeError("pulsars must be a list or string")
 

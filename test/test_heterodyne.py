@@ -779,14 +779,9 @@ transientTau = {tau}
         with pytest.raises(TypeError):
             Heterodyne(pulsarfiles=self.fakeparfile, pulsars=3.4)
 
-        het = Heterodyne(pulsarfiles=self.fakeparfile, pulsars="J0328+5323")
-        captured = capsys.readouterr()
-
-        assert len(het.pulsars) == 0
-        assert (
-            captured.out
-            == "Pulsars '['J0328+5323']' not included as no parameter files have been given for them\n"
-        )
+        # check that ValueError is raised if pulsar does not exist in supplied par files
+        with pytest.raises(ValueError):
+            het = Heterodyne(pulsarfiles=self.fakeparfile, pulsars="J0328+5323")
 
         het = Heterodyne(pulsarfiles=[self.fakeparfile[0]], pulsars=["J0000+0000"])
 
@@ -876,9 +871,8 @@ transientTau = {tau}
         with pytest.raises(ValueError):
             het.freqfactor = -2.3
 
-        with pytest.raises(ValueError):
-            # test that not setting an output gives a error
-            het.heterodyne()
+        # test that output directory has defaulted to cwd
+        assert os.path.split(list(het.outputfiles.values())[0])[0] == os.getcwd()
 
         # test setting an output directory
         outdir = os.path.join(self.fakedatadir, "heterodyne_output")
