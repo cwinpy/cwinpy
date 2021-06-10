@@ -572,6 +572,8 @@ def create_heterodyne_merge_parser():
         help=("Set if wanting to delete individual files being merged."),
     )
 
+    return parser
+
 
 def heterodyne_merge(**kwargs):
     """
