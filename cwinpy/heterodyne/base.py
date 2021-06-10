@@ -5,6 +5,7 @@ Classes for heterodyning strain data.
 import os
 import re
 import signal
+import tempfile
 from pathlib import Path
 
 import lal
@@ -118,7 +119,10 @@ class Heterodyne(object):
         will be recursively searched for any file with the extension ".par"),
         iii) a list of paths to individual pulsar parameter files, iv) a
         dictionary containing paths to individual pulsars parameter files keyed
-        to their names.
+        to their names. If ``pulsarfiles`` contains pulsar names rather than
+        files it will attempt to extract an ephemeris for that pulsar from the
+        ATNF pulsar catalogue. If such an ephemeris is available then that will
+        be used (notification will be given when this is the case).
     pulsars: str, list
         You can analyse only particular pulsars from those specified by
         parameter files found through the ``pulsarfiles`` argument by passing a
@@ -1034,12 +1038,34 @@ class Heterodyne(object):
                                 )
                             )
                 else:
-                    print(
-                        "Pulsar file '{}' could not be read. This pulsar will be ignored.".format(
-                            pf
+                    # try checking if a pulsar name has been given and if that
+                    # is present in the ATNF catalogue. In that case use the
+                    # ATNF ephemeris.
+                    if not hasattr(self, "_atnf_query"):
+                        from psrqpy import QueryATNF
+
+                        self._atnf_query = QueryATNF()
+
+                    par = self._atnf_query.get_ephemeris(psr=pf)
+
+                    if par is None:
+                        print(
+                            f"Pulsar file '{pf}' could not be read. This pulsar will be ignored."
                         )
-                    )
-                    continue
+                        continue
+                    else:
+                        print(
+                            f"Ephemeris for '{pf}' has been obtained from the ATNF pulsar catalogue"
+                        )
+                        # create temporary par file containing ATNF ephemeris
+                        tmppar = tempfile.mkstemp(suffix=".par", prefix=pf)
+                        with open(tmppar[1], "w") as fp:
+                            fp.write(par)
+
+                        # get pulsar name
+                        readpar = PulsarParametersPy(tmppar[1])
+                        pname = get_psr_name(readpar)
+                        self._pulsars[pname] = tmppar[1]
         elif pfiles is not None:
             raise TypeError("pulsarfiles must be a string, list or dict")
 

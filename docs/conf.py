@@ -241,6 +241,7 @@ intersphinx_mapping = {
     "pycondor": ("https://jrbourbeau.github.io/pycondor/", None),
     "numba": ("http://numba.pydata.org/numba-doc/latest/", None),
     "gwpy": ("https://gwpy.github.io/docs/stable/", None),
+    "psrqpy": ("https://psrqpy.readthedocs.io/en/stable/", None),
 }
 
 
