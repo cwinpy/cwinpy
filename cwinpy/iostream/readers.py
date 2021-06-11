@@ -58,7 +58,7 @@ def read_hdf5_series(
 
     Parameters
     ----------
-    source: str
+    source: File object
         The HDF5 file to be read.
     array_type: type
         The desired return type. Defaults to :class:`cwinpy.data.HeterodynedData`.
@@ -99,7 +99,7 @@ def read_hdf5_series(
     except KeyError:
         dt = kwargs.pop("dx")
     if timespans is not None:
-        times = np.array([], dtype=np.float)
+        times = np.array([], dtype=float)
         for ts in timespans:
             times = np.concatenate((times, np.arange(ts[0], ts[1] + dt / 2, dt)))
         kwargs["times"] = times

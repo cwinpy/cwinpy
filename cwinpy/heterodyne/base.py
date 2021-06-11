@@ -1847,10 +1847,9 @@ class Heterodyne(object):
         # output heterodyned data
         for pulsar in self._datadict:
             # get time stamps
-            times = []
+            times = np.empty((0,), dtype=float)
             for d in self._datadict[pulsar]:
-                for t in d.times.value:
-                    times.append(t)
+                times = np.append(times, d.times.value)
                 del d.xindex  # delete times (otherwise join has issues!)
 
             data = self._datadict[pulsar].join(gap="ignore")
