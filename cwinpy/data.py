@@ -917,11 +917,11 @@ class HeterodynedData(TimeSeriesBase):
                         dataarray = dataarray.T
                 else:
                     # set data to zeros
-                    dataarray = np.zeros((len(hettimes), 1), dtype=np.complex)
+                    dataarray = np.zeros((len(hettimes), 1), dtype=complex)
 
                 if (
                     dataarray.shape[1] == 1
-                    and dataarray.dtype == np.complex
+                    and dataarray.dtype == complex
                     and hettimes is not None
                 ):
                     dataarray = dataarray.flatten()
@@ -1261,7 +1261,7 @@ class HeterodynedData(TimeSeriesBase):
             raise ValueError("The running median window must be greater than 1")
 
         self._running_median = TimeSeriesBase(
-            np.zeros(len(self), dtype=np.complex), times=self.times
+            np.zeros(len(self), dtype=complex), times=self.times
         )
         if N > 0:
             for i in range(len(self)):
@@ -3043,7 +3043,7 @@ class HeterodynedData(TimeSeriesBase):
         tidxs = np.where(np.in1d(newtimes, times))[0]
 
         # get zero array and add data
-        padded = np.zeros(len(newtimes), dtype=np.complex)
+        padded = np.zeros(len(newtimes), dtype=complex)
         padded[tidxs] = data
 
         return padded
