@@ -98,7 +98,7 @@ def read_hdf5_series(
     except KeyError:
         dt = kwargs.pop("dx")
     if timespans is not None:
-        times = np.array([], dtype=np.float)
+        times = np.array([], dtype=float)
         for ts in timespans:
             times = np.concatenate((times, np.arange(ts[0], ts[1] + dt / 2, dt)))
         kwargs["times"] = times
