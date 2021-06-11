@@ -60,7 +60,7 @@ def gcd_array(denominators):
         raise TypeError("Must have a list or array")
 
     denoms = np.asarray(denominators).flatten()  # 1d array
-    denoms = denoms.astype(np.int)
+    denoms = denoms.astype(int)
 
     if len(denoms) < 2:
         raise ValueError("Must have more than two values")

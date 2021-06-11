@@ -1401,7 +1401,7 @@ class HeterodynedData(TimeSeriesBase):
                 ).astype("int")
             else:
                 if len(self.change_point_indices) == 1:
-                    cps = np.array([0, len(datasub)], dtype=np.int)
+                    cps = np.array([0, len(datasub)], dtype=int)
                 else:
                     cps = np.concatenate(
                         (self.change_point_indices, [len(datasub)])
@@ -2296,7 +2296,7 @@ class HeterodynedData(TimeSeriesBase):
             return
 
         idx = np.asarray(mask)
-        if idx.dtype == np.int:
+        if idx.dtype == int:
             zidx = np.ones(len(self), dtype=np.bool)
             zidx[idx] = False
         elif idx.dtype == np.bool:
