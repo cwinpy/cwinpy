@@ -2297,9 +2297,9 @@ class HeterodynedData(TimeSeriesBase):
 
         idx = np.asarray(mask)
         if idx.dtype == int:
-            zidx = np.ones(len(self), dtype=np.bool)
+            zidx = np.ones(len(self), dtype=bool)
             zidx[idx] = False
-        elif idx.dtype == np.bool:
+        elif idx.dtype == bool:
             if len(idx) != len(self):
                 raise ValueError("Outlier mask is the wrong size")
             else:
