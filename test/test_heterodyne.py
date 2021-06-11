@@ -18,6 +18,14 @@ from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
+def relative_difference(data, model):
+    """
+    Compute the relative difference between data and model.
+    """
+
+    return np.abs(data - model) / np.abs(model)
+
+
 class TestHeterodyne(object):
     """
     Test the Heterodyne object.
@@ -997,7 +1005,7 @@ transientTau = {tau}
             )
 
             # without inclusion of SSB model should not match
-            assert np.any(np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 5e-3)
+            assert np.any(relative_difference(hetdata.data, models[i]) > 5e-3)
 
         # now heterodyne with SSB
         del het2
@@ -1010,6 +1018,7 @@ transientTau = {tau}
             includessb=True,
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+            overwrite=True,
         )
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
@@ -1023,14 +1032,10 @@ transientTau = {tau}
 
             # check output matches model to within 2%
             if psr == "J0000+0000":  # isolated pulsar
-                assert np.all(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 0.02
-                )
+                assert np.all(relative_difference(hetdata.data, models[i]) < 0.02)
             else:
                 # without inclusion of BSB/glitch phase model should not match
-                assert np.any(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 0.02
-                )
+                assert np.any(relative_difference(hetdata.data, models[i]) > 0.02)
 
         # now heterodyne with SSB and BSB
         del het2
@@ -1047,6 +1052,7 @@ transientTau = {tau}
             includebsb=True,
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+            overwrite=True,
         )
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
@@ -1062,14 +1068,10 @@ transientTau = {tau}
                 "J0000+0000",
                 "J1111+1111",
             ]:  # isolated and binary pulsar (non-glitching)
-                assert np.all(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 0.02
-                )
+                assert np.all(relative_difference(hetdata.data, models[i]) < 0.02)
             else:
                 # without inclusion glitch phase model should not match
-                assert np.any(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 0.02
-                )
+                assert np.any(relative_difference(hetdata.data, models[i]) > 0.02)
 
         # now heterodyne with SSB, BSB and glitch phase
         del het2
@@ -1087,6 +1089,7 @@ transientTau = {tau}
             includeglitch=True,
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+            overwrite=True,
         )
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
@@ -1098,7 +1101,7 @@ transientTau = {tau}
             assert het2.resamplerate == 1 / hetdata.dt.value
             assert len(hetdata) == int(length * het2.resamplerate)
 
-            assert np.all(np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 0.02)
+            assert np.all(relative_difference(hetdata.data, models[i]) < 0.02)
 
     def test_full_heterodyne(self):
         """
@@ -1137,7 +1140,7 @@ transientTau = {tau}
         }
 
         # compare against model
-        for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
+        for psr in ["J0000+0000", "J1111+1111", "J2222+2222"]:
             # load data
             hetdata = HeterodynedData.read(
                 het.outputfiles[psr].format(**labeldict, psr=psr)
@@ -1165,4 +1168,4 @@ transientTau = {tau}
 
             # increase tolerance for acceptance due to small outliers (still
             # equivalent at the ~2% level)
-            assert np.all(np.abs(hetdata.data - model) / np.abs(model) < 2e-2)
+            assert np.all(relative_difference(hetdata.data, model) < 0.02)
