@@ -1615,13 +1615,15 @@ class Heterodyne(object):
             for segment in self.segments:
                 # skip any segments that are too short
                 if not hasattr(self, "_origstarts"):
-                    if segment[1] - segment[0] < 2 * self.crop:
+                    seglen = segment[1] - segment[0]
+                    if seglen < (2 * self.crop + 1 / self.resamplerate):
                         continue
                 else:
                     if segment[0] not in self._origstarts:
                         # we are part way through a segment (having resumed),
                         # so would only be cropping the end of the data
-                        if segment[1] - segment[0] < self.crop:
+                        seglen = segment[1] - segment[0]
+                        if seglen < (self.crop + 1 / self.resamplerate):
                             continue
 
                 # loop within segment in steps of "stride"
@@ -1634,6 +1636,10 @@ class Heterodyne(object):
                     if curendtime >= (segment[1] - self.crop):
                         # last part of segment
                         curendtime = segment[1] - self.crop
+
+                        # make sure segment is long enough
+                        if (curendtime - curstarttime) < (1 / self.resamplerate):
+                            break
 
                     # download/read data
                     datakwargs = kwargs.copy()
