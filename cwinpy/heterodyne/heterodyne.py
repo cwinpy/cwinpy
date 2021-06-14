@@ -1441,24 +1441,25 @@ class HeterodyneDAGRunner(object):
                 for psr in pgroup:
                     for ff in freqfactors:
                         for det in detectors:
-                            self.pulsar_nodes[psr].append(
-                                MergeHeterodyneNode(
-                                    inputs,
-                                    {
-                                        "heterodynedfiles": copy.deepcopy(
-                                            self.heterodyned_files[det][ff][psr]
-                                        ),
-                                        "freqfactor": ff,
-                                        "detector": det,
-                                        "pulsar": psr,
-                                        "output": copy.deepcopy(
-                                            mergeoutputs[det][ff][psr]
-                                        ),
-                                    },
-                                    self.dag,
-                                    generation_node=mergechildren[det][ff][psr],
+                            if len(self.heterodyned_files[det][ff][psr]) > 1:
+                                self.pulsar_nodes[psr].append(
+                                    MergeHeterodyneNode(
+                                        inputs,
+                                        {
+                                            "heterodynedfiles": copy.deepcopy(
+                                                self.heterodyned_files[det][ff][psr]
+                                            ),
+                                            "freqfactor": ff,
+                                            "detector": det,
+                                            "pulsar": psr,
+                                            "output": copy.deepcopy(
+                                                mergeoutputs[det][ff][psr]
+                                            ),
+                                        },
+                                        self.dag,
+                                        generation_node=mergechildren[det][ff][psr],
+                                    )
                                 )
-                            )
 
         if self.build:
             self.dag.build()
