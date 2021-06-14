@@ -53,8 +53,12 @@ class TestHeterodyne(object):
         cls.fakedatachannels = [
             "{}:FAKE_DATA".format(det) for det in cls.fakedatadetectors
         ]
-        cls.fakedatastarts = [1000000000, 1000000000 + 86400 * 2]
-        cls.fakedataduration = 86400
+        cls.fakedatastarts = [
+            1000000000,
+            1000000000 + 86400 + 234,
+            1000000000 + 86400 * 2 + 11923,
+        ]
+        cls.fakedataduration = [86400, 34, 49731]
 
         os.makedirs(cls.fakedatadir, exist_ok=True)
 
@@ -285,7 +289,8 @@ transientTau = {tau}
         mfddic["f2"] = 2 * (f2 + df2)
         mfddic["phi0"] = phi0 + 2 * dphi
 
-        mfdtransientdic["tstart"] = cls.fakedatastarts[1]
+        mfdtransientdic["tstart"] = cls.fakedatastarts[-1]
+        mfdtransientdic["tau"] = cls.fakedataduration[-1]
 
         # signal after the glitch
         with open(injfile, "a") as fp:
@@ -329,7 +334,7 @@ transientTau = {tau}
             LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz"), cache=True
         )
 
-        for datastart in cls.fakedatastarts:
+        for j, datastart in enumerate(cls.fakedatastarts):
             for i in range(len(cls.fakedatachannels)):
                 cmds = [
                     "-F",
@@ -340,7 +345,7 @@ transientTau = {tau}
                     "--sqrtSX={0:.1e}".format(sqrtSn),
                     "-G",
                     str(datastart),
-                    "--duration={}".format(cls.fakedataduration),
+                    "--duration={}".format(cls.fakedataduration[j]),
                     "--Band={}".format(cls.fakedatabandwidth),
                     "--fmin",
                     "0",
@@ -607,7 +612,7 @@ transientTau = {tau}
                     self.fakedatadetectors[0],
                     self.fakedataname,
                     self.fakedatastarts[i],
-                    self.fakedataduration,
+                    self.fakedataduration[i],
                 )
                 == os.path.basename(cachedata[i])
             )
@@ -863,7 +868,8 @@ transientTau = {tau}
         """
 
         segments = [
-            (time, time + self.fakedataduration) for time in self.fakedatastarts
+            (self.fakedatastarts[i], self.fakedatastarts[i] + self.fakedataduration[i])
+            for i in range(len(self.fakedatastarts))
         ]
 
         het = Heterodyne(
@@ -919,7 +925,7 @@ transientTau = {tau}
             framecache=self.fakedatadir,
             channel=self.fakedatachannels[0],
             freqfactor=2,
-            stride=self.fakedataduration // 2,
+            stride=86400 // 2,
             output=outdir,
             resamplerate=1,
         )
@@ -932,8 +938,10 @@ transientTau = {tau}
         }
 
         # expected length (after cropping)
+        uncroppedsegs = [seg for seg in segments if (seg[1] - seg[0]) > het.crop]
         length = (
-            het.resamplerate * np.diff(segments).sum() - 2 * len(segments) * het.crop
+            het.resamplerate * np.diff(uncroppedsegs).sum()
+            - 2 * len(uncroppedsegs) * het.crop
         )
 
         # expected start time (after cropping)
@@ -1109,7 +1117,8 @@ transientTau = {tau}
         """
 
         segments = [
-            (time, time + self.fakedataduration) for time in self.fakedatastarts
+            (self.fakedatastarts[i], self.fakedatastarts[i] + self.fakedataduration[i])
+            for i in range(len(self.fakedatastarts))
         ]
 
         # perform heterodyne in one step
@@ -1123,7 +1132,7 @@ transientTau = {tau}
             framecache=self.fakedatadir,
             channel=self.fakedatachannels[0],
             freqfactor=2,
-            stride=self.fakedataduration // 2,
+            stride=86400 // 2,
             resamplerate=1 / 60,
             includessb=True,
             includebsb=True,
