@@ -57,8 +57,9 @@ class TestHeterodyne(object):
             1000000000,
             1000000000 + 86400 + 234,
             1000000000 + 86400 * 2 + 11923,
+            1000000000 + 86400 * 3 + 32955,
         ]
-        cls.fakedataduration = [86400, 34, 49731]
+        cls.fakedataduration = [86400, 34, 49731, 5004]
 
         os.makedirs(cls.fakedatadir, exist_ok=True)
 
@@ -273,7 +274,9 @@ transientTau = {tau}
         mfdtransientdic = {
             "wintype": "rect",
             "tstart": cls.fakedatastarts[0],
-            "tau": 86400,
+            "tau": cls.fakedatastarts[1]
+            + cls.fakedataduration[1]
+            - cls.fakedatastarts[0],
         }
 
         # signal before the glitch
@@ -289,8 +292,10 @@ transientTau = {tau}
         mfddic["f2"] = 2 * (f2 + df2)
         mfddic["phi0"] = phi0 + 2 * dphi
 
-        mfdtransientdic["tstart"] = cls.fakedatastarts[-1]
-        mfdtransientdic["tau"] = cls.fakedataduration[-1]
+        mfdtransientdic["tstart"] = cls.fakedatastarts[-2]
+        mfdtransientdic["tau"] = (
+            cls.fakedatastarts[-1] + cls.fakedataduration[-1] - cls.fakedatastarts[-2]
+        )
 
         # signal after the glitch
         with open(injfile, "a") as fp:
@@ -983,6 +988,14 @@ transientTau = {tau}
         )
 
         models = []
+        lengthnew = int(
+            np.sum(
+                [
+                    np.floor(((seg[1] - seg[0]) - 2 * het2.crop) * het2.resamplerate)
+                    for seg in uncroppedsegs
+                ]
+            )
+        )
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
             hetdata = HeterodynedData.read(
@@ -990,7 +1003,7 @@ transientTau = {tau}
             )
 
             assert het2.resamplerate == 1 / hetdata.dt.value
-            assert len(hetdata) == int(length * het2.resamplerate)
+            assert len(hetdata) == lengthnew
 
             # set expected model
             sim = HeterodynedCWSimulator(
@@ -1036,7 +1049,7 @@ transientTau = {tau}
             )
 
             assert het2.resamplerate == 1 / hetdata.dt.value
-            assert len(hetdata) == int(length * het2.resamplerate)
+            assert len(hetdata) == lengthnew
 
             # check output matches model to within 2%
             if psr == "J0000+0000":  # isolated pulsar
@@ -1070,7 +1083,7 @@ transientTau = {tau}
             )
 
             assert het2.resamplerate == 1 / hetdata.dt.value
-            assert len(hetdata) == int(length * het2.resamplerate)
+            assert len(hetdata) == lengthnew
 
             if psr in [
                 "J0000+0000",
@@ -1107,8 +1120,7 @@ transientTau = {tau}
             )
 
             assert het2.resamplerate == 1 / hetdata.dt.value
-            assert len(hetdata) == int(length * het2.resamplerate)
-
+            assert len(hetdata) == lengthnew
             assert np.all(relative_difference(hetdata.data, models[i]) < 0.02)
 
     def test_full_heterodyne(self):
