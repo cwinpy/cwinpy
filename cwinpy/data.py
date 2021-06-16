@@ -3341,7 +3341,9 @@ class HeterodynedData(TimeSeriesBase):
         if not np.allclose(
             np.diff(self.times.value), self.dt.value * np.ones(len(self) - 1)
         ):
-            breaks = np.argwhere(np.diff(self.times.value) != self.dt.value)[0].tolist()
+            breaks = np.argwhere(np.diff(self.times.value) != self.dt.value)[
+                :, 0
+            ].tolist()
             segments = SegmentList()
             breaks = [-1] + breaks + [len(self) - 1]
             for i in range(len(breaks) - 1):

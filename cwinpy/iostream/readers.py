@@ -226,7 +226,7 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
     # restrictions)
     dt = series.dt.value
     if not np.allclose(np.diff(series.times.value), dt * np.ones(len(series) - 1)):
-        breaks = np.argwhere(np.diff(series.times.value) != dt)[0].tolist()
+        breaks = np.argwhere(np.diff(series.times.value) != dt)[:, 0].tolist()
         attrs["times"] = []
         breaks = [-1] + breaks + [len(series) - 1]
         for i in range(len(breaks) - 1):
