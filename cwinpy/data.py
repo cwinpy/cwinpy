@@ -1192,7 +1192,7 @@ class HeterodynedData(TimeSeriesBase):
         ):
             raise ValueError("Incompatible injection times")
 
-        return super().is_compatible(other)
+        return True
 
     @property
     def dt(self):
