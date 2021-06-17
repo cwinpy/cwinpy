@@ -1869,7 +1869,7 @@ class Heterodyne(object):
                 freqfactor=self.freqfactor,
                 bbminlength=data.size,  # don't perform Bayesian blocks
                 window=0,  # don't compute a running median
-                comment="" if not isinstance(self.config, str) else self.config,
+                comments="" if not isinstance(self.config, str) else self.config,
             )
             het.include_ssb = self.includessb
             het.include_bsb = self.includebsb

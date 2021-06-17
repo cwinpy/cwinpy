@@ -141,7 +141,7 @@ def read_hdf5_series(
             # remove temporary parameter file
             os.remove(parfiles[par])
 
-    # set CWInPy version from read in file rather than
+    # set CWInPy version from read in file rather than current version
     array.cwinpy_version = kwargs["cwinpy_version"]
 
     # set heterodyne parameters
