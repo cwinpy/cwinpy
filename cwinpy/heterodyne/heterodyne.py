@@ -458,10 +458,6 @@ def heterodyne(**kwargs):
         if "config" in kwargs:
             # update with other keyword arguments
             hetkwargs.update(kwargs)
-
-            # convert "config" into string with contents of configuration file
-            with open(kwargs["config"], "r") as fp:
-                hetkwargs["config"] = fp.readlines()
     else:
         hetkwargs = kwargs
 

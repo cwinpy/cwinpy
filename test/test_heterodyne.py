@@ -1136,7 +1136,7 @@ transientTau = {tau}
         # perform heterodyne in one step
         fulloutdir = os.path.join(self.fakedatadir, "full_heterodyne_output")
 
-        het = heterodyne(
+        inputkwargs = dict(
             starttime=segments[0][0],
             endtime=segments[-1][-1],
             pulsarfiles=self.fakeparfile,
@@ -1153,6 +1153,8 @@ transientTau = {tau}
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
         )
 
+        het = heterodyne(**inputkwargs)
+
         labeldict = {
             "det": het.detector,
             "gpsstart": int(het.starttime),
@@ -1161,13 +1163,22 @@ transientTau = {tau}
         }
 
         # compare against model
-        for psr in ["J0000+0000", "J1111+1111", "J2222+2222"]:
+        for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
             hetdata = HeterodynedData.read(
                 het.outputfiles[psr].format(**labeldict, psr=psr)
             )
 
             assert het.resamplerate == 1 / hetdata.dt.value
+
+            # check heterodyne_arguments were stored and retrieved correctly
+            assert isinstance(hetdata.heterodyne_arguments, dict)
+            for param in inputkwargs:
+                if param == "pulsarfiles":
+                    assert inputkwargs[param][i] == hetdata.heterodyne_arguments[param]
+                    assert hetdata.heterodyne_arguments["pulsars"] == psr
+                else:
+                    assert inputkwargs[param] == hetdata.heterodyne_arguments[param]
 
             # set expected model
             sim = HeterodynedCWSimulator(

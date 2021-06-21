@@ -2,6 +2,7 @@
 Classes for heterodyning strain data.
 """
 
+import inspect
 import os
 import re
 import signal
@@ -201,9 +202,6 @@ class Heterodyne(object):
         ``label`` arguments) already exist and does not repeat the analysis
         if that is the case. If wanting to overwrite existing files make sure
         this is False. Defaults to False.
-    config: str
-        A string containing the information on the configuration used to
-        generate the heterodyne.
     """
 
     # allowed file extension
@@ -245,7 +243,6 @@ class Heterodyne(object):
         sunephemeris=None,
         timeephemeris=None,
         resume=False,
-        config=None,
     ):
         # set analysis times
         self.starttime = starttime
@@ -298,9 +295,6 @@ class Heterodyne(object):
         self.includeglitch = includeglitch
         self.includefitwaves = includefitwaves
         self.interpolationstep = interpolationstep
-
-        # set configuration information
-        self.config = config
 
         # set ephemeris information
         self.set_ephemeris(earthephemeris, sunephemeris, timeephemeris)
@@ -1850,8 +1844,22 @@ class Heterodyne(object):
             self._write_current_pulsars()
 
     def _write_current_pulsars(self):
+        # get arguments passed to Heterodyne
+        sig = inspect.signature(Heterodyne)
+        hetargs = {}
+        for parameter in sig.parameters:
+            if hasattr(self, parameter):
+                hetargs[parameter] = getattr(self, parameter)
+
+        hetargs["segmentlist"] = self.segments
+
         # output heterodyned data
         for pulsar in self._datadict:
+            # set hetargs to just contain information for the individual pulsar
+            hetargs["pulsars"] = pulsar
+            hetargs["pulsarfiles"] = self.pulsarfiles[pulsar]
+            hetargs["output"] = os.path.split(self.outputfiles[pulsar])[0]
+
             # get time stamps
             times = np.empty((0,), dtype=float)
             for d in self._datadict[pulsar]:
@@ -1869,12 +1877,12 @@ class Heterodyne(object):
                 freqfactor=self.freqfactor,
                 bbminlength=data.size,  # don't perform Bayesian blocks
                 window=0,  # don't compute a running median
-                comments="" if not isinstance(self.config, str) else self.config,
             )
             het.include_ssb = self.includessb
             het.include_bsb = self.includebsb
             het.include_glitch = self.includeglitch
             het.include_fitwaves = self.includefitwaves
+            het.heterodyne_arguments = hetargs
 
             # save filter history from the forward pass
             history = []
@@ -2231,7 +2239,23 @@ class Heterodyne(object):
         if not hasattr(self, "_timecorr"):
             self._timecorr = {}
 
+        if not hasattr(self, "_earthephemeris"):
+            self._earthephemeris = earthephemeris
+
+        if not hasattr(self, "_sunephemeris"):
+            self._sunephemeris = sunephemeris
+
         if isinstance(earthephemeris, dict) and isinstance(sunephemeris, dict):
+            if not hasattr(self, "_earthephemeris"):
+                self._earthephemeris = earthephemeris
+            else:
+                self._earthephemeris.update(earthephemeris)
+
+            if not hasattr(self, "_sunephemeris"):
+                self._sunephemeris = sunephemeris
+            else:
+                self._sunephemeris.update(sunephemeris)
+
             for ephemtype in earthephemeris:
                 if ephemtype not in sunephemeris:
                     raise KeyError(
@@ -2245,11 +2269,37 @@ class Heterodyne(object):
                 )
 
         if isinstance(timeephemeris, dict):
+            if not hasattr(self, "_timeephemeris"):
+                self._timeephemeris = timeephemeris
+            else:
+                self._timeephemeris.update(timeephemeris)
+
             for timetype in timeephemeris:
                 self._timecorr[timetype] = initialise_ephemeris(
                     timefile=timeephemeris[timetype],
                     timeonly=True,
                 )
+
+    @property
+    def earthephemeris(self):
+        if hasattr(self, "_earthephemeris"):
+            return self._earthephemeris
+        else:
+            return None
+
+    @property
+    def sunephemeris(self):
+        if hasattr(self, "_sunephemeris"):
+            return self._sunephemeris
+        else:
+            return None
+
+    @property
+    def timeephemeris(self):
+        if hasattr(self, "_timeephemeris"):
+            return self._timeephemeris
+        else:
+            return None
 
 
 def remote_frame_cache(

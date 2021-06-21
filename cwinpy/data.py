@@ -857,6 +857,7 @@ class HeterodynedData(TimeSeriesBase):
         "include_glitch",
         "include_fitwaves",
         "cwinpy_version",
+        "heterodyne_arguments",
     )
 
     def __new__(
@@ -1149,6 +1150,10 @@ class HeterodynedData(TimeSeriesBase):
 
             self._injtimes.resize(injtimes.shape, refcheck=False)
             self._injtimes[:, :] = injtimes
+
+        if other.heterodyne_arguments is not None:
+            # combine Heterodyne arguments if given
+            self.heterodyne_arguments = other.heterodyne_arguments
 
     def is_compatible(self, other):
         """
@@ -3406,6 +3411,41 @@ class HeterodynedData(TimeSeriesBase):
         out.__array_finalize__(self)
 
         return out
+
+    @property
+    def heterodyne_arguments(self):
+        """
+        The dictionary of arguments passed to
+        :class:`cwinpy.heterodyne.Heterodyne` if it was used to create the
+        current :class:`~cwinpy.data.HeterodynedData` object. If the
+        :class:`~cwinpy.data.HeterodynedData` object was created via a merge of
+        many individual :class:`~cwinpy.data.HeterodynedData` objects then this
+        will be a list with a dictionary from each of the merged objects.
+
+        .. note::
+
+           This attribute will only be saved if writing the data to a HDF5
+           file, but not if writing to an ascii text file.
+        """
+
+        if hasattr(self, "_heterodyne_arguments"):
+            return self._heterodyne_arguments
+        else:
+            return None
+
+    @heterodyne_arguments.setter
+    def heterodyne_arguments(self, args):
+        if not isinstance(args, (dict, list)):
+            raise TypeError("heterodyne arguments must be a dictionary or list")
+
+        if self.heterodyne_arguments is None:
+            self._heterodyne_arguments = args
+        elif isinstance(self.heterodyne_arguments, dict):
+            # convert into list and append
+            self._heterodyne_arguments = [self._heterodyne_arguments]
+            self._heterodyne_arguments.append(args)
+        elif isinstance(self.heterodyne_arguments, list):
+            self._heterodyne_arguments.append(args)
 
     def __len__(self):
         return len(self.data)

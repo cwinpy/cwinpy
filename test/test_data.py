@@ -597,6 +597,10 @@ PHI0     2.4
                 freqfactor=2,
                 inject=True,
             )
+
+            # add dummy heterodyne_arguments for testing
+            het.heterodyne_arguments = {"dummy": "argument"}
+
             het.write(datafiles[i], overwrite=True)
             hets.append(het)  # store for comparisons
 
@@ -619,6 +623,15 @@ PHI0     2.4
         assert np.allclose(
             newhet.injection_data,
             np.concatenate([hets[i].injection_data for i in [1, 0, 2]]),
+        )
+
+        # test heterodyne arguments
+        assert len(newhet.heterodyne_arguments) == N
+        assert all(
+            [
+                hetargs == {"dummy": "argument"}
+                for hetargs in newhet.heterodyne_arguments
+            ]
         )
 
         # remove par files
