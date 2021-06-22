@@ -146,11 +146,11 @@ class HeterodyneNode(Node):
 
         # output the DAG configuration file to a temporary file, which will
         # later be read and stored in the HeterodynedData objects
-        dagconfigfp, dagconfigpath = tempfile.mkstemp(
+        _, dagconfigpath = tempfile.mkstemp(
             prefix="dag_config", suffix=".ini", text=True
         )
-        inputs.config.write(dagconfigfp)
-        dagconfigfp.close()
+        with open(dagconfigpath, "w") as cfp:
+            inputs.config.write(cfp)
         configdict["cwinpy_heterodyne_dag_config_file"] = dagconfigpath
 
         self.setup_arguments(

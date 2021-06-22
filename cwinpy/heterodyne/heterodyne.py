@@ -518,6 +518,10 @@ def heterodyne(**kwargs):
     # convert "overwrite" to "resume"
     hetkwargs["resume"] = not hetkwargs.pop("overwrite", False)
 
+    # remove "config" from hetkwargs
+    if "config" in hetkwargs:
+        hetkwargs.pop("config")
+
     # set up the run
     het = Heterodyne(**hetkwargs)
 

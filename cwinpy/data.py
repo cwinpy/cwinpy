@@ -858,6 +858,7 @@ class HeterodynedData(TimeSeriesBase):
         "include_fitwaves",
         "cwinpy_version",
         "heterodyne_arguments",
+        "cwinpy_heterodyne_dag_config",
     )
 
     def __new__(

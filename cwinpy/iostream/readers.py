@@ -161,6 +161,10 @@ def read_hdf5_series(
     if hetargs is not None:
         array.heterodyne_arguments = ast.literal_eval(hetargs[()][0].decode())
 
+    # set any configuration file information
+    if "cwinpy_heterodyne_dag_config" in kwargs:
+        array.cwinpy_heterodyne_dag_config = kwargs["cwinpy_heterodyne_dag_config"]
+
     return array
 
 
