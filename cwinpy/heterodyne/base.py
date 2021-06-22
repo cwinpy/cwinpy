@@ -202,6 +202,10 @@ class Heterodyne(object):
         ``label`` arguments) already exist and does not repeat the analysis
         if that is the case. If wanting to overwrite existing files make sure
         this is False. Defaults to False.
+    cwinpy_heterodyne_dag_config_file: str
+        If Heterodyne is being called by a job in a HTCondor DAG, then this can
+        provide the path to the configuration file that was used to setup the
+        DAG. Defaults to None.
     """
 
     # allowed file extension
@@ -243,6 +247,7 @@ class Heterodyne(object):
         sunephemeris=None,
         timeephemeris=None,
         resume=False,
+        cwinpy_heterodyne_dag_config_file=None,
     ):
         # set analysis times
         self.starttime = starttime
@@ -298,6 +303,9 @@ class Heterodyne(object):
 
         # set ephemeris information
         self.set_ephemeris(earthephemeris, sunephemeris, timeephemeris)
+
+        # set the name of any DAG configuration file
+        self.cwinpy_heterodyne_dag_config_file = cwinpy_heterodyne_dag_config_file
 
         # set signal in case of termination of job
         signal.signal(signal.SIGTERM, self._write_current_pulsars_and_exit)
@@ -1853,6 +1861,13 @@ class Heterodyne(object):
 
         hetargs["segmentlist"] = self.segments
 
+        # add DAG configuration file data if present
+        cf = None
+        if self.cwinpy_heterodyne_dag_config_file is not None:
+            if os.path.isfile(self.cwinpy_heterodyne_dag_config_file):
+                with open(self.cwinpy_heterodyne_dag_config_file) as fp:
+                    cf = fp.read()
+
         # output heterodyned data
         for pulsar in self._datadict:
             # set hetargs to just contain information for the individual pulsar
@@ -1883,6 +1898,9 @@ class Heterodyne(object):
             het.include_glitch = self.includeglitch
             het.include_fitwaves = self.includefitwaves
             het.heterodyne_arguments = hetargs
+
+            if cf is not None:
+                het.cwinpy_heterodyne_dag_config = cf
 
             # save filter history from the forward pass
             history = []

@@ -3447,6 +3447,34 @@ class HeterodynedData(TimeSeriesBase):
         elif isinstance(self.heterodyne_arguments, list):
             self._heterodyne_arguments.append(args)
 
+    @property
+    def cwinpy_heterodyne_dag_config(self):
+        """
+        If the :class:`~cwinpy.data.HeterodynedData` object was created through
+        :class:`~cwinpy.heterodyne.Heterodyne` being called within a HTCondor
+        DAG, which itself was set up using the ``cwinpy_heterodyne_dag``
+        script, then this attribute can contain the contents of the
+        configuration file that created the DAG.
+        """
+
+        if hasattr(self, "_cwinpy_heterodyne_dag_config"):
+            return self._cwinpy_heterodyne_dag_config
+        else:
+            return None
+
+    @cwinpy_heterodyne_dag_config.setter
+    def cwinpy_heterodyne_dag_config(self, config):
+        # check config can be converted into a valid ConfigParser object
+        try:
+            import configparser
+
+            cf = configparser.ConfigParser()
+            cf.read_string(config)
+        except (TypeError, configparser.MissingSectionHeaderError):
+            raise TypeError("Configuration file is not valid")
+
+        self._cwinpy_heterodyne_dag_config = config
+
     def __len__(self):
         return len(self.data)
 

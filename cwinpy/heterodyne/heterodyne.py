@@ -420,6 +420,15 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         ),
     )
 
+    cfparser = parser.add_argument_group("Configuration inputs")
+    cfparser.add(
+        "--cwinpy-heterodyne-dag-config-file",
+        help=(
+            "A path to the cwinpy_heterodyne_dag configuration file can be "
+            "supplied if this was has been used to setup the heterodyne job."
+        ),
+    )
+
     return parser
 
 
