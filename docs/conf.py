@@ -233,10 +233,10 @@ numpydoc_show_class_members = False
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
-    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
     "matplotlib": ("https://matplotlib.org/", None),
-    "astropy": ("http://docs.astropy.org/en/stable/", None),
+    "astropy": ("https://docs.astropy.org/en/stable/", None),
     "bilby": ("https://lscsoft.docs.ligo.org/bilby/", None),
     "pycondor": ("https://jrbourbeau.github.io/pycondor/", None),
     "numba": ("http://numba.pydata.org/numba-doc/latest/", None),
