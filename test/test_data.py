@@ -210,6 +210,9 @@ class TestHeterodynedData(object):
         assert het.dt.value == 60.0
         assert het.sample_rate.value == 1.0 / 60.0
 
+        assert het.cwinpy_heterodyne_dag_config is None
+        assert het.heterodyne_arguments is None
+
         os.remove(datafile)  # clean up file
 
     def test_read_text_data_std(self):
@@ -299,6 +302,122 @@ class TestHeterodynedData(object):
             assert hetnew.par is None
 
             os.remove(datafile)  # clean up file
+
+    def test_read_csv_data(self):
+        """
+        Test that a valid input CSV file is read in correctly.
+        """
+
+        # create a data file to output
+        hetdata = """\
+# times        real       imaginary
+1000000000.0,  -2.3e-25,   4.3e-26
+1000000060.0,   3.2e-26,   1.2e-25
+1000000120.0,  -1.7e-25,  -2.8e-25
+1000000180.0,  -7.6e-26,  -8.9e-26
+"""
+        datafile = "testdata.csv"
+        with open("testdata.csv", "w") as fp:
+            fp.write(hetdata)
+
+        het = HeterodynedData(datafile)
+
+        assert len(het) == 4
+        assert (het.data.real[0] == -2.3e-25) and (het.data.real[-1] == -7.6e-26)
+        assert (het.data.imag[0] == 4.3e-26) and (het.data.imag[-1] == -8.9e-26)
+        assert (het.times[0].value == 1000000000.0) and (
+            het.times[-1].value == 1000000180.0
+        )
+        assert het.dt.value == 60.0
+        assert het.sample_rate.value == 1.0 / 60.0
+
+        os.remove(datafile)  # clean up file
+
+    def test_read_csv_data_std(self):
+        """
+        Test that a valid file with standard deviations is read in correctly.
+        """
+
+        # create a data file to output
+        hetdata = """\
+# times        real       imaginary   std
+1000000000.0,  -2.3e-25,   4.3e-26,   1.1e-26
+1000000060.0,   3.2e-26,   1.2e-25,   2.1e-26
+1000000120.0,  -1.7e-25,  -2.8e-25,   1.5e-26
+1000000180.0,  -7.6e-26,  -8.9e-26,   1.3e-26
+"""
+        datafile = "testdata.csv"
+        with open("testdata.csv", "w") as fp:
+            fp.write(hetdata)
+
+        het = HeterodynedData(datafile)
+
+        assert len(het) == 4
+        assert (het.data.real[0] == -2.3e-25) and (het.data.real[-1] == -7.6e-26)
+        assert (het.data.imag[0] == 4.3e-26) and (het.data.imag[-1] == -8.9e-26)
+        assert (het.stds[0] == 1.1e-26) and (het.stds[-1] == 1.3e-26)
+        assert (het.vars[0] == (1.1e-26) ** 2) and (het.vars[-1] == (1.3e-26) ** 2)
+        assert (het.times[0].value == 1000000000.0) and (
+            het.times[-1].value == 1000000180.0
+        )
+        assert het.dt.value == 60.0
+        assert het.sample_rate.value == 1.0 / 60.0
+
+        os.remove(datafile)  # clean up file
+
+    def test_write_csv_data(self):
+        """
+        Test that data can be correctly written (and re-read) from a CSV file.
+        """
+
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=(1440, 2))
+
+        het = HeterodynedData(data, times=times)
+
+        datafile = "testdata.csv"
+        het.write(datafile)
+
+        # read in data
+        hetnew = HeterodynedData.read(datafile)
+
+        assert np.array_equal(het.data, hetnew.data)
+        assert np.array_equal(het.times, hetnew.times)
+
+        # check things that the read-in data should not contain
+        assert hetnew.detector is None
+        assert hetnew.par is None
+
+        os.remove(datafile)  # clean up file
+
+    def test_write_csv_data_std(self):
+        """
+        Test that data can be correctly written (and re-read) from a CSV file
+        with the standard deviations also output.
+        """
+
+        times = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data = np.random.normal(0.0, 1e-25, size=(1440, 2))
+        stds = 1e-25 * np.ones_like(times)
+        data = np.column_stack((data, stds))
+
+        het = HeterodynedData(data, times=times)
+
+        datafile = "testdata.csv"
+        het.write(datafile)
+
+        # read in data
+        hetnew = HeterodynedData.read(datafile)
+
+        assert np.array_equal(het.data, hetnew.data)
+        assert np.array_equal(het.times, hetnew.times)
+        assert np.array_equal(het.stds, hetnew.stds)
+
+        # check things that the read-in data should not contain
+        assert hetnew.detector is None
+        assert hetnew.par is None
+
+        os.remove(datafile)  # clean up file
 
     def test_write_hdf_data(self):
         """
@@ -416,6 +535,231 @@ PHI0     2.4
             os.remove(datafile)  # clean up file
 
         os.remove(parfile)
+
+    def test_merge_data(self):
+        """
+        Test merging multiple data sets during reading.
+        """
+
+        # create three sets of data
+        times1 = np.linspace(1000000000.0, 1000086340.0, 1440)
+        data1 = np.random.normal(0.0, 1e-25, size=(len(times1), 2))
+        stds = 1e-25 * np.ones_like(times1)
+        data1 = np.column_stack((data1, stds))
+
+        times2 = np.linspace(999913600.0, 999999940.0, 1440)
+        data2 = np.random.normal(0.0, 1e-25, size=(len(times2), 2))
+        stds = 1e-25 * np.ones_like(times2)
+        data2 = np.column_stack((data2, stds))
+
+        # don't add standard deviations to third data set for now
+        times3 = np.linspace(1000186400.0, 1000359140.0, 2880)
+        data3 = np.random.normal(0.0, 1e-25, size=(len(times3), 2))
+
+        parcontent1 = """\
+PSRJ     J0123+3456
+RAJ      01:23:45.6789
+DECJ     34:56:54.321
+F0       567.89
+F1       -1.2e-12
+PEPOCH   56789
+H0       9.87e-26
+COSIOTA  0.3
+PSI      1.1
+PHI0     2.4
+"""
+
+        parfile1 = "J0123+3456.par"
+
+        parcontent2 = """\
+PSRJ     J0123+3457
+RAJ      01:23:45.6789
+DECJ     34:56:54.321
+F0       567.89
+F1       -1.2e-12
+PEPOCH   56789
+H0       9.87e-26
+COSIOTA  0.3
+PSI      1.1
+PHI0     2.4
+"""
+
+        parfile2 = "J0123+3457.par"
+
+        # add content to the par file
+        for parfile, parcontent in zip(
+            [parfile1, parfile2], [parcontent1, parcontent2]
+        ):
+            with open(parfile, "w") as fp:
+                fp.write(parcontent)
+
+        # test for overlapping times
+        datafiles = []
+        datalist = [data1, data2, data1]
+        timeslist = [times1, times2, times1]
+
+        N = len(datalist)
+
+        for i in range(N):
+            datafile = "testdata_H1_{}.hdf5".format(i)
+            datafiles.append(datafile)
+
+            # write out data
+            het = HeterodynedData(
+                datalist[i], times=timeslist[i], detector="H1", par=parfile1
+            )
+            het.write(datafile, overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Cannot merge overlapping data" in str(e)
+
+        datalist = [data1, data2, data3]
+        timeslist = [times1, times2, times3]
+
+        # test for inconsistent detectors when merging
+        for i, det in enumerate(["H1", "H1", "L1"]):
+            # write out data
+            het = HeterodynedData(
+                datalist[i], times=timeslist[i], detector=det, par=parfile1
+            )
+            het.write(datafiles[i], overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Incompatible detectors" in str(e)
+
+        # test for inconsistent pulsars
+        for i in range(N):
+            # write out data
+            het = HeterodynedData(
+                datalist[i],
+                times=timeslist[i],
+                detector="H1",
+                par=(parfile1 if i == 0 else parfile2),
+            )
+            het.write(datafiles[i], overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Incompatible pulsars" in str(e)
+
+        # test for inconsistent frequency scale factors
+        for i in range(N):
+            # write out data
+            het = HeterodynedData(
+                datalist[i],
+                times=timeslist[i],
+                detector="H1",
+                par=parfile1,
+                freqfactor=(2 if i == 0 else 1),
+            )
+            het.write(datafiles[i], overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Incompatible frequency factors" in str(e)
+
+        # check for inconsistencies in whether variances were set or not
+        for i in range(N):
+            # write out data
+            het = HeterodynedData(
+                datalist[i],
+                times=timeslist[i],
+                detector="H1",
+                par=parfile1,
+                freqfactor=2,
+            )
+            het.write(datafiles[i], overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Incompatible setting of variances" in str(e)
+
+        # make data sets have compatible variances settings
+        stds = 1e-25 * np.ones_like(times3)
+        data3 = np.column_stack((data3, stds))
+        datalist[-1] = data3
+
+        # check for inconsistent injection of a signal
+        for i in range(N):
+            # write out data
+            het = HeterodynedData(
+                datalist[i],
+                times=timeslist[i],
+                detector="H1",
+                par=parfile1,
+                freqfactor=2,
+                inject=(True if i < (N - 1) else False),
+            )
+            het.write(datafiles[i], overwrite=True)
+
+        # read in data
+        with pytest.raises(ValueError) as e:
+            _ = HeterodynedData.read(datafiles)
+        assert "Incompatible injection times" in str(e)
+
+        # create consistent files for merging and check the output
+        hets = []
+        for i in range(N):
+            # write out data
+            het = HeterodynedData(
+                datalist[i],
+                times=timeslist[i],
+                detector="H1",
+                par=parfile1,
+                freqfactor=2,
+                inject=True,
+            )
+
+            # add dummy heterodyne_arguments for testing
+            het.heterodyne_arguments = {"dummy": "argument"}
+
+            het.write(datafiles[i], overwrite=True)
+            hets.append(het)  # store for comparisons
+
+        # read in data
+        newhet = HeterodynedData.read(datafiles)
+
+        # test times are correct and sorted
+        times = np.concatenate((times2, times1, times3))  # correct time order
+        assert len(newhet) == len(times)
+        assert np.array_equal(times, newhet.times.value)
+        assert newhet.dt.value == np.min(np.diff(times))
+
+        # test data is correct
+        assert np.array_equal(
+            newhet.data, np.concatenate([hets[i].data for i in [1, 0, 2]])
+        )
+
+        # test injection data
+        assert newhet.injtimes.shape == (N, 2)
+        assert np.allclose(
+            newhet.injection_data,
+            np.concatenate([hets[i].injection_data for i in [1, 0, 2]]),
+        )
+
+        # test heterodyne arguments
+        assert len(newhet.heterodyne_arguments) == N
+        assert all(
+            [
+                hetargs == {"dummy": "argument"}
+                for hetargs in newhet.heterodyne_arguments
+            ]
+        )
+
+        # remove par files
+        for parfile in [parfile1, parfile2]:
+            os.remove(parfile)
+
+        # remove data files
+        for datafile in datafiles:
+            os.remove(datafile)
 
     def test_zero_data(self):
         """

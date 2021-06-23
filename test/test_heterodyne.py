@@ -10,10 +10,20 @@ import lal
 import numpy as np
 import pytest
 from astropy.utils.data import download_file
-from cwinpy import Heterodyne, HeterodynedData
+from cwinpy import HeterodynedData
+from cwinpy.heterodyne import Heterodyne, heterodyne
+from cwinpy.signal import HeterodynedCWSimulator
+from cwinpy.utils import LAL_EPHEMERIS_URL
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-from lalpulsar.simulateHeterodynedCW import DOWNLOAD_URL, HeterodynedCWSimulator
+
+
+def relative_difference(data, model):
+    """
+    Compute the relative difference between data and model.
+    """
+
+    return np.abs(data - model) / np.abs(model)
 
 
 class TestHeterodyne(object):
@@ -43,8 +53,13 @@ class TestHeterodyne(object):
         cls.fakedatachannels = [
             "{}:FAKE_DATA".format(det) for det in cls.fakedatadetectors
         ]
-        cls.fakedatastarts = [1000000000, 1000000000 + 86400 * 2]
-        cls.fakedataduration = 86400
+        cls.fakedatastarts = [
+            1000000000,
+            1000000000 + 86400 + 234,
+            1000000000 + 86400 * 2 + 11923,
+            1000000000 + 86400 * 3 + 32955,
+        ]
+        cls.fakedataduration = [86400, 34, 49731, 5004]
 
         os.makedirs(cls.fakedatadir, exist_ok=True)
 
@@ -259,7 +274,9 @@ transientTau = {tau}
         mfdtransientdic = {
             "wintype": "rect",
             "tstart": cls.fakedatastarts[0],
-            "tau": 86400,
+            "tau": cls.fakedatastarts[1]
+            + cls.fakedataduration[1]
+            - cls.fakedatastarts[0],
         }
 
         # signal before the glitch
@@ -275,7 +292,10 @@ transientTau = {tau}
         mfddic["f2"] = 2 * (f2 + df2)
         mfddic["phi0"] = phi0 + 2 * dphi
 
-        mfdtransientdic["tstart"] = cls.fakedatastarts[1]
+        mfdtransientdic["tstart"] = cls.fakedatastarts[-2]
+        mfdtransientdic["tau"] = (
+            cls.fakedatastarts[-1] + cls.fakedataduration[-1] - cls.fakedatastarts[-2]
+        )
 
         # signal after the glitch
         with open(injfile, "a") as fp:
@@ -313,11 +333,13 @@ transientTau = {tau}
 
         # set ephemeris files
         efile = download_file(
-            DOWNLOAD_URL.format("earth00-40-DE405.dat.gz"), cache=True
+            LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz"), cache=True
         )
-        sfile = download_file(DOWNLOAD_URL.format("sun00-40-DE405.dat.gz"), cache=True)
+        sfile = download_file(
+            LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz"), cache=True
+        )
 
-        for datastart in cls.fakedatastarts:
+        for j, datastart in enumerate(cls.fakedatastarts):
             for i in range(len(cls.fakedatachannels)):
                 cmds = [
                     "-F",
@@ -328,7 +350,7 @@ transientTau = {tau}
                     "--sqrtSX={0:.1e}".format(sqrtSn),
                     "-G",
                     str(datastart),
-                    "--duration={}".format(cls.fakedataduration),
+                    "--duration={}".format(cls.fakedataduration[j]),
                     "--Band={}".format(cls.fakedatabandwidth),
                     "--fmin",
                     "0",
@@ -595,7 +617,7 @@ transientTau = {tau}
                     self.fakedatadetectors[0],
                     self.fakedataname,
                     self.fakedatastarts[i],
-                    self.fakedataduration,
+                    self.fakedataduration[i],
                 )
                 == os.path.basename(cachedata[i])
             )
@@ -775,14 +797,9 @@ transientTau = {tau}
         with pytest.raises(TypeError):
             Heterodyne(pulsarfiles=self.fakeparfile, pulsars=3.4)
 
-        het = Heterodyne(pulsarfiles=self.fakeparfile, pulsars="J0328+5323")
-        captured = capsys.readouterr()
-
-        assert len(het.pulsars) == 0
-        assert (
-            captured.out
-            == "Pulsars '['J0328+5323']' not included as no parameter files have been given for them\n"
-        )
+        # check that ValueError is raised if pulsar does not exist in supplied par files
+        with pytest.raises(ValueError):
+            het = Heterodyne(pulsarfiles=self.fakeparfile, pulsars="J0328+5323")
 
         het = Heterodyne(pulsarfiles=[self.fakeparfile[0]], pulsars=["J0000+0000"])
 
@@ -818,6 +835,22 @@ transientTau = {tau}
         assert het.pulsarfiles == {"J0000+0000": os.path.realpath(self.fakeparfile[0])}
         assert het.pulsars == ["J0000+0000"]
 
+    def test_download_pulsar(self, capsys):
+        """
+        Test downloading a pulsar from the ATNF pulsar catalogue.
+        """
+
+        psr = "J0534+2200"
+        het = Heterodyne(pulsarfiles=psr)
+        captured = capsys.readouterr()
+
+        assert (
+            captured.out
+            == f"Ephemeris for '{psr}' has been obtained from the ATNF pulsar catalogue\n"
+        )
+        assert len(het.pulsarfiles) == 1
+        assert het.pulsars == ["J0534+2200"]
+
     def test_crop(self):
         """
         Test setting of crop.
@@ -840,7 +873,8 @@ transientTau = {tau}
         """
 
         segments = [
-            (time, time + self.fakedataduration) for time in self.fakedatastarts
+            (self.fakedatastarts[i], self.fakedatastarts[i] + self.fakedataduration[i])
+            for i in range(len(self.fakedatastarts))
         ]
 
         het = Heterodyne(
@@ -872,9 +906,8 @@ transientTau = {tau}
         with pytest.raises(ValueError):
             het.freqfactor = -2.3
 
-        with pytest.raises(ValueError):
-            # test that not setting an output gives a error
-            het.heterodyne()
+        # test that output directory has defaulted to cwd
+        assert os.path.split(list(het.outputfiles.values())[0])[0] == os.getcwd()
 
         # test setting an output directory
         outdir = os.path.join(self.fakedatadir, "heterodyne_output")
@@ -889,7 +922,7 @@ transientTau = {tau}
             het.heterodyne(includeglitch=True)
 
         # perform first stage heterodyne
-        het = Heterodyne(
+        het = heterodyne(
             starttime=segments[0][0],
             endtime=segments[-1][-1],
             pulsarfiles=self.fakeparfile,
@@ -897,12 +930,10 @@ transientTau = {tau}
             framecache=self.fakedatadir,
             channel=self.fakedatachannels[0],
             freqfactor=2,
-            stride=self.fakedataduration // 2,
+            stride=86400 // 2,
             output=outdir,
             resamplerate=1,
         )
-
-        het.heterodyne()
 
         labeldict = {
             "det": het.detector,
@@ -912,8 +943,10 @@ transientTau = {tau}
         }
 
         # expected length (after cropping)
+        uncroppedsegs = [seg for seg in segments if (seg[1] - seg[0]) > het.crop]
         length = (
-            het.resamplerate * np.diff(segments).sum() - 2 * len(segments) * het.crop
+            het.resamplerate * np.diff(uncroppedsegs).sum()
+            - 2 * len(uncroppedsegs) * het.crop
         )
 
         # expected start time (after cropping)
@@ -943,7 +976,7 @@ transientTau = {tau}
         fineoutdir = os.path.join(self.fakedatadir, "fine_heterodyne_output")
 
         # first heterodyne without SSB
-        het2 = Heterodyne(
+        het2 = heterodyne(
             detector=self.fakedatadetectors[0],
             heterodyneddata=outdir,  # pass previous output directory
             pulsarfiles=self.fakeparfile,
@@ -953,9 +986,16 @@ transientTau = {tau}
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
         )
-        het2.heterodyne()
 
         models = []
+        lengthnew = int(
+            np.sum(
+                [
+                    np.floor(((seg[1] - seg[0]) - 2 * het2.crop) * het2.resamplerate)
+                    for seg in uncroppedsegs
+                ]
+            )
+        )
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
             hetdata = HeterodynedData.read(
@@ -963,7 +1003,7 @@ transientTau = {tau}
             )
 
             assert het2.resamplerate == 1 / hetdata.dt.value
-            assert len(hetdata) == int(length * het2.resamplerate)
+            assert len(hetdata) == lengthnew
 
             # set expected model
             sim = HeterodynedCWSimulator(
@@ -986,11 +1026,11 @@ transientTau = {tau}
             )
 
             # without inclusion of SSB model should not match
-            assert np.any(np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 5e-3)
+            assert np.any(relative_difference(hetdata.data, models[i]) > 5e-3)
 
         # now heterodyne with SSB
         del het2
-        het2 = Heterodyne(
+        het2 = heterodyne(
             detector=self.fakedatadetectors[0],
             heterodyneddata=outdir,  # pass previous output directory
             pulsarfiles=self.fakeparfile,
@@ -999,8 +1039,8 @@ transientTau = {tau}
             includessb=True,
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+            overwrite=True,
         )
-        het2.heterodyne()
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
@@ -1009,21 +1049,18 @@ transientTau = {tau}
             )
 
             assert het2.resamplerate == 1 / hetdata.dt.value
-            assert len(hetdata) == int(length * het2.resamplerate)
+            assert len(hetdata) == lengthnew
 
+            # check output matches model to within 2%
             if psr == "J0000+0000":  # isolated pulsar
-                assert np.all(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 5e-3
-                )
+                assert np.all(relative_difference(hetdata.data, models[i]) < 0.02)
             else:
                 # without inclusion of BSB/glitch phase model should not match
-                assert np.any(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 5e-3
-                )
+                assert np.any(relative_difference(hetdata.data, models[i]) > 0.02)
 
         # now heterodyne with SSB and BSB
         del het2
-        het2 = Heterodyne(
+        het2 = heterodyne(
             detector=self.fakedatadetectors[0],
             heterodyneddata={
                 psr: het.outputfiles[psr].format(**labeldict, psr=psr)
@@ -1036,8 +1073,8 @@ transientTau = {tau}
             includebsb=True,
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+            overwrite=True,
         )
-        het2.heterodyne()
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
@@ -1046,24 +1083,20 @@ transientTau = {tau}
             )
 
             assert het2.resamplerate == 1 / hetdata.dt.value
-            assert len(hetdata) == int(length * het2.resamplerate)
+            assert len(hetdata) == lengthnew
 
             if psr in [
                 "J0000+0000",
                 "J1111+1111",
             ]:  # isolated and binary pulsar (non-glitching)
-                assert np.all(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 1e-2
-                )
+                assert np.all(relative_difference(hetdata.data, models[i]) < 0.02)
             else:
                 # without inclusion glitch phase model should not match
-                assert np.any(
-                    np.abs(hetdata.data - models[i]) / np.abs(models[i]) > 1e-2
-                )
+                assert np.any(relative_difference(hetdata.data, models[i]) > 0.02)
 
         # now heterodyne with SSB, BSB and glitch phase
         del het2
-        het2 = Heterodyne(
+        het2 = heterodyne(
             detector=self.fakedatadetectors[0],
             heterodyneddata={
                 psr: het.outputfiles[psr].format(**labeldict, psr=psr)
@@ -1077,8 +1110,8 @@ transientTau = {tau}
             includeglitch=True,
             output=fineoutdir,
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+            overwrite=True,
         )
-        het2.heterodyne()
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
@@ -1087,11 +1120,8 @@ transientTau = {tau}
             )
 
             assert het2.resamplerate == 1 / hetdata.dt.value
-            assert len(hetdata) == int(length * het2.resamplerate)
-
-            # increase tolerance for acceptance due to small outliers (still
-            # equivalent at the ~2% level)
-            assert np.all(np.abs(hetdata.data - models[i]) / np.abs(models[i]) < 2e-2)
+            assert len(hetdata) == lengthnew
+            assert np.all(relative_difference(hetdata.data, models[i]) < 0.02)
 
     def test_full_heterodyne(self):
         """
@@ -1099,13 +1129,14 @@ transientTau = {tau}
         """
 
         segments = [
-            (time, time + self.fakedataduration) for time in self.fakedatastarts
+            (self.fakedatastarts[i], self.fakedatastarts[i] + self.fakedataduration[i])
+            for i in range(len(self.fakedatastarts))
         ]
 
         # perform heterodyne in one step
         fulloutdir = os.path.join(self.fakedatadir, "full_heterodyne_output")
 
-        het = Heterodyne(
+        inputkwargs = dict(
             starttime=segments[0][0],
             endtime=segments[-1][-1],
             pulsarfiles=self.fakeparfile,
@@ -1113,7 +1144,7 @@ transientTau = {tau}
             framecache=self.fakedatadir,
             channel=self.fakedatachannels[0],
             freqfactor=2,
-            stride=self.fakedataduration // 2,
+            stride=86400 // 2,
             resamplerate=1 / 60,
             includessb=True,
             includebsb=True,
@@ -1122,7 +1153,7 @@ transientTau = {tau}
             label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
         )
 
-        het.heterodyne()
+        het = heterodyne(**inputkwargs)
 
         labeldict = {
             "det": het.detector,
@@ -1139,6 +1170,15 @@ transientTau = {tau}
             )
 
             assert het.resamplerate == 1 / hetdata.dt.value
+
+            # check heterodyne_arguments were stored and retrieved correctly
+            assert isinstance(hetdata.heterodyne_arguments, dict)
+            for param in inputkwargs:
+                if param == "pulsarfiles":
+                    assert inputkwargs[param][i] == hetdata.heterodyne_arguments[param]
+                    assert hetdata.heterodyne_arguments["pulsars"] == psr
+                else:
+                    assert inputkwargs[param] == hetdata.heterodyne_arguments[param]
 
             # set expected model
             sim = HeterodynedCWSimulator(
@@ -1160,4 +1200,4 @@ transientTau = {tau}
 
             # increase tolerance for acceptance due to small outliers (still
             # equivalent at the ~2% level)
-            assert np.all(np.abs(hetdata.data - model) / np.abs(model) < 2e-2)
+            assert np.all(relative_difference(hetdata.data, model) < 0.02)

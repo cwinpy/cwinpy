@@ -9,3 +9,4 @@ from .readers import register_ascii_series_io
 
 register_ascii_series_io(HeterodynedData, format="txt")
 register_ascii_series_io(HeterodynedData, format="txt.gz")
+register_ascii_series_io(HeterodynedData, format="csv", delimiter=",")

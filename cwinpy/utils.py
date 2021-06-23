@@ -5,16 +5,36 @@ A selection of general utility functions.
 import ctypes
 import os
 import string
-import subprocess
+import sys
 from functools import reduce
 from math import gcd
 
 import lalpulsar
 import numpy as np
 from astropy import units as u
+from bilby_pipe.utils import CHECKPOINT_EXIT_CODE
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from numba import jit, njit
 from numba.extending import get_cython_function_address
+
+#: URL for LALSuite solar system ephemeris files
+LAL_EPHEMERIS_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
+
+#: the current solar system ephemeris types in LALSuite
+LAL_EPHEMERIS_TYPES = ["DE200", "DE405", "DE421", "DE430"]
+
+#: the current TEMPO-compatible binary system model types provided in LALSuite
+LAL_BINARY_MODELS = [
+    "BT",
+    "BT1P",
+    "BT2P",
+    "BTX",
+    "ELL1",
+    "DD",
+    "DDS",
+    "MSS",
+    "T2",
+]
 
 # create a numba-ified version of scipy's gammaln function (see, e.g.
 # https://github.com/numba/numba/issues/3086#issuecomment-403469308)
@@ -60,7 +80,7 @@ def gcd_array(denominators):
         raise TypeError("Must have a list or array")
 
     denoms = np.asarray(denominators).flatten()  # 1d array
-    denoms = denoms.astype(np.int)
+    denoms = denoms.astype(int)
 
     if len(denoms) < 2:
         raise ValueError("Must have more than two values")
@@ -83,29 +103,22 @@ def is_par_file(parfile):
         Returns True is if it is a valid parameter file.
     """
 
-    # check that the file is ASCII text (see, e.g.,
-    # https://stackoverflow.com/a/1446571/1862861)
+    try:
+        psr = PulsarParametersPy(parfile)
+    except (ValueError, IOError):
+        return False
 
-    if os.path.isfile(parfile):
-        msg = subprocess.Popen(
-            ["file", "--mime", "--dereference", parfile], stdout=subprocess.PIPE
-        ).communicate()[0]
-        if "text/plain" in msg.decode():
-            psr = PulsarParametersPy(parfile)
-            # file must contain a frequency, right ascension, declination and
-            # pulsar name
-            # file must contain right ascension and declination
-            if (
-                psr["F"] is None
-                or (psr["RAJ"] is None and psr["RA"] is None)
-                or (psr["DECJ"] is None and psr["DEC"] is None)
-                or get_psr_name(psr) is None
-            ):
-                return False
-
-            return True
-
-    return False
+    # file must contain a frequency, right ascension, declination and
+    # pulsar name
+    if (
+        psr["F"] is None
+        or (psr["RAJ"] is None and psr["RA"] is None)
+        or (psr["DECJ"] is None and psr["DEC"] is None)
+        or get_psr_name(psr) is None
+    ):
+        return False
+    else:
+        return True
 
 
 def get_psr_name(psr):
@@ -245,7 +258,14 @@ def q22_to_ellipticity(q22):
 
 
 def initialise_ephemeris(
-    ephem="DE405", units="TCB", earthfile=None, sunfile=None, timefile=None
+    ephem="DE405",
+    units="TCB",
+    earthfile=None,
+    sunfile=None,
+    timefile=None,
+    ssonly=False,
+    timeonly=False,
+    filenames=False,
 ):
     """
     Download/read and return solar system ephemeris and time coordinate data.
@@ -273,9 +293,48 @@ def initialise_ephemeris(
     units: str
         The time coordinate system, which can be either "TDB" or "TCB" (TCB is
         the default).
+    ssonly: bool
+        If True only return the initialised solar system ephemeris data.
+        Default is False.
+    timeonly: bool
+        If True only return the initialised time correction ephemeris data.
+        Default is False.
+    filenames: bool
+        If True return the paths to the ephemeris files. Default is False.
+
+    Returns
+    -------
+    edat, sdat, filenames:
+        The LAL EphemerisData object and TimeCorrectionData object.
     """
 
-    DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
+    earth = "earth00-40-{}.dat.gz".format(ephem) if earthfile is None else earthfile
+    sun = "sun00-40-{}.dat.gz".format(ephem) if sunfile is None else sunfile
+
+    filepaths = []
+
+    if not timeonly:
+        try:
+            with MuteStream():
+                # get full file path
+                earthf = lalpulsar.PulsarFileResolvePath(earth)
+                sunf = lalpulsar.PulsarFileResolvePath(sun)
+                edat = lalpulsar.InitBarycenter(earthf, sunf)
+            filepaths = [edat.filenameE, edat.filenameS]
+        except RuntimeError:
+            # try downloading the ephemeris files
+            try:
+                from astropy.utils.data import download_file
+
+                efile = download_file(LAL_EPHEMERIS_URL.format(earth), cache=True)
+                sfile = download_file(LAL_EPHEMERIS_URL.format(sun), cache=True)
+                edat = lalpulsar.InitBarycenter(efile, sfile)
+                filepaths = [efile, sfile]
+            except Exception as e:
+                raise IOError("Could not read in ephemeris files: {}".format(e))
+
+        if ssonly:
+            return (edat, filepaths) if filenames else edat
 
     unit = None
     if timefile is None:
@@ -284,33 +343,88 @@ def initialise_ephemeris(
         else:
             raise ValueError("units must be TCB or TDB")
 
-    earth = "earth00-40-{}.dat.gz".format(ephem) if earthfile is None else earthfile
-    sun = "sun00-40-{}.dat.gz".format(ephem) if sunfile is None else sunfile
     time = "{}_2000-2040.dat.gz".format(unit) if timefile is None else timefile
 
     try:
-        edat = lalpulsar.InitBarycenter(earth, sun)
-    except RuntimeError:
-        # try downloading the ephemeris files
-        try:
-            from astropy.utils.data import download_file
-
-            efile = download_file(DOWNLOAD_URL.format(earth), cache=True)
-            sfile = download_file(DOWNLOAD_URL.format(sun), cache=True)
-            edat = lalpulsar.InitBarycenter(efile, sfile)
-        except Exception as e:
-            raise IOError("Could not read in ephemeris files: {}".format(e))
-
-    try:
-        tdat = lalpulsar.InitTimeCorrections(time)
+        with MuteStream():
+            # get full file path
+            timef = lalpulsar.PulsarFileResolvePath(time)
+            tdat = lalpulsar.InitTimeCorrections(timef)
+        filepaths.append(timef)
     except RuntimeError:
         try:
             # try downloading the time coordinate file
             from astropy.utils.data import download_file
 
-            tfile = download_file(DOWNLOAD_URL.format(time), cache=True)
+            tfile = download_file(LAL_EPHEMERIS_URL.format(time), cache=True)
             tdat = lalpulsar.InitTimeCorrections(tfile)
+            filepaths.append(tfile)
         except Exception as e:
             raise IOError("Could not read in time correction file: {}".format(e))
 
-    return edat, tdat
+    if timeonly:
+        return (tdat, filepaths) if filenames else tdat
+    else:
+        return (edat, tdat, filepaths) if filenames else (edat, tdat)
+
+
+def sighandler(signum, frame):
+    # perform periodic eviction with exit code 77
+    # see https://git.ligo.org/lscsoft/bilby_pipe/-/commit/c63c3e718f20ce39b0340da27fb696c49409fcd8  # noqa: E501
+    sys.exit(CHECKPOINT_EXIT_CODE)
+
+
+class MuteStream(object):
+    """
+    Class used to mute the output from a stream, e.g., ``stderr`` or
+    ``stdout``.
+
+    This is heavily based on the StackOverflow answer at
+    https://stackoverflow.com/a/29834357/1862861, but only mutes and doesn't
+    capture the output from the given stream.
+
+    Parameters
+    ----------
+    stream:
+        The stream to be muted. Defaults to ``sys.stderr``.
+    """
+
+    def __init__(self, stream=None):
+        self.origstream = None
+        if self.origstream is None:
+            self.origstream = sys.stderr
+        self.origstream = sys.stderr
+        self.origstreamfd = self.origstream.fileno()
+        # Create a pipe so the stream can be captured:
+        self.pipe_out, self.pipe_in = os.pipe()
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.stop()
+
+    def start(self):
+        """
+        Start capturing the stream data.
+        """
+
+        # Save a copy of the stream:
+        self.streamfd = os.dup(self.origstreamfd)
+        # Replace the original stream with our write pipe:
+        os.dup2(self.pipe_in, self.origstreamfd)
+
+    def stop(self):
+        """
+        Stop capturing the stream data.
+        """
+        # Flush the streams
+        self.origstream.flush()
+        # Close the pipe:
+        os.close(self.pipe_in)
+        os.close(self.pipe_out)
+        # Restore the original stream:
+        os.dup2(self.streamfd, self.origstreamfd)
+        # Close the duplicate stream:
+        os.close(self.streamfd)

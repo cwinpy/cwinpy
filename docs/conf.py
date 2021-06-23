@@ -119,6 +119,9 @@ exclude_patterns = [
     "pe/data/example2/*.json",
     "pe/data/example2/*.pickle",
     "pe/data/example2/*_trace.png",
+    "heterodyne/heterodyne_help.txt",
+    "heterodyne/heterodyne_dag_help.txt",
+    "heterodyne/examples/segments.txt",
 ]
 
 add_function_parentheses = True
@@ -230,14 +233,15 @@ numpydoc_show_class_members = False
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
-    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
     "matplotlib": ("https://matplotlib.org/", None),
-    "astropy": ("http://docs.astropy.org/en/stable/", None),
+    "astropy": ("https://docs.astropy.org/en/stable/", None),
     "bilby": ("https://lscsoft.docs.ligo.org/bilby/", None),
     "pycondor": ("https://jrbourbeau.github.io/pycondor/", None),
     "numba": ("http://numba.pydata.org/numba-doc/latest/", None),
     "gwpy": ("https://gwpy.github.io/docs/stable/", None),
+    "psrqpy": ("https://psrqpy.readthedocs.io/en/stable/", None),
 }
 
 
@@ -245,3 +249,13 @@ intersphinx_mapping = {
 pe_help = subprocess.getoutput("cwinpy_pe --help")
 with open("pe/pe_help.txt", "w") as fp:
     fp.write(pe_help)
+
+# generate cwinpy_heterodyne help string for docs
+heterodyne_help = subprocess.getoutput("cwinpy_heterodyne --help")
+with open("heterodyne/heterodyne_help.txt", "w") as fp:
+    fp.write(heterodyne_help)
+
+# generate cwinpy_heterodyne_dag help string for docs
+heterodyne_dag_help = subprocess.getoutput("cwinpy_heterodyne_dag --help")
+with open("heterodyne/heterodyne_dag_help.txt", "w") as fp:
+    fp.write(heterodyne_dag_help)

@@ -7,6 +7,7 @@ import configparser
 import glob
 import json
 import os
+import pathlib
 import signal
 import sys
 import warnings
@@ -20,7 +21,6 @@ from bilby_pipe.input import Input
 from bilby_pipe.job_creation.dag import Dag
 from bilby_pipe.job_creation.node import Node
 from bilby_pipe.utils import (
-    CHECKPOINT_EXIT_CODE,
     BilbyPipeError,
     check_directory_exists_and_if_not_mkdir,
     convert_string_to_dict,
@@ -31,13 +31,7 @@ from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..likelihood import TargetedPulsarLikelihood
-from ..utils import is_par_file
-
-
-def sighandler(signum, frame):
-    # perform periodic eviction with exit code 77
-    # see https://git.ligo.org/lscsoft/bilby_pipe/-/commit/c63c3e718f20ce39b0340da27fb696c49409fcd8  # noqa: E501
-    sys.exit(CHECKPOINT_EXIT_CODE)
+from ..utils import is_par_file, sighandler
 
 
 def create_pe_parser():
@@ -899,7 +893,7 @@ class PERunner(object):
                                 fakeasd=asdval,
                                 detector=thisdet,
                                 times=ftime,
-                                **self.datakwargs
+                                **self.datakwargs,
                             )
                         )
                 else:
@@ -1021,7 +1015,7 @@ class PERunner(object):
             sampler=self.sampler,
             priors=self.prior,
             likelihood=self.likelihood,
-            **self.sampler_kwargs
+            **self.sampler_kwargs,
         )
 
         # output SNRs
@@ -1239,7 +1233,7 @@ def pe(**kwargs):
             cliargs = sys.argv[1:]
 
         try:
-            args, unknown_args = parse_args(cliargs, parser)
+            args, _ = parse_args(cliargs, parser)
         except BilbyPipeError as e:
             raise IOError("{}".format(e))
 
@@ -1266,7 +1260,7 @@ def pe(**kwargs):
 
 def pe_cli(**kwargs):  # pragma: no cover
     """
-    Entry point to ``cwinpy_pe script``. This just calls :func:`cwinpy.pe.pe`,
+    Entry point to ``cwinpy_pe`` script. This just calls :func:`cwinpy.pe.pe`,
     but does not return any objects.
     """
 
@@ -1311,6 +1305,9 @@ class PEDAGRunner(object):
             self.dag = kwargs["dag"]
         else:
             self.dag = Dag(inputs)
+
+        # get previous nodes that are parents to PE jobs
+        generation_nodes = kwargs.get("generation_nodes", None)
 
         # get whether to build the dag
         self.build = config.getboolean("dag", "build", fallback=True)
@@ -1782,11 +1779,22 @@ class PEDAGRunner(object):
 
             parallel_node_list = []
             for idx in range(inputs.n_parallel):
-                penode = PulsarPENode(inputs, configdict.copy(), pname, idx, self.dag)
+                gnode = None
+                if isinstance(generation_nodes, dict):
+                    gnode = generation_nodes.get(pname, None)
+
+                penode = PulsarPENode(
+                    inputs,
+                    configdict.copy(),
+                    pname,
+                    idx,
+                    self.dag,
+                    generation_node=gnode,
+                )
                 parallel_node_list.append(penode)
 
             if inputs.n_parallel > 1:
-                _ = MergeNode(inputs, parallel_node_list, self.dag)
+                _ = MergePENode(inputs, parallel_node_list, self.dag)
 
         if self.build:
             self.dag.build()
@@ -1886,7 +1894,7 @@ class PEInput(Input):
 
         self.config = cf
         self.submit = cf.getboolean("dag", "submitdag", fallback=False)
-        self.transfer_files = cf.getboolean("dag", "transfer-files", fallback=True)
+        self.transfer_files = cf.getboolean("dag", "transfer_files", fallback=True)
         self.osg = cf.getboolean("dag", "osg", fallback=False)
         self.label = cf.get("dag", "name", fallback="cwinpy_pe")
 
@@ -1956,6 +1964,9 @@ class PEInput(Input):
 
 
 class PulsarPENode(Node):
+    # If --osg, run analysis nodes on the OSG
+    run_node_on_osg = True
+
     def __init__(
         self, inputs, configdict, psrname, parallel_idx, dag, generation_node=None
     ):
@@ -2082,7 +2093,12 @@ class PulsarPENode(Node):
         if generation_node is not None:
             # This is for the future when implementing a full pipeline
             # the generation node will be, for example, a heterodyning job
-            self.job.add_parent(generation_node.job)
+            if isinstance(generation_node, Node):
+                self.job.add_parent(generation_node.job)
+            elif isinstance(generation_node, list):
+                self.job.add_parents(
+                    [gnode.job for gnode in generation_node if isinstance(gnode, Node)]
+                )
 
     @property
     def executable(self):
@@ -2114,17 +2130,19 @@ class PulsarPENode(Node):
 
     @staticmethod
     def _relative_topdir(path, reference):
-        """Returns the top-level directory name of a path relative
-        to a reference
+        """
+        Returns the top-level directory name of a path relative to a reference.
         """
         try:
-            return os.path.relpath(path, reference)
+            return os.path.relpath(
+                pathlib.Path(path).resolve(), pathlib.Path(reference).resolve()
+            )
         except ValueError as exc:
-            exc.args = ("cannot format {} relative to {}".format(path, reference),)
+            exc.args = (f"cannot format {path} relative to {reference}",)
             raise
 
 
-class MergeNode(Node):
+class MergePENode(Node):
     def __init__(self, inputs, parallel_node_list, dag):
         super().__init__(inputs)
         self.dag = dag

@@ -1,0 +1,4 @@
+*.gwf
+*.dat
+heterodyneddata/*
+pulsars/*

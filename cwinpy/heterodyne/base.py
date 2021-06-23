@@ -2,23 +2,27 @@
 Classes for heterodyning strain data.
 """
 
-import glob
+import inspect
 import os
+import re
 import signal
+import tempfile
+from pathlib import Path
 
 import lal
-import lalframe
 import lalpulsar
 import numpy as np
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
+from gwosc.timeline import get_segments
 from gwpy.io.cache import is_cache, read_cache
-from gwpy.segments import DataQualityFlag
+from gwpy.segments import DataQualityFlag, SegmentList
 from gwpy.timeseries import TimeSeries, TimeSeriesDict, TimeSeriesList
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from scipy.interpolate import splev, splrep
 
-from .data import HeterodynedData
-from .utils import get_psr_name, initialise_ephemeris, is_par_file
+from ..data import HeterodynedData
+from ..utils import get_psr_name, initialise_ephemeris, is_par_file
+from .fastheterodyne import fast_heterodyne
 
 
 class Heterodyne(object):
@@ -33,9 +37,9 @@ class Heterodyne(object):
         The integer end time of the data to be heterodyned in GPS seconds.
     stride: int
         The number of seconds to stride through the data, i.e., loop through
-        the data reading in ``stride`` seconds each time. Defaults to 3600
+        the data reading in ``stride`` seconds each time. Defaults to 3600.
     detector: str
-        A string given the name of the detector for which the data is being
+        A string given the name of the detector for which the data is to be
         heterodyned.
     frametype: str
         The ``frametype`` name of the data to be heterodyned. See, e.g., the
@@ -65,6 +69,10 @@ class Heterodyne(object):
     framecache: str, list
         If you have a pregenerated cache of gravitational-wave file paths
         (either in a file or as a list of files) you can use them.
+        Alternatively, you can supply a directory that will be searched
+        recursively for frame files (first it will try to find ".gwf" file
+        extension files then ".hdf5" files). This should be used in conjunction
+        with the ``frametype`` argument.
     segmentlist: str, list
         A list of data segment start and end times (stored a tuple pairs) in
         the list. Or, an ascii text file containing segment start and end times
@@ -74,7 +82,9 @@ class Heterodyne(object):
         segment list if not provided in ``segmentlist``. See, e.g., the GWPy
         documentation
         `here <https://gwpy.github.io/docs/stable/segments/index.html>`_ and
-        the :func:`cwinpy.heterodyne.generate_segments` function.
+        the :func:`cwinpy.heterodyne.generate_segments` function. Use, e.g.,
+        "H1_DATA" (or e.g., "H1_CBC_CAT2") to get segments from GWOSC for open
+        data.
     excludeflags: str, list
         A string, or list of string giving data DQ flags to exclude when
         generating a segment list if not provided in ``segmentlist``. See
@@ -92,50 +102,55 @@ class Heterodyne(object):
         To specify explicit directory paths for individual pulsars this can be
         a dictionary of directory paths keyed to the pulsar name (in which
         case the ``label`` argument will be used to set the file name), or full
-        file paths, which will be used in place of the ``label`` argument.
+        file paths, which will be used in place of the ``label`` argument. If
+        not given this defaults to the current working directory.
     label: str
-        The output format for the heterdyned data files. These can be format
+        The output format for the heterodyned data files. These can be format
         strings containing the keywords ``psr`` for the pulsar name, ``det``
         for the detector, ``freqfactor`` for the rotation frequency scale
         factor used, ``gpsstart`` for the GPS start time, and ``gpsend`` for
         the GPS end time. The extension should be given as ".hdf", ".h5", or
         ".hdf5". E.g., the default is
         ``"heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf"``.
-    pulsarfiles: str, dict
+    pulsarfiles: str, list, dict
         This specifies the pulsars for which to heterodyne the data. It can be
         either i) a string giving the path to an individual pulsar
         TEMPO(2)-style parameter file, ii) a string giving the path to a
         directory containing multiple TEMPO(2)-style parameter files (the path
-        with be recursively searched for any file with the extension ".par"),
+        will be recursively searched for any file with the extension ".par"),
         iii) a list of paths to individual pulsar parameter files, iv) a
         dictionary containing paths to individual pulsars parameter files keyed
-        to their names.
+        to their names. If ``pulsarfiles`` contains pulsar names rather than
+        files it will attempt to extract an ephemeris for that pulsar from the
+        ATNF pulsar catalogue. If such an ephemeris is available then that will
+        be used (notification will be given when this is the case).
     pulsars: str, list
         You can analyse only particular pulsars from those specified by
-        parameter files found through the ``pulsars`` argument by passing a
+        parameter files found through the ``pulsarfiles`` argument by passing a
         string, or list of strings, with particular pulsars names to use.
     filterknee: float
         The knee frequency (Hz) of the low-pass filter applied after
         heterodyning the data. This should only be given when heterodying raw
-        strain and not if re-heterodyning processed data. Default is 0.5 Hz.
+        strain data and not if re-heterodyning processed data. Default is 0.5
+        Hz.
     heterodyneddata: str, dict
-        A string or dictionary of strings containing the full file path, or
-        directory path, pointing the the location of pre-heterodyned data. For
-        a single pulsar a file path can be given. For multiple pulsars a
+        A string or dictionary of strings/lists containing the full file path,
+        or directory path, pointing the the location of pre-heterodyned data.
+        For a single pulsar a file path can be given. For multiple pulsars a
         directory containing heterodyned files (in HDF5 or txt format) can be
         given provided that within it the file names contain the pulsar names
         as supplied in the file input with ``pulsarfiles``. Alternatively, a
         dictionary can be supplied, keyed on the pulsar name, containing a
-        single file path or a directory path as above. If supplying a
-        directory, it can contain multiple heterodyned files for a each pulsar
-        and all will be used.
+        single file path, a directory path as above, or a list of file paths.
+        If supplying a directory, it can contain multiple heterodyned files for
+        a each pulsar and all will be used.
     resamplerate: float
         The rate in Hz at which to resample the data (via averaging) after
         application of the heterodyne (and filter if applied).
     freqfactor: float
         The factor applied to the pulsars rotational parameters when defining
         the gravitational-wave phase evolution. For example, the default value
-        of 2, multiplies the phase evolution by 2 under the assumption of a
+        of 2 multiplies the phase evolution by 2 under the assumption of a
         signal emitted from the l=m=2 quadrupole mode of a rigidly rotating
         triaxial neutron star.
     crop: int
@@ -143,32 +158,54 @@ class Heterodyne(object):
         to remove filter impulse effects and issues prior to lock-loss.
         Default is 60 seconds.
     includessb: bool
-        Set this to True to include the modulation of the signal due to Solar
-        System motion and relativistic effects (e.g., Roemer, Einstein,
-        Shapiro delay). Default is False.
+        Set this to True to include removing the modulation of the signal due
+        to Solar System motion and relativistic effects (e.g., Roemer,
+        Einstein, and Shapiro delay) during the heterodyne. Default is False.
     includebsb: bool
-        Set this to True to include the modulation of the signal due to binary
-        system motion and relativistic effects. To use this ``includessb``
-        must also be True. Default is False.
+        Set this to True to include removing the modulation of the signal due
+        to binary system motion and relativistic effects during the heterodyne.
+        To use this ``includessb`` must also be True. Default is False.
     includeglitch: bool
-        Set this to True to include in the phase evolution the effects of any
-        modelled pulsar glitches. Default is False.
+        Set this to True to include removing the effects on the phase evolution
+        of any modelled pulsar glitches during the heterodyne. Default is False.
     includefitwaves: bool
-        Set this to True to include in the phase evolution of a series of
+        Set this to True to include removing the phase evolution of a series of
         sinusoids designed to model low-frequency timing noise in the pulsar
-        signal. Default is False.
+        signal during the heterodyne. Default is False.
     interpolationstep: int
         If performing the full heterodyne in one step it is quicker to
         interpolate the solar system barycentre time delay and binary
         barycentre time delay. This sets the step size, in seconds, between
         the points in these calculations that will be the interpolation nodes.
         The default is 60 seconds.
+    earthephemeris: dict
+        A dictionary, keyed to ephemeris names, e.g., "DE405", pointing to the
+        location of a file containing that ephemeris for the Earth. If a pulsar
+        requires a specific ephemeris that is not provided in this dictionary,
+        then the code will automatically attempt to find or download the
+        required file if available.
+    sunephemeris: dict
+        A dictionary, keyed to ephemeris names, e.g., "DE405", pointing to the
+        location of a file containing that ephemeris for the Sun. If a pulsar
+        requires a specific ephemeris that is not provided in this dictionary,
+        then the code will automatically attempt to find or download the
+        required file if available.
+    timeephemeris: dict
+        A dictionary, keyed to time system name, which can be either "TCB" or
+        "TDB", pointing to the location of a file containing that ephemeris for
+        that time system. If a pulsar requires a specific ephemeris that is not
+        provided in this dictionary, then the code will automatically attempt
+        to find or download the required file if available.
     resume: bool
         Set to True to resume heterodyning in case not all pulsars completed.
         This checks whether output files (as set using ``output`` and
         ``label`` arguments) already exist and does not repeat the analysis
         if that is the case. If wanting to overwrite existing files make sure
         this is False. Defaults to False.
+    cwinpy_heterodyne_dag_config_file: str
+        If Heterodyne is being called by a job in a HTCondor DAG, then this can
+        provide the path to the configuration file that was used to setup the
+        DAG. Defaults to None.
     """
 
     # allowed file extension
@@ -206,7 +243,11 @@ class Heterodyne(object):
         includeglitch=False,
         includefitwaves=False,
         interpolationstep=60,
+        earthephemeris=None,
+        sunephemeris=None,
+        timeephemeris=None,
         resume=False,
+        cwinpy_heterodyne_dag_config_file=None,
     ):
         # set analysis times
         self.starttime = starttime
@@ -259,6 +300,12 @@ class Heterodyne(object):
         self.includeglitch = includeglitch
         self.includefitwaves = includefitwaves
         self.interpolationstep = interpolationstep
+
+        # set ephemeris information
+        self.set_ephemeris(earthephemeris, sunephemeris, timeephemeris)
+
+        # set the name of any DAG configuration file
+        self.cwinpy_heterodyne_dag_config_file = cwinpy_heterodyne_dag_config_file
 
         # set signal in case of termination of job
         signal.signal(signal.SIGTERM, self._write_current_pulsars_and_exit)
@@ -624,17 +671,33 @@ class Heterodyne(object):
                 # check if cache is a directory
                 if os.path.isdir(framecache):
                     # get list of frame files
-                    cache = local_frame_cache(
-                        framecache,
-                        starttime=starttime,
-                        endtime=endtime,
-                        frametype=frametype,
-                        recursive=kwargs.get("recursive", False),
-                        site=kwargs.get("site", self.detector),
-                        extension=kwargs.get("extension", "gwf"),
-                        write=outputframecache,
-                        append=appendframecache,
+                    extensions = (
+                        ["gwf", "hdf5"]
+                        if "extension" not in kwargs
+                        else [kwargs["extension"]]
                     )
+
+                    # try different extensions in turn
+                    for extension in extensions:
+                        cache = local_frame_cache(
+                            framecache,
+                            starttime=starttime,
+                            endtime=endtime,
+                            frametype=frametype,
+                            recursive=kwargs.get("recursive", True),
+                            site=kwargs.get("site", self.detector),
+                            extension=extension,
+                            write=outputframecache,
+                            append=appendframecache,
+                        )
+                        if len(cache) > 0:
+                            break
+                elif os.path.isfile(framecache) and os.path.splitext(framecache)[1] in [
+                    ".gwf",
+                    ".hdf5",
+                ]:
+                    # check if cache is a single frame file
+                    cache = [framecache]
                 else:
                     # read in frame files from cache file
                     if is_cache(framecache):
@@ -648,8 +711,11 @@ class Heterodyne(object):
                 data = TimeSeriesDict()
                 startread = starttime
                 for frfile in cache:
-                    frt0, frdur = frame_time_duration(frfile)
+                    _, _, frt0, frdur = frame_information(frfile)
 
+                    if frt0 >= endtime:
+                        # found frame files, so break out of loop
+                        break
                     if starttime < frt0 and endtime >= frt0:
                         startread = frt0
 
@@ -657,7 +723,7 @@ class Heterodyne(object):
                             endread = frt0 + frdur
                         else:
                             endread = endtime
-                    elif starttime >= frt0 and endtime >= frt0:
+                    elif (frt0 <= starttime < frt0 + frdur) and endtime >= frt0:
                         startread = starttime
 
                         if endtime > frt0 + frdur:
@@ -675,7 +741,9 @@ class Heterodyne(object):
                         end=endread,
                         pad=kwargs.get("pad", 0.0),
                     )
-                    data.append(thisdata)
+
+                    # zero pad any gaps in the data
+                    data.append(thisdata, pad=0.0, gap="pad")
 
                 # extract channel from dictionary
                 data = data[channel]
@@ -752,6 +820,17 @@ class Heterodyne(object):
             kwargs.setdefault("writesegments", self.outputsegmentlist)
             kwargs.setdefault("appendsegments", self.appendsegmentlist)
 
+            # check whether include flags looks like it wants GWOSC data
+            if len(self.includeflags) == 1:
+                # GWOSC segments look like DET_DATA, DET_CW* or DET_*_CAT*
+                if (
+                    "{}_DATA".format(self.detector) == self.includeflags[0]
+                    or "{}_CW".format(self.detector) in self.includeflags[0]
+                    or "CBC_CAT" in self.includeflags[0]
+                    or "BURST_CAT" in self.includeflags[0]
+                ):
+                    kwargs.setdefault("usegwosc", True)
+
         segments = generate_segments(**kwargs)
         self._segments = segments
 
@@ -762,9 +841,6 @@ class Heterodyne(object):
         """
         The list of data segments to analyse, within start and end times.
         """
-
-        if self._segments is None:
-            return None
 
         if self.starttime is None:
             st = -np.inf
@@ -782,7 +858,8 @@ class Heterodyne(object):
                     return self._segments
 
         segments = []
-        for segment in self._segments:
+
+        for segment in self._segments if self._segments is not None else [[st, et]]:
             if segment[1] < st or segment[0] > et:
                 continue
 
@@ -927,16 +1004,22 @@ class Heterodyne(object):
             if isinstance(pfiles, str):
                 if os.path.isdir(pfiles):
                     pfilelist = [
-                        os.path.realpath(pf)
-                        for pf in glob.glob(
-                            os.path.join(pfiles, "*.par"), recursive=True
-                        )
+                        str(pf.resolve()) for pf in Path(pfiles).rglob("*.par")
                     ]
                 else:
                     pfilelist = [pfiles]
             elif isinstance(pfiles, dict):
                 pfilelist = list(pfiles.values())
                 pnames = list(pfiles.keys())
+            else:
+                pfilelist = []
+                for pf in pfiles:
+                    if os.path.isfile(pf):
+                        pfilelist.append(pf)
+                    elif os.path.isdir(pf):
+                        pfilelist += [
+                            str(pfp.resolve()) for pfp in Path(pf).rglob("*.par")
+                        ]
 
             for i, pf in enumerate(pfilelist):
                 if is_par_file(pf):
@@ -957,12 +1040,34 @@ class Heterodyne(object):
                                 )
                             )
                 else:
-                    print(
-                        "Pulsar file '{}' could not be read. This pulsar will be ignored.".format(
-                            pf
+                    # try checking if a pulsar name has been given and if that
+                    # is present in the ATNF catalogue. In that case use the
+                    # ATNF ephemeris.
+                    if not hasattr(self, "_atnf_query"):
+                        from psrqpy import QueryATNF
+
+                        self._atnf_query = QueryATNF()
+
+                    par = self._atnf_query.get_ephemeris(psr=pf)
+
+                    if par is None:
+                        print(
+                            f"Pulsar file '{pf}' could not be read. This pulsar will be ignored."
                         )
-                    )
-                    continue
+                        continue
+                    else:
+                        print(
+                            f"Ephemeris for '{pf}' has been obtained from the ATNF pulsar catalogue"
+                        )
+                        # create temporary par file containing ATNF ephemeris
+                        tmppar = tempfile.mkstemp(suffix=".par", prefix=pf)
+                        with open(tmppar[1], "w") as fp:
+                            fp.write(par)
+
+                        # get pulsar name
+                        readpar = PulsarParametersPy(tmppar[1])
+                        pname = get_psr_name(readpar)
+                        self._pulsars[pname] = tmppar[1]
         elif pfiles is not None:
             raise TypeError("pulsarfiles must be a string, list or dict")
 
@@ -980,6 +1085,10 @@ class Heterodyne(object):
             pulsarlist = (
                 [pulsars] if isinstance(pulsars, (str, PulsarParametersPy)) else pulsars
             )
+
+            # check if any supplied pulsars have associated parameter files
+            if len([pulsar for pulsar in pulsarlist if pulsar in self.pulsars]) == 0:
+                raise ValueError("No parameters are provided for the supplied pulsars")
 
             for pulsar in self.pulsars:
                 if pulsar not in list(pulsarlist):
@@ -1041,6 +1150,10 @@ class Heterodyne(object):
     @outputfiles.setter
     def outputfiles(self, outputfiles):
         self._outputfiles = {}
+
+        if outputfiles is None:
+            # set to current working directory
+            outputfiles = os.getcwd()
 
         if isinstance(outputfiles, str):
             if not os.path.isdir(outputfiles):
@@ -1212,6 +1325,8 @@ class Heterodyne(object):
         self.includefitwaves = kwargs.get("includefitwaves", self.includefitwaves)
         self.interpolationstep = kwargs.get("interpolationstep", self.interpolationstep)
 
+        # solar system ephemeris information
+
         # update heterodyned data
         if kwargs.get("heterodyneddata", None) is not None:
             self.heterodyneddata = kwargs.get("heterodyneddata")
@@ -1231,11 +1346,13 @@ class Heterodyne(object):
             raise ValueError("No output destination has been set!")
 
         # get segment list
-        if self.segments is None and not self.heterodyneddata:
+        if (
+            self._segments is None
+            and not self.heterodyneddata
+            and self.includeflags is not None
+        ):
             self.get_segment_list(**kwargs)
 
-        self._ephemerides = {}
-        self._timecorr = {}
         ttype = {
             "TDB": lalpulsar.TIMECORRECTION_TDB,
             "TCB": lalpulsar.TIMECORRECTION_TCB,
@@ -1452,8 +1569,14 @@ class Heterodyne(object):
                         "psr": pulsar,
                     }
                     pfile = self.outputfiles[pulsar].format(**labeldict)
-                    if os.path.isfile(pfile):
-                        prevdata = HeterodynedData.read(pfile)
+                    if os.path.isfile(pfile) and os.path.getsize(pfile) > 0:
+                        try:
+                            prevdata = HeterodynedData.read(pfile)
+                        except OSError:
+                            # could not read file, so ignore this pulsar
+                            minend = self.starttime
+                            continue
+
                         endtime = prevdata.times.value[-1]
 
                         if endtime >= self.endtime - self.resamplerate / 2 - self.crop:
@@ -1494,13 +1617,15 @@ class Heterodyne(object):
             for segment in self.segments:
                 # skip any segments that are too short
                 if not hasattr(self, "_origstarts"):
-                    if segment[1] - segment[0] < 2 * self.crop:
+                    seglen = segment[1] - segment[0]
+                    if seglen < (2 * self.crop + 1 / self.resamplerate):
                         continue
                 else:
                     if segment[0] not in self._origstarts:
                         # we are part way through a segment (having resumed),
                         # so would only be cropping the end of the data
-                        if segment[1] - segment[0] < self.crop:
+                        seglen = segment[1] - segment[0]
+                        if seglen < (self.crop + 1 / self.resamplerate):
                             continue
 
                 # loop within segment in steps of "stride"
@@ -1514,9 +1639,16 @@ class Heterodyne(object):
                         # last part of segment
                         curendtime = segment[1] - self.crop
 
+                        # make sure segment is long enough
+                        if (curendtime - curstarttime) < (1 / self.resamplerate):
+                            break
+
                     # download/read data
                     datakwargs = kwargs.copy()
-                    datakwargs.update(dict(starttime=curstarttime, endtime=curendtime))
+                    datakwargs.update(
+                        dict(starttime=int(curstarttime), endtime=int(curendtime))
+                    )
+
                     data = self.get_frame_data(**datakwargs)
 
                     # check for consistent sample rate
@@ -1536,7 +1668,7 @@ class Heterodyne(object):
                     # get times for interpolation if required
                     if self.interpolationstep > 0 and self.includessb:
                         idxstep = int(data.sample_rate.value * self.interpolationstep)
-                        ntimes = int(data.size // idxstep) + 1
+                        ntimes = int(np.ceil(data.size / idxstep)) + 1
                         gpstimesint = lalpulsar.CreateTimestampVector(ntimes)
                         for i, time in enumerate(data.times.value[::idxstep]):
                             gpstimesint.data[i] = lal.LIGOTimeGPS(time)
@@ -1597,7 +1729,8 @@ class Heterodyne(object):
                                 )
 
                                 # create interpolation function
-                                tckssb = splrep(timesint, ssbdelay.data)
+                                k = (len(timesint) - 1) if len(timesint) < 4 else 3
+                                tckssb = splrep(timesint, ssbdelay.data, k=k)
                                 ssbdelayint = lal.CreateREAL8Vector(data.size)
                                 ssbdelayint.data = splev(data.times.value, tckssb)
 
@@ -1611,7 +1744,7 @@ class Heterodyne(object):
                                     )
 
                                     # create interpolation function
-                                    tckbsb = splrep(timesint, bsbdelay.data)
+                                    tckbsb = splrep(timesint, bsbdelay.data, k=k)
                                     bsbdelayint = lal.CreateREAL8Vector(data.size)
                                     bsbdelayint.data = splev(data.times.value, tckbsb)
                                 else:
@@ -1628,7 +1761,7 @@ class Heterodyne(object):
 
                                     # create interpolation function (note due to the minus sign in
                                     # the heterodyne the glitch phase sign needs to be flipped)
-                                    tckglph = splrep(timesint, -1.0 * glphase.data)
+                                    tckglph = splrep(timesint, -1.0 * glphase.data, k=k)
                                     glphaseint = lal.CreateREAL8Vector(data.size)
                                     glphaseint.data = splev(data.times.value, tckglph)
                                 else:
@@ -1647,7 +1780,7 @@ class Heterodyne(object):
 
                                     # create interpolation function (note due to the minus sign in
                                     # the heterodyne the fitwaves phase sign needs to be flipped)
-                                    tckfwph = splrep(timesint, -1.0 * fwphase.data)
+                                    tckfwph = splrep(timesint, -1.0 * fwphase.data, k=k)
                                     fwphaseint = lal.CreateREAL8Vector(data.size)
                                     fwphaseint.data = splev(data.times.value, tckfwph)
                                 else:
@@ -1675,9 +1808,7 @@ class Heterodyne(object):
                         )
 
                         # heterodyne data
-                        datahet = data.heterodyne(
-                            -2.0 * np.pi * phase.data, stride=data.dt.value
-                        )
+                        datahet = fast_heterodyne(data, -phase.data)
 
                         # filter data
                         self._filter_data(pulsar, datahet)
@@ -1721,13 +1852,33 @@ class Heterodyne(object):
             self._write_current_pulsars()
 
     def _write_current_pulsars(self):
+        # get arguments passed to Heterodyne
+        sig = inspect.signature(Heterodyne)
+        hetargs = {}
+        for parameter in sig.parameters:
+            if hasattr(self, parameter):
+                hetargs[parameter] = getattr(self, parameter)
+
+        hetargs["segmentlist"] = self.segments
+
+        # add DAG configuration file data if present
+        cf = None
+        if self.cwinpy_heterodyne_dag_config_file is not None:
+            if os.path.isfile(self.cwinpy_heterodyne_dag_config_file):
+                with open(self.cwinpy_heterodyne_dag_config_file) as fp:
+                    cf = fp.read()
+
         # output heterodyned data
         for pulsar in self._datadict:
+            # set hetargs to just contain information for the individual pulsar
+            hetargs["pulsars"] = pulsar
+            hetargs["pulsarfiles"] = self.pulsarfiles[pulsar]
+            hetargs["output"] = os.path.split(self.outputfiles[pulsar])[0]
+
             # get time stamps
-            times = []
+            times = np.empty((0,), dtype=float)
             for d in self._datadict[pulsar]:
-                for t in d.times.value:
-                    times.append(t)
+                times = np.append(times, d.times.value)
                 del d.xindex  # delete times (otherwise join has issues!)
 
             data = self._datadict[pulsar].join(gap="ignore")
@@ -1746,6 +1897,10 @@ class Heterodyne(object):
             het.include_bsb = self.includebsb
             het.include_glitch = self.includeglitch
             het.include_fitwaves = self.includefitwaves
+            het.heterodyne_arguments = hetargs
+
+            if cf is not None:
+                het.cwinpy_heterodyne_dag_config = cf
 
             # save filter history from the forward pass
             history = []
@@ -1872,49 +2027,58 @@ class Heterodyne(object):
             A boolean stating whether the input ``hetdata`` was a file or not.
         """
 
-        if not isinstance(hetdata, str):
+        if isinstance(hetdata, str):
+            hetdata = [hetdata]
+        elif not isinstance(hetdata, list):
             raise TypeError(
-                "Heterodyneddata must be a string giving a file or directory path"
+                "Heterodyneddata must be a string or list giving a file or directory path"
             )
 
         # check if a file by testing for a hdf5-type or txt extension
-        if os.path.splitext(hetdata)[1] in self.extensions:
-            # try reading the data
-            try:
-                het = HeterodynedData.read(hetdata)
-            except Exception as e:
-                raise IOError(e.args[0])
-
-            if het.par is None:
-                raise AttributeError(
-                    "Heterodyned data '{}' contains no pulsar parameter file".format(
-                        hetdata
-                    )
-                )
-            else:
-                return [hetdata], True
-        elif os.path.isdir(hetdata):
-            # glob for file types
-            hetfiles = [
-                f
-                for ext in self.extensions
-                for f in glob.glob(
-                    os.path.join(hetdata, "*{}".format(ext)), recursive=True
-                )
-            ]
-
-            if len(hetfiles) > 0:
-                # try reading first file
+        hetfiles = []
+        isfile = False
+        for hetfile in hetdata:
+            if os.path.splitext(hetfile)[1] in self.extensions:
+                # try reading the data
                 try:
-                    het = HeterodynedData.read(hetfiles[0])
+                    het = HeterodynedData.read(hetfile)
                 except Exception as e:
                     raise IOError(e.args[0])
 
-                return hetfiles, False
+                if het.par is None:
+                    raise AttributeError(
+                        "Heterodyned data '{}' contains no pulsar parameter file".format(
+                            hetfile
+                        )
+                    )
+                else:
+                    hetfiles.append(hetfile)
+                    isfile = True
+            elif os.path.isdir(hetfile):
+                # glob for file types
+                curhetfiles = [
+                    str(f.resolve())
+                    for ext in self.extensions
+                    for f in Path(hetfile).rglob("*{}".format(ext))
+                ]
+
+                if len(curhetfiles) > 0:
+                    # try reading first file
+                    try:
+                        het = HeterodynedData.read(curhetfiles[0])
+                    except Exception as e:
+                        raise IOError(e.args[0])
+
+                    hetfiles.extend(curhetfiles)
+                    isfile = False
+                else:
+                    raise RuntimeError(
+                        "No files found in directory '{}'".format(hetfile)
+                    )
             else:
-                raise RuntimeError("No files found in directory '{}'".format(hetdata))
-        else:
-            raise ValueError("hetdata must be a file or directory path")
+                raise ValueError("hetdata must be a file or directory path")
+
+        return hetfiles, isfile
 
     def _setup_filters(self, filterknee, samplerate):
         """
@@ -1979,40 +2143,31 @@ class Heterodyne(object):
         if pulsar not in self._filters:
             raise KeyError("No filter set for pulsar '{}'".format(pulsar))
 
-        # filter data in the forward direction
-        for i in range(len(data)):
-            for idx in range(3):
-                data.value[i] = lal.IIRFilterREAL8(
-                    data.value[i].real, self._filters[pulsar][idx][0]
-                ) + 1j * lal.IIRFilterREAL8(
-                    data.value[i].imag, self._filters[pulsar][idx][1]
-                )
+        dr = lal.CreateREAL8Vector(len(data))
+        dr.data = data.value.real
+        di = lal.CreateREAL8Vector(len(data))
+        di.data = data.value.imag
 
-        if not forwardsonly:
-            history = []
+        # apply filters (3 passes of the third order Butterworth filters)
+        for idx in range(3):
+            # run filter forwards
+            lal.IIRFilterREAL8Vector(dr, self._filters[pulsar][idx][0])
+            lal.IIRFilterREAL8Vector(di, self._filters[pulsar][idx][1])
 
-            # save filter history from the forward pass
-            for idx in range(3):
-                history.append(
-                    (
-                        self._filters[pulsar][idx][0].history.data.copy(),
-                        self._filters[pulsar][idx][1].history.data.copy(),
-                    )
-                )
+            if not forwardsonly:
+                # run filter backwards
+                historyr = self._filters[pulsar][idx][0].history.data.copy()
+                historyi = self._filters[pulsar][idx][1].history.data.copy()
 
-            # filter the data in the backwards direction
-            for i in range(len(data) - 1, -1, -1):
-                for idx in range(3):
-                    data.value[i] = lal.IIRFilterREAL8(
-                        data.value[i].real, self._filters[pulsar][idx][0]
-                    ) + 1j * lal.IIRFilterREAL8(
-                        data.value[i].imag, self._filters[pulsar][idx][1]
-                    )
+                lal.IIRFilterReverseREAL8Vector(dr, self._filters[pulsar][idx][0])
+                lal.IIRFilterReverseREAL8Vector(di, self._filters[pulsar][idx][1])
 
-            # restore the history to that from the forward pass
-            for idx in range(3):
-                self._filters[pulsar][idx][0].history.data = history[idx][0]
-                self._filters[pulsar][idx][1].history.data = history[idx][1]
+                # restore the history to that from the forward pass
+                self._filters[pulsar][idx][0].history.data = historyr
+                self._filters[pulsar][idx][1].history.data = historyi
+
+        data.value.real = dr.data
+        data.value.imag = di.data
 
     @property
     def includessb(self):
@@ -2078,6 +2233,92 @@ class Heterodyne(object):
     def includefitwaves(self, incl):
         self._includefitwaves = bool(incl)
 
+    def set_ephemeris(self, earthephemeris=None, sunephemeris=None, timeephemeris=None):
+        """
+        Initialise the solar system and time ephemeris data.
+
+        Parameters
+        ----------
+        earthephemeris: dict
+            A dictionary, keyed to ephemeris names, e.g., "DE405", pointing to
+            the location of a file containing that ephemeris for the Earth.
+        sunephemeris: dict
+            A dictionary, keyed to ephemeris names, e.g., "DE405", pointing to
+            the location of a file containing that ephemeris for the Sun.
+        timeephemeris: dict
+            A dictionary, keyed to time system name, which can be either "TCB"
+            or "TDB", pointing to the location of a file containing that
+            ephemeris for that time system.
+        """
+
+        if not hasattr(self, "_ephemerides"):
+            self._ephemerides = {}
+
+        if not hasattr(self, "_timecorr"):
+            self._timecorr = {}
+
+        if not hasattr(self, "_earthephemeris"):
+            self._earthephemeris = earthephemeris
+
+        if not hasattr(self, "_sunephemeris"):
+            self._sunephemeris = sunephemeris
+
+        if isinstance(earthephemeris, dict) and isinstance(sunephemeris, dict):
+            if not hasattr(self, "_earthephemeris"):
+                self._earthephemeris = earthephemeris
+            else:
+                self._earthephemeris.update(earthephemeris)
+
+            if not hasattr(self, "_sunephemeris"):
+                self._sunephemeris = sunephemeris
+            else:
+                self._sunephemeris.update(sunephemeris)
+
+            for ephemtype in earthephemeris:
+                if ephemtype not in sunephemeris:
+                    raise KeyError(
+                        "Earth and Sun ephemeris dictionaries must contain the same keys"
+                    )
+
+                self._ephemerides[ephemtype] = initialise_ephemeris(
+                    earthfile=earthephemeris[ephemtype],
+                    sunfile=sunephemeris[ephemtype],
+                    ssonly=True,
+                )
+
+        if isinstance(timeephemeris, dict):
+            if not hasattr(self, "_timeephemeris"):
+                self._timeephemeris = timeephemeris
+            else:
+                self._timeephemeris.update(timeephemeris)
+
+            for timetype in timeephemeris:
+                self._timecorr[timetype] = initialise_ephemeris(
+                    timefile=timeephemeris[timetype],
+                    timeonly=True,
+                )
+
+    @property
+    def earthephemeris(self):
+        if hasattr(self, "_earthephemeris"):
+            return self._earthephemeris
+        else:
+            return None
+
+    @property
+    def sunephemeris(self):
+        if hasattr(self, "_sunephemeris"):
+            return self._sunephemeris
+        else:
+            return None
+
+    @property
+    def timeephemeris(self):
+        if hasattr(self, "_timeephemeris"):
+            return self._timeephemeris
+        else:
+            return None
+
 
 def remote_frame_cache(
     start,
@@ -2106,7 +2347,7 @@ def remote_frame_cache(
     >>> end = 1187733618    # GPS for 2017-08-25 22:00:00 UTC
     >>> channels = ['H1:DCH-CLEAN_STRAIN_C02', 'L1:DCH-CLEAN_STRAIN_C02']
     >>> frametype = ['H1_CLEANED_HOFT_C02', 'L1_CLEANED_HOFT_C02']
-    >>> cache = generate_cache(start, end, channels, frametype=frametype)
+    >>> cache = remote_frame_cache(start, end, channels, frametype=frametype)
 
     Parameters
     ----------
@@ -2241,7 +2482,7 @@ def remote_frame_cache(
 
 def local_frame_cache(
     path,
-    recursive=False,
+    recursive=True,
     starttime=None,
     endtime=None,
     extension="gwf",
@@ -2265,7 +2506,7 @@ def local_frame_cache(
         The directory path containing the frame files.
     recursive: bool
         The sets whether or not subdirectories within the main path are also
-        searched for files.
+        searched for files. Defaults to True.
     starttime: int
         A GPS time giving the start time of the data required. If not set the
         earliest frame files found will be returned.
@@ -2296,9 +2537,10 @@ def local_frame_cache(
     """
 
     try:
-        files = glob.glob(
-            os.path.join(path, "*.{}".format(extension)), recursive=recursive
-        )
+        if recursive:
+            files = Path(path).rglob("*.{}".format(extension))
+        else:
+            files = Path(path).glob("*.{}".format(extension))
     except Exception as e:
         raise IOError("Could not parse the path: {}".format(e))
 
@@ -2313,13 +2555,12 @@ def local_frame_cache(
         raise TypeError("endtime must be an integer")
 
     cache = []
+    filetimes = []
     for frfile in files:
-        if not os.path.isfile(os.path.realpath(frfile)):
+        if not frfile.resolve().is_file():
             continue
 
-        basefile = os.path.basename(frfile)
-
-        fileparts = basefile.rstrip(".{}".format(extension)).split("-")
+        fileparts = frame_information(frfile)
 
         if len(fileparts) == 4:
             # file is in standard format
@@ -2336,29 +2577,24 @@ def local_frame_cache(
                     # types do not match
                     continue
 
-            try:
-                filetime = int(fileparts[2])
-                filedur = int(fileparts[3])
-            except Exception:
-                if np.isfinite(starttime) or np.isfinite(endtime):
-                    print("Warning: cannot check times for file '{}'".format(frfile))
-                filetime = None
+            filetime = fileparts[2]
+            filedur = fileparts[3]
 
-            if filetime is not None:
-                if not (starttime < filetime + filedur and endtime > filetime):
-                    # times do not match
-                    continue
+            if not (starttime < filetime + filedur and endtime > filetime):
+                # times do not match
+                continue
+
+            # store file start times for sorting
+            filetimes.append(filetime)
         else:
             # cannot check conditions
-            if (
-                np.isfinite(starttime)
-                or np.isfinite(endtime)
-                or site is not None
-                or frametype is not None
-            ):
-                print("Warning: cannot check conditions for file '{}".format(frfile))
+            raise IOError(
+                "Frame file name '{}' is not the correct format".format(frfile)
+            )
 
-        cache.append("file://localhost{}".format(os.path.realpath(frfile)))
+        cache.append("file://localhost{}".format(str(frfile.resolve())))
+
+    cache = [x[1] for x in sorted(zip(filetimes, cache))]  # sort cache files om time
 
     # write output to file
     if write is not None:
@@ -2376,9 +2612,13 @@ def local_frame_cache(
     return cache
 
 
-def frame_time_duration(framefile):
+def frame_information(framefile):
     """
-    Get the start time and duration of a given frame file.
+    Get the site name, frame type, start time and duration of a given frame
+    file. It is assumed that the provided the file names are of the standard
+    format as described in
+    `LIGO-T010150 <https://dcc.ligo.org/LIGO-T010150/public>`_, e.g.:
+    ``SITE-TYPE-GPSSTART-DURATION.gwf``.
 
     Parameters
     ----------
@@ -2388,18 +2628,22 @@ def frame_time_duration(framefile):
     Returns
     -------
     info: tuple
-        A tuple containing the frame start time and duration
+        A tuple containing the site, frame start time and duration
     """
 
-    try:
-        frp = lalframe.FrFileOpenURL(framefile)
-        frt0 = lal.LIGOTimeGPS()
-        frt0 = lalframe.FrFileQueryGTime(frt0, frp, 0)
-        frdur = lalframe.lalframe.FrFileQueryDt(frp, 0)
-    except RuntimeError:
+    frameinfo = re.compile(
+        r"(?P<site>[A-Z])-(?P<frtype>\S+)-(?P<frt0>[0-9]+)-(?P<frdur>[0-9]+).(gwf|hdf5|hdf|h5)"
+    )
+    match = frameinfo.match(os.path.basename(framefile))
+    if match is None:
         raise IOError("Could not check frame file information")
 
-    return int(frt0), frdur
+    site = match.groupdict()["site"]
+    frtype = match.groupdict()["frtype"]
+    frt0 = int(match.groupdict()["frt0"])
+    frdur = int(match.groupdict()["frdur"])
+
+    return site, frtype, int(frt0), frdur
 
 
 def generate_segments(
@@ -2409,6 +2653,7 @@ def generate_segments(
     excludeflags=None,
     segmentfile=None,
     server=None,
+    usegwosc=False,
     writesegments=None,
     appendsegments=False,
 ):
@@ -2418,6 +2663,14 @@ def generate_segments(
     <https://gwpy.github.io/docs/stable/segments/dqsegdb.html>`_ this requires
     access to the GW segment database, which is reserved for members of the
     LIGO-Virgo-KAGRA collaborations.
+
+    To get segment lists for open data via GWOSC the "include_flags" argument
+    should be, e.g., "DET_DATA" where "DET" is replaced by the detector prefix.
+    The "usegwosc" argument should be set to True to be explicitly about using
+    GWOSC. If looking at CW hardware injections in GWOSC data the exclude flag
+    should be, e.g., "DET_NO_CW_HW_INJ", where again "DET" is replaced by the
+    detector prefix. This will exclude times when the injections were not
+    present.
 
     Parameters
     ----------
@@ -2445,6 +2698,9 @@ def generate_segments(
         The URL of the segment database server to use. If not given then the
         default server URL is used (see
         :func:`gwpy.segments.DataQualityFlag.query`).
+    usegwosc: bool
+        If querying for segments from GWOSC (see above) set this to True.
+        Default is False.
     writesegments: str
         A string giving a file to output the segments to.
     appendsegments: bool
@@ -2508,7 +2764,12 @@ def generate_segments(
                 if isinstance(excludeflags, str):
                     excludeflags = [excludeflags]
 
-            excludetypes = [flag for flags in excludeflags for flag in flags.split(",")]
+            excludetypes = [
+                flag
+                for flags in excludeflags
+                if len(flags) > 0
+                for flag in flags.split(",")
+            ]
 
         segs = None
         serverkwargs = {}
@@ -2517,19 +2778,29 @@ def generate_segments(
         # get included segments
         for dqflag in includetypes:
             # create query
-            query = DataQualityFlag.query(dqflag, starttime, endtime, **serverkwargs)
+            if usegwosc:
+                query = SegmentList(get_segments(dqflag, starttime, endtime))
+            else:
+                # use "active" segments
+                query = DataQualityFlag.query(
+                    dqflag, starttime, endtime, **serverkwargs
+                ).active
 
             if segs is None:
-                segs = query.copy()
+                segs = SegmentList(query.copy())
             else:
                 segs = segs & query
 
         # remove excluded segments
-        if excludeflags is not None and segs is not None:
+        if excludeflags is not None and segs is not None and len(excludetypes) > 0:
             for dqflag in excludetypes:
-                query = DataQualityFlag.query(
-                    dqflag, starttime, endtime, **serverkwargs
-                )
+                if usegwosc:
+                    query = SegmentList(get_segments(dqflag, starttime, endtime))
+                else:
+                    # use "active" segments
+                    query = DataQualityFlag.query(
+                        dqflag, starttime, endtime, **serverkwargs
+                    ).active
 
                 segs = segs & ~query
 
@@ -2547,7 +2818,7 @@ def generate_segments(
         # write out segment list
         segments = []
         if segs is not None:
-            for thisseg in segs.active:
+            for thisseg in segs:
                 segments.append((float(thisseg[0]), float(thisseg[1])))
 
                 if isinstance(writesegments, str):

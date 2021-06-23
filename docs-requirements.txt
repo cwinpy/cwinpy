@@ -1,9 +1,0 @@
-recommonmark
-sphinx>=2.0
-numpydoc
-sphinxcontrib-napoleon
-nbsphinx
-autodoc
-pydata-sphinx-theme
-sphinx_tabs
-sphinxcontrib-images>=0.9.1
