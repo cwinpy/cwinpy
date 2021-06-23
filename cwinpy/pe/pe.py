@@ -303,7 +303,7 @@ continuous gravitational-wave signal from a known pulsar."""
         "-s",
         "--sampler",
         default="dynesty",
-        help=("The sampling algorithm to use bilby (default: " "%(default)s)"),
+        help=("The sampling algorithm to use bilby (default: %(default)s)"),
     )
     samplerparser.add(
         "--sampler-kwargs",
@@ -325,7 +325,7 @@ continuous gravitational-wave signal from a known pulsar."""
         "--numba",
         action="store_true",
         default=False,
-        help=("Set this flag to use enable to likelihood calculation using " "numba."),
+        help=("Set this flag to use enable to likelihood calculation using numba."),
     )
     samplerparser.add(
         "--prior",
@@ -973,6 +973,10 @@ class PERunner(object):
 
                 self.sampler_kwargs.update({"injection_parameters": injtruths})
 
+        # set to output to HDF5 file by default
+        if "save" not in self.sampler_kwargs:
+            self.sampler_kwargs["save"] = "hdf5"
+
         # set use_ratio to False by default
         if "use_ratio" not in self.sampler_kwargs:
             self.sampler_kwargs["use_ratio"] = False
@@ -1177,8 +1181,8 @@ def pe(**kwargs):
     outdir: str
         The output directory for the results.
     label: str
-        The name of the output file (excluding the '.json' extension) for the
-        results.
+        The name of the output file (excluding the '.hdf5/.json' extension) for
+        the results.
     output_snr: bool,
         Set this flag to output the maximum likelihood and maximum a-posteriori
         recovered signal-to-noise ratio. If adding an injection this will also
@@ -2122,7 +2126,7 @@ class PulsarPENode(Node):
 
     @property
     def result_file(self):
-        extension = self.inputs.sampler_kwargs.get("save", "json")
+        extension = self.inputs.sampler_kwargs.get("save", "hdf5")
         gzip = self.inputs.sampler_kwargs.get("gzip", False)
         return bilby.core.result.result_file_name(
             self.result_directory, self.label, extension=extension, gzip=gzip
@@ -2162,10 +2166,10 @@ class MergePENode(Node):
         self.arguments.add("label", self.label)
         self.arguments.add_flag("merge")
 
-        extension = self.inputs.sampler_kwargs.get("save", "json")
+        extension = self.inputs.sampler_kwargs.get("save", "hdf5")
         gzip = self.inputs.sampler_kwargs.get("gzip", False)
         self.arguments.add("extension", extension)
-        if gzip:
+        if gzip and extension == "json":
             self.arguments.add_flag("gzip")
 
         self.process_node()
@@ -2186,7 +2190,7 @@ class MergePENode(Node):
 
     @property
     def result_file(self):
-        extension = self.inputs.sampler_kwargs.get("save", "json")
+        extension = self.inputs.sampler_kwargs.get("save", "hdf5")
         gzip = self.inputs.sampler_kwargs.get("gzip", False)
         return bilby.core.result.result_file_name(
             self.inputs.result_directory, self.label, extension=extension, gzip=gzip
