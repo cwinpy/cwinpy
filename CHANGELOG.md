@@ -1,5 +1,21 @@
 # Notable changes between versions
 
+## [0.6.0] 2021-06-22
+
+Changes for this release:
+
+- Add command line interface for data heterodyning, including generating HTCondor DAGs (!28)
+- Add the ability to merge `HeterodynedData` HDF5 files (!51)
+- Allow heterodynes to use pulsar ephemerides from the ATNF pulsar catalogue (!53)
+- Switch the default save format of parameter estimation outputs to be HDF5 files rather than JSON (!54)
+- Add heterodyned signal simulation class into CWInPy rather than using LALSuite version (!46, !55)
+- Add a histogram distribution to the hierarchical analysis (!48)
+- Fix how the KDE bandwidth is calculated in the hierarchical analysis (!49)
+- Change the way packaging/versioning of the code is done (!52)
+
+**Important note**: HDF5 files created from `HeterodynedData` objects using earlier versions of
+CWInPy will no longer be compatible with v0.6.0 and will fail to be read.
+
 ## [0.5.0] 2021-03-15
 
 Changes for this release:
