@@ -4,7 +4,7 @@ Known pulsar parameter estimation
 
 CWInPy can be used for perform Bayesian inference on gravitational-wave data to estimate the
 gravitational-wave signal parameters for emission from a known pulsar. To sample from the joint
-parameter posterior distributions CWInPy uses the `bilby
+parameter posterior distributions, CWInPy uses the `bilby
 <https://lscsoft.docs.ligo.org/bilby/>`_ package as an interface to a variety of stochastic sampling
 methods.
 
@@ -19,10 +19,10 @@ There is also an API for running this analysis from within a Python shell or scr
 Running the analysis
 --------------------
 
-The ``cwinpy_pe`` script, and :ref:`API`, can be used to perform parameter estimation over a variety of signal
-parameter both on real data or simulated data. We will cover some examples of both cases and show
-equivalent ways of running the analysis via the use of: command line arguments to the
-``cwinpy_pe`` script, a configuration file, or the :ref:`API`. The current command line
+The ``cwinpy_pe`` executable, and :ref:`API`, can be used to perform parameter estimation over a
+variety of signal parameter both on real data or simulated data. We will cover some examples of both
+cases and show equivalent ways of running the analysis via the use of: command line arguments to the
+``cwinpy_pe`` executable, a configuration file, or the :ref:`API`. The current command line
 arguments for ``cwinpy_pe`` are given :ref:`below<Command line arguments>`.
 
 Example: single detector data
@@ -104,16 +104,17 @@ The analysis can then be run using:
 which should only take a few minutes, with information on the run output to the terminal.
 
 This will create a directory called ``example1`` containing: the results as a bilby ``Results``
-object saved, by default, in a `JSON <https://www.json.org/>`_ format file called
-``example1_result.json`` (see `here
+object saved, by default, in an `HDF5
+<https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5>`_
+format file called ``example1_result.hdf5`` (see `here
 <https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on reading
 this information within Python); and (due to the setting of ``'plot': True`` in the
 ``sampler_kwargs`` dictionary), a "`corner <https://corner.readthedocs.io/en/latest/>`_ plot" in the
 file ``example1_corner.png`` showing 1D and 2D marginalised posterior probability distributions for
-each parameter, and pair of parameters.  To instead save the results to a `HDF5
-<https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5>`_ format file you would include
-``"save": "hdf5"`` in the ``sampler_kwargs`` dictionary. To gzip the JSON file you would include
-``"gzip": True`` in the ``sampler_kwargs`` dictionary.
+each parameter, and pair of parameters. To instead save the results to a  `JSON
+<https://www.json.org/>`_ format file you would include ``"save": "json"`` in the ``sampler_kwargs``
+dictionary. To gzip the JSON file you would include ``"gzip": True`` in the ``sampler_kwargs``
+dictionary.
 
 .. thumbnail:: data/example1/example1_corner.png
    :width: 300px
@@ -138,7 +139,7 @@ those two models, and estimates of the uncertainties on the signal model evidenc
 If running the example you should find an identical noise evidence value, although the signal model
 evidence, and therefore Bayes factor, and its uncertainty may vary slightly due to the stochastic
 nature of the sampling process. These values can also be extracted from the results file called
-``example1_result.json``.
+``example1_result.hdf5``.
 
 Rather than using the configuration file, all the arguments could be given on the command line
 (although using the configuration file is *highly* recommended), with the following command:
@@ -181,8 +182,9 @@ The analysis can then be run using:
    cwinpy_pe --config example2_config.ini
 
 This will create a directory called ``example2`` containing: the results as a bilby ``Results``
-object saved, by default, in a `JSON <https://www.json.org/>`_
-format file called ``example2_result.json`` (see `here
+object saved, by default, in an `HDF5
+<https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5>`_ format file called
+``example2_result.hdf5`` (see `here
 <https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on reading
 this information within Python); and (due to the setting of ``'plot': True`` in the
 ``sampler_kwargs`` dictionary), a "`corner <https://corner.readthedocs.io/en/latest/>`_ plot" in the
@@ -212,7 +214,7 @@ The natural logarithms of the signal model `evidence
 If running the example you should find an identical noise evidence value, although the signal model
 evidence, and therefore Bayes factor, and its uncertainty may vary slightly due to the stochastic
 nature of the sampling process. These values can also be extracted from the results file called
-``example2_result.json``.
+``example2_result.hdf5``.
 
 The equivalent full command line arguments that could be used are:
 
@@ -225,9 +227,9 @@ Running on multiple sources
 ---------------------------
 
 You may have multiple real sources for which you want to perform parameter estimation, or you may
-want to simulate data from many sources. If you have a multicore machine, or access to a computer
-cluster, with `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ installed you can use CWInPy to
-create a set of analysis jobs, in the form of a Condor `DAG
+want to simulate data from many sources. If you have a multicore machine or access to a computer
+cluster with `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ installed you can use CWInPy to
+create a set of analysis jobs, in the form of an HTCondor `DAG
 <https://htcondor.readthedocs.io/en/v8_8_4/users-manual/dagman-applications.html>`_, for each
 source. This makes use of `PyCondor <https://jrbourbeau.github.io/pycondor/installation.html>`_,
 which is installed as one of the requirements for CWInPy.
@@ -242,12 +244,12 @@ pulsar's name, e.g.,
    PSRJ  J0534+2200
 
 You also need to have a directory structure where the heterodyned data (see :ref:`here<Heterodyned
-Data>`) from individual detectors, are in distinct directories (if you want specify each file for
+Data>`) from individual detectors are in distinct directories (if you want specify each file for
 each pulsar individually in a dictionary this can be done instead, but requires more manual
-editing). Also, if there is data from both the signal rotation frequency and twice the rotation
-frequency, then these should also be in distinct directories. The heterodyned data file for a
-particular pulsar must contain the ``PSRJ`` name of the pulsar, as given in the associated
-parameter file, either in the file name or the file directory path.
+editing). Also, if there is data from both the a potential signal at the sources rotation frequency
+*and* twice the rotation frequency, then these should also be in distinct directories. The
+heterodyned data file for a particular pulsar must contain the ``PSRJ`` name of the pulsar, as given
+in the associated parameter file, either in the file name or the file directory path.
 
 An example of such a directory tree structure might be:
 
@@ -269,8 +271,8 @@ An example of such a directory tree structure might be:
     |    └── ...
     └── ...
 
-The DAG for the analysis can be created using the ``cwinpy_pe_dag`` script, which requires a
-configuration file as it's only input. An example configuration file, based on the above directory
+The DAG for the analysis can be created using the ``cwinpy_pe_dag`` executable, which requires a
+configuration file as its only input. An example configuration file, based on the above directory
 tree structure is given below. Comments about each input parameter, and different potential input
 options are given inline; some input parameters are also commented out using a ``;`` if the default
 values are appropriate. For more information on the various HTCondor options see the `user manual
@@ -310,7 +312,7 @@ If the original ``cwinpy_pe_dag`` configuration file contained the line:
 
 .. code-block:: bash
 
-    submitdag = True
+   submitdag = True
 
 in the ``[dag]`` section, then the DAG will automatically have been submitted, otherwise it could be
 submitted with:
