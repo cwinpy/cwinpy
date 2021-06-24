@@ -10,72 +10,68 @@ from its source `git <https://git-scm.com/>`_ `repository <https://github.com/cw
 
 First, clone the repository
 
-.. tabs::
+.. tabbed:: HTTPS
 
-   .. tab:: HTTPS
+   .. code-block:: console
 
-      .. code-block:: console
+      $ git clone https://github.com/cwinpy/cwinpy.git
 
-          $ git clone https://github.com/cwinpy/cwinpy.git
+.. tabbed:: ssh
 
-   .. tab:: ssh
+   .. code-block:: console
 
-      .. code-block:: console
+      $ git clone git@github.com:cwinpy/cwinpy.git
 
-          $ git clone git@github.com:cwinpy/cwinpy.git
+.. tabbed:: GitHub CLI
 
-   .. tab:: GitHub CLI
+   Using the GitHub `CLI <https://cli.github.com/>`_
 
-      Using the GitHub `CLI <https://cli.github.com/>`_
+   .. code-block:: console
 
-      .. code-block:: console
-
-          $ gh repo clone cwinpy/cwinpy
+      $ gh repo clone cwinpy/cwinpy
 
 then install the requirements and the software using:
 
-.. tabs::
+.. tabbed:: Standard
 
-   .. tab:: Standard
+   .. code-block:: console
 
-      .. code-block:: console
+      $ cd cwinpy/
+      $ pip install .
 
-         $ cd cwinpy/
-         $ pip install .
+.. tabbed:: Developer
 
-   .. tab:: Developer
+   For developers, you can either install with the requirements using
 
-      For developers, you can either install with the requirements using
+   .. code-block:: console
 
-      .. code-block:: console
+      $ cd cwinpy/
+      $ pip install -e .[test,dev,docs]
 
-         $ cd cwinpy/
-         $ pip install -e .[test,dev,docs]
+   or install using your own versions of the required files using
 
-      or install using your own versions of the required files using
+   .. code-block:: console
 
-      .. code-block:: console
+      $ cd cwinpy/
+      $ pip install --no-deps -e .[dev]
 
-         $ cd cwinpy/
-         $ pip install --no-deps -e .[dev]
+   The development installation includes the `pre-commit
+   <https://github.com/pre-commit/pre-commit>`_ package. This is used to set up git pre-commit
+   hooks that automatically run scripts such as `flake8 <https://pypi.org/project/flake8/>`_,
+   `black <https://pypi.org/project/black/>`_, `isort <https://isort.readthedocs.io/>`_ and a
+   `spell check <https://github.com/codespell-project/codespell>`_ to ensure that any commits you
+   make have a consistent style. Before starting as a developer you must run
 
-      The development installation includes the `pre-commit
-      <https://github.com/pre-commit/pre-commit>`_ package. This is used to set up git pre-commit
-      hooks that automatically run scripts such as `flake8 <https://pypi.org/project/flake8/>`_,
-      `black <https://pypi.org/project/black/>`_, `isort <https://isort.readthedocs.io/>`_ and a
-      `spell check <https://github.com/codespell-project/codespell>`_ to ensure that any commits you
-      make have a consistent style. Before starting as a developer you must run
+   .. code-block:: console
 
-      .. code-block:: console
+      $ pre-commit install
 
-         $ pre-commit install
-
-      within the ``cwinpy`` repository directory, which will add the ``pre-commit`` hook file to
-      your ``.git/hooks`` directory. After this, when running ``git commit`` the checks will
-      automatically be run, and results will be presented to you. In some cases the required fixes
-      will be automatically applied, but in cases where there was some failure it will print a
-      message about why it failed. In these cases you will have to manually correct the offending
-      files before running ``git commit`` again.
+   within the ``cwinpy`` repository directory, which will add the ``pre-commit`` hook file to
+   your ``.git/hooks`` directory. After this, when running ``git commit`` the checks will
+   automatically be run, and results will be presented to you. In some cases the required fixes
+   will be automatically applied, but in cases where there was some failure it will print a
+   message about why it failed. In these cases you will have to manually correct the offending
+   files before running ``git commit`` again.
 
 To run the parameter estimation via the `bilby <https://lscsoft.docs.ligo.org/bilby/index.html>`_
 package with any sampler other than the default of `dynesty
@@ -88,21 +84,19 @@ Install CWInPy via a package manager
 CWInPy is available through the `PyPI <https://pypi.org/project/cwinpy/>`_ and
 `Conda <https://anaconda.org/conda-forge/cwinpy>`_ package management systems and can be installed using:
 
-.. tabs::
+.. tabbed:: PyPI
 
-   .. tab:: PyPI
+   .. code-block:: console
 
-      .. code-block:: console
+      $ pip install cwinpy
 
-          $ pip install cwinpy
+.. tabbed:: Conda
 
-   .. tab:: Conda
+   Within a conda environment use
 
-      Within a conda environment use
+   .. code-block:: console
 
-      .. code-block:: console
-
-          $ conda install -c conda-forge cwinpy
+      $ conda install -c conda-forge cwinpy
 
 CWInPy is also available within the Conda environment supplied via the `International
 Gravitational-Wave Observatory Network <https://computing.docs.ligo.org/conda/>`_ (IGWN) over CVMFS.

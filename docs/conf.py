@@ -40,7 +40,7 @@ extensions = [
     "sphinxcontrib.napoleon",
     "sphinx.ext.autosummary",
     "sphinx.ext.autosectionlabel",
-    "sphinx_tabs.tabs",
+    "sphinx_panels",
     "recommonmark",
     "sphinx.ext.todo",
     "sphinxcontrib.images",
