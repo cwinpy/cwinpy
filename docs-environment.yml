@@ -41,7 +41,7 @@ dependencies:
     - autodoc==0.5.0
     - babel==2.9.0
     - beautifulsoup4==4.9.3
-    - bilby==1.1.0
+    - bilby==1.1.1
     - bilby-pipe==1.0.2
     - bleach==3.3.0
     - cached-property==1.5.2
@@ -126,7 +126,7 @@ dependencies:
     - soupsieve==2.2
     - sphinx==3.5.1
     - sphinx-rtd-theme==0.5.1
-    - sphinx-tabs==2.0.1
+    - sphinx-panels==0.6.0
     - sphinxcontrib-applehelp==1.0.2
     - sphinxcontrib-devhelp==1.0.2
     - sphinxcontrib-htmlhelp==1.0.3
