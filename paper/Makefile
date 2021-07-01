@@ -6,7 +6,7 @@ PDFFILE=paper.pdf
 
 # some variables for the paper
 REPOSITORY=https://github.com/cwinpy/cwinpy
-ARCHIVE=http://dx.doi.org/XX.XXXX/zenodo.XXXXXXX
+ARCHIVE=https://dx.doi.org/XX.XXXX/zenodo.XXXXXXX
 REVIEW=https://github.com/openjournals/joss-reviews/issues/XXX
 ARCHIVEDOI=http://dx.doi.org/XX.XXXX/zenodo.XXXXXXX
 FORMATTEDDOI=XX.XXXXX/joss.XXXXX
