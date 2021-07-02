@@ -68,21 +68,23 @@ searches in LIGO and Virgo data [@2017ApJ83912A; @2019ApJ87910A; @2020ApJ902L21A
 behind CWInPy's development, and its enhancements over existed software, include:
 
 * the Python API allows easy access to the full range of functionality from data preprocessing to
-  source parameter estimation, with greater ability to control various aspects of the analysis; 
+  source parameter estimation, with greater ability to control various aspects of the analysis;
+* the parallelisation of the analysis for mulitple pulsars over long observing runs has been changed
+  to greatly improve its efficiency; 
 * the intermediate preprocessed data products (the heterodyned data files) have their own
   `HeterodynedData` class, based on a [GWPy](https://gwpy.github.io)
   [`TimeSeries`](https://gwpy.github.io/docs/stable/api/gwpy.timeseries.TimeSeries.html)
   [@MACLEOD2021100657], and can be written to and read from
-  [HDF5](https://support.hdfgroup.org/HDF5/whatishdf5.html) files; this includes full information on
-  the data provenance, useful plotting routines in both time- and frequency-domain, and access to
-  data statistics;
+  [HDF5](https://support.hdfgroup.org/HDF5/whatishdf5.html) files; this class includes full
+  information on the data provenance, useful plotting routines in both time- and frequency-domain,
+  and access to data statistics;
 * the use of [`bilby`](https://lscsoft.docs.ligo.org/bilby/) for the signal parameter estimation
   allows easy access to a wide range of packages for Bayesian inference;
 * the pipeline can be run over the Open Science Grid, allowing a wider range of computing resources
   to be used;
-* the pipeline can made use of open gravitational-wave data provided over
-  [CVMFS](https://www.gw-openscience.org/cvmfs/) from the [Gravitational-wave Open Science
-  Center (GWOSC)](https://www.gw-openscience.org/) [@2015JPhCS.610a2021V; @RICHABBOTT2021100658];
+* the pipeline can make use of open gravitational-wave data provided over
+  [CVMFS](https://www.gw-openscience.org/cvmfs/) from the [Gravitational-wave Open Science Center
+  (GWOSC)](https://www.gw-openscience.org/) [@2015JPhCS.610a2021V; @RICHABBOTT2021100658];
 * it provides tools to generate simulated signals injected in real or fake data for individual
   sources, or for user specified populations of sources;
 * it provides tools to perform hierarchical inference on the underlying ellipticity distribution of
@@ -122,14 +124,15 @@ independent of CWInPy. The solid lines show the heterodyned time series as produ
 whereas the dashed lines show the theoretical expectation for the heterodyned signal, which provide
 a very good match.
 
-![Heterodyned time series for a simulated signal generated using the heterodyne pipeline in CWInPy.\label{fig:heterodyne}](example1_plot.png)
+![The real and imaginary components of the heterodyned time series for a simulated signal generated using the heterodyne pipeline in CWInPy.\label{fig:heterodyne}](example1_plot.png)
 
 # Usage
 
 The main pipelines provided by CWInPy are accessible using command line executables that require a
-configuration file. The full pipeline, which must be run as an HTCondor Directed Acyclic Graph
-(DAG), can be run with the `cwinpy_knope` executable. The heterodyne preprocessing stage can be run
-using `cwinpy_heterodyne` or, if running for long stretches of data and multiple pulsars, using an
+configuration file. The full pipeline, which must be run as an [HTCondor directed acyclic
+graph](https://htcondor.readthedocs.io/en/latest/users-manual/dagman-workflows.html) (DAG), can be
+run with the `cwinpy_knope` executable. The heterodyne preprocessing stage can be run using
+`cwinpy_heterodyne` or, if running for long stretches of data and multiple pulsars, using an
 HTCondor DAG via `cwinpy_heterodyne_dag`. The parameter estimation stage can be run using
 `cwinpy_pe` or, if running for multiple pulsars, using an HTCondor DAG via `cwinpy_pe_dag`. Full
 details of all the required configuration file settings are given in the
