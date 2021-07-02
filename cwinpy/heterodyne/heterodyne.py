@@ -1179,6 +1179,7 @@ class HeterodyneDAGRunner(object):
             etypes.append(par["EPHEM"] if par["EPHEM"] is not None else "DE405")
             if par["BINARY"] is not None:
                 binarymodels.append(par["BINARY"])
+        self.pulsar_files = het.pulsarfiles.copy()
 
         # remove duplicates
         etypes = set(etypes)

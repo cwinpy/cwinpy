@@ -1989,9 +1989,7 @@ class Heterodyne(object):
                     ]
 
                     if len(pulsarfiles) == 0:
-                        raise RuntimeError(
-                            "No files found for pulsar '{}'".format(pulsar)
-                        )
+                        raise RuntimeError("No pulsar files found.")
                 else:
                     pulsarfiles = filelist
 
