@@ -1551,9 +1551,9 @@ def heterodyne_dag(**kwargs):
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
-                "A script to create a HTCondor DAG to run GW strain data "
-                "processing to heterodyne the data based on the expected "
-                "phase evolution for a selection of pulsars."
+                "A script to create a HTCondor DAG to process GW strain data "
+                "by heterodyning it based on the expected phase evolution for "
+                "a selection of pulsars."
             )
         )
         parser.add_argument(
