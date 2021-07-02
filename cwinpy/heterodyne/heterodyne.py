@@ -24,6 +24,7 @@ from bilby_pipe.utils import (
 from configargparse import ArgumentError
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
+from ..condor import HeterodyneInput, HeterodyneNode, MergeHeterodyneNode
 from ..data import HeterodynedData
 from ..info import (
     ANALYSIS_SEGMENTS,
@@ -41,7 +42,6 @@ from ..utils import (
     sighandler,
 )
 from .base import Heterodyne, generate_segments, remote_frame_cache
-from .nodes import HeterodyneInput, HeterodyneNode, MergeHeterodyneNode
 
 
 def create_heterodyne_parser():
@@ -81,8 +81,8 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         default=False,
         help=(
             "Set this flag to make sure any previously generated heterodyned "
-            'files are overwritten. By default the analysis will "resume" from'
-            "where it left off (by checking whether output files, as set "
+            'files are overwritten. By default the analysis will "resume" '
+            "from where it left off (by checking whether output files, as set "
             'using "--output" and "--label" arguments, already exist), such '
             "as after forced Condor eviction for checkpointing purposes. "
             "Therefore, this flag is needs to be explicitly given (the "
@@ -118,7 +118,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         "--detector",
         required=True,
         type=str,
-        help=("The name of the detectors for which the data is to be " "heterodyned."),
+        help=("The name of the detectors for which the data is to be heterodyned."),
     )
     dataparser.add(
         "--frametype",

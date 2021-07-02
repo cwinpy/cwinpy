@@ -9,7 +9,7 @@ from bilby_pipe.job_creation.node import Node, _log_output_error_submit_lines
 from bilby_pipe.utils import check_directory_exists_and_if_not_mkdir, logger
 from configargparse import DefaultConfigFileParser
 
-from .base import Heterodyne
+from ..heterodyne.base import Heterodyne
 
 
 class HeterodyneInput(Input):
