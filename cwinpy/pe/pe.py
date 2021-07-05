@@ -28,7 +28,7 @@ from ..utils import is_par_file, sighandler
 
 def create_pe_parser():
     """
-    Create the argument parser.
+    Create the argument parser for ``cwinpy_pe``.
     """
 
     description = """\
@@ -1245,7 +1245,7 @@ def pe(**kwargs):
     # set up the run
     runner = PERunner(dargs)
 
-    # run the sampler (expect in testing)
+    # run the sampler (except in testing)
     if runner.use_grid:
         runner.run_grid()
     elif not hasattr(cwinpy, "_called_from_test"):
@@ -1305,14 +1305,16 @@ class PEDAGRunner(object):
         # get previous nodes that are parents to PE jobs
         generation_nodes = kwargs.get("generation_nodes", None)
 
+        dagsection = "pe_dag" if config.has_section("pe_dag") else "dag"
+
         # get whether to build the dag
-        self.build = config.getboolean("dag", "build", fallback=True)
+        self.build = config.getboolean(dagsection, "build", fallback=True)
 
         # get whether to automatically submit the dag
-        self.submitdag = config.getboolean("dag", "submitdag", fallback=False)
+        self.submitdag = config.getboolean(dagsection, "submitdag", fallback=False)
 
         # get any additional submission options
-        self.submit_options = config.get("dag", "submit_options", fallback=None)
+        self.submit_options = config.get(dagsection, "submit_options", fallback=None)
 
         # create configurations for each cwinpy_pe job
         if config.has_section("pe"):

@@ -24,45 +24,59 @@ class HeterodyneInput(Input):
         """
 
         self.config = cf
-        self.submit = cf.getboolean("dag", "submitdag", fallback=False)
-        self.transfer_files = cf.getboolean("dag", "transfer_files", fallback=True)
-        self.osg = cf.getboolean("dag", "osg", fallback=False)
+
+        dagsection = "heterodyne_dag" if cf.has_section("heterodyne_dag") else "dag"
+
+        self.submit = cf.getboolean(dagsection, "submitdag", fallback=False)
+        self.transfer_files = cf.getboolean(dagsection, "transfer_files", fallback=True)
+        self.osg = cf.getboolean(dagsection, "osg", fallback=False)
         self.require_gwosc = False
-        self.label = cf.get("dag", "name", fallback="cwinpy_heterodyne")
+        self.label = cf.get(dagsection, "name", fallback="cwinpy_heterodyne")
 
         # see bilby_pipe MainInput class
-        self.scheduler = cf.get("dag", "scheduler", fallback="condor")
-        self.scheduler_args = cf.get("dag", "scheduler_args", fallback=None)
-        self.scheduler_module = cf.get("dag", "scheduler_module", fallback=None)
-        self.scheduler_env = cf.get("dag", "scheduler_env", fallback=None)
+        self.scheduler = cf.get(dagsection, "scheduler", fallback="condor")
+        self.scheduler_args = cf.get(dagsection, "scheduler_args", fallback=None)
+        self.scheduler_module = cf.get(dagsection, "scheduler_module", fallback=None)
+        self.scheduler_env = cf.get(dagsection, "scheduler_env", fallback=None)
         self.scheduler_analysis_time = cf.get(
-            "dag", "scheduler_analysis_time", fallback="7-00:00:00"
+            dagsection, "scheduler_analysis_time", fallback="7-00:00:00"
         )
 
         self.outdir = cf.get("run", "basedir", fallback=os.getcwd())
 
-        self.universe = cf.get("job", "universe", fallback="vanilla")
-        self.getenv = cf.getboolean("job", "getenv", fallback=True)
+        jobsection = "heterodyne_job" if cf.has_section("heterodyne_job") else "job"
+
+        self.universe = cf.get(jobsection, "universe", fallback="vanilla")
+        self.getenv = cf.getboolean(jobsection, "getenv", fallback=True)
         self.heterodyne_log_directory = cf.get(
-            "job", "log", fallback=os.path.join(os.path.abspath(self._outdir), "log")
+            jobsection,
+            "log",
+            fallback=os.path.join(os.path.abspath(self._outdir), "log"),
         )
-        self.request_memory = cf.get("job", "request_memory", fallback="4 GB")
-        self.request_cpus = cf.getint("job", "request_cpus", fallback=1)
+        self.request_memory = cf.get(jobsection, "request_memory", fallback="4 GB")
+        self.request_cpus = cf.getint(jobsection, "request_cpus", fallback=1)
         self.accounting = cf.get(
-            "job", "accounting_group", fallback="cwinpy"
+            jobsection, "accounting_group", fallback="cwinpy"
         )  # cwinpy is a dummy tag
-        self.accounting_user = cf.get("job", "accounting_group_user", fallback=None)
-        requirements = cf.get("job", "requirements", fallback=None)
+        self.accounting_user = cf.get(
+            jobsection, "accounting_group_user", fallback=None
+        )
+        requirements = cf.get(jobsection, "requirements", fallback=None)
         self.requirements = [requirements] if requirements else []
-        self.retry = cf.getint("job", "retry", fallback=0)
-        self.notification = cf.get("job", "notification", fallback="Never")
-        self.email = cf.get("job", "email", fallback=None)
-        self.condor_job_priority = cf.getint("job", "condor_job_priority", fallback=0)
+        self.retry = cf.getint(jobsection, "retry", fallback=0)
+        self.notification = cf.get(jobsection, "notification", fallback="Never")
+        self.email = cf.get(jobsection, "email", fallback=None)
+        self.condor_job_priority = cf.getint(
+            jobsection, "condor_job_priority", fallback=0
+        )
 
     @property
     def submit_directory(self):
+        dagsection = (
+            "heterodyne_dag" if self.config.has_section("heterodyne_dag") else "dag"
+        )
         subdir = self.config.get(
-            "dag", "submit", fallback=os.path.join(self._outdir, "submit")
+            dagsection, "submit", fallback=os.path.join(self._outdir, "submit")
         )
         check_directory_exists_and_if_not_mkdir(subdir)
         return subdir
@@ -127,7 +141,9 @@ class HeterodyneNode(Node):
         check_directory_exists_and_if_not_mkdir(self.resdir)
 
         # job name prefix
-        jobname = inputs.config.get("job", "name", fallback="cwinpy_heterodyne")
+        jobname = inputs.config.get(
+            "heterodyne_job", "name", fallback="cwinpy_heterodyne"
+        )
         self.base_job_name = "{}_{}{}_{}_{}-{}".format(
             jobname, psrstring, detector, int(freqfactor), starttime, endtime
         )
@@ -391,7 +407,7 @@ class HeterodyneNode(Node):
     @property
     def executable(self):
         jobexec = self.inputs.config.get(
-            "job", "executable", fallback="cwinpy_heterodyne"
+            "heterodyne_job", "executable", fallback="cwinpy_heterodyne"
         )
         return self._get_executable_path(jobexec)
 

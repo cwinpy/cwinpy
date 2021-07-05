@@ -2,7 +2,9 @@ import configparser
 import os
 from argparse import ArgumentParser
 
-from ..heterodyne.heterodyne import HeterodyneDAGRunner
+import cwinpy
+
+from ..heterodyne.heterodyne import HeterodyneDAGRunner, heterodyne
 from ..info import (
     ANALYSIS_SEGMENTS,
     CVMFS_GWOSC_FRAME_CHANNELS,
@@ -12,10 +14,150 @@ from ..info import (
     HW_INJ_SEGMENTS,
     RUNTIMES,
 )
-from ..pe.pe import PEDAGRunner
+from ..pe.pe import PEDAGRunner, pe
+
+
+def create_knope_parser():
+    """
+    Create the argument parser for ``cwinpy_knope``.
+    """
+
+    description = """\
+A script to run the CWInPy known pulsar analysis pipeline; gravitational-wave \
+data will be preprocessed based on the phase evolution of a pulsar which will \
+then be used to infer the unknown signal parameters.
+"""
+
+    parser = ArgumentParser(
+        description=description,
+        allow_abbrev=False,
+    )
+    parser.add(
+        "--heterodyne-config",
+        type=str,
+        help=(
+            "A configuration file for the heterodyne pre-processing using "
+            "cwinpy_heterodyne."
+        ),
+        required=True,
+    )
+    parser.add(
+        "--pe-config",
+        type=str,
+        help=(
+            "A configuration file for the Bayesian inference stage using " "cwinpy_pe."
+        ),
+        required=True,
+    )
+    parser.add(
+        "--version",
+        action="version",
+        version="%(prog)s {version}".format(version=cwinpy.__version__),
+    )
 
 
 def knope(**kwargs):
+    """
+    Run the known pulsar pipeline within Python. It is highly recommended to
+    run the pipeline using a HTCondor DAG particular if using data from a long
+    observing run and/or for multiple pulsar. The main use of this function is
+    for quick testing for individual sources and single detectors. This
+    interface cannot be used for analysing data from multiple detectors or
+    mulitple harmonics for a particular pulsar. In those cases the HTCondor DAG
+    pipeline script ``cwinpy_knope_dag`` **must** be used.
+
+    Parameters
+    ----------
+    heterodyne_config: str
+        The path to a configuration file of the type required by
+        ``cwinpy_heterodyne``.
+    hetkwargs: dict
+        If not using a configuration file, arguments for
+        :func:`cwinpy.heterodyne.heterodyne` can be provided as a dictionary.
+    pe_config: str
+        The path to a configuration file of the type required by ``cwinpy_pe``.
+        The input data arguments and pulsars used will be assumed to be the
+        same as for the heterodyne configuration file, so any values given in
+        the configuration file will be ignored.
+    pekwargs: dict
+        If not using a configuration file, arguments for :func:`cwinpy.pe.pe`
+        can be provided as a dictionary.
+
+    Returns
+    -------
+    tuple:
+        The returned value is a tuple containing the
+        :class:`cwinpy.heterodyne.Heterodyne` object produced and a dictionary
+        (keyed by pulsar name) containing :class:`bilby.core.result.Result`
+        objects for each pulsar.
+    """
+
+    hetkwargs = {}
+    pekwargs = {}
+
+    if "cli" in kwargs:
+        parser = create_knope_parser()
+        args = parser.parse_args()
+
+        # set configuration files
+        hetconfig = args.heterodyne_config
+        peconfig = args.pe_config
+
+        hetkwargs["config"] = hetconfig
+        pekwargs["config"] = peconfig
+    else:
+        if "heterodyne_config" in kwargs:
+            hetkwargs["config"] = kwargs["heterodyne_config"]
+
+        if "pe_config" in kwargs:
+            pekwargs["config"] = kwargs["pe_config"]
+
+        try:
+            hetkwargs.update(**kwargs["hetkwargs"])
+        except (KeyError, TypeError):
+            pass
+
+        try:
+            pekwargs.update(**kwargs["pekwargs"])
+        except (KeyError, TypeError):
+            pass
+
+    if len(hetkwargs) == 0:
+        raise ValueError(
+            "No heterodyned configuration file or keyword arguments have been given"
+        )
+
+    if len(pekwargs) == 0:
+        raise ValueError(
+            "No parameter estimation configuration file or keyword arguments have been given"
+        )
+
+    # run heterodyne
+    het = heterodyne(**hetkwargs)
+
+    # run parameter estimation
+    perun = {}
+    for pulsar in het.pulsars:
+        pekwargs["data_file_{0:d}".format(int(het.freqfactor))] = het.outputfiles[
+            pulsar
+        ]
+        pekwargs["detector"] = het.detector
+        perun[pulsar] = pe(**pekwargs)
+
+    return het, perun
+
+
+def knope_cli(**kwargs):  # pragma: no cover
+    """
+    Entry point to ``cwinpy_knope`` script. This just calls
+    :func:`cwinpy.knope.knope`, but does not return any objects.
+    """
+
+    kwargs["cli"] = True  # set to show use of CLI
+    _ = knope(**kwargs)
+
+
+def knope_dag(**kwargs):
     """
     Run knope within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
     DAG for consecutively running multiple ``cwinpy_heterodyne`` and ``cwinpy_pe`` instances on a
@@ -189,9 +331,11 @@ def knope(**kwargs):
             hetconfigfile["run"] = {}
             hetconfigfile["run"]["basedir"] = args.output
 
-            hetconfigfile["dag"] = {}
+            hetconfigfile["heterodyne_dag"] = {}
+            peconfigfile["pe_dag"] = {}
             if args.osg:
-                hetconfigfile["dag"]["osg"] = "True"
+                hetconfigfile["heterodyne_dag"]["osg"] = "True"
+                hetconfigfile["pe_dag"]["osg"] = "True"
 
             hetconfigfile["job"] = {}
             hetconfigfile["job"]["getenv"] = "True"
@@ -321,11 +465,11 @@ def knope(**kwargs):
     return pedag
 
 
-def knope_cli(**kwargs):  # pragma: no cover
+def knope_dag_cli(**kwargs):  # pragma: no cover
     """
     Entry point to ``cwinpy_knope`` script. This just calls
     :func:`cwinpy.knope.knope`, but does not return any objects.
     """
 
     kwargs["cli"] = True  # set to show use of CLI
-    _ = knope(**kwargs)
+    _ = knope_dag(**kwargs)

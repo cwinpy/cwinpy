@@ -1692,15 +1692,15 @@ def heterodyne_dag(**kwargs):
             configfile["run"] = {}
             configfile["run"]["basedir"] = args.output
 
-            configfile["dag"] = {}
-            configfile["dag"]["submitdag"] = "True"
+            configfile["heterodyne_dag"] = {}
+            configfile["heterodyne_dag"]["submitdag"] = "True"
             if args.osg:
-                configfile["dag"]["osg"] = "True"
+                configfile["heterodyne_dag"]["osg"] = "True"
 
-            configfile["job"] = {}
-            configfile["job"]["getenv"] = "True"
+            configfile["heterodyne_job"] = {}
+            configfile["heterodyne_job"]["getenv"] = "True"
             if args.accgroup is not None:
-                configfile["job"]["accounting_group"] = args.accgroup
+                configfile["heterodyne_job"]["accounting_group"] = args.accgroup
 
             # add heterodyne settings
             configfile["heterodyne"] = {}
