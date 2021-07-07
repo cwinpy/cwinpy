@@ -24,7 +24,7 @@ from bilby_pipe.utils import (
 from configargparse import ArgumentError
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
-from ..condor import HeterodyneInput, HeterodyneNode, MergeHeterodyneNode
+from ..condor.hetnodes import HeterodyneInput, HeterodyneNode, MergeHeterodyneNode
 from ..data import HeterodynedData
 from ..info import (
     ANALYSIS_SEGMENTS,

@@ -20,7 +20,7 @@ from bilby_pipe.job_creation.dag import Dag
 from bilby_pipe.utils import BilbyPipeError, convert_string_to_dict, parse_args
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
-from ..condor import MergePENode, PEInput, PulsarPENode
+from ..condor.penodes import MergePENode, PEInput, PulsarPENode
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..likelihood import TargetedPulsarLikelihood
 from ..utils import is_par_file, sighandler

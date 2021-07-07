@@ -57,6 +57,8 @@ then be used to infer the unknown signal parameters.
         version="%(prog)s {version}".format(version=cwinpy.__version__),
     )
 
+    return parser
+
 
 def knope(**kwargs):
     """
