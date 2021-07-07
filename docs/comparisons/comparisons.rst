@@ -2,7 +2,8 @@
 Code comparison
 ###############
 
-Here we document comparisons between the analysis produced using CWInPy compared with the `LALSuite
+Here we document comparisons between the analysis produced using CWInPy compared with the
+`LALSuite
 <https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalapps_pulsar_parameter_estimation_nested``, which
 is described in Pitkin et al., `arXiv:1705.08978v1 <https://arxiv.org/abs/1705.08978v1>`_.
 

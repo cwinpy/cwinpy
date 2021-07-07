@@ -5,8 +5,8 @@ Installation
 Install CWInPy from source
 --------------------------
 
-CWInPy can be installed using the supplied Python setup script,
-from its source `git <https://git-scm.com/>`_ `repository <https://github.com/cwinpy/cwinpy>`_.
+CWInPy can be installed using the supplied Python setup script, from
+its source `git <https://git-scm.com/>`_ `repository <https://github.com/cwinpy/cwinpy>`_.
 
 First, clone the repository
 

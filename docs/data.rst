@@ -157,7 +157,7 @@ combine them into one :class:`~cwinpy.data.HeterodynedData` object. The
 files, and provided that they are compatible (i.e., they are for the same detector, the same pulsar,
 and the same frequency scale factor) they will be merged into one using the
 :meth:`~cwinpy.data.HeterodynedData.merge` method. By default the resulting object will be sorted in
-ascending time order even if the input files where not sorted in time order. If you had two files
+ascending time order even if the input files were not sorted in time order. If you had two files
 ``data1.hdf5`` and ``data2.hdf5`` they could be read in and merged with:
 
 .. code-block:: python
@@ -182,8 +182,8 @@ stored with:
     >>> data.add_data("dataH1.hdf5")
     >>> data.add_data("dataL1.hdf5")
 
-This type of object is used when performing parameter estimation for a single pulsar with data from
-multiple detectors.
+This type of object is used when performing :ref:`parameter estimation<Known pulsar parameter
+estimation>` for a single pulsar with data from multiple detectors.
 
 Data API
 --------

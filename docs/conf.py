@@ -142,12 +142,6 @@ todo_include_todos = False
 #
 html_theme = "pydata_sphinx_theme"
 
-# Theme options are theme-specific and customize the look and feel of a theme
-# further.  For a list of options available for each theme, see the
-# documentation.
-#
-# html_theme_options = {}
-
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
@@ -176,7 +170,16 @@ html_theme_options = {
             "url": "https://git.ligo.org/CW/software/cwinpy",
             "icon": "fab fa-gitlab",
         },
-    ]
+    ],
+    "use_edit_page_button": True,
+}
+
+html_context = {
+    "github_url": "https://github.com",
+    "github_user": "cwinpy",
+    "github_repo": "cwinpy",
+    "github_version": "master",
+    "doc_path": "docs",
 }
 
 # -- Options for LaTeX output ---------------------------------------------
