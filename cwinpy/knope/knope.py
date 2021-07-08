@@ -458,18 +458,38 @@ def knope_dag(**kwargs):
                 "Problem reading configuration file '{}'\n: {}".format(peconfigfile, e)
             )
 
+    # make sure "file transfer" is consistent with heterodyne value
+    if hetconfig.getboolean(
+        "heterodyne_dag", "transfer_files", fallback=True
+    ) != hetconfig.getboolean("pe_dag", "transfer_files", fallback=True):
+        if not peconfig.has_section("pe_dag"):
+            peconfig["pe_dag"] = {}
+        peconfig["pe_dag"]["transfer_files"] = hetconfig.get(
+            "heterodyne_dag", "transfer_files", fallback="True"
+        )
+
+    # DAG name is taken from the "heterodyne_dag" section, but fallback to "cwinpy_knope" is not given
+    hetconfig["heterodyne_dag"]["name"] = hetconfig.get(
+        "heterodyne_dag", "name", fallback="cwinpy_knope"
+    )
+
     # create heterodyne DAG
-    hetconfig["dag"]["build"] = "False"  # don't build the DAG yet
+    hetconfig["heterodyne_dag"]["build"] = "False"  # don't build the DAG yet
+    if not hetconfig.has_section("merge"):
+        hetconfig["merge"] = {}
     hetconfig["merge"]["merge"] = "True"  # always merge files
     hetdag = HeterodyneDAGRunner(hetconfig, **kwargs)
 
     # add heterodyned files into PE configuration
-    datadict = {"1f": {}, "2f": {}}
+    datadict = {1.0: {}, 2.0: {}}
     for det in hetdag.heterodyned_files:
         for ff in hetdag.heterodyned_files[det]:
-            datadict[ff][det] = hetdag.heterodyned_files[det][ff]
+            datadict[ff][det] = {
+                psr: hetfile[0]
+                for psr, hetfile in hetdag.heterodyned_files[det][ff].items()
+            }
 
-    if len(datadict["1f"]) == 0 and len(datadict["2f"]) == 0:
+    if len(datadict[1.0]) == 0 and len(datadict[2.0]) == 0:
         raise ValueError("No heterodyned data files are set to exist!")
 
     # make sure PE section is present
@@ -477,16 +497,16 @@ def knope_dag(**kwargs):
         peconfig["pe"] = {}
 
     if (
-        len(datadict["1f"]) > 0
+        len(datadict[1.0]) > 0
         and peconfig.get("pe", "data-file-1f", fallback=None) is None
     ):
-        peconfig["pe"]["data-file-1f"] = str(datadict["1f"])
+        peconfig["pe"]["data-file-1f"] = str(datadict[1.0])
     if (
-        len(datadict["2f"]) > 0
+        len(datadict[2.0]) > 0
         and peconfig.get("pe", "data-file-2f", fallback=None) is None
         and peconfig.get("pe", "data-file", fallback=None) is None
     ):
-        peconfig["pe"]["data-file-2f"] = str(datadict["2f"])
+        peconfig["pe"]["data-file-2f"] = str(datadict[2.0])
 
     if (
         peconfig.get("pe", "data-file", fallback=None) is not None
@@ -497,10 +517,10 @@ def knope_dag(**kwargs):
 
     # set pulsar files
     if peconfig.get("pe", "pulsars", fallback=None) is None:
-        peconfig["pe"]["pulsars"] = str(hetdag.pulsar_files)
+        peconfig["pe"]["pulsars"] = str(list(hetdag.pulsar_files.values()))
 
     # create PE DAG
-    kwargs["dag"] = hetdag  # add heterodyne DAG
+    kwargs["dag"] = hetdag.dag  # add heterodyne DAG
     kwargs["generation_nodes"] = hetdag.pulsar_nodes  # add Heterodyne nodes
     pedag = PEDAGRunner(peconfig, **kwargs)
 

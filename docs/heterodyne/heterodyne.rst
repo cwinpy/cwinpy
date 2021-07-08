@@ -77,13 +77,11 @@ data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
 <https://cvmfs.readthedocs.io/>`_. To find out more about accessing this data see the instructions
 `here <https://www.gw-openscience.org/cvmfs/>`_.
 
+
 .. note::
 
-   To run a heterodyne analysis as multiple jobs on your own machine you can install HTCondor for a
-   single machine. Installation instructions for various Linux distributions are found `here
-   <https://research.cs.wisc.edu/htcondor/instructions/>`_ and it is recommended to install
-   ``mini[ht]condor``, which configures HTCondor to run on a single node. If you have multiple cores
-   and a large amount of memory this can be a reasonable option.
+   To run a heterodyne analysis as multiple jobs on your own machine with HTCondor see :ref:`Local
+   use of HTCondor`.
 
 Example: two simulated pulsar signals
 =====================================

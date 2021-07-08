@@ -700,14 +700,16 @@ class HeterodyneDAGRunner(object):
         else:
             self.dag = Dag(inputs)
 
+        dagsection = "heterodyne_dag" if config.has_section("heterodyne_dag") else "dag"
+
         # get whether to build the dag
-        self.build = config.getboolean("dag", "build", fallback=True)
+        self.build = config.getboolean(dagsection, "build", fallback=True)
 
         # get whether to automatically submit the dag
-        self.submitdag = config.getboolean("dag", "submitdag", fallback=False)
+        self.submitdag = config.getboolean(dagsection, "submitdag", fallback=False)
 
         # get any additional submission options
-        self.submit_options = config.get("dag", "submit_options", fallback=None)
+        self.submit_options = config.get(dagsection, "submit_options", fallback=None)
 
         # get the base directory
         self.basedir = config.get("run", "basedir", fallback=os.getcwd())
@@ -1204,20 +1206,23 @@ class HeterodyneDAGRunner(object):
                     )
                     timeephemeris[unit] = fnames[0]
 
-        # create copy of file to a unique name in case of identical filenames
+        # create copy of each file to a unique name in case of identical filenames
         # from astropy cache, which causes problems if requiring files be
         # transferred
-        for edat, ename in zip(
-            [earthephemeris, sunephemeris, timeephemeris], ["earth", "sun", "time"]
-        ):
-            if (
-                len(set([os.path.basename(edat[etype]) for etype in edat])) == 1
-                and len(edat) > 1
+        if inputs.transfer_files or inputs.osg:
+            for edat, ename in zip(
+                [earthephemeris, sunephemeris, timeephemeris], ["earth", "sun", "time"]
             ):
-                for etype in edat:
-                    tmpephem = os.path.join(tempfile.gettempdir(), f"{ename}_{etype}")
-                    shutil.copy(edat[etype], tmpephem)
-                    edat[etype] = tmpephem
+                if (
+                    len(set([os.path.basename(edat[etype]) for etype in edat])) == 1
+                    and len(edat) > 1
+                ):
+                    for etype in edat:
+                        tmpephem = os.path.join(
+                            tempfile.gettempdir(), f"{ename}_{etype}"
+                        )
+                        shutil.copy(edat[etype], tmpephem)
+                        edat[etype] = tmpephem
 
         # check that ephemeris files exist for all required types
         for etype in etypes:
@@ -1385,10 +1390,9 @@ class HeterodyneDAGRunner(object):
 
                         # put nodes into dictionary for each pulsar
                         if stages == 1:
-                            if not merge:
-                                for psr in pgroup:
-                                    self.pulsar_nodes[psr].append(self.hetnodes[-1][-1])
-                            else:
+                            for psr in pgroup:
+                                self.pulsar_nodes[psr].append(self.hetnodes[-1][-1])
+                            if merge:
                                 for psr in pgroup:
                                     mergechildren[det][ff][psr].append(
                                         self.hetnodes[-1][-1]
