@@ -376,6 +376,7 @@ def knope_dag(**kwargs):
 
             hetconfigfile["heterodyne_dag"] = {}
             peconfigfile["pe_dag"] = {}
+            peconfigfile["pe_dag"]["submitdag"] = "True"  # submit automatically
             if args.osg:
                 hetconfigfile["heterodyne_dag"]["osg"] = "True"
                 hetconfigfile["pe_dag"]["osg"] = "True"

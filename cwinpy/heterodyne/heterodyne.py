@@ -693,20 +693,22 @@ class HeterodyneDAGRunner(object):
 
         inputs = HeterodyneInput(config)
 
+        dagsection = "heterodyne_dag" if config.has_section("heterodyne_dag") else "dag"
+
         if "dag" in kwargs:
             # get a previously created DAG if given (for example for a full
             # analysis pipeline)
             self.dag = kwargs["dag"]
+
+            # get whether to automatically submit the dag
+            self.dag.inputs.submit = config.getboolean(
+                dagsection, "submitdag", fallback=False
+            )
         else:
             self.dag = Dag(inputs)
 
-        dagsection = "heterodyne_dag" if config.has_section("heterodyne_dag") else "dag"
-
         # get whether to build the dag
         self.build = config.getboolean(dagsection, "build", fallback=True)
-
-        # get whether to automatically submit the dag
-        self.submitdag = config.getboolean(dagsection, "submitdag", fallback=False)
 
         # get any additional submission options
         self.submit_options = config.get(dagsection, "submit_options", fallback=None)
