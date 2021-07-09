@@ -525,7 +525,7 @@ def knope_dag(**kwargs):
 
     # set use of OSG
     osg = hetconfig.get("knope_dag", "osg", fallback=None)
-    if not None:
+    if osg is not None:
         hetconfig["heterodyne_dag"]["osg"] = osg
         peconfig["pe_dag"]["osg"] = osg
 
