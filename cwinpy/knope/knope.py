@@ -373,6 +373,8 @@ def knope_dag(**kwargs):
             # create required settings
             hetconfigfile["run"] = {}
             hetconfigfile["run"]["basedir"] = args.output
+            peconfigfile["run"] = {}
+            peconfigfile["run"]["basedir"] = args.output
 
             hetconfigfile["heterodyne_dag"] = {}
             peconfigfile["pe_dag"] = {}
