@@ -204,7 +204,8 @@ def knope_dag(**kwargs):
     """
     Run knope within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
     DAG for consecutively running multiple ``cwinpy_heterodyne`` and ``cwinpy_pe`` instances on a
-    computer cluster.
+    computer cluster. Optional parameters that can be used instead of a configuration file (for
+    "quick setup") are given in the "Other parameters" section.
 
     Parameters
     ----------
@@ -212,16 +213,42 @@ def knope_dag(**kwargs):
         A configuration file, or :class:`configparser:ConfigParser` object,
         for the analysis.
 
-    Optional parameters
-    -------------------
+    Other parameters
+    ----------------
     run: str
         The name of an observing run for which open data exists, which will be
         heterodyned, e.g., "O1".
+    detector: str, list
+        The detector, or list of detectors, for which the data will be
+        heterodyned. If not set then all detectors available for a given run
+        will be used.
+    hwinj: bool
+        Set this to True to analyse the continuous hardware injections for a
+        given run. No ``pulsar`` argument is required in this case.
+    pulsar: str, list
+        The path to, or list of paths to, a TEMPO(2)-style pulsar parameter
+        file(s), or directory containing multiple parameter files, to
+        heterodyne. If a pulsar name is given instead of a parameter file
+        then an attempt will be made to find the pulsar's ephemeris from the
+        ATNF pulsar catalogue, which will then be used.
+    osg: bool
+        Set this to True to run on the Open Science Grid rather than a local
+        computer cluster.
+    output: str,
+        The location for outputting the heterodyned data. By default the
+        current directory will be used. Within this directory, subdirectories
+        for each detector will be created.
+    joblength: int
+        The length of data (in seconds) into which to split the individual
+        analysis jobs. By default this is set to 86400, i.e., one day. If this
+        is set to 0, then the whole dataset is treated as a single job.
+    accounting_group_tag: str
+        For LVK users this sets the computing accounting group tag.
 
     Returns
     -------
     dag:
-        The pycondor :class:`pycondor.Dagman` object.
+        An object containing a pycondor :class:`pycondor.Dagman` object.
     """
 
     if "config" in kwargs:
@@ -330,9 +357,9 @@ def knope_dag(**kwargs):
             hetconfigfile = configparser.ConfigParser()
             peconfigfile = configparser.ConfigParser()
 
-            run = args.run
+            run = kwargs.get("run", args.run)
             if run not in RUNTIMES:
-                raise ValueError("Requested run '{}' is not available".format(args.run))
+                raise ValueError("Requested run '{}' is not available".format(run))
 
             pulsars = []
             if args.hwinj:
@@ -345,10 +372,11 @@ def knope_dag(**kwargs):
                 runtimes = RUNTIMES
                 segments = ANALYSIS_SEGMENTS
 
-                if args.pulsar is None:
+                pulsar = kwargs.get("pulsar", args.pulsar)
+                if pulsar is None:
                     raise ValueError("No pulsar parameter files have be provided")
 
-                pulsars.extend(args.pulsar)
+                pulsars.extend(pulsar if isinstance(list) else [pulsar])
 
             # check pulsar files/directories exist
             pulsars = [
@@ -359,34 +387,43 @@ def knope_dag(**kwargs):
             if len(pulsars) == 0:
                 raise ValueError("No valid pulsar parameter files have be provided")
 
-            if args.detector is None:
+            detector = kwargs.get("detector", args.detector)
+            if detector is None:
                 detectors = list(runtimes[run].keys())
             else:
+                detector = detector if isinstance(detector, list) else [detector]
                 detectors = [det for det in args.detector if det in runtimes[run]]
                 if len(detectors) == 0:
                     raise ValueError(
                         "Provided detectors '{}' are not valid for the given run".format(
-                            args.detector
+                            detector
                         )
                     )
 
             # create required settings
             hetconfigfile["run"] = {}
-            hetconfigfile["run"]["basedir"] = args.output
+            hetconfigfile["run"]["basedir"] = kwargs.get("output", args.output)
             peconfigfile["run"] = {}
-            peconfigfile["run"]["basedir"] = args.output
+            peconfigfile["run"]["basedir"] = kwargs.get("output", args.output)
 
             hetconfigfile["heterodyne_dag"] = {}
             peconfigfile["pe_dag"] = {}
             peconfigfile["pe_dag"]["submitdag"] = "True"  # submit automatically
-            if args.osg:
+            if kwargs.get("osg", args.osg):
                 hetconfigfile["heterodyne_dag"]["osg"] = "True"
                 hetconfigfile["pe_dag"]["osg"] = "True"
 
-            hetconfigfile["job"] = {}
-            hetconfigfile["job"]["getenv"] = "True"
+            hetconfigfile["heterodyne_job"] = {}
+            hetconfigfile["heterodyne_job"]["getenv"] = "True"
+            peconfigfile["pe_job"] = {}
+            peconfigfile["pe_job"]["getenv"] = "True"
             if args.accgroup is not None:
-                hetconfigfile["job"]["accounting_group"] = args.accgroup
+                hetconfigfile["heterodyne_job"]["accounting_group"] = kwargs.get(
+                    "accounting_group_tag", args.accgroup
+                )
+                peconfigfile["pe_job"]["accounting_group"] = kwargs.get(
+                    "accounting_group_tag", args.accgroup
+                )
 
             # add heterodyne settings
             hetconfigfile["heterodyne"] = {}
@@ -425,18 +462,17 @@ def knope_dag(**kwargs):
             hetconfigfile["heterodyne"]["overwrite"] = "False"
 
             # split the analysis into on average day long chunks
-            if args.joblength is None:
+            if kwargs.get("joblength", args.joblength) is None:
                 hetconfigfile["heterodyne"]["joblength"] = "86400"
             else:
-                hetconfigfile["heterodyne"]["joblength"] = str(args.joblength)
+                hetconfigfile["heterodyne"]["joblength"] = str(
+                    kwargs.get("joblength", args.joblength)
+                )
 
             # merge the resulting files and remove individual files
             hetconfigfile["merge"] = {}
             hetconfigfile["merge"]["remove"] = "True"
             hetconfigfile["merge"]["overwrite"] = "True"
-
-            # add PE settings
-            peconfigfile["pe"] = {}
 
     if isinstance(hetconfigfile, configparser.ConfigParser) and isinstance(
         peconfigfile, configparser.ConfigParser
@@ -471,13 +507,38 @@ def knope_dag(**kwargs):
             "heterodyne_dag", "transfer_files", fallback="True"
         )
 
-    # DAG name is taken from the "heterodyne_dag" section, but fallback to "cwinpy_knope" is not given
+    # DAG name is taken from the "knope_dag" section, but falls-back to
+    # "cwinpy_knope" if not given
     hetconfig["heterodyne_dag"]["name"] = hetconfig.get(
-        "heterodyne_dag", "name", fallback="cwinpy_knope"
+        "knope_dag", "name", fallback="cwinpy_knope"
     )
 
+    # set accounting group information
+    accgroup = hetconfig.get("knope_job", "accounting_group", fallback=None)
+    accuser = hetconfig.get("knope_job", "accounting_group_user", fallback=None)
+    if accgroup is not None:
+        hetconfigfile["heterodyne_job"]["accounting_group"] = accgroup
+        peconfigfile["pe_job"]["accounting_group"] = accgroup
+    if accuser is not None:
+        hetconfigfile["heterodyne_job"]["accounting_group_user"] = accuser
+        peconfigfile["pe_job"]["accounting_group_user"] = accuser
+
+    # set use of OSG
+    osg = hetconfig.get("knope_dag", "osg", fallback=None)
+    if not None:
+        hetconfig["heterodyne_dag"]["osg"] = osg
+        peconfig["pe_dag"]["osg"] = osg
+
+    # set whether to submit or not (via the PE DAG generator)
+    submit = hetconfig.get("knope_dag", "submitdag", fallback=None)
+    if submit is not None:
+        hetconfig["heterodyne_dag"]["submitdag"] = "False"
+        peconfig["pe_dag"]["submitdag"] = submit
+
     # create heterodyne DAG
+    build = hetconfig.getboolean("knope_dag", "build", fallback=True)
     hetconfig["heterodyne_dag"]["build"] = "False"  # don't build the DAG yet
+    peconfig["pe_dag"]["build"] = str(build)
     if not hetconfig.has_section("merge"):
         hetconfig["merge"] = {}
     hetconfig["merge"]["merge"] = "True"  # always merge files

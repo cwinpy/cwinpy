@@ -52,7 +52,7 @@ emailed directly to `contact+cw-software-cwinpy-3315-issue-@support.ligo.org
 Code of conduct
 ~~~~~~~~~~~~~~~
 
-Contributors to CWInPy and users of any of the discussion forums, are expected to treat each other
+Contributors to CWInPy and users of any of the discussion forums are expected to treat each other
 with respect and abide by the guidelines of the `Python Community Code of Conduct
 <https://www.python.org/psf/conduct/>`_.
 

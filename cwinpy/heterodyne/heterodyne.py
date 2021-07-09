@@ -1532,8 +1532,10 @@ class HeterodyneDAGRunner(object):
 
 def heterodyne_dag(**kwargs):
     """
-    Run heterodyne_dag within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
-    DAG for running multiple ``cwinpy_heterodyne`` instances on a computer cluster.
+    Run heterodyne_dag within Python. This will create a `HTCondor <https://htcondor.readthedocs.io/>`_
+    DAG for running multiple ``cwinpy_heterodyne`` instances on a computer cluster. Optional
+    parameters that can be used instead of a configuration file (for "quick setup") are given in
+    the "Other parameters" section.
 
     Parameters
     ----------
@@ -1541,16 +1543,42 @@ def heterodyne_dag(**kwargs):
         A configuration file, or :class:`configparser:ConfigParser` object,
         for the analysis.
 
-    Optional parameters
-    -------------------
+    Other parameters
+    ----------------
     run: str
         The name of an observing run for which open data exists, which will be
         heterodyned, e.g., "O1".
+    detector: str, list
+        The detector, or list of detectors, for which the data will be
+        heterodyned. If not set then all detectors available for a given run
+        will be used.
+    hwinj: bool
+        Set this to True to analyse the continuous hardware injections for a
+        given run. No ``pulsar`` argument is required in this case.
+    pulsar: str, list
+        The path to, or list of paths to, a TEMPO(2)-style pulsar parameter
+        file(s), or directory containing multiple parameter files, to
+        heterodyne. If a pulsar name is given instead of a parameter file
+        then an attempt will be made to find the pulsar's ephemeris from the
+        ATNF pulsar catalogue, which will then be used.
+    osg: bool
+        Set this to True to run on the Open Science Grid rather than a local
+        computer cluster.
+    output: str,
+        The location for outputting the heterodyned data. By default the
+        current directory will be used. Within this directory, subdirectories
+        for each detector will be created.
+    joblength: int
+        The length of data (in seconds) into which to split the individual
+        analysis jobs. By default this is set to 86400, i.e., one day. If this
+        is set to 0, then the whole dataset is treated as a single job.
+    accounting_group_tag: str
+        For LVK users this sets the computing accounting group tag.
 
     Returns
     -------
     dag:
-        The pycondor :class:`pycondor.Dagman` object.
+        An object containing a pycondor :class:`pycondor.Dagman` object.
     """
 
     if "config" in kwargs:
@@ -1654,12 +1682,12 @@ def heterodyne_dag(**kwargs):
             # use the "Quick setup" arguments
             configfile = configparser.ConfigParser()
 
-            run = args.run
+            run = kwargs.get("run", args.run)
             if run not in RUNTIMES:
-                raise ValueError("Requested run '{}' is not available".format(args.run))
+                raise ValueError("Requested run '{}' is not available".format(run))
 
             pulsars = []
-            if args.hwinj:
+            if kwargs.get("hwinj", args.hwinj):
                 # use hardware injections for the run
                 runtimes = HW_INJ_RUNTIMES
                 segments = HW_INJ_SEGMENTS
@@ -1669,10 +1697,11 @@ def heterodyne_dag(**kwargs):
                 runtimes = RUNTIMES
                 segments = ANALYSIS_SEGMENTS
 
-                if args.pulsar is None:
+                pulsar = kwargs.get("pulsar", args.pulsar)
+                if pulsar is None:
                     raise ValueError("No pulsar parameter files have be provided")
 
-                pulsars.extend(args.pulsar)
+                pulsars.extend(pulsar if isinstance(list) else [pulsar])
 
             # check pulsar files/directories exist
             pulsars = [
@@ -1683,30 +1712,34 @@ def heterodyne_dag(**kwargs):
             if len(pulsars) == 0:
                 raise ValueError("No valid pulsar parameter files have be provided")
 
+            detector = kwargs.get("detector", args.detector)
             if args.detector is None:
                 detectors = list(runtimes[run].keys())
             else:
-                detectors = [det for det in args.detector if det in runtimes[run]]
+                detector = detector if isinstance(detector, list) else [detector]
+                detectors = [det for det in detector if det in runtimes[run]]
                 if len(detectors) == 0:
                     raise ValueError(
                         "Provided detectors '{}' are not valid for the given run".format(
-                            args.detector
+                            detector
                         )
                     )
 
             # create required settings
             configfile["run"] = {}
-            configfile["run"]["basedir"] = args.output
+            configfile["run"]["basedir"] = kwargs.get("output", args.output)
 
             configfile["heterodyne_dag"] = {}
             configfile["heterodyne_dag"]["submitdag"] = "True"
-            if args.osg:
+            if kwargs.get("osg", args.osg):
                 configfile["heterodyne_dag"]["osg"] = "True"
 
             configfile["heterodyne_job"] = {}
             configfile["heterodyne_job"]["getenv"] = "True"
             if args.accgroup is not None:
-                configfile["heterodyne_job"]["accounting_group"] = args.accgroup
+                configfile["heterodyne_job"]["accounting_group"] = kwargs.get(
+                    "accounting_group_tag", args.accgroup
+                )
 
             # add heterodyne settings
             configfile["heterodyne"] = {}
@@ -1740,15 +1773,20 @@ def heterodyne_dag(**kwargs):
                     {det: segments[run][det] for det in detectors}
                 )
             configfile["heterodyne"]["outputdir"] = str(
-                {det: os.path.join(args.output, det) for det in detectors}
+                {
+                    det: os.path.join(kwargs.get("output", args.output), det)
+                    for det in detectors
+                }
             )
             configfile["heterodyne"]["overwrite"] = "False"
 
             # split the analysis into on average day long chunks
-            if args.joblength is None:
+            if kwargs.get("joblength", args.joblength) is None:
                 configfile["heterodyne"]["joblength"] = "86400"
             else:
-                configfile["heterodyne"]["joblength"] = str(args.joblength)
+                configfile["heterodyne"]["joblength"] = str(
+                    kwargs.get("joblength", args.joblength)
+                )
 
             # merge the resulting files and remove individual files
             configfile["merge"] = {}
