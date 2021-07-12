@@ -1281,7 +1281,7 @@ class HeterodyneDAGRunner(object):
             }
 
             # dictionary containing the output files for the merge results
-            mergeoutputs = {
+            self.mergeoutputs = {
                 det: {ff: {psr: None for psr in het.pulsars} for ff in freqfactors}
                 for det in detectors
             }
@@ -1366,11 +1366,11 @@ class HeterodyneDAGRunner(object):
                                 tmphet.outputfiles[psr].format(**labeldict)
                             )
 
-                            if merge and mergeoutputs[det][ff][psr] is None:
+                            if merge and self.mergeoutputs[det][ff][psr] is None:
                                 # use full start and end times
                                 labeldict["gpsstart"] = starttimes[det][0]
                                 labeldict["gpsend"] = endtimes[det][-1]
-                                mergeoutputs[det][ff][psr] = os.path.join(
+                                self.mergeoutputs[det][ff][psr] = os.path.join(
                                     outputdirs[0][det],
                                     tmphet.outputfiles[psr].format(**labeldict),
                                 )
@@ -1469,7 +1469,7 @@ class HeterodyneDAGRunner(object):
                                             "detector": det,
                                             "pulsar": psr,
                                             "output": copy.deepcopy(
-                                                mergeoutputs[det][ff][psr]
+                                                self.mergeoutputs[det][ff][psr]
                                             ),
                                         },
                                         self.dag,

@@ -546,11 +546,10 @@ def knope_dag(**kwargs):
 
     # add heterodyned files into PE configuration
     datadict = {1.0: {}, 2.0: {}}
-    for det in hetdag.heterodyned_files:
-        for ff in hetdag.heterodyned_files[det]:
+    for det in hetdag.mergeoutputs:
+        for ff in hetdag.mergeoutputs[det]:
             datadict[ff][det] = {
-                psr: hetfile[0]
-                for psr, hetfile in hetdag.heterodyned_files[det][ff].items()
+                psr: hetfile for psr, hetfile in hetdag.mergeoutputs[det][ff].items()
             }
 
     if len(datadict[1.0]) == 0 and len(datadict[2.0]) == 0:
