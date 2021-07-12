@@ -2016,6 +2016,8 @@ class HeterodynedData(TimeSeriesBase):
             rstate = seed
         elif isinstance(seed, int):
             rstate = np.random.RandomState(seed)
+        else:
+            rstate = np.random.RandomState()
 
         # get noise for real and imaginary components
         noise = TimeSeriesBase(
