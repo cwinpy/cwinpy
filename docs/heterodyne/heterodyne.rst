@@ -521,8 +521,8 @@ you can simply run:
 
 where ``/home/usr/heterodyneddata`` is the name of the directory where the run information and
 results will be stored (if you don't specify an ``--output`` then the current working directory will
-be used). This command will automatically submit the Condor DAG for the job. To specify multiple
-pulsars you can just use the ``--pulsar`` option multiple times. If you do not have a parameter file
+be used). This command will automatically submit the HTCondor DAG for the job. To specify multiple
+pulsars you can use the ``--pulsar`` option multiple times. If you do not have a parameter file
 for a pulsar you can instead use the ephemeris given by the `ATNF pulsar catalogue
 <https://www.atnf.csiro.au/research/pulsar/psrcat/>`_. To do this you need to instead supply a
 pulsar name (as recognised by the catalogue), for example, to run the analysis using O2 data for the

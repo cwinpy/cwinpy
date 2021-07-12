@@ -48,6 +48,82 @@ data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
 `here <https://www.gw-openscience.org/cvmfs/>`_.
 
 Configuration file
+------------------
+
+Quick setup
+===========
+
+The ``cwinpy_knope_dag`` script has some quick setup options that allow an analysis to be
+launched in one line without the need to define a configuration file. These options **require** that
+the machine/cluster that you are running HTCondor on has access to open data from GWOSC available
+via CVMFS. It is also recommended that you run CWInPy from within an `IGWN conda environment
+<https://computing.docs.ligo.org/conda/>`_ 
+
+For example, if you have a TEMPO(2)-style pulsar parameter file, e.g., ``J0740+6620.par``, and you
+want to analyse the open `O1 data <https://www.gw-openscience.org/O1/>`_ for the two LIGO detectors
+you can simply run:
+
+.. code-block:: bash
+
+   cwinpy_knope_dag --run O1 --pulsar J0740+6620.par --output /home/usr/O1
+
+where ``/home/usr/O1`` is the name of the directory where the run information and
+results will be stored (if you don't specify an ``--output`` then the current working directory will
+be used). This command will automatically submit the HTCondor DAG for the job. To specify multiple
+pulsars you can use the ``--pulsar`` option multiple times. If you do not have a parameter file
+for a pulsar you can instead use the ephemeris given by the `ATNF pulsar catalogue
+<https://www.atnf.csiro.au/research/pulsar/psrcat/>`_. To do this you need to instead supply a
+pulsar name (as recognised by the catalogue), for example, to run the analysis using O2 data for the
+pulsar `J0737-3039A <https://en.wikipedia.org/wiki/PSR_J0737%E2%88%923039>`_ you could do:
+
+.. code-block:: bash
+
+   cwinpy_knope_dag --run O2 --pulsar J0737-3039A --output /home/usr/O2
+
+Internally the ephemeris information is obtained using the :class:`~psrqpy.search.QueryATNF` class
+from `psrqpy <https://psrqpy.readthedocs.io/en/latest/>`_.
+
+CWInPy also contains information on the continuous :ref:`hardware injections<Hardware Injections>`
+performed in each run, so if you wanted the analyse the these in, say, the LIGO `sixth science run
+<https://www.gw-openscience.org/archive/S6/>`_, you could do:
+
+.. code-block:: bash
+
+   cwinpy_knope_dag --run S6 --hwinj --output /home/usr/hwinjections
+
+Other command line arguments for ``cwinpy_knope_dag``, e.g., for setting specific detectors,
+can be found :ref:`below<knope Command line arguments>`. If running on a LIGO Scientific
+Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid `accounting tag
+<https://accounting.ligo.org/user>`_, e.g.,:
+
+.. code-block:: bash
+
+   cwinpy_heterodyne_dag --run O1 --hwinj --output /home/user/O1injections --accounting-group-tag ligo.prod.o1.cw.targeted.bayesian
+
+.. note::
+
+   The quick setup will only be able to use default parameter values for the heterodyne and parameter
+   estimation. For "production" analyses, or if you want more control over the parameters, it is
+   recommended that you use a configuration file to set up the run.
+
+.. _knope Command line arguments:
+
+Command line arguments
+----------------------
+
+The command line arguments for ``cwinpy_knope`` (as extracted using ``cwinpy_knope --help``) are
+given below:
+
+.. literalinclude:: knope_help.txt
+   :language: none
+
+The command line arguments for ``cwinpy_knope_dag`` (as extracted using
+``cwinpy_knope_dag --help``) are:
+
+.. literalinclude:: knope_dag_help.txt
+   :language: none
+
+.. _knope API:
 
 Knope API
 ---------
