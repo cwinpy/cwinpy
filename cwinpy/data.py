@@ -2014,7 +2014,7 @@ class HeterodynedData(TimeSeriesBase):
         # set noise seed
         if isinstance(seed, np.random.RandomState):
             rstate = seed
-        else:
+        elif isinstance(seed, int):
             rstate = np.random.RandomState(seed)
 
         # get noise for real and imaginary components

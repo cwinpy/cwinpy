@@ -228,7 +228,7 @@ Running on multiple sources
 
 You may have multiple real sources for which you want to perform parameter estimation, or you may
 want to simulate data from many sources. If you have a multicore machine or access to a computer
-cluster with `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ installed you can use CWInPy to
+cluster with `HTCondor <https://htcondor.readthedocs.io>`_ installed you can use CWInPy to
 create a set of analysis jobs, in the form of an HTCondor `DAG
 <https://htcondor.readthedocs.io/en/v8_8_4/users-manual/dagman-applications.html>`_, for each
 source. This makes use of `PyCondor <https://jrbourbeau.github.io/pycondor/installation.html>`_,
@@ -303,10 +303,22 @@ structure:
     |    └── ...
     ├── submit             # directory containing the DAG and job submit files
     |    ├── dag_cwinpy_pe.submit      # Condor DAG submit file
-    |    ├── cwinpy_pe_pulsar1.submit  # cwinpy_pe job submit file for pulsar1
-    |    ├── cwinpy_pe_pulsar2.submit  # cwinpy_pe job submit file for pulsar2
+    |    ├── cwinpy_pe_H1L1_pulsar1.submit  # cwinpy_pe job submit file for pulsar1
+    |    ├── cwinpy_pe_H1L1_pulsar2.submit  # cwinpy_pe job submit file for pulsar2
     |    └── ...
     └── log                # directory for the job log files
+
+By default, if passed data for multiple detectors, the parameter estimation will be performed with
+a likelihood that coherently combines the data from all detectors. To also include parameter
+estimation using data from each detector individually, the ``[pe]`` section of the configuration
+file should contain
+
+.. code-block:: bash
+
+   incoherent = True
+
+The submit files and the final output parameter estimation files will show the combination of
+detectors used in the filename.
 
 If the original ``cwinpy_pe_dag`` configuration file contained the line:
 

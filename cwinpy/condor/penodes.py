@@ -107,7 +107,7 @@ class PulsarPENode(Node):
     run_node_on_osg = True
 
     def __init__(
-        self, inputs, configdict, psrname, parallel_idx, dag, generation_node=None
+        self, inputs, configdict, psrname, dets, parallel_idx, dag, generation_node=None
     ):
         super().__init__(inputs)
         self.dag = dag
@@ -135,7 +135,7 @@ class PulsarPENode(Node):
 
         # replace any "+" in the pulsar name for the job name as Condor does
         # not allow "+"s in the name
-        self.label = "{}_{}".format(jobname, psrname)
+        self.label = "{}_{}_{}".format(jobname, "".join(dets), psrname)
         self.base_job_name = "{}_{}".format(jobname, psrname.replace("+", "plus"))
         if inputs.n_parallel > 1:
             self.job_name = "{}_{}".format(self.base_job_name, parallel_idx)
@@ -151,10 +151,13 @@ class PulsarPENode(Node):
         check_directory_exists_and_if_not_mkdir(configlocation)
         if inputs.n_parallel > 1:
             configfile = os.path.join(
-                configlocation, "{}_{}.ini".format(psrname, parallel_idx)
+                configlocation,
+                "{}_{}_{}.ini".format("".join(dets), psrname, parallel_idx),
             )
         else:
-            configfile = os.path.join(configlocation, "{}.ini".format(psrname))
+            configfile = os.path.join(
+                configlocation, "{}_{}.ini".format("".join(dets), psrname)
+            )
 
         self.setup_arguments(
             add_ini=False, add_unknown_args=False, add_command_line_args=False

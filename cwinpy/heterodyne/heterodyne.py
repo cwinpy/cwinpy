@@ -1271,7 +1271,7 @@ class HeterodyneDAGRunner(object):
 
         # dictionary to contain all nodes for a given pulsar (for passing on to
         # cwinpy_pe if required)
-        self.pulsar_nodes = {psr: [] for psr in het.pulsars}
+        self.pulsar_nodes = {psr: {det: [] for det in detectors} for psr in het.pulsars}
 
         if merge:
             # dictionary containing child nodes for each merge job
@@ -1393,7 +1393,9 @@ class HeterodyneDAGRunner(object):
                         # put nodes into dictionary for each pulsar
                         if stages == 1:
                             for psr in pgroup:
-                                self.pulsar_nodes[psr].append(self.hetnodes[-1][-1])
+                                self.pulsar_nodes[psr][det].append(
+                                    self.hetnodes[-1][-1]
+                                )
                             if merge:
                                 for psr in pgroup:
                                     mergechildren[det][ff][psr].append(
@@ -1439,7 +1441,7 @@ class HeterodyneDAGRunner(object):
                                 label[1] if label is not None else None
                             )
 
-                            self.pulsar_nodes[psr].append(
+                            self.pulsar_nodes[psr][det].append(
                                 HeterodyneNode(
                                     inputs,
                                     {
@@ -1458,7 +1460,7 @@ class HeterodyneDAGRunner(object):
                     for ff in freqfactors:
                         for det in detectors:
                             if len(self.heterodyned_files[det][ff][psr]) > 1:
-                                self.pulsar_nodes[psr].append(
+                                self.pulsar_nodes[psr][det].append(
                                     MergeHeterodyneNode(
                                         inputs,
                                         {

@@ -269,7 +269,8 @@ continuous gravitational-wave signal from a known pulsar."""
         type=int,
         help=(
             "A positive integer random number generator seed used "
-            "when generating the simulated data noise."
+            "when generating the simulated data noise, or a dictionary of "
+            "integer value seeds for each detector."
         ),
     )
 
@@ -690,14 +691,21 @@ class PERunner(object):
             # set random seed
             rstate = None
             if fseed is not None:
-                rstate = np.random.RandomState(fseed)
+                if isinstance(fseed, dict):
+                    rstate = {}
+                    for key, value in fseed.items():
+                        # set random state
+                        np.random.RandomState(value)
+                        # get state and store for each detector
+                        rstate[key] = np.random.get_state()
+                else:
+                    rstate = np.random.RandomState(fseed)
 
             for freq, fakedata, issigma in zip(
                 [1.0, 2.0], [fakeasd1f, fakeasd2f], [issigma1f, issigma2f]
             ):
                 self.datakwargs["freqfactor"] = freq
                 self.datakwargs["issigma"] = issigma
-                self.datakwargs["fakeseed"] = rstate
 
                 if isinstance(fakedata, dict):
                     # make into a list
@@ -880,6 +888,10 @@ class PERunner(object):
                                 "Fake data string must be of the form 'DET:ASD'"
                             )
 
+                        # set random state for inidivdual detectors if necessary
+                        if isinstance(rstate, dict):
+                            np.random.set_state(rstate[thisdet])
+
                         self.hetdata.add_data(
                             HeterodynedData(
                                 fakeasd=asdval,
@@ -888,6 +900,10 @@ class PERunner(object):
                                 **self.datakwargs,
                             )
                         )
+
+                        # get random state for a given detector
+                        if isinstance(rstate, dict):
+                            rstate[thisdet] = np.random.get_state()
                 else:
                     raise TypeError("Fake data not of the correct type")
 
@@ -1153,8 +1169,11 @@ def pe(**kwargs):
         Instead of passing start times, end times and time steps for the fake
         data generation, an array of GPS times (or a dictionary of arrays keyed
         to the detector) can be passed instead.
-    fake_seed: int, :class:`numpy.random.RandomState`
-        A seed for random number generation for the creation of fake data.
+    fake_seed: int, dict, :class:`numpy.random.RandomState`
+        A seed for random number generation for the creation of fake data. To
+        set seeds specifically for each detector this should be a dictionary of
+        integers or :class:`numpy.random.RandomState` values keyed by the
+        detector names.
     data_kwargs: dict
         A dictionary of keyword arguments to pass to the
         :class:`cwinpy.data.HeterodynedData` objects.
@@ -1537,6 +1556,9 @@ class PEDAGRunner(object):
                 fakestart = config.get("pe", "fake-start", fallback=None)
                 fakeend = config.get("pe", "fake-end", fallback=None)
                 fakedt = config.get("pe", "fake-dt", fallback=None)
+                fakeseed = config.get("pe", "fake-seed", fallback=None)
+                if fakeseed is not None:
+                    fakeseed = self.eval(fakeseed)
 
             # set some default bilby-style priors
             DEFAULTPRIORS2F = (
@@ -1700,6 +1722,11 @@ class PEDAGRunner(object):
             # get ephemeris files if given
             earthephem = self.eval(config.get("pe", "ephem-earth", fallback=None))
             sunephem = self.eval(config.get("pe", "ephem-sun", fallback=None))
+
+            # get whether to perform PE coherently for multiple detectors and/or
+            # for each detector independently
+            coherent = config.getboolean("pe", "coherent", fallback=True)
+            incoherent = config.getboolean("pe", "incoherent", fallback=False)
         else:
             raise IOError("Configuration file must have a [pe] section.")
 
@@ -1720,6 +1747,7 @@ class PEDAGRunner(object):
                         configdict["data_file_{}".format(freqfactor)] = datadict[pname][
                             freqfactor
                         ]
+                        detectors = list(datadict[pname][freqfactor])
                     except KeyError:
                         pass
                 else:
@@ -1727,6 +1755,7 @@ class PEDAGRunner(object):
                         configdict["fake_asd_{}".format(freqfactor)] = str(
                             ["{}".format(det) for det in simdata[freqfactor]]
                         )
+                        detectors = list(simdata[freqfactor])
                     except KeyError:
                         pass
 
@@ -1759,10 +1788,13 @@ class PEDAGRunner(object):
                             "Ephemeris file for {} is not a string".format(pname)
                         )
 
-            if simdata and inputs.n_parallel > 1:
+            if simdata and inputs.n_parallel > 1 and fakeseed is None:
                 # set a fake seed, so all parallel runs produce the same data
-                seed = np.random.randint(1, 2 ** 32 - 1)
-                configdict["fake_seed"] = str(seed)
+                configdict["fake_seed"] = str(
+                    {det: np.random.randint(1, 2 ** 32 - 1) for det in detectors}
+                )
+            elif fakeseed is not None:
+                configdict["fake_seed"] = str(fakeseed)
 
             if simdata:
                 if (fakestart is None and fakeend is not None) or (
@@ -1777,24 +1809,47 @@ class PEDAGRunner(object):
                 if fakedt is not None:
                     configdict["fake_dt"] = fakedt
 
-            parallel_node_list = []
-            for idx in range(inputs.n_parallel):
-                gnode = None
-                if isinstance(generation_nodes, dict):
-                    gnode = generation_nodes.get(pname, None)
-
-                penode = PulsarPENode(
-                    inputs,
-                    configdict.copy(),
-                    pname,
-                    idx,
-                    self.dag,
-                    generation_node=gnode,
+            # set combinations of detectors
+            detcomb = []
+            if not coherent and not incoherent:
+                raise ValueError(
+                    "'coherent' and 'incoherent' options cannot both be False"
                 )
-                parallel_node_list.append(penode)
 
-            if inputs.n_parallel > 1:
-                _ = MergePENode(inputs, parallel_node_list, self.dag)
+            if coherent:
+                # add all detectors
+                detcomb.append(detectors)
+            if incoherent:
+                # add individual detectors
+                for det in detectors:
+                    detcomb.append([det])
+
+            for dets in detcomb:
+                parallel_node_list = []
+                for idx in range(inputs.n_parallel):
+                    gnode = None
+                    if isinstance(generation_nodes, dict):
+                        gnode = []
+                        # get generation nodes for all required detectors
+                        if pname in generation_nodes:
+                            for det in dets:
+                                gnode.append(generation_nodes[pname][det])
+                        else:
+                            gnode = None
+
+                    penode = PulsarPENode(
+                        inputs,
+                        configdict.copy(),
+                        pname,
+                        dets,
+                        idx,
+                        self.dag,
+                        generation_node=gnode,
+                    )
+                    parallel_node_list.append(penode)
+
+                if inputs.n_parallel > 1:
+                    _ = MergePENode(inputs, parallel_node_list, self.dag)
 
         if self.build:
             self.dag.build()
