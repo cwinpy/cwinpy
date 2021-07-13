@@ -787,9 +787,9 @@ class HeterodynedData(TimeSeriesBase):
         the amplitude spectral density for that detector at design sensitivity
         will be used (this requires a `par` value to be included, which
         contains the source rotation frequency).
-    fakeseed: (int, class:`numpy.random.RandomState`), None
+    fakeseed: (int, class:`numpy.random.Generator`), None
         A seed for the random number generator used to create the fake data
-        (see :meth:`numpy.random.seed` and :class:`numpy.random.RandomState`
+        (see :meth:`numpy.random.seed` and :class:`numpy.random.Generator`
         for more information).
     issigma: bool
         Set to ``True`` if the ``fakeasd`` value passed is actually a noise
@@ -1859,9 +1859,9 @@ class HeterodynedData(TimeSeriesBase):
             If ``issigma`` is ``True`` then the value passed to `asd` is assumed
             to be a dimensionless time domain standard deviation for the noise
             level rather than an amplitude spectral density.
-        seed: int, :class:`numpy.random.RandomState`, None
+        seed: int, :class:`numpy.random.Generator`, None
             A seed for the random number generator used to create the fake data
-            (see :meth:`numpy.random.seed` and :class:`numpy.random.RandomState`
+            (see :meth:`numpy.random.seed` and :class:`numpy.random.Generator`
             for more information).
         """
 
@@ -2012,12 +2012,10 @@ class HeterodynedData(TimeSeriesBase):
             raise TypeError("ASD must be a float or a string with a detector name.")
 
         # set noise seed
-        if isinstance(seed, np.random.RandomState):
+        if isinstance(seed, np.random.Generator):
             rstate = seed
-        elif isinstance(seed, int):
-            rstate = np.random.RandomState(seed)
         else:
-            rstate = np.random.RandomState()
+            rstate = np.random.default_rng(seed)
 
         # get noise for real and imaginary components
         noise = TimeSeriesBase(

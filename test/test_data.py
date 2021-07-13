@@ -1241,11 +1241,11 @@ PHI0     2.4
         del het3
 
         # do the same tests using a numpy RandomSeed
-        seed1 = np.random.RandomState(875329)
+        seed1 = np.random.default_rng(875329)
         het1 = HeterodynedData(
             times=times, fakeasd=1e-24, detector="H1", fakeseed=seed1
         )
-        seed2 = np.random.RandomState(875329)
+        seed2 = np.random.default_rng(875329)
         het2 = HeterodynedData(
             times=times, fakeasd=1e-24, detector="H1", fakeseed=seed2
         )

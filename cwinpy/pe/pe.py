@@ -266,7 +266,7 @@ continuous gravitational-wave signal from a known pulsar."""
     )
     simparser.add(
         "--fake-seed",
-        type=int,
+        action="append",
         help=(
             "A positive integer random number generator seed used "
             "when generating the simulated data noise, or a dictionary of "
@@ -610,7 +610,7 @@ class PERunner(object):
                         issigma1f = True
                         break
 
-            if isinstance(starts, str):
+            if isinstance(starts, list):
                 try:
                     starts = convert_string_to_dict(starts[0], "fake_start")
                 except (
@@ -623,7 +623,7 @@ class PERunner(object):
                 ):
                     pass
 
-            if isinstance(ends, str):
+            if isinstance(ends, list):
                 try:
                     ends = convert_string_to_dict(ends[0], "fake_end")
                 except (
@@ -636,9 +636,22 @@ class PERunner(object):
                 ):
                     pass
 
-            if isinstance(dts, str):
+            if isinstance(dts, list):
                 try:
                     dts = convert_string_to_dict(dts[0], "fake_dt")
+                except (
+                    ValueError,
+                    SyntaxError,
+                    BilbyPipeError,
+                    TypeError,
+                    IndexError,
+                    KeyError,
+                ):
+                    pass
+
+            if isinstance(fseed, list):
+                try:
+                    fseed = convert_string_to_dict(fseed[0], "fake_seed")
                 except (
                     ValueError,
                     SyntaxError,
@@ -694,12 +707,48 @@ class PERunner(object):
                 if isinstance(fseed, dict):
                     rstate = {}
                     for key, value in fseed.items():
-                        # set random state
-                        np.random.RandomState(value)
                         # get state and store for each detector
-                        rstate[key] = np.random.get_state()
+                        rstate[key] = np.random.default_rng(value)
+                elif isinstance(fseed, list):
+                    rstate = {}
+
+                    for i, seed in enumerate(fseed):
+                        detseed = str(seed).replace("'", "").replace('"', "").split(":")
+                        if len(detseed) == 2:
+                            try:
+                                rstate[detseed[0]] = np.random.default_rng(
+                                    int(detseed[-1])
+                                )
+                            except ValueError:
+                                raise ValueError("Fake seed must be an integer")
+                        elif (
+                            len(detseed) == 1
+                            and detectors is not None
+                            and len(fseed) > 1
+                        ):
+                            if len(detectors) != len(fseed):
+                                raise ValueError(
+                                    "Number of detectors and number of data seeds must be consistent"
+                                )
+                            else:
+                                try:
+                                    rstate[detectors[i]] = np.random.default_rng(
+                                        int(detseed[-1])
+                                    )
+                                except ValueError:
+                                    raise ValueError("Fake seed must be an integer")
+                        elif len(detseed) == 1 and len(fseed) == 1:
+                            # just a single seed is given, not inidividual seeds for each detector
+                            try:
+                                rstate = np.random.default_rng(int(detseed[-1]))
+                            except ValueError:
+                                raise ValueError("Fake seed must be an integer")
+                        else:
+                            raise ValueError(
+                                "No equivalent detector given for fake seed"
+                            )
                 else:
-                    rstate = np.random.RandomState(fseed)
+                    rstate = np.random.default_rng(fseed)
 
             for freq, fakedata, issigma in zip(
                 [1.0, 2.0], [fakeasd1f, fakeasd2f], [issigma1f, issigma2f]
@@ -888,9 +937,11 @@ class PERunner(object):
                                 "Fake data string must be of the form 'DET:ASD'"
                             )
 
-                        # set random state for inidivdual detectors if necessary
+                        # set random state for individual detectors if necessary
                         if isinstance(rstate, dict):
-                            np.random.set_state(rstate[thisdet])
+                            self.datakwargs["fakeseed"] = rstate[thisdet]
+                        else:
+                            self.datakwargs["fakeseed"] = rstate
 
                         self.hetdata.add_data(
                             HeterodynedData(
@@ -900,10 +951,6 @@ class PERunner(object):
                                 **self.datakwargs,
                             )
                         )
-
-                        # get random state for a given detector
-                        if isinstance(rstate, dict):
-                            rstate[thisdet] = np.random.get_state()
                 else:
                     raise TypeError("Fake data not of the correct type")
 
@@ -1169,10 +1216,10 @@ def pe(**kwargs):
         Instead of passing start times, end times and time steps for the fake
         data generation, an array of GPS times (or a dictionary of arrays keyed
         to the detector) can be passed instead.
-    fake_seed: int, dict, :class:`numpy.random.RandomState`
+    fake_seed: int, dict, :class:`numpy.random.Generator`
         A seed for random number generation for the creation of fake data. To
         set seeds specifically for each detector this should be a dictionary of
-        integers or :class:`numpy.random.RandomState` values keyed by the
+        integers or :class:`numpy.random.Generator` values keyed by the
         detector names.
     data_kwargs: dict
         A dictionary of keyword arguments to pass to the
@@ -1790,11 +1837,10 @@ class PEDAGRunner(object):
                             "Ephemeris file for {} is not a string".format(pname)
                         )
 
+            seeddict = None
             if simdata and inputs.n_parallel > 1 and fakeseed is None:
                 # set a fake seed, so all parallel runs produce the same data
-                configdict["fake_seed"] = str(
-                    {det: np.random.randint(1, 2 ** 32 - 1) for det in detectors}
-                )
+                seeddict = {det: np.random.randint(1, 2 ** 32 - 1) for det in detectors}
             elif simdata and fakeseed is not None:
                 configdict["fake_seed"] = str(fakeseed)
 
@@ -1827,6 +1873,13 @@ class PEDAGRunner(object):
                     detcomb.append([det])
 
             for dets in detcomb:
+                # set required seed
+                if seeddict is not None:
+                    if dets == detectors:
+                        configdict["fake_seed"] = str(seeddict)
+                    else:
+                        configdict["fake_seed"] = str(seeddict[dets[0]])
+
                 parallel_node_list = []
                 for idx in range(inputs.n_parallel):
                     gnode = None
