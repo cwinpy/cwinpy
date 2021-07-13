@@ -1559,6 +1559,8 @@ class PEDAGRunner(object):
                 fakeseed = config.get("pe", "fake-seed", fallback=None)
                 if fakeseed is not None:
                     fakeseed = self.eval(fakeseed)
+            else:
+                fakeseed = None
 
             # set some default bilby-style priors
             DEFAULTPRIORS2F = (
@@ -1793,7 +1795,7 @@ class PEDAGRunner(object):
                 configdict["fake_seed"] = str(
                     {det: np.random.randint(1, 2 ** 32 - 1) for det in detectors}
                 )
-            elif fakeseed is not None:
+            elif simdata and fakeseed is not None:
                 configdict["fake_seed"] = str(fakeseed)
 
             if simdata:
