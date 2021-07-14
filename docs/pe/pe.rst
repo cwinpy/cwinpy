@@ -87,7 +87,7 @@ comments describing the parameters given inline:
    `bilby <https://lscsoft.docs.ligo.org/bilby/>`_) it will default to use the ``rwalk`` sampling
    method. In this example, in the ``sampler-kwargs`` argument the ``'sample'`` method value is
    instead set to ``'rslice'`` as this is found to be quicker than ``rwalk`` when the other
-   arguemnts are left at their default values. If using ``rwalk`` it is worthwhile exploring
+   arguments are left at their default values. If using ``rwalk`` it is worthwhile exploring
    different values of the ``walks`` argument to find the most efficient settings. Further
    information on dynesty settings can be found
    `here <https://dynesty.readthedocs.io/en/latest/faq.html#sampling-questions>`_.
@@ -337,7 +337,7 @@ submitted with:
 
    If running on LIGO Scientific Collaboration computing clusters the ``acounting_group`` value must
    be specified and be a valid tag. Valid tag names can be found `here
-   <https://accounting.ligo.org/user>`_ unless custom values for a specfic cluster are allowed.
+   <https://accounting.ligo.org/user>`_ unless custom values for a specific cluster are allowed.
 
 Command line arguments
 ----------------------

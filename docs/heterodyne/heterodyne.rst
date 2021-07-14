@@ -140,7 +140,7 @@ Running the ``cwinpy_heterodyne`` executable is done with:
    cwinpy_heterodyne --config example1_config.ini
 
 The outputs (HDF5 files containing :class:`~cwinpy.data.HeterodynedData` objects) will be placed in
-the ``heterodyneddata`` directory as specified by the ``output`` option in the configration file.
+the ``heterodyneddata`` directory as specified by the ``output`` option in the configuration file.
 The default output file name format follows the convention
 ``heterodyne_{pulsarname}_{detector}_{frequencyfactor}_{starttime}_{endtime}.hdf5``. Therefore, the
 above command creates the two files:
@@ -185,7 +185,7 @@ overplotted dashed lines show fake heterodyned signals produced by CWInPy.
 Using the Python API
 ^^^^^^^^^^^^^^^^^^^^
 
-There are two ways that the same thing can be acheived within Python via the API. Both use the
+There are two ways that the same thing can be achieved within Python via the API. Both use the
 :func:`~cwinpy.heterodyne.heterodyne` function, which is just a wrapper to the
 :class:`~cwinpy.heterodyne.Heterodyne` class, but also runs the heterodyne via
 :meth:`~cwinpy.heterodyne.Heterodyne.heterodyne`.
@@ -258,7 +258,7 @@ If the CVMFS data is being downloaded on-the-fly then (depending on your interne
 this may take on the order of ten minutes to run.
 
 The outputs (HDF5 files containing :class:`~cwinpy.data.HeterodynedData` objects) will be placed in
-the ``heterodyneddata`` directory as specified by the ``output`` option in the configration file.
+the ``heterodyneddata`` directory as specified by the ``output`` option in the configuration file.
 The default output file name format follows the convention
 ``heterodyne_{pulsarname}_{detector}_{frequencyfactor}_{starttime}_{endtime}.hdf5``. Therefore, the
 above command creates the two files:
@@ -308,7 +308,7 @@ with ``lalapps_heterodyne_pulsar``, this two stage approach provided speed advan
 CWInPy that advantage is negligible. However, the two stage approach can be useful if you want to
 analyse data with a preliminary source ephemeris, and then re-heterodyne the same data with an
 updated source ephemeris. In most cases it is recommended to heterodyne in a single stage, which
-also allows slightly more agressive filtering to be applied.
+also allows slightly more aggressive filtering to be applied.
 
 To perform the run from :ref:`the above example<Example: hardware injections in LIGO O1 data>` in
 two stages one could use the following configuration (called, e.g., ``example3_stage1_config.ini``)
@@ -429,7 +429,7 @@ This example will generate the following directory tree structure:
 By default the multiple heterodyned data files for each pulsar created due to the splitting will be
 merged using the ``cwinpy_heterodyne_merge`` executable (see the
 :func:`~cwinpy.heterodyne.heterodyne_merge` API). If the ``remove`` option is set in the
-configuration file then the individial unmerged files will be removed, but by default they will be
+configuration file then the individual unmerged files will be removed, but by default they will be
 kept (although not for the :ref`Quick setup`).
 
 The default naming format of the output heterodyned data files in their respective detector
@@ -441,9 +441,9 @@ be altered using the ``label`` option.
 
    If running on LIGO Scientific Collaboration computing clusters the ``acounting_group`` value must
    be specified and provide a valid tag. Valid tag names can be found `here
-   <https://accounting.ligo.org/user>`_ unless custom values for a specfic cluster are allowed.
+   <https://accounting.ligo.org/user>`_ unless custom values for a specific cluster are allowed.
 
-   As stated earlier, if accessing proprietory LIGO/Virgo data on a cluster you will need to make
+   As stated earlier, if accessing proprietary LIGO/Virgo data on a cluster you will need to make
    sure to run:
 
    .. code-block:: bash

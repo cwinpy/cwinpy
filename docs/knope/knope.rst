@@ -13,7 +13,7 @@ The pipeline has two main stages:
 #. using the processed data to estimate the posterior probability
    distributions of the unknown gravitational-wave signal parameter via Bayesian inference.
 
-These stages can be run seperately via command line executables, or via their Python APIs, but can
+These stages can be run separately via command line executables, or via their Python APIs, but can
 be run together using the interface documented here. Comprehensive documentation for the
 :ref:`heterodyne<Heterodyning data>` and :ref:`parameter estimation<Known pulsar parameter
 estimation>` is provided elsewhere on this site and will be required for running the full pipeline.
@@ -35,7 +35,7 @@ up HTCondor on your own Linux machine are provided :ref:`here<Local use of HTCon
 instructions here will focus on that method. A brief description of using ``cwinpy_knope`` will be
 provided, although this should primarily be used, if required, for quick testing.
 
-For LVK users, if running on proprietory data you may need to generate a proxy certificate to allow
+For LVK users, if running on proprietary data you may need to generate a proxy certificate to allow
 the analysis script to access frame files, e.g.,:
 
 .. code:: bash

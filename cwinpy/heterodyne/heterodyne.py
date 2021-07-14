@@ -504,7 +504,7 @@ def heterodyne(**kwargs):
             value = ast.literal_eval(hetkwargs["pulsarfiles"][0])
 
             if isinstance(value, dict):
-                # swicth to passing the dictionary
+                # switch to passing the dictionary
                 hetkwargs["pulsarfiles"] = value
 
     signal.signal(signal.SIGALRM, handler=sighandler)
