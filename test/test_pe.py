@@ -869,3 +869,92 @@ class TestPE(object):
         )
 
         os.remove(configfile)
+
+    def test_fake_data_2det_2harm_dictionary_seed(self):
+        """
+        Test generation of fake data for two detectors and two harmonics when
+        specifying data seeds using dictionaries.
+        """
+
+        configfile = "config_test.ini"
+        seed = {"H1": 178203, "L1": 853451}
+
+        # Test creating fake noise for two detectors at 1f and 2f
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = [H1, L1]\n"
+            "fake-asd-1f = [1e-24, 2e-24]\n"
+            "fake-asd-2f = [2e-24, 4e-24]\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, "w") as fp:
+            fp.write(config.format(self.parfile, self.parfile, self.priorfile, seed))
+
+        fd1 = pe(config=configfile)
+
+        configH1 = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "fake-asd-1f = [H1:1e-24]\n"
+            "fake-asd-2f = [H1:2e-24]\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, "w") as fp:
+            fp.write(
+                configH1.format(
+                    self.parfile, self.parfile, self.priorfile, "[H1:sdgkg]"
+                )
+            )
+
+        # seed is not an integer
+        with pytest.raises(ValueError):
+            fdH1 = pe(config=configfile)
+
+        with open(configfile, "w") as fp:
+            fp.write(
+                configH1.format(
+                    self.parfile,
+                    self.parfile,
+                    self.priorfile,
+                    "[H1:{}]".format(seed["H1"]),
+                )
+            )
+
+        fdH1 = pe(config=configfile)
+
+        configL1 = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "fake-asd-1f = [L1:2e-24]\n"
+            "fake-asd-2f = [L1:4e-24]\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, "w") as fp:
+            fp.write(
+                configL1.format(
+                    self.parfile,
+                    self.parfile,
+                    self.priorfile,
+                    "[L1:{}]".format(seed["L1"]),
+                )
+            )
+
+        fdL1 = pe(config=configfile)
+
+        assert np.array_equal(fd1.hetdata["H1"][0].times, fdH1.hetdata["H1"][0].times)
+        assert np.array_equal(fd1.hetdata["H1"][0].times, fd1.hetdata["H1"][1].times)
+        assert np.array_equal(fd1.hetdata["L1"][0].times, fdL1.hetdata["L1"][0].times)
+        assert np.array_equal(fd1.hetdata["L1"][0].times, fdL1.hetdata["L1"][1].times)
+        assert np.array_equal(fd1.hetdata["H1"][0].data, fdH1.hetdata["H1"][0].data)
+        assert np.array_equal(fd1.hetdata["H1"][1].data, fdH1.hetdata["H1"][1].data)
+        assert np.array_equal(fd1.hetdata["L1"][0].data, fdL1.hetdata["L1"][0].data)
+        assert np.array_equal(fd1.hetdata["L1"][1].data, fdL1.hetdata["L1"][1].data)
+
+        os.remove(configfile)

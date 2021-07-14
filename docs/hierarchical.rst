@@ -28,7 +28,7 @@ where :math:`p(\mathbf{d}_i|{Q_{22}}_i,I)` is the marginalised likelihood distri
 :math:`p(\vec{\theta}|I)` is the prior on the hyperparameters.
 
 The hierarchical module in CWInPy allows the outputs of pulsar :ref:`parameter estimation<Known
-pulsar parameter estimation>` for mutiple sources to be combined to estimate the hyperparameters of
+pulsar parameter estimation>` for multiple sources to be combined to estimate the hyperparameters of
 several different potential :math:`Q_{22}` (or ellipticity) distributions. To do this it is required
 that the parameter estimation has been performed using :math:`Q_{22}` when defining the signal
 amplitude, rather than :math:`h_0`, and that the distance is either assumed to be precisely known,
@@ -213,7 +213,7 @@ Gaussian distribution with a mode a zero, but excluding negative values) for the
 :math:`\mu`, with a scale parameter :math:`\sigma = 10^{34}\,{\textrm kg}\,{\textrm m}^2` roughly
 based on the largest sustainable quadrupole deformations as described in [1]_.
 
-The first example below uses the integral evalution method that performs the integrals over
+The first example below uses the integral evaluation method that performs the integrals over
 :math:`Q_{22}` numerically with the trapezium rule, which requires the ``"numerical"`` argument, and
 uses the default nested sampling routine to draw the samples from :math:`\mu`.
 

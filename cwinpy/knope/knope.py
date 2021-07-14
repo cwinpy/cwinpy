@@ -68,13 +68,13 @@ def knope(**kwargs):
     pulsars. The main use of this function is for quick testing.
 
     This interface can be used for analysing data from multiple detectors or
-    mulitple harmonics by passing multiple heterodyne configuration settings
+    multiple harmonics by passing multiple heterodyne configuration settings
     for each case, but this in **not** recommended.
 
     Parameters
     ----------
     heterodyne_config: str, list
-        The path to a configuration file, or list of paths to mulitple
+        The path to a configuration file, or list of paths to multiple
         configuration files if using more than one detector, of the type
         required by ``cwinpy_heterodyne``.
     hetkwargs: dict, list

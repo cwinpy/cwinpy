@@ -150,4 +150,6 @@ PHI0     2.4
             )
             like2.parameters = {"h0": 1e-24}
 
-            assert like1.log_likelihood() == like2.log_likelihood()
+            assert np.allclose(
+                [like1.log_likelihood()], [like2.log_likelihood()], atol=1e-10, rtol=0.0
+            )

@@ -313,7 +313,7 @@ class HeterodyneNode(Node):
             )
 
         # add use_x509userproxy = True to pass on proxy certificate to jobs if
-        # needing access to proprietory data
+        # needing access to proprietary data
         if not self.inputs.require_gwosc:
             self.extra_lines.append("use_x509userproxy = True")
 
@@ -339,7 +339,7 @@ class HeterodyneNode(Node):
     def create_pycondor_job(self):
         """
         Overwritten version of create_pycondor_job from the bilby_pipe Node
-        class to allow for proprietory LIGO frames to be used over the OSG.
+        class to allow for proprietary LIGO frames to be used over the OSG.
         """
 
         job_name = self.job_name
@@ -356,7 +356,7 @@ class HeterodyneNode(Node):
 
         if self.universe != "local" and self.inputs.osg:
             if self.run_node_on_osg:
-                # if using LIGO accounting tag use proprietory frames on CVMFS
+                # if using LIGO accounting tag use proprietary frames on CVMFS
                 has_ligo_frames = False
                 if not self.inputs.require_gwosc and self.inputs.accounting:
                     if self.inputs.accounting[0:5] == "ligo.":
