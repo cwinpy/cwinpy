@@ -1791,21 +1791,15 @@ class PEDAGRunner(object):
 
             configdict["par_file"] = pulsardict[pname]
 
-            # data file(s)
+            # get detectors
             for freqfactor in ["1f", "2f"]:
                 if not simdata:
                     try:
-                        configdict["data_file_{}".format(freqfactor)] = datadict[pname][
-                            freqfactor
-                        ]
                         detectors = list(datadict[pname][freqfactor])
                     except KeyError:
                         pass
                 else:
                     try:
-                        configdict["fake_asd_{}".format(freqfactor)] = str(
-                            ["{}".format(det) for det in simdata[freqfactor]]
-                        )
                         detectors = list(simdata[freqfactor])
                     except KeyError:
                         pass
@@ -1882,6 +1876,31 @@ class PEDAGRunner(object):
                     else:
                         configdict["fake_seed"] = str(seeddict[dets[0]])
 
+                # set data file(s)/fake data
+                for freqfactor in ["1f", "2f"]:
+                    if not simdata:
+                        try:
+                            configdict["data_file_{}".format(freqfactor)] = {
+                                det: datadict[pname][freqfactor][det] for det in dets
+                            }
+                        except KeyError:
+                            pass
+                    else:
+                        try:
+                            if isinstance(simdata[freqfactor], list):
+                                # simdata is just a list of detector
+                                configdict["fake_asd_{}".format(freqfactor)] = str(dets)
+                            else:
+                                # simdata is a dictionary
+                                configdict["fake_asd_{}".format(freqfactor)] = str(
+                                    {
+                                        "{}:{}".format(det, simdata[freqfactor][det])
+                                        for det in dets
+                                    }
+                                )
+                        except KeyError:
+                            pass
+
                 parallel_node_list = []
                 for idx in range(inputs.n_parallel):
                     gnode = None
@@ -1890,7 +1909,7 @@ class PEDAGRunner(object):
                         gnode = []
                         if pname in generation_nodes:
                             for det in dets:
-                                gnode.append(generation_nodes[pname][det])
+                                gnode.extend(generation_nodes[pname][det])
                         else:
                             gnode = None
 

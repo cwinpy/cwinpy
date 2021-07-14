@@ -186,7 +186,7 @@ class PulsarPENode(Node):
                                 )
                             )
 
-                            # set to use only file as the transfer directory is flat
+                            # exclude full path as the transfer directory is flat
                             configdict[key][detkey] = os.path.basename(
                                 configdict[key][detkey]
                             )
@@ -197,7 +197,7 @@ class PulsarPENode(Node):
                             )
                         )
 
-                        # set to use only file as the transfer directory is flat
+                        # exclude full path as the transfer directory is flat
                         configdict[key] = os.path.basename(configdict[key])
 
             configdict["outdir"] = "results/"
