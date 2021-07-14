@@ -136,7 +136,9 @@ class PulsarPENode(Node):
         # replace any "+" in the pulsar name for the job name as Condor does
         # not allow "+"s in the name
         self.label = "{}_{}_{}".format(jobname, "".join(dets), psrname)
-        self.base_job_name = "{}_{}".format(jobname, psrname.replace("+", "plus"))
+        self.base_job_name = "{}_{}_{}".format(
+            jobname, "".join(dets), psrname.replace("+", "plus")
+        )
         if inputs.n_parallel > 1:
             self.job_name = "{}_{}".format(self.base_job_name, parallel_idx)
             self.label = "{}_{}".format(self.label, parallel_idx)

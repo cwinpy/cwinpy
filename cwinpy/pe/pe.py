@@ -1886,8 +1886,8 @@ class PEDAGRunner(object):
                 for idx in range(inputs.n_parallel):
                     gnode = None
                     if isinstance(generation_nodes, dict):
-                        gnode = []
                         # get generation nodes for all required detectors
+                        gnode = []
                         if pname in generation_nodes:
                             for det in dets:
                                 gnode.append(generation_nodes[pname][det])
