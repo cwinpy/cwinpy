@@ -4,11 +4,16 @@ Code comparison
 
 Here we document comparisons between the analysis produced using CWInPy compared with the
 `LALSuite
-<https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalapps_pulsar_parameter_estimation_nested``, which
-is described in Pitkin et al., `arXiv:1705.08978v1 <https://arxiv.org/abs/1705.08978v1>`_.
+<https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalapps_pulsar_parameter_estimation_nested``,
+and the full pipeline generation code ``lalapps_knope``, which
+are described in [1]_.Pitkin et al., `arXiv:1705.08978v1 <https://arxiv.org/abs/1705.08978v1>`_.
 
-The codes will be run on identical data and in configurations that are as close as possible. Links
-to the various comparisons are given below:
+The codes will be run on identical data and in configurations that are as close as possible.
+
+Parameter estimation comparison
+===============================
+
+Links to the various direct comparisons of pulsar parameter estimation are given below:
 
 .. toctree::
    :maxdepth: 1
@@ -31,7 +36,7 @@ Posterior credible interval checks
 ==================================
 
 Another test of the code is to check that the posterior credible intervals resulting from any
-analysis correctly ascribe probability, i.e., that they are "well calibrated" [1]_. To do this one
+analysis correctly ascribe probability, i.e., that they are "well calibrated" [2]_. To do this one
 can create a set of simulated signal with true parameters drawn from a particular prior, and then
 use the code to sample the posterior probability distribution over the parameter space for each
 parameter using the *same* prior. Using the one-dimensional marginalised posteriors for each
@@ -40,7 +45,8 @@ signal parameter lies. If the credible intervals are correct you would expect, e
 true parameter in the 1% credible interval for 1% of the simulations, the true parameter within the
 50% credible interval for 50% of the simulations, etc. A plot of the credible interval versus the
 percentage of true signal values found within that credible interval is known within the
-gravitational-wave community colloquially as a "PP plot" (see, e.g., Section VC of [2]_).
+gravitational-wave community colloquially as a "PP plot" (see, e.g., Section VC of [3]_). This is
+also more generally known as "Simulated-based calibration" [4]_.
 
 These tests have been performed in the output of ``cwinpy_knope`` by generating a set of simulated
 signals (using the :class:`cwinpy.knope.testing.KnopePPPlotsDAG`) to be analysed. After all the
@@ -114,12 +120,57 @@ The distributions of signal-to-noise ratios for these simulations is:
    :language: python
    :lines: 1-45,49-58,61-64,66-67
 
-Comparison References
----------------------
+Pipeline comparison
+===================
 
-.. [1] `A. P. Dawid
+We can compare the results of the full pipeline produced by the `LALSuite
+<https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalapps_knope`` with that produced using the CWInPy
+code ``cwinpy_knope_dag``. We will do this comparison by analysing the set of
+:ref:`<Hardware injections>` and analysis of real pulsar data using open data from the two LIGO
+detectors during the `first advanced LIGO observing run <https://www.gw-openscience.org/O1/>`_
+(O1). 
+
+O1 hardware injections
+----------------------
+
+To analysis the 15 hardware injections in O1 using the ``lalapps_knope`` pipeline, the following
+configuration file (named ``lalapps_knope_O1injections.ini``) has been used:
+
+.. literalinclude:: knope/lalapps_knope_O1injections.ini
+
+This has then been submitted (on the `UWM Nemo computing cluster
+<https://cgca.uwm.edu/datacenter.html>`_) with:
+
+>>> lalapps_knope lalapps_knope_O1injections.ini
+
+To perform the analysis using CWInPy, the :ref:`<Quick setup>` has been used:
+
+>>> cwinpy_knope_dag --run O1 --hwinj --output /home/matthew/cwinpy_knpoe/O1injections --accounting-group-tag ligo.dev.o1.cw.targeted.bayesian
+
+.. note::
+
+   Because these analyses used LVK computing resources the
+   ``accounting_group`` / ``--accounting-group-tag`` inputs have had to be set.
+
+In terms of total `wall-clock time <https://en.wikipedia.org/wiki/Elapsed_real_time#:~:text=Elapsed%20real%20time%2C%20real%20time,at%20which%20the%20task%20started.>`_
+the ``lalapps_knope`` pipeline took X hours versus Y hours for ``cwinpy_knope_dag``.
+
+Heterodyned data comparison
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Parameter comparison
+^^^^^^^^^^^^^^^^^^^^
+
+Comparison References
+=====================
+
+.. [1]  M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
+   <https:arxiv.org/abs/1705.08978v1>`_, 2017.
+.. [2] `A. P. Dawid
    <https://www.tandfonline.com/doi/abs/10.1080/01621459.1982.10477856>`_, *Journal of the
    American Statistical Association*, **77**, 379 (1982).
-.. [2] `J. Veitch et al.
+.. [3] `J. Veitch et al.
    <https://ui.adsabs.harvard.edu/abs/2015PhRvD..91d2003V/abstract>`_,
    *PRD*, **91**, 042003 (2015)
+.. [4] S. Talts, M. Betancourt, D. Simpson, A. Vehtari & A. Gelman, `arXiv:1804.06788
+   <https:arxiv.org/abs/1804.06788>`_, 2018.
