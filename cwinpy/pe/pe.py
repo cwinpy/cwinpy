@@ -61,9 +61,13 @@ continuous gravitational-wave signal from a known pulsar."""
     pulsarparser = parser.add_argument_group("Pulsar inputs")
     pulsarparser.add(
         "--par-file",
-        required=True,
         type=str,
-        help=("The path to a TEMPO(2) style file containing the pulsar parameters."),
+        help=(
+            "The path to a TEMPO(2) style file containing the pulsar "
+            "parameters. This is required unless the supplied data files are "
+            "HDF5 files containing HeterodynedData objects that contain the "
+            "pulsar parameters."
+        ),
     )
 
     dataparser = parser.add_argument_group("Data inputs")
@@ -367,6 +371,15 @@ continuous gravitational-wave signal from a known pulsar."""
             "the appropriate file."
         ),
     )
+    ephemparser.add(
+        "--ephem-time",
+        type=str,
+        help=(
+            "The path to a file providing the time correction "
+            "ephemeris. If not supplied, the code will attempt to "
+            "automatically find the appropriate file."
+        ),
+    )
 
     return parser
 
@@ -406,9 +419,7 @@ class PERunner(object):
         # keyword arguments for creating the HeterodynedData objects
         self.datakwargs = kwargs.get("data_kwargs", {})
 
-        if "par_file" not in kwargs:
-            raise KeyError("A pulsar parameter file must be provided")
-        else:
+        if "par_file" in kwargs:
             self.datakwargs["par"] = kwargs["par_file"]
 
         # injection parameters
@@ -431,6 +442,7 @@ class PERunner(object):
         # get solar system ephemeris information if provided
         self.datakwargs.setdefault("ephemearth", kwargs.get("ephem_earth", None))
         self.datakwargs.setdefault("ephemsun", kwargs.get("ephem_sun", None))
+        self.datakwargs.setdefault("ephemtime", kwargs.get("ephem_time", None))
 
         # data parameters
         if "detector" in kwargs:
@@ -554,6 +566,16 @@ class PERunner(object):
                     for det in list(self.hetdata.detectors):
                         if det not in detectors:
                             self.hetdata.pop(det)
+
+                # if no par file was given check that the read in data contains
+                # the par information
+                if "par_file" not in kwargs:
+                    for det in detectors:
+                        for hd in self.hetdata[det]:
+                            if hd.par is None:
+                                raise ValueError(
+                                    "No pulsar parameter information provided"
+                                )
 
         # set fake data
         detectors = None if resetdetectors else detectors
@@ -1386,22 +1408,22 @@ class PEDAGRunner(object):
         # get any additional submission options
         self.submit_options = config.get(dagsection, "submit_options", fallback=None)
 
+        # check for required configuration file sections
+        for section in ["pe", "ephemerides"]:
+            if not config.has_section(section):
+                raise IOError(f"Configuration file must have a [{section}] section.")
+
         # create configurations for each cwinpy_pe job
-        if config.has_section("pe"):
-            # get the paths to the pulsar parameter files
-            parfiles = config.get("pe", "pulsars", fallback=None)
+        # get the paths to the pulsar parameter files
+        parfiles = config.get("ephemerides", "pulsars", fallback=None)
 
-            if parfiles is None:
-                raise ValueError(
-                    "Configuration must contain a set of pulsar parameter files"
-                )
-
-            # the "pulsars" option in the [pe] section can either be:
-            #  - the path to a single file
-            #  - a list of parameter files
-            #  - a directory (or glob-able directory pattern) containing parameter files
-            #  - a combination of a list of directories and/or files
-            # All files must have the extension '.par'
+        # the "pulsars" option in the [ephemerides] section can either be:
+        #  - the path to a single file
+        #  - a list of parameter files
+        #  - a directory (or glob-able directory pattern) containing parameter files
+        #  - a combination of a list of directories and/or files
+        # All files must have the extension '.par'
+        if parfiles is not None:
             parfiles = self.eval(parfiles)
             if not isinstance(parfiles, list):
                 parfiles = [parfiles]
@@ -1441,223 +1463,269 @@ class PEDAGRunner(object):
                             "ignored".format(pulsar)
                         )
 
-            # the "injections" option in the [pe] section can be specified
-            # in the same way as the "pulsars" option
-            # get paths to pulsar injection files
-            injfiles = config.get("pe", "injections", fallback=None)
-            if injfiles is not None:
-                injfiles = self.eval(injfiles)
-                if not isinstance(injfiles, list):
-                    injfiles = [injfiles]
+        # the "injections" option in the [ephemerides] section can be specified
+        # in the same way as the "pulsars" option
+        # get paths to pulsar injection files
+        injfiles = config.get("ephemerides", "injections", fallback=None)
+        if injfiles is not None:
+            injfiles = self.eval(injfiles)
+            if not isinstance(injfiles, list):
+                injfiles = [injfiles]
 
-                injections = []
-                for injfile in injfiles:
-                    # add "*.par" wildcard to any directories
-                    if os.path.isdir(injfile):
-                        injfile = os.path.join(injfile, "*.par")
+            injections = []
+            for injfile in injfiles:
+                # add "*.par" wildcard to any directories
+                if os.path.isdir(injfile):
+                    injfile = os.path.join(injfile, "*.par")
 
-                    # get all parameter files
-                    injections.extend(
-                        [
-                            inj
-                            for inj in glob.glob(injfile)
-                            if os.path.splitext(inj)[1] == ".par"
-                        ]
-                    )
+                # get all parameter files
+                injections.extend(
+                    [
+                        inj
+                        for inj in glob.glob(injfile)
+                        if os.path.splitext(inj)[1] == ".par"
+                    ]
+                )
 
-                injdict = {}
-                for inj in injections:
-                    if is_par_file(inj):
-                        psr = PulsarParametersPy(inj)
+            injdict = {}
+            for inj in injections:
+                if is_par_file(inj):
+                    psr = PulsarParametersPy(inj)
 
-                        # try names with order or precedence
-                        names = [
-                            psr[name]
-                            for name in ["PSRJ", "PSRB", "PSR", "NAME"]
-                            if psr[name] is not None
-                        ]
-                        if len(names) > 0:
-                            injdict[names[0]] = inj
-                        else:
-                            warnings.warn(
-                                "Parameter file '{}' has no name, so it will "
-                                "be ignored".format(inj)
-                            )
-
-            # the "data-file-1f" and "data-file-2f" options in the [pe]
-            # section specify the locations of heterodyned data files at the
-            # rotation frequency and twice the rotation frequency of each
-            # source. It is expected that the heterodyned file names
-            # contain the name of the pulsar (based on the "PSRJ" name in the
-            # associated parameter file). The option should be a dictionary
-            # with keys being the detector name for the data sets. If a
-            # "data-file" option is given it is assumed to be for data at twice
-            # the rotation frequency.
-            datafiles1f = config.get("pe", "data-file-1f", fallback=None)
-            datafiles2fdefault = config.get("pe", "data-file", fallback=None)
-            datafiles2f = config.get("pe", "data-file-2f", fallback=datafiles2fdefault)
-
-            # the "fake-asd-1f" and "fake-asd-2f" options in the [pe]
-            # section specify amplitude spectral densities with which to
-            # generate simulated Gaussian data for a given detector. If this is
-            # a list of detectors then the design ASDs for the given detectors
-            # will be used, otherwise it should be a dictionary keyed to
-            # detector names, each giving an ASD value, or file from which the
-            # ASD can be read. If a "fake-asd" option is given it is assumed to
-            # be for data at twice the rotation frequency.
-            fakeasd1f = config.get("pe", "fake-asd-1f", fallback=None)
-            fakeasd2fdefault = config.get("pe", "fake-asd", fallback=None)
-            fakeasd2f = config.get("pe", "fake-asd-2f", fallback=fakeasd2fdefault)
-            simdata = {}
-
-            if datafiles1f is not None or datafiles2f is not None:
-                detectors1f = None
-                if datafiles1f is not None:
-                    datafiles1f = self.eval(datafiles1f)
-
-                    if not isinstance(datafiles1f, dict):
-                        raise TypeError("Data files must be specified in a dictionary")
-
-                    detectors1f = sorted(list(datafiles1f.keys()))
-
-                detectors2f = None
-                if datafiles2f is not None:
-                    datafiles2f = self.eval(datafiles2f)
-
-                    if not isinstance(datafiles2f, dict):
-                        raise TypeError("Data files must be specified in a dictionary")
-
-                    detectors2f = sorted(list(datafiles2f.keys()))
-
-                if detectors1f != detectors2f and datafiles1f and datafiles2f:
-                    raise IOError("Inconsistent detectors given for data sets")
-
-                detectors = detectors2f if detectors2f else detectors1f
-
-                # get lists of data files. For each detector the passed files could
-                # be a single file, a list of files, a glob-able directory path
-                # containing the files, or a dictionary keyed to the pulsar names.
-                datadict = {pname: {} for pname in pulsardict.keys()}
-
-                for datafilesf, freqfactor in zip(
-                    [datafiles1f, datafiles2f], ["1f", "2f"]
-                ):
-                    if datafilesf is None:
-                        continue
+                    # try names with order or precedence
+                    names = [
+                        psr[name]
+                        for name in ["PSRJ", "PSRB", "PSR", "NAME"]
+                        if psr[name] is not None
+                    ]
+                    if len(names) > 0:
+                        injdict[names[0]] = inj
                     else:
-                        for pname in pulsardict.keys():
-                            datadict[pname][freqfactor] = {}
+                        warnings.warn(
+                            "Parameter file '{}' has no name, so it will "
+                            "be ignored".format(inj)
+                        )
 
-                    for det in detectors:
-                        dff = []
-                        datafiles = datafilesf[det]
+        # the "data-file-1f" and "data-file-2f" options in the [pe]
+        # section specify the locations of heterodyned data files at the
+        # rotation frequency and twice the rotation frequency of each
+        # source. It is expected that the heterodyned file names
+        # contain the name of the pulsar (based on the "PSRJ" name in the
+        # associated parameter file). The option should be a dictionary
+        # with keys being the detector name for the data sets. If a
+        # "data-file" option is given it is assumed to be for data at twice
+        # the rotation frequency.
+        datafiles1f = config.get("pe", "data-file-1f", fallback=None)
+        datafiles2fdefault = config.get("pe", "data-file", fallback=None)
+        datafiles2f = config.get("pe", "data-file-2f", fallback=datafiles2fdefault)
 
-                        if isinstance(datafiles, dict):
-                            # dictionary of files, with one for each pulsar
-                            for pname in pulsardict.keys():
-                                if pname in datafiles:
-                                    datadict[pname][freqfactor][det] = datafiles[pname]
-                            continue
+        # the "fake-asd-1f" and "fake-asd-2f" options in the [pe]
+        # section specify amplitude spectral densities with which to
+        # generate simulated Gaussian data for a given detector. If this is
+        # a list of detectors then the design ASDs for the given detectors
+        # will be used, otherwise it should be a dictionary keyed to
+        # detector names, each giving an ASD value, or file from which the
+        # ASD can be read. If a "fake-asd" option is given it is assumed to
+        # be for data at twice the rotation frequency.
+        fakeasd1f = config.get("pe", "fake-asd-1f", fallback=None)
+        fakeasd2fdefault = config.get("pe", "fake-asd", fallback=None)
+        fakeasd2f = config.get("pe", "fake-asd-2f", fallback=fakeasd2fdefault)
+        simdata = {}
 
-                        if not isinstance(datafiles, list):
-                            datafiles = [datafiles]
+        if datafiles1f is not None or datafiles2f is not None:
+            detectors1f = None
+            if datafiles1f is not None:
+                datafiles1f = self.eval(datafiles1f)
 
-                        for datafile in datafiles:
-                            # add "*" wildcard to any directories
-                            if os.path.isdir(datafile):
-                                datafile = os.path.join(datafile, "*")
+                if not isinstance(datafiles1f, dict):
+                    raise TypeError("Data files must be specified in a dictionary")
 
-                            # get all data files
-                            dff.extend(
-                                [
-                                    dat
-                                    for dat in glob.glob(datafile)
-                                    if os.path.isfile(dat)
-                                ]
-                            )
+                detectors1f = sorted(list(datafiles1f.keys()))
 
-                        if len(dff) == 0:
-                            raise ValueError("No data files found!")
+            detectors2f = None
+            if datafiles2f is not None:
+                datafiles2f = self.eval(datafiles2f)
 
-                        # check file name contains the name of a supplied pulsar
-                        for pname in pulsardict:
-                            for datafile in dff:
-                                if pname in datafile:
-                                    if det not in datadict[pname][freqfactor]:
-                                        datadict[pname][freqfactor][det] = datafile
-                                    else:
-                                        print(
-                                            "Duplicate pulsar '{}' data. Ignoring "
-                                            "duplicate.".format(pname)
-                                        )
-            elif fakeasd1f is not None or fakeasd2f is not None:
-                # set to use simulated data
-                if fakeasd1f is not None:
-                    simdata["1f"] = self.eval(fakeasd1f)
+                if not isinstance(datafiles2f, dict):
+                    raise TypeError("Data files must be specified in a dictionary")
 
-                if fakeasd2f is not None:
-                    simdata["2f"] = self.eval(fakeasd2f)
-            else:
-                raise IOError("No data set for use")
+                detectors2f = sorted(list(datafiles2f.keys()))
 
-            if simdata:
-                # get the start time, end time and time step if given
-                fakestart = config.get("pe", "fake-start", fallback=None)
-                fakeend = config.get("pe", "fake-end", fallback=None)
-                fakedt = config.get("pe", "fake-dt", fallback=None)
-                fakeseed = config.get("pe", "fake-seed", fallback=None)
-                if fakeseed is not None:
-                    fakeseed = self.eval(fakeseed)
-            else:
-                fakeseed = None
+            if detectors1f != detectors2f and datafiles1f and datafiles2f:
+                raise IOError("Inconsistent detectors given for data sets")
 
-            # set some default bilby-style priors
-            DEFAULTPRIORS2F = (
-                "h0 = Uniform(minimum=0.0, maximum=1.0e-22, name='h0', latex_label='$h_0$')\n"
-                "phi0 = Uniform(minimum=0.0, maximum={pi}, name='phi0', latex_label='$\\phi_0$', unit='rad')\n"
-                "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
-                "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
-            ).format(**{"pi": np.pi, "pi_2": (np.pi / 2.0)})
+            detectors = detectors2f if detectors2f else detectors1f
 
-            DEFAULTPRIORS1F = (
-                "c21 = Uniform(minimum=0.0, maximum=1.0e-22, name='c21', latex_label='$C_{{21}}$')\n"
-                "phi21 = Uniform(minimum=0.0, maximum={2pi}, name='phi21', latex_label='$\\Phi_{{21}}$', unit='rad')\n"
-                "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
-                "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
-            ).format(**{"2pi": 2.0 * np.pi, "pi": np.pi, "pi_2": (np.pi / 2.0)})
+            # try getting pulsar names from data file dictionaries if "pulsars"
+            # was not specified in the configuration file
+            if len(pulsardict) == 0:
+                for datafiles in [datafiles1f, datafiles2f]:
+                    try:
+                        pulsardict = {
+                            pname: pname for pname in datafiles[detectors[0]].keys()
+                        }
+                    except (TypeError, KeyError):
+                        pass
 
-            DEFAULTPRIORS1F2F = (
-                "c21 = Uniform(minimum=0.0, maximum=1.0e-22, name='c21', latex_label='$C_{{21}}$')\n"
-                "c22 = Uniform(minimum=0.0, maximum=1.0e-22, name='c22', latex_label='$C_{{22}}$')\n"
-                "phi21 = Uniform(minimum=0.0, maximum={2pi}, name='phi21', latex_label='$\\Phi_{{21}}$', unit='rad')\n"
-                "phi22 = Uniform(minimum=0.0, maximum={2pi}, name='phi22', latex_label='$\\Phi_{{22}}$', unit='rad')\n"
-                "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
-                "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
-            ).format(**{"2pi": 2.0 * np.pi, "pi": np.pi, "pi_2": (np.pi / 2.0)})
+                    if len(pulsardict) > 0:
+                        break
 
-            # get priors (if none are specified use the defaults)
-            priors = config.get("pe", "priors", fallback=None)
+                if len(pulsardict) == 0:
+                    raise ValueError("No pulsars specified")
 
-            # "priors" can be a file, list of files, directory containing files,
-            # glob-able path pattern to a set of files, or a dictionary of files
-            # keyed to pulsar names. If all case bar a single file, or a
-            # dictionary of keyed files, it is expected that the prior file name
-            # contains the PSRJ name of the associated pulsar.
-            if priors is not None:
-                priors = self.eval(priors)
+            # get lists of data files. For each detector the passed files could
+            # be a single file, a list of files, a glob-able directory path
+            # containing the files, or a dictionary keyed to the pulsar names.
+            datadict = {pname: {} for pname in pulsardict.keys()}
 
-                if isinstance(priors, dict):
-                    priorfiles = priors
+            for datafilesf, freqfactor in zip([datafiles1f, datafiles2f], ["1f", "2f"]):
+                if datafilesf is None:
+                    continue
                 else:
-                    if isinstance(priors, list):
-                        allpriors = []
-                        for priorfile in priors:
-                            # add "*" wildcard to directories
-                            if os.path.isdir(priorfile):
-                                priorfile = os.path.join(priorfile, "*")
+                    for pname in pulsardict.keys():
+                        datadict[pname][freqfactor] = {}
 
-                            # get all prior files
-                            allpriors.extend([pf for pf in glob.glob(priorfile)])
+                for det in detectors:
+                    dff = []
+                    datafiles = datafilesf[det]
+
+                    if isinstance(datafiles, dict):
+                        # dictionary of files, with one for each pulsar
+                        for pname in pulsardict.keys():
+                            if pname in datafiles:
+                                datadict[pname][freqfactor][det] = datafiles[pname]
+                        continue
+
+                    if not isinstance(datafiles, list):
+                        datafiles = [datafiles]
+
+                    for datafile in datafiles:
+                        # add "*" wildcard to any directories
+                        if os.path.isdir(datafile):
+                            datafile = os.path.join(datafile, "*")
+
+                        # get all data files
+                        dff.extend(
+                            [dat for dat in glob.glob(datafile) if os.path.isfile(dat)]
+                        )
+
+                    if len(dff) == 0:
+                        raise ValueError("No data files found!")
+
+                    # check file name contains the name of a supplied pulsar
+                    for pname in pulsardict:
+                        for datafile in dff:
+                            if pname in datafile:
+                                if det not in datadict[pname][freqfactor]:
+                                    datadict[pname][freqfactor][det] = datafile
+                                else:
+                                    print(
+                                        "Duplicate pulsar '{}' data. Ignoring "
+                                        "duplicate.".format(pname)
+                                    )
+        elif fakeasd1f is not None or fakeasd2f is not None:
+            # set to use simulated data
+            if fakeasd1f is not None:
+                simdata["1f"] = self.eval(fakeasd1f)
+
+            if fakeasd2f is not None:
+                simdata["2f"] = self.eval(fakeasd2f)
+        else:
+            raise IOError("No data set for use")
+
+        if simdata:
+            # get the start time, end time and time step if given
+            fakestart = config.get("pe", "fake-start", fallback=None)
+            fakeend = config.get("pe", "fake-end", fallback=None)
+            fakedt = config.get("pe", "fake-dt", fallback=None)
+            fakeseed = config.get("pe", "fake-seed", fallback=None)
+            if fakeseed is not None:
+                fakeseed = self.eval(fakeseed)
+        else:
+            fakeseed = None
+
+        # set some default bilby-style priors
+        DEFAULTPRIORS2F = (
+            "h0 = Uniform(minimum=0.0, maximum=1.0e-22, name='h0', latex_label='$h_0$')\n"
+            "phi0 = Uniform(minimum=0.0, maximum={pi}, name='phi0', latex_label='$\\phi_0$', unit='rad')\n"
+            "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
+            "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
+        ).format(**{"pi": np.pi, "pi_2": (np.pi / 2.0)})
+
+        DEFAULTPRIORS1F = (
+            "c21 = Uniform(minimum=0.0, maximum=1.0e-22, name='c21', latex_label='$C_{{21}}$')\n"
+            "phi21 = Uniform(minimum=0.0, maximum={2pi}, name='phi21', latex_label='$\\Phi_{{21}}$', unit='rad')\n"
+            "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
+            "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
+        ).format(**{"2pi": 2.0 * np.pi, "pi": np.pi, "pi_2": (np.pi / 2.0)})
+
+        DEFAULTPRIORS1F2F = (
+            "c21 = Uniform(minimum=0.0, maximum=1.0e-22, name='c21', latex_label='$C_{{21}}$')\n"
+            "c22 = Uniform(minimum=0.0, maximum=1.0e-22, name='c22', latex_label='$C_{{22}}$')\n"
+            "phi21 = Uniform(minimum=0.0, maximum={2pi}, name='phi21', latex_label='$\\Phi_{{21}}$', unit='rad')\n"
+            "phi22 = Uniform(minimum=0.0, maximum={2pi}, name='phi22', latex_label='$\\Phi_{{22}}$', unit='rad')\n"
+            "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
+            "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
+        ).format(**{"2pi": 2.0 * np.pi, "pi": np.pi, "pi_2": (np.pi / 2.0)})
+
+        # get priors (if none are specified use the defaults)
+        priors = config.get("pe", "priors", fallback=None)
+
+        # "priors" can be a file, list of files, directory containing files,
+        # glob-able path pattern to a set of files, or a dictionary of files
+        # keyed to pulsar names. If all case bar a single file, or a
+        # dictionary of keyed files, it is expected that the prior file name
+        # contains the PSRJ name of the associated pulsar.
+        if priors is not None:
+            priors = self.eval(priors)
+
+            if isinstance(priors, dict):
+                priorfiles = priors
+            else:
+                if isinstance(priors, list):
+                    allpriors = []
+                    for priorfile in priors:
+                        # add "*" wildcard to directories
+                        if os.path.isdir(priorfile):
+                            priorfile = os.path.join(priorfile, "*")
+
+                        # get all prior files
+                        allpriors.extend([pf for pf in glob.glob(priorfile)])
+
+                    # sort allpriors by base filename (to hopefully avoid clashes)
+                    allpriors = [
+                        pfs[1]
+                        for pfs in sorted(
+                            zip(
+                                [os.path.basename(pf) for pf in allpriors],
+                                allpriors,
+                            )
+                        )
+                    ]
+
+                    priorfiles = {}
+                    for pname in pulsardict.keys():
+                        for i, priorfile in enumerate(list(allpriors)):
+                            if pname in priorfile:
+                                if pname not in priorfiles:
+                                    priorfiles[pname] = priorfile
+                                    del allpriors[i]
+                                    break
+                                else:
+                                    warnings.warn(
+                                        "Duplicate prior '{}' data. Ignoring "
+                                        "duplicate.".format(pname)
+                                    )
+                elif isinstance(priors, str):
+                    if os.path.isfile(priors):
+                        priorfiles = {psr: priors for psr in pulsardict.keys()}
+                    elif os.path.isdir(priors):
+                        # add * wildcard to directories (if not already present)
+                        if priors[-1] != "*":
+                            priorfile = os.path.join(priors, "*")
+                        else:
+                            priorfile = priors
+                        allpriors = [pf for pf in glob.glob(priorfile)]
 
                         # sort allpriors by base filename (to hopefully avoid clashes)
                         allpriors = [
@@ -1683,103 +1751,66 @@ class PEDAGRunner(object):
                                             "Duplicate prior '{}' data. Ignoring "
                                             "duplicate.".format(pname)
                                         )
-                    elif isinstance(priors, str):
-                        if os.path.isfile(priors):
-                            priorfiles = {psr: priors for psr in pulsardict.keys()}
-                        elif os.path.isdir(priors):
-                            # add * wildcard to directories (if not already present)
-                            if priors[-1] != "*":
-                                priorfile = os.path.join(priors, "*")
-                            else:
-                                priorfile = priors
-                            allpriors = [pf for pf in glob.glob(priorfile)]
-
-                            # sort allpriors by base filename (to hopefully avoid clashes)
-                            allpriors = [
-                                pfs[1]
-                                for pfs in sorted(
-                                    zip(
-                                        [os.path.basename(pf) for pf in allpriors],
-                                        allpriors,
-                                    )
-                                )
-                            ]
-
-                            priorfiles = {}
-                            for pname in pulsardict.keys():
-                                for i, priorfile in enumerate(list(allpriors)):
-                                    if pname in priorfile:
-                                        if pname not in priorfiles:
-                                            priorfiles[pname] = priorfile
-                                            del allpriors[i]
-                                            break
-                                        else:
-                                            warnings.warn(
-                                                "Duplicate prior '{}' data. Ignoring "
-                                                "duplicate.".format(pname)
-                                            )
-                        else:
-                            raise ValueError(
-                                "Prior file '{}' does not exist".format(priors)
-                            )
                     else:
-                        raise TypeError("Prior type is no recognised")
-            else:
-                # use default priors
-                priorfile = os.path.join(inputs.outdir, "prior.txt")
-
-                with open(priorfile, "w") as fp:
-                    if datafiles1f is not None and datafiles2f is not None:
-                        fp.write(DEFAULTPRIORS1F2F)
-                    elif datafiles2f is not None:
-                        fp.write(DEFAULTPRIORS2F)
-                    else:
-                        fp.write(DEFAULTPRIORS1F)
-
-                priorfiles = {psr: priorfile for psr in pulsardict.keys()}
-
-            # check prior and data exist for the same pulsar, if not remove
-            priornames = list(priorfiles.keys())
-            datanames = list(datadict.keys()) if not simdata else priornames
-
-            for pname in list(pulsardict.keys()):
-                if pname in priornames and pname in datanames:
-                    continue
+                        raise ValueError(
+                            "Prior file '{}' does not exist".format(priors)
+                        )
                 else:
-                    print(
-                        "Removing pulsar '{}' as either no data, or no prior "
-                        "is given".format(pname)
-                    )
-                    if pname in datanames:
-                        datadict.pop(pname)
-                    if pname in priornames:
-                        priorfiles.pop(pname)
-
-                    if pname in pulsardict:
-                        pulsardict.pop(pname)
-
-            # output the SNRs (injected and recovered)
-            outputsnr = config.getboolean("pe", "output_snr", fallback=False)
-
-            # get the sampler (default is dynesty)
-            sampler = config.get("pe", "sampler", fallback="dynesty")
-
-            # get the sampler keyword arguments
-            samplerkwargs = config.get("pe", "sampler_kwargs", fallback=None)
-
-            # get whether to use numba (default to True in DAG)
-            disablenumba = config.getboolean("pe", "disable-numba", fallback=False)
-
-            # get ephemeris files if given
-            earthephem = self.eval(config.get("pe", "ephem-earth", fallback=None))
-            sunephem = self.eval(config.get("pe", "ephem-sun", fallback=None))
-
-            # get whether to perform PE coherently for multiple detectors and/or
-            # for each detector independently
-            coherent = config.getboolean("pe", "coherent", fallback=True)
-            incoherent = config.getboolean("pe", "incoherent", fallback=False)
+                    raise TypeError("Prior type is no recognised")
         else:
-            raise IOError("Configuration file must have a [pe] section.")
+            # use default priors
+            priorfile = os.path.join(inputs.outdir, "prior.txt")
+
+            with open(priorfile, "w") as fp:
+                if datafiles1f is not None and datafiles2f is not None:
+                    fp.write(DEFAULTPRIORS1F2F)
+                elif datafiles2f is not None:
+                    fp.write(DEFAULTPRIORS2F)
+                else:
+                    fp.write(DEFAULTPRIORS1F)
+
+            priorfiles = {psr: priorfile for psr in pulsardict.keys()}
+
+        # check prior and data exist for the same pulsar, if not remove
+        priornames = list(priorfiles.keys())
+        datanames = list(datadict.keys()) if not simdata else priornames
+
+        for pname in list(pulsardict.keys()):
+            if pname in priornames and pname in datanames:
+                continue
+            else:
+                print(
+                    "Removing pulsar '{}' as either no data, or no prior "
+                    "is given".format(pname)
+                )
+                if pname in datanames:
+                    datadict.pop(pname)
+                if pname in priornames:
+                    priorfiles.pop(pname)
+                if pname in pulsardict:
+                    pulsardict.pop(pname)
+
+        # output the SNRs (injected and recovered)
+        outputsnr = config.getboolean("pe", "output_snr", fallback=False)
+
+        # get the sampler (default is dynesty)
+        sampler = config.get("pe", "sampler", fallback="dynesty")
+
+        # get the sampler keyword arguments
+        samplerkwargs = config.get("pe", "sampler_kwargs", fallback=None)
+
+        # get whether to use numba (default to True in DAG)
+        disablenumba = config.getboolean("pe", "disable-numba", fallback=False)
+
+        # get ephemeris files if given
+        earthephem = self.eval(config.get("ephemerides", "earth", fallback=None))
+        sunephem = self.eval(config.get("ephemerides", "sun", fallback=None))
+        timeephem = self.eval(config.get("ephemerides", "time", fallback=None))
+
+        # get whether to perform PE coherently for multiple detectors and/or
+        # for each detector independently
+        coherent = config.getboolean("pe", "coherent", fallback=True)
+        incoherent = config.getboolean("pe", "incoherent", fallback=False)
 
         if len(pulsardict) == 0:
             raise ValueError("No pulsars have been specified!")
@@ -1789,7 +1820,8 @@ class PEDAGRunner(object):
             # create dictionary of configuration outputs
             configdict = {}
 
-            configdict["par_file"] = pulsardict[pname]
+            if is_par_file(pulsardict[pname]):
+                configdict["par_file"] = pulsardict[pname]
 
             # get detectors
             for freqfactor in ["1f", "2f"]:
@@ -1820,7 +1852,8 @@ class PEDAGRunner(object):
                 configdict["output_snr"] = "True"
 
             for ephem, ephemname in zip(
-                [earthephem, sunephem], ["ephem_earth", "ephem_sun"]
+                [earthephem, sunephem, timeephem],
+                ["ephem_earth", "ephem_sun", "ephem_time"],
             ):
                 if ephem is not None:
                     if isinstance(ephem, dict):

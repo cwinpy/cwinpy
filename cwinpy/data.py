@@ -821,6 +821,9 @@ class HeterodynedData(TimeSeriesBase):
         The path to the Earth ephemeris used for the signal phase model.
     ephemsun: str, None
         The path to the Sun ephemeris used for the signal phase model.
+    ephemtime: str, None
+        The path to the time correction ephemeris used for the signal phase
+        model.
     """
 
     # set some default detector color maps for plotting
@@ -883,6 +886,7 @@ class HeterodynedData(TimeSeriesBase):
         comments="",
         ephemearth=None,
         ephemsun=None,
+        ephemtime=None,
         **kwargs,
     ):
         stds = None  # initialise standard deviations
@@ -1020,7 +1024,7 @@ class HeterodynedData(TimeSeriesBase):
             new.add_noise(fakeasd, issigma=issigma, seed=fakeseed)
 
         # set solar system ephemeris files if provided
-        new.set_ephemeris(ephemearth, ephemsun)
+        new.set_ephemeris(ephemearth, ephemsun, ephemtime)
 
         # set and add a simulated signal
         if bool(inject):
@@ -1658,7 +1662,7 @@ class HeterodynedData(TimeSeriesBase):
         else:
             return False
 
-    def set_ephemeris(self, earth=None, sun=None):
+    def set_ephemeris(self, earth=None, sun=None, time=None):
         """
         Set the solar system ephemeris and time correction files.
 
@@ -1672,9 +1676,13 @@ class HeterodynedData(TimeSeriesBase):
             The Sun ephemeris file used for the phase model. Defaults to
             None, in which case the ephemeris files will be determined from the
             pulsar parameter file information.
+        time: str, None
+            The time correction ephemeris file used for the phase model.
+            Defaults to None, in which case the ephemeris files will be
+            determined from the pulsar parameter file information.
         """
 
-        efiles = [earth, sun]
+        efiles = [earth, sun, time]
 
         for ef in efiles:
             if ef is None:
@@ -1687,6 +1695,7 @@ class HeterodynedData(TimeSeriesBase):
 
         self.ephemearth = efiles[0]
         self.ephemsun = efiles[1]
+        self.ephemtime = efiles[2]
 
     @property
     def injection_data(self):
@@ -1766,6 +1775,7 @@ class HeterodynedData(TimeSeriesBase):
             times=self.times,
             earth_ephem=self.ephemearth,
             sun_ephem=self.ephemsun,
+            time_corr=self.ephemtime,
         )
 
         # get the injection

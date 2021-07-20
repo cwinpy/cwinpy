@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pytest
 from bilby.core.prior import PriorDict
+from cwinpy.data import HeterodynedData
 from cwinpy.pe.pe import PERunner, pe
 
 
@@ -26,12 +27,28 @@ class TestPE(object):
         cls.times = np.arange(start, end, step)
         size = len(cls.times)
 
+        # create pulsar parameter file
+        cls.f0 = 100.1  # frequency
+        parcontent = (
+            "PSRJ     J0341-1253\n"
+            "F0       {}\n"
+            "F1       6.5e-12\n"
+            "RAJ      03:41:00.0\n"
+            "DECJ     -12:53:00.0\n"
+            "PEPOCH   56789"
+        )
+
+        cls.parfile = "pe_test.par"
+        with open(cls.parfile, "w") as fp:
+            fp.write(parcontent.format(cls.f0))
+
         # set random seed
         np.random.seed(seed)
 
         # create simulated H1 data (at 1 and 2f)
         cls.H1data = []
         cls.H1file = []
+        cls.H1fileh5 = []
         H1sigma = 1e-24
         for i in [1, 2]:
             cls.H1data.append(
@@ -47,9 +64,15 @@ class TestPE(object):
             cls.H1file.append("H1data{}f.txt".format(i))
             np.savetxt(cls.H1file[-1], cls.H1data[-1])
 
+            # create HDF5 version of data
+            cls.H1fileh5.append("H1data{}f.hdf5".format(i))
+            hd = HeterodynedData(data=cls.H1data[-1], detector="H1", par=cls.parfile)
+            hd.write(cls.H1fileh5[-1])
+
         # create simulated L1 data
         cls.L1data = []
         cls.L1file = []
+        cls.L1fileh5 = []
         L1sigma = 0.7e-24
         for i in [1, 2]:
             cls.L1data.append(
@@ -65,20 +88,10 @@ class TestPE(object):
             cls.L1file.append("L1data{}f.txt".format(i))
             np.savetxt(cls.L1file[-1], cls.L1data[-1])
 
-        # create pulsar parameter file
-        cls.f0 = 100.1  # frequency
-        parcontent = (
-            "PSRJ     J0341-1253\n"
-            "F0       {}\n"
-            "F1       6.5e-12\n"
-            "RAJ      03:41:00.0\n"
-            "DECJ     -12:53:00.0\n"
-            "PEPOCH   56789"
-        )
-
-        cls.parfile = "pe_test.par"
-        with open(cls.parfile, "w") as fp:
-            fp.write(parcontent.format(cls.f0))
+            # create HDF5 version of data
+            cls.L1fileh5.append("L1data{}f.hdf5".format(i))
+            hd = HeterodynedData(data=cls.L1data[-1], detector="L1", par=cls.parfile)
+            hd.write(cls.L1fileh5[-1])
 
         # create a pulsar parameter file containing GW signal parameters
         # (for comparison with lalapps_pulsar_parameter_estimation_nested)
@@ -148,7 +161,7 @@ class TestPE(object):
         Remove data set files.
         """
 
-        for dfile in cls.H1file + cls.L1file:
+        for dfile in cls.H1file + cls.L1file + cls.H1fileh5 + cls.L1fileh5:
             os.remove(dfile)
         os.remove(cls.parfile)
         os.remove(cls.parfilesig)
@@ -460,6 +473,51 @@ class TestPE(object):
                 assert np.allclose(tv.hetdata[det][1].data.imag, data2f[:, 2])
                 assert np.allclose(tv.hetdata[det][1].times.value, self.times)
                 assert PriorDict(tv.prior) == self.priorbilby
+        os.remove(configfile)
+
+    def test_no_par_input(self):
+        """
+        Test using parameter file stored in HDF5 HeterodynedData.
+        """
+
+        configfile = "config_test.ini"
+
+        config = (
+            "data-file-1f = [{}, {}]\n"
+            "data-file-2f = [{}, {}]\n"
+            "prior = {}\n"
+            "detector = [H1, L1]"
+        )
+
+        # pass as config file with no par-file, but reading in txt data
+        with open(configfile, "w") as fp:
+            fp.write(
+                config.format(
+                    self.H1file[0],
+                    self.L1file[0],
+                    self.H1file[1],
+                    self.L1file[1],
+                    self.priorfile,
+                )
+            )
+
+        with pytest.raises(ValueError):
+            pe(config=configfile)
+
+        # pass as config file with no par-file, but reading in HDF5 data
+        with open(configfile, "w") as fp:
+            fp.write(
+                config.format(
+                    self.H1fileh5[0],
+                    self.L1fileh5[0],
+                    self.H1fileh5[1],
+                    self.L1fileh5[1],
+                    self.priorfile,
+                )
+            )
+
+        _ = pe(config=configfile)
+
         os.remove(configfile)
 
     def test_fake_data_exceptions(self):

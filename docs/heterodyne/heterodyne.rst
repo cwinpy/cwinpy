@@ -63,7 +63,7 @@ for ``cwinpy_heterodyne`` are given :ref:`below<heterodyne Command line argument
 If running an analysis for multiple pulsars on a large stretch of data it is recommended that you
 split the analysis up to run as many separate jobs. If you have access to a computer cluster (such
 as those available to the LVK, or via the `Open Science Grid <https://opensciencegrid.org/>`_), or
-an individual machine (see below), running the `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
+an individual machine (see below), running the `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_
 job scheduler system then the analysis can be split up using the ``cwinpy_heterodyne_dag`` pipeline
 script (see :ref:`Running using HTCondor`). In some cases you may need to generate a proxy
 certificate to allow the analysis script to access frame files, e.g.,:
@@ -381,7 +381,7 @@ Running using HTCondor
 When heterodyning long stretches of data it is preferable to split the observations up into more
 manageable chunks of time. The can be achieved by splitting up the analysis and running it as
 multiple independent jobs on a machine/cluster, or over the `Open Science Grid
-<https://opensciencegrid.org/>`_, using the `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ job
+<https://opensciencegrid.org/>`_, using the `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ job
 scheduler system. This can be done using the ``cwinpy_heterodyne_dag`` executable (or the
 :func:`~cwinpy.heterodyne.heterodyne_dag` API).
 

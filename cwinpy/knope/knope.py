@@ -185,6 +185,11 @@ def knope(**kwargs):
         if "detector" in pekwargs:
             pekwargs.pop("detector")
 
+        # remove "par_file" if given in pekwargs as this will be set from the
+        # heterodyned data
+        if "par_file" in pekwargs:
+            pekwargs.pop("par_file")
+
         perun[pulsar] = pe(**pekwargs)
 
     return het, perun
@@ -435,10 +440,13 @@ def knope_dag(**kwargs):
                     "accounting_group_tag", args.accgroup
                 )
 
+            # add ephemeris settings
+            hetconfigfile["ephemerides"] = {}
+            hetconfigfile["ephemerides"]["pulsarfiles"] = str(pulsars)
+
             # add heterodyne settings
             hetconfigfile["heterodyne"] = {}
             hetconfigfile["heterodyne"]["detectors"] = str(detectors)
-            hetconfigfile["heterodyne"]["pulsarfiles"] = str(pulsars)
             hetconfigfile["heterodyne"]["starttimes"] = str(
                 {det: runtimes[run][det][0] for det in detectors}
             )
@@ -596,10 +604,6 @@ def knope_dag(**kwargs):
     ):
         # make sure only "data-file-2f" is set rather than "data-file" in case of conflict
         peconfig.remove_option("pe", "data-file")
-
-    # set pulsar files
-    if peconfig.get("pe", "pulsars", fallback=None) is None:
-        peconfig["pe"]["pulsars"] = str(list(hetdag.pulsar_files.values()))
 
     # create PE DAG
     kwargs["dag"] = hetdag.dag  # add heterodyne DAG

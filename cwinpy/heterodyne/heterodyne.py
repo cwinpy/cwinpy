@@ -728,8 +728,8 @@ class HeterodyneDAGRunner(object):
             raise ValueError("At least one detector must be supplied")
 
         # get pulsar information
-        pulsarfiles = self.eval(config.get("heterodyne", "pulsarfiles", fallback=None))
-        pulsars = self.eval(config.get("heterodyne", "pulsars", fallback=None))
+        pulsarfiles = self.eval(config.get("ephemerides", "pulsarfiles", fallback=None))
+        pulsars = self.eval(config.get("ephemerides", "pulsars", fallback=None))
         if pulsarfiles is None:
             raise ValueError("A set of pulsar parameter files must be supplied")
 
@@ -893,15 +893,9 @@ class HeterodyneDAGRunner(object):
                     raise TypeError("{} should be a dictionary".format(sname))
 
         # get ephemeris information
-        earthephemeris = self.eval(
-            config.get("heterodyne", "earthephemeris", fallback=None)
-        )
-        sunephemeris = self.eval(
-            config.get("heterodyne", "sunephemeris", fallback=None)
-        )
-        timeephemeris = self.eval(
-            config.get("heterodyne", "timeephemeris", fallback=None)
-        )
+        earthephemeris = self.eval(config.get("ephemerides", "earth", fallback=None))
+        sunephemeris = self.eval(config.get("ephemerides", "sun", fallback=None))
+        timeephemeris = self.eval(config.get("ephemerides", "time", fallback=None))
 
         # get all the split segment times and frame caches
         if joblength == 0:
