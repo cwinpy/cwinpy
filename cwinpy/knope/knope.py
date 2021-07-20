@@ -69,7 +69,7 @@ def knope(**kwargs):
 
     This interface can be used for analysing data from multiple detectors or
     multiple harmonics by passing multiple heterodyne configuration settings
-    for each case, but this in **not** recommended.
+    for each case, but this is **not** recommended.
 
     Parameters
     ----------
@@ -102,7 +102,7 @@ def knope(**kwargs):
     hetkwargs = []
     pekwargs = {}
 
-    if "cli" in kwargs:
+    if "cli" in kwargs:  # pragma: no cover
         parser = create_knope_parser()
         args = parser.parse_args()
 
@@ -343,6 +343,16 @@ def knope_dag(**kwargs):
             ),
         )
         optional.add_argument(
+            "--incoherent",
+            action="store_true",
+            help=(
+                "In running with multiple detectors, set this flag to analyse "
+                "each of them independently rather than coherently combining "
+                "the data from all detectors. The coherent analysis is the "
+                "default."
+            ),
+        )
+        optional.add_argument(
             "--accounting-group-tag",
             dest="accgroup",
             help=("For LVK users this sets the computing accounting group tag"),
@@ -468,6 +478,15 @@ def knope_dag(**kwargs):
                 hetconfigfile["heterodyne"]["joblength"] = str(
                     kwargs.get("joblength", args.joblength)
                 )
+
+            # set whether running a coherent or incoherent analysis
+            peconfigfile["pe"] = {}
+            peconfigfile["pe"]["incoherent"] = str(
+                kwargs.get("incoherent", args.incoherent)
+            )
+            peconfigfile["pe"]["coherent"] = str(
+                not kwargs.get("incoherent", args.incoherent)
+            )
 
             # merge the resulting files and remove individual files
             hetconfigfile["merge"] = {}
