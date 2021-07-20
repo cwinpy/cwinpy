@@ -315,10 +315,10 @@ continuous gravitational-wave signal from a known pulsar."""
         ),
     )
     samplerparser.add(
-        "--numba",
+        "--disable-numba",
         action="store_true",
         default=False,
-        help=("Set this flag to use enable to likelihood calculation using numba."),
+        help=("Set this flag to use disable to likelihood calculation using numba."),
     )
     samplerparser.add(
         "--prior",
@@ -975,7 +975,7 @@ class PERunner(object):
             except (ValueError, SyntaxError):
                 raise ValueError("Unable to parse grid keyword arguments")
         self.likelihoodtype = kwargs.get("likelihood", "studentst")
-        self.numba = kwargs.get("numba", False)
+        self.numba = not kwargs.get("disable_numba", False)
         self.prior = kwargs.get("prior", None)
         if not isinstance(self.prior, (str, dict, bilby.core.prior.PriorDict)):
             raise ValueError("The prior is not defined")
@@ -1252,9 +1252,9 @@ def pe(**kwargs):
     likelihood: str
         The likelihood function to use. At the moment this can be either
         'studentst' or 'gaussian', with 'studentst' being the default.
-    numba: bool
-        Set whether to use the likelihood with numba enabled. Defaults to
-        False.
+    disable_numba: bool
+        Set whether to use disable running the likelihood with numba. Defaults
+        to False.
     show_truths: bool
         If plotting the results, setting this argument will overplot the
         "true" signal values. If adding a simulated signal then these parameter
@@ -1767,8 +1767,8 @@ class PEDAGRunner(object):
             # get the sampler keyword arguments
             samplerkwargs = config.get("pe", "sampler_kwargs", fallback=None)
 
-            # get whether to use numba
-            numba = config.getboolean("pe", "numba", fallback=False)
+            # get whether to use numba (default to True in DAG)
+            disablenumba = config.getboolean("pe", "disable-numba", fallback=False)
 
             # get ephemeris files if given
             earthephem = self.eval(config.get("pe", "ephem-earth", fallback=None))
@@ -1811,7 +1811,7 @@ class PEDAGRunner(object):
 
             configdict["prior"] = priorfiles[pname]
             configdict["sampler"] = sampler
-            configdict["numba"] = numba
+            configdict["disable_numba"] = disablenumba
 
             if samplerkwargs is not None:
                 configdict["sampler_kwargs"] = samplerkwargs
