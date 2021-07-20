@@ -10,14 +10,14 @@ In particular, signals that might be emitted by non-axisymmetric and rapidly rot
 **In**ference in **Py**thon".
 
 The package provides tools for processing raw gravitational-wave strain time-series data based on
-the phase evolution of a given source (using a TEMPO-style parameter file); a class to store and
+the phase evolution of a given source (using a `TEMPO <https://en.wikipedia.org/wiki/Tempo_(astronomy)>`_-style parameter file); a class to store and
 display this data is available. Following data processing, the package provides tools for inferring
-the unknown gravitational-wave parameters of the source. An integrated pipeline combining both these
-stages (``cwinpy_knope``) is also provided. These tools are all available through command line
-exectubles and through a Python API. The pipelines can generate `HTCondor
-<https://htcondor.readthedocs.io/en/latest/>`_ `DAGs
-<https://htcondor.readthedocs.io/en/latest/users-manual/dagman-workflows.html>`_ to run the analysis
-on long observing runs for multiple detectors and multiple sources on a computer cluster or via the
+the unknown gravitational-wave parameters describing the source and its orientation. An integrated
+pipeline combining both these stages (``cwinpy_knope``) is also provided. These tools are all
+available through command line exectubles and through a Python API. The pipelines can generate
+`HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ `DAGs
+<https://htcondor.readthedocs.io/en/latest/users-manual/dagman-workflows.html>`_ to run analyses
+over long observing runs for multiple detectors and multiple sources on a computer cluster or via the
 Open Science Grid. The pipelines can be used on both open data (as hosted by the `Gravitational-wave
 Open Science Center <https://www.gw-openscience.org/data/>`_) and proprietary data from the LIGO and
 Virgo detectors.

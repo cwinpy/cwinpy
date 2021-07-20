@@ -23,7 +23,7 @@ Running the *knope* analysis
 
 CWInPy has two command line executables for running *knope*: ``cwinpy_knope`` and 
 ``cwinpy_knope_dag``. The former will run the pipeline on the machine on which it is called, while
-the latter will generate a HTCondor DAG to run the analysis across multiple machines. For example,
+the latter will generate an `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ DAG to run the analysis across multiple machines. For example,
 users of CWInPy within the LVK can run the DAG on collaboration computer clusters. It is also
 possible to run the analysis via the `Open Science Grid <https://opensciencegrid.org/>`_ if you
 have access to an appropriate submit machine. In addition to the command line executables, the same
@@ -31,12 +31,12 @@ results can be using the Python API with the :func:`cwinpy.knope.knope` and
 :func:`cwinpy.knope.knope_dag` functions, respectively.
 
 It is highly recommended to run this analysis using ``cwinpy_knope_dag`` (instructions for setting
-up HTCondor on your own Linux machine are provided :ref:`here<Local use of HTCondor>`) and the
+up `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ on your own *Linux* machine are provided :ref:`here<Local use of HTCondor>`) and the
 instructions here will focus on that method. A brief description of using ``cwinpy_knope`` will be
 provided, although this should primarily be used, if required, for quick testing.
 
 For LVK users, if running on proprietary data you may need to generate a proxy certificate to allow
-the analysis script to access frame files, e.g.,:
+the analysis scripts to access frame files, e.g.,:
 
 .. code:: bash
 
@@ -49,6 +49,27 @@ data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
 
 Configuration file
 ------------------
+
+The primary way to run the pipeline is by supplying the ``cwinpy_knope_dag`` executable with a
+configuration file. This configuration file will be a concatenation of the configurations that are
+separately required for the :ref:`data processing<Heterodyning data>` using
+``cwinpy_heterodyne_dag`` and the :ref:`parameter estimation<Known pulsar parameter
+estimation>` using ``cwinpy_pe_dag``. You should consult those parts of the documentation for more
+detail on the input parameters in each case.
+
+.. note::
+
+   In the case of the ``cwinpy_knope_dag`` configuration, the inputs to the parameter estimation
+   stage (pulsar parameter files and heterodyned data files) will be set automatically from the
+   outputs of the data processing stage.
+
+   Any parameters used for simulated data in the parameter estimation ``[pe]`` part will also be ignored.
+
+An example configuration file, with inline comments describing the inputs, is given below:
+
+.. literalinclude:: cwinpy_knope_dag.ini
+
+
 
 Quick setup
 ===========
@@ -108,8 +129,8 @@ Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid
 
 .. _knope Command line arguments:
 
-Command line arguments
-----------------------
+*knope* Command line arguments
+------------------------------
 
 The command line arguments for ``cwinpy_knope`` (as extracted using ``cwinpy_knope --help``) are
 given below:
