@@ -145,7 +145,7 @@ This has then been submitted (on the `UWM Nemo computing cluster
 
 To perform the analysis using CWInPy, the :ref:`<Quick setup>` has been used:
 
->>> cwinpy_knope_dag --run O1 --hwinj --incoherent --output /home/matthew/cwinpy_knpoe/O1injections --accounting-group-tag ligo.dev.o1.cw.targeted.bayesian
+>>> cwinpy_knope_dag --run O1 --hwinj --incoherent --output /home/matthew/cwinpy_knope/O1injections --accounting-group-tag ligo.dev.o1.cw.targeted.bayesian
 
 .. note::
 
@@ -153,9 +153,9 @@ To perform the analysis using CWInPy, the :ref:`<Quick setup>` has been used:
    ``accounting_group`` / ``--accounting-group-tag`` inputs have had to be set.
 
 In terms of total `wall-clock time <https://en.wikipedia.org/wiki/Elapsed_real_time#:~:text=Elapsed%20real%20time%2C%20real%20time,at%20which%20the%20task%20started.>`_
-the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took X hours and 5 hours 34 mins, respectively.
+the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took XX hours YY mins and 5 hours 34 mins, respectively.
 In terms of total CPU hours the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took
-approximately X hours and 105 hours, respectively.
+approximately XX hours and 105 hours, respectively.
 
 Heterodyned data comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

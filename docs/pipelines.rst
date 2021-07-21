@@ -34,7 +34,7 @@ run in the advanced detector era, O1, can be performed with:
 Local use of HTCondor
 ~~~~~~~~~~~~~~~~~~~~~
 
-The pipeline described in the links above can be used to generate `HTCondor
+The pipelines described in the links above can be used to generate `HTCondor
 <https://htcondor.readthedocs.io/>`_ DAGs to run analyses on a pool of machines across a computer
 cluster. However, if you do not have access to a computer cluster and still want to run the
 HTCondor-DAG-producing pipelines on a single Linux machine (preferably one with multiple cores and a
