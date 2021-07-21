@@ -93,7 +93,7 @@ def knope(**kwargs):
     Returns
     -------
     tuple:
-        The returned value is a list containing the
+        The returned values are a list containing the
         :class:`cwinpy.heterodyne.Heterodyne` objects produced during
         heterodyning and a dictionary (keyed by pulsar name) containing
         :class:`bilby.core.result.Result` objects for each pulsar.
@@ -115,14 +115,14 @@ def knope(**kwargs):
         pekwargs["config"] = peconfig
     else:
         if "heterodyne_config" in kwargs:
-            if isinstance(kwargs["heterodyne_config"], dict):
+            if isinstance(kwargs["heterodyne_config"], str):
                 hetkwargs.append({"config": kwargs["heterodyne_config"]})
             elif isinstance(kwargs["heterodyne_config"], list):
                 for conf in kwargs["heterodyne_config"]:
                     hetkwargs.append({"config": conf})
             else:
                 raise TypeError(
-                    "heterodyne_config argument must be a dictionary of list of configuration files."
+                    "heterodyne_config argument must be a string or list of configuration files."
                 )
 
         if "pe_config" in kwargs:
