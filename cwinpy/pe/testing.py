@@ -406,19 +406,21 @@ class PEPPPlotsDAG(object):
 
         self.config["run"] = {"basedir": self.basedir}
 
-        self.config["dag"] = {"build": False}
+        self.config["pe_dag"] = {"build": False}
 
-        self.config["job"] = {}
-        self.config["job"]["getenv"] = str(self.getenv)
+        self.config["pe_job"] = {}
+        self.config["pe_job"]["getenv"] = str(self.getenv)
 
         if self.accountgroup is not None:
-            self.config["job"]["accounting_group"] = self.accountgroup
+            self.config["pe_job"]["accounting_group"] = self.accountgroup
         if self.accountuser is not None:
-            self.config["job"]["accounting_group_user"] = self.accountuser
+            self.config["pe_job"]["accounting_group_user"] = self.accountuser
+
+        self.config["ephemerides"] = {}
+        self.config["ephemerides"]["pulsars"] = self.pulsardir
+        self.config["ephemerides"]["injections"] = self.pulsardir
 
         self.config["pe"] = {}
-        self.config["pe"]["pulsars"] = self.pulsardir
-        self.config["pe"]["injections"] = self.pulsardir
         self.config["pe"]["results"] = self.resultsdir
         self.config["pe"]["numba"] = str(self.numba)
 

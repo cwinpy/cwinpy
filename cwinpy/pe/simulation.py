@@ -630,24 +630,26 @@ class PEPulsarSimulationDAG(object):
 
         self.config["run"] = {"basedir": self.basedir}
 
-        self.config["dag"] = {"build": False}
-        self.config["dag"] = {"submitdag": self.submit}
+        self.config["pe_dag"] = {"build": False}
+        self.config["pe_dag"] = {"submitdag": self.submit}
 
-        self.config["job"] = {}
-        self.config["job"]["getenv"] = str(self.getenv)
+        self.config["pe_job"] = {}
+        self.config["pe_job"]["getenv"] = str(self.getenv)
 
         if self.accountgroup is not None:  # pragma: no cover
-            self.config["job"]["accounting_group"] = self.accountgroup
+            self.config["pe_job"]["accounting_group"] = self.accountgroup
         if self.accountuser is not None:  # pragma: no cover
-            self.config["job"]["accounting_group_user"] = self.accountuser
+            self.config["pe_job"]["accounting_group_user"] = self.accountuser
 
-        self.config["pe"] = {}
-        self.config["pe"]["pulsars"] = str(
+        self.config["ephemerides"] = {}
+        self.config["ephemerides"]["pulsars"] = str(
             [self.pulsars[pname]["file"] for pname in self.pulsars]
         )
-        self.config["pe"]["injections"] = str(
+        self.config["ephemerides"]["injections"] = str(
             [self.pulsars[pname]["injection_file"] for pname in self.pulsars]
         )
+
+        self.config["pe"] = {}
         self.config["pe"]["results"] = self.resultsdir
         self.config["pe"]["numba"] = str(self.numba)
         self.config["pe"]["n_parallel"] = str(self.n_parallel)
