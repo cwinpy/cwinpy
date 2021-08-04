@@ -8,6 +8,7 @@ import subprocess as sp
 
 import pytest
 from astropy.utils.data import download_file
+from bilby.core.prior import PriorDict, Uniform
 from cwinpy.knope import knope
 from cwinpy.utils import LAL_EPHEMERIS_URL
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
@@ -163,3 +164,104 @@ phi0 = {phi0}
         with pytest.raises(ValueError):
             # test error if no PE configuration is given
             knope(hetkwargs={"pulsarfiles": "dummyfile"})
+
+    def test_knope(self):
+        """
+        Test full knope pipeline.
+        """
+
+        segments = [
+            (self.fakedatastarts[i], self.fakedatastarts[i] + self.fakedataduration[i])
+            for i in range(len(self.fakedatastarts))
+        ]
+
+        fulloutdir = os.path.join(self.fakedatadir, "full_heterodyne_output")
+
+        # USING KEYWORD ARGUMENTS
+
+        # heterodyned keyword arguments
+        hetkwargs = dict(
+            starttime=segments[0][0],
+            endtime=segments[-1][-1],
+            pulsarfiles=self.fakeparfile,
+            segmentlist=segments,
+            framecache=self.fakedatadir,
+            channel=self.fakedatachannels[0],
+            freqfactor=2,
+            stride=86400 // 2,
+            resamplerate=1 / 60,
+            includessb=True,
+            output=fulloutdir,
+            label="heterodyne_kwargs_{psr}_{det}_{freqfactor}.hdf5",
+        )
+
+        # parameter estimation keyword arguments
+        prior = PriorDict({"h0": Uniform(name="h0", minimum=0.0, maximum=1e-23)})
+        pekwargs = dict(
+            prior=prior, grid=True, grid_kwargs={"grid_size": 100}, label="pe_kwargs"
+        )
+
+        # run knope
+        hetKW, perunKW = knope(hetkwargs=hetkwargs, pekwargs=pekwargs)
+
+        # USING CONFIGURATION FILES
+        hetconfigstr = (
+            "detector = {}\n"
+            "starttime = {}\n"
+            "endtime = {}\n"
+            "pulsarfiles = {}\n"
+            "framecache = {}\n"
+            "channel = {}\n"
+            'segmentlist = "{}"\n'
+            "output = {}\n"
+            "stride = {}\n"
+            "freqfactor = {}\n"
+            "resamplerate = {}\n"
+            "includessb = {}\n"
+            "label = heterodyne_config_{{psr}}_{{det}}_{{freqfactor}}.hdf5\n"
+        )
+
+        hetconfigfile = "hetconfig.ini"
+        with open(hetconfigfile, "w") as fp:
+            fp.write(
+                hetconfigstr.format(
+                    self.fakedatadetectors[0],
+                    hetkwargs["starttime"],
+                    hetkwargs["endtime"],
+                    hetkwargs["pulsarfiles"][0],
+                    hetkwargs["framecache"],
+                    hetkwargs["channel"],
+                    hetkwargs["segmentlist"],
+                    hetkwargs["output"],
+                    hetkwargs["stride"],
+                    hetkwargs["freqfactor"],
+                    hetkwargs["resamplerate"],
+                    hetkwargs["includessb"],
+                )
+            )
+
+        prior.to_file(outdir=".", label="knope_test")
+        peconfigstr = (
+            "prior = knope_test.prior\n"
+            "grid = {}\n"
+            "grid_kwargs = {}\n"
+            "label = pe_config\n"
+        )
+
+        peconfigfile = "peconfig.ini"
+        with open(peconfigfile, "w") as fp:
+            fp.write(
+                peconfigstr.format(
+                    pekwargs["grid"],
+                    pekwargs["grid_kwargs"],
+                )
+            )
+
+        # run knope
+        hetcon, peruncon = knope(
+            heterodyne_config=hetconfigfile, pe_config=peconfigfile
+        )
+
+        os.remove("knope_test.prior")
+        os.remove(hetconfigfile)
+        os.remove(peconfigfile)

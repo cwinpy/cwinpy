@@ -430,7 +430,7 @@ By default the multiple heterodyned data files for each pulsar created due to th
 merged using the ``cwinpy_heterodyne_merge`` executable (see the
 :func:`~cwinpy.heterodyne.heterodyne_merge` API). If the ``remove`` option is set in the
 configuration file then the individual unmerged files will be removed, but by default they will be
-kept (although not for the :ref`Quick setup`).
+kept (although not for the :ref:`Quick setup`).
 
 The default naming format of the output heterodyned data files in their respective detector
 directories will be:
@@ -470,7 +470,7 @@ recommended to perform the heterodyne in a single stage, it may sometimes be use
 intermediate products.
 
 To create a DAG for this "two stage" approach the following option needs to be set in the
-`[heterodyne]` section of the configuration file:
+``[heterodyne]`` section of the configuration file:
 
 .. code-block::
 
@@ -479,7 +479,7 @@ To create a DAG for this "two stage" approach the following option needs to be s
 
 The `resamplerate` option can then be given as a list containing two values: the resample rates for
 each stage. If not given, the default is to resample to 1 Hz for the first stage and 1/60 Hz for the
-second stage. The values in the dictionary given for the `outputdir` option should also be lists of
+second stage. The values in the dictionary given for the ``outputdir`` option should also be lists of
 two directories where the outputs of each stage will be located. The options ``includessb``,
 ``includebsb``, ``includeglitch`` and ``includefitwaves`` should also be two-valued lists of
 booleans stating which phase model components to include in each stage. By default, the first stage
@@ -489,7 +489,7 @@ will have these all as ``False`` and the second stage will have them all as ``Tr
 
    By default, if running the the two stage approach, the knee frequency of the low-pass filter will
    be 0.5 Hz compared to 0.1 Hz if running a single stage. This differs from the default used by
-   ``lalapps_heterodyne_pulsar``, which used 0.25 Hz.
+   ``lalapps_heterodyne_pulsar``, which uses 0.25 Hz.
 
 Re-heterodyning data
 ^^^^^^^^^^^^^^^^^^^^

@@ -175,7 +175,7 @@ def knope(**kwargs):
     perun = {}  # store results as a dictionary
     for pulsar in pulsars:
         for ff in freqfactordet.keys():
-            pekwargs["data_file_{0:d}".format(int(ff))] = [
+            pekwargs["data_file_{0:d}f".format(int(ff))] = [
                 "{}:{}".format(det, het.outputfiles[pulsar])
                 for het, det in zip(hetrun[ff], freqfactordet[ff])
             ]

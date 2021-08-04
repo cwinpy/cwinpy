@@ -570,7 +570,7 @@ class PERunner(object):
                 # if no par file was given check that the read in data contains
                 # the par information
                 if "par_file" not in kwargs:
-                    for det in detectors:
+                    for det in self.hetdata.detectors:
                         for hd in self.hetdata[det]:
                             if hd.par is None:
                                 raise ValueError(
