@@ -6,9 +6,11 @@ import os
 import shutil
 import subprocess as sp
 
+import numpy as np
 import pytest
 from astropy.utils.data import download_file
 from bilby.core.prior import PriorDict, Uniform
+from cwinpy.data import HeterodynedData
 from cwinpy.knope import knope
 from cwinpy.utils import LAL_EPHEMERIS_URL
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
@@ -196,13 +198,13 @@ phi0 = {phi0}
         )
 
         # parameter estimation keyword arguments
-        prior = PriorDict({"h0": Uniform(name="h0", minimum=0.0, maximum=1e-23)})
+        prior = PriorDict({"h0": Uniform(name="h0", minimum=0.0, maximum=1e-24)})
         pekwargs = dict(
-            prior=prior, grid=True, grid_kwargs={"grid_size": 100}, label="pe_kwargs"
+            prior=prior, grid=True, grid_kwargs={"grid_size": 100, "label": "pe_kwargs"}
         )
 
         # run knope
-        hetKW, perunKW = knope(hetkwargs=hetkwargs, pekwargs=pekwargs)
+        hetkw, perunkw = knope(hetkwargs=hetkwargs, pekwargs=pekwargs)
 
         # USING CONFIGURATION FILES
         hetconfigstr = (
@@ -249,6 +251,7 @@ phi0 = {phi0}
         )
 
         peconfigfile = "peconfig.ini"
+        pekwargs["grid_kwargs"]["label"] = "pe_config"
         with open(peconfigfile, "w") as fp:
             fp.write(
                 peconfigstr.format(
@@ -260,6 +263,31 @@ phi0 = {phi0}
         # run knope
         hetcon, peruncon = knope(
             heterodyne_config=hetconfigfile, pe_config=peconfigfile
+        )
+
+        # check for consistent heterodyne outputs
+        hkw = HeterodynedData.read(
+            hetkw[2.0][0].outputfiles[self.fakepulsarpar[0]["PSRJ"]]
+        )
+        hc = HeterodynedData.read(
+            hetcon[2.0][0].outputfiles[self.fakepulsarpar[0]["PSRJ"]]
+        )
+
+        assert np.array_equal(hkw.times.value, hc.times.value)
+        assert np.array_equal(hkw.data, hc.data)
+
+        # check for consistent parameter estimation outputs
+        assert (
+            perunkw[self.fakepulsarpar[0]["PSRJ"]].grid.ln_evidence
+            == peruncon[self.fakepulsarpar[0]["PSRJ"]].grid.ln_evidence
+        )
+        assert np.array_equal(
+            perunkw[self.fakepulsarpar[0]["PSRJ"]].grid.mesh_grid[0],
+            peruncon[self.fakepulsarpar[0]["PSRJ"]].grid.mesh_grid[0],
+        )
+        assert np.array_equal(
+            perunkw[self.fakepulsarpar[0]["PSRJ"]].grid.ln_posterior,
+            peruncon[self.fakepulsarpar[0]["PSRJ"]].grid.ln_posterior,
         )
 
         os.remove("knope_test.prior")

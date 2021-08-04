@@ -533,8 +533,6 @@ def heterodyne(**kwargs):
     if "config" in hetkwargs:
         hetkwargs.pop("config")
 
-    print(hetkwargs["segmentlist"])
-
     # set up the run
     het = Heterodyne(**hetkwargs)
 

@@ -93,10 +93,11 @@ def knope(**kwargs):
     Returns
     -------
     tuple:
-        The returned values are a list containing the
+        The returned values are a dictionary containing lists of the
         :class:`cwinpy.heterodyne.Heterodyne` objects produced during
-        heterodyning and a dictionary (keyed by pulsar name) containing
-        :class:`bilby.core.result.Result` objects for each pulsar.
+        heterodyning (keyed by frequency scale factor) and a dictionary
+        (keyed by pulsar name) containing :class:`bilby.core.result.Result`
+        objects for each pulsar.
     """
 
     hetkwargs = []
@@ -192,7 +193,7 @@ def knope(**kwargs):
 
         perun[pulsar] = pe(**pekwargs)
 
-    return het, perun
+    return hetrun, perun
 
 
 def knope_cli(**kwargs):  # pragma: no cover
