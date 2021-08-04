@@ -915,7 +915,14 @@ transientTau = {tau}
 
         assert len(het.outputfiles) == 1
         assert list(het.outputfiles.keys()) == ["J0000+0000"]
-        assert list(het.outputfiles.values()) == [os.path.join(outdir, het.label)]
+        assert list(het.outputfiles.values()) == [
+            os.path.join(
+                outdir,
+                het.label.format(
+                    psr="J0000+0000", gpsstart=None, gpsend=None, det="H1", freqfactor=2
+                ),
+            )
+        ]
 
         with pytest.raises(ValueError):
             # attempt to include glitch evolution without setting includessb to True
@@ -935,13 +942,6 @@ transientTau = {tau}
             resamplerate=1,
         )
 
-        labeldict = {
-            "det": het.detector,
-            "gpsstart": int(het.starttime),
-            "gpsend": int(het.endtime),
-            "freqfactor": int(het.freqfactor),
-        }
-
         # expected length (after cropping)
         uncroppedsegs = [seg for seg in segments if (seg[1] - seg[0]) > het.crop]
         length = (
@@ -957,11 +957,9 @@ transientTau = {tau}
 
         # check output
         for psr in ["J0000+0000", "J1111+1111", "J2222+2222"]:
-            assert os.path.isfile(het.outputfiles[psr].format(**labeldict, psr=psr))
+            assert os.path.isfile(het.outputfiles[psr])
 
-            hetdata = HeterodynedData.read(
-                het.outputfiles[psr].format(**labeldict, psr=psr)
-            )
+            hetdata = HeterodynedData.read(het.outputfiles[psr])
 
             assert len(hetdata) == length
             assert het.resamplerate == hetdata.dt.value
@@ -998,9 +996,7 @@ transientTau = {tau}
         )
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
-            hetdata = HeterodynedData.read(
-                het2.outputfiles[psr].format(**labeldict, psr=psr)
-            )
+            hetdata = HeterodynedData.read(het2.outputfiles[psr])
 
             assert het2.resamplerate == 1 / hetdata.dt.value
             assert len(hetdata) == lengthnew
@@ -1044,9 +1040,7 @@ transientTau = {tau}
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
-            hetdata = HeterodynedData.read(
-                het2.outputfiles[psr].format(**labeldict, psr=psr)
-            )
+            hetdata = HeterodynedData.read(het2.outputfiles[psr])
 
             assert het2.resamplerate == 1 / hetdata.dt.value
             assert len(hetdata) == lengthnew
@@ -1063,7 +1057,7 @@ transientTau = {tau}
         het2 = heterodyne(
             detector=self.fakedatadetectors[0],
             heterodyneddata={
-                psr: het.outputfiles[psr].format(**labeldict, psr=psr)
+                psr: het.outputfiles[psr]
                 for psr in ["J0000+0000", "J1111+1111", "J2222+2222"]
             },  # test using dictionary
             pulsarfiles=self.fakeparfile,
@@ -1078,9 +1072,7 @@ transientTau = {tau}
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
-            hetdata = HeterodynedData.read(
-                het2.outputfiles[psr].format(**labeldict, psr=psr)
-            )
+            hetdata = HeterodynedData.read(het2.outputfiles[psr])
 
             assert het2.resamplerate == 1 / hetdata.dt.value
             assert len(hetdata) == lengthnew
@@ -1099,7 +1091,7 @@ transientTau = {tau}
         het2 = heterodyne(
             detector=self.fakedatadetectors[0],
             heterodyneddata={
-                psr: het.outputfiles[psr].format(**labeldict, psr=psr)
+                psr: het.outputfiles[psr]
                 for psr in ["J0000+0000", "J1111+1111", "J2222+2222"]
             },  # test using dictionary
             pulsarfiles=self.fakeparfile,
@@ -1115,9 +1107,7 @@ transientTau = {tau}
 
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
-            hetdata = HeterodynedData.read(
-                het2.outputfiles[psr].format(**labeldict, psr=psr)
-            )
+            hetdata = HeterodynedData.read(het2.outputfiles[psr])
 
             assert het2.resamplerate == 1 / hetdata.dt.value
             assert len(hetdata) == lengthnew
@@ -1155,19 +1145,10 @@ transientTau = {tau}
 
         het = heterodyne(**inputkwargs)
 
-        labeldict = {
-            "det": het.detector,
-            "gpsstart": int(het.starttime),
-            "gpsend": int(het.endtime),
-            "freqfactor": int(het.freqfactor),
-        }
-
         # compare against model
         for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
             # load data
-            hetdata = HeterodynedData.read(
-                het.outputfiles[psr].format(**labeldict, psr=psr)
-            )
+            hetdata = HeterodynedData.read(het.outputfiles[psr])
 
             assert het.resamplerate == 1 / hetdata.dt.value
 

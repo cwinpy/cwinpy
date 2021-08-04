@@ -74,9 +74,9 @@ class Heterodyne(object):
         extension files then ".hdf5" files). This should be used in conjunction
         with the ``frametype`` argument.
     segmentlist: str, list
-        A list of data segment start and end times (stored a tuple pairs) in
-        the list. Or, an ascii text file containing segment start and end times
-        in two columns.
+        A list of data segment start and end times (stored as list/tuple pairs)
+        in the list. Or, an ascii text file containing segment start and end
+        times in two columns.
     includeflags: str, list
         A string, or list of string giving data DQ flags to use to generate a
         segment list if not provided in ``segmentlist``. See, e.g., the GWPy
@@ -878,7 +878,15 @@ class Heterodyne(object):
         if segments is None:
             self._segments = None
         elif isinstance(segments, list):
-            self._segments = segments
+            if len(segments) == 1 and isinstance(segments[0], str):
+                # assume list contains segment file
+                self.get_segment_list(segmentfile=segments[0])
+            else:
+                # make sure list is list of tuples
+                try:
+                    self._segments = [(int(seg[0]), int(seg[1])) for seg in segments]
+                except (TypeError, IndexError, ValueError):
+                    raise TypeError("segment list must contain integer tuple pairs")
         elif isinstance(segments, str):
             # try reading segments
             self.get_segment_list(segmentfile=segments)
@@ -1145,7 +1153,24 @@ class Heterodyne(object):
         A dictionary of output file names for each pulsar.
         """
 
-        return self._outputfiles
+        gpsstart = None
+        if hasattr(self, "_origstart"):
+            gpsstart = int(self._origstart)
+        elif self.starttime is not None:
+            gpsstart = int(self.starttime)
+
+        # create output label dictionary
+        labeldict = {
+            "gpsstart": gpsstart,
+            "gpsend": int(self.endtime) if self.endtime is not None else None,
+            "freqfactor": int(self.freqfactor),
+            "det": self.detector,
+        }
+
+        return {
+            psr: self._outputfiles[psr].format(psr=psr, **labeldict)
+            for psr in self._outputfiles
+        }
 
     @outputfiles.setter
     def outputfiles(self, outputfiles):
@@ -1367,18 +1392,8 @@ class Heterodyne(object):
 
             # loop over pulsars
             for pulsar in pulsarlist:
-                labeldict = {
-                    "det": self.detector,
-                    "gpsstart": int(self.starttime)
-                    if self.starttime is not None
-                    else None,
-                    "gpsend": int(self.endtime) if self.endtime is not None else None,
-                    "freqfactor": int(self.freqfactor),
-                    "psr": pulsar,
-                }
-
                 if self.resume:
-                    if os.path.isfile(self.outputfiles[pulsar].format(**labeldict)):
+                    if os.path.isfile(self.outputfiles[pulsar]):
                         # skip this pulsar as heterodyne has already been performed
                         continue
 
@@ -1542,7 +1557,7 @@ class Heterodyne(object):
                 het.include_glitch = self.includeglitch
                 het.include_fitwaves = self.includefitwaves
 
-                het.write(self.outputfiles[pulsar].format(**labeldict), overwrite=True)
+                het.write(self.outputfiles[pulsar], overwrite=True)
         else:
             self._datadict = {}
 
@@ -1561,14 +1576,7 @@ class Heterodyne(object):
                 minend = np.inf
                 self._filter_history = {}
                 for pulsar in list(pulsarlist):
-                    labeldict = {
-                        "det": self.detector,
-                        "gpsstart": int(self.starttime),
-                        "gpsend": int(self.endtime),
-                        "freqfactor": int(self.freqfactor),
-                        "psr": pulsar,
-                    }
-                    pfile = self.outputfiles[pulsar].format(**labeldict)
+                    pfile = self.outputfiles[pulsar]
                     if os.path.isfile(pfile) and os.path.getsize(pfile) > 0:
                         try:
                             prevdata = HeterodynedData.read(pfile)
@@ -1913,16 +1921,7 @@ class Heterodyne(object):
                 )
             het.filter_history = history
 
-            labeldict = {
-                "det": self.detector,
-                "gpsstart": int(self.starttime)
-                if not hasattr(self, "_origstart")
-                else int(self._origstart),
-                "gpsend": int(self.endtime),
-                "freqfactor": int(self.freqfactor),
-                "psr": pulsar,
-            }
-            het.write(self.outputfiles[pulsar].format(**labeldict), overwrite=True)
+            het.write(self.outputfiles[pulsar], overwrite=True)
 
     def _write_current_pulsars_and_exit(self, signum=None, frame=None):
         """

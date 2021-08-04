@@ -191,19 +191,16 @@ class HeterodyneNode(Node):
                 label=configdict.get("label", None),
                 pulsarfiles=copy.deepcopy(configdict["pulsarfiles"]),
                 pulsars=copy.deepcopy(configdict["pulsars"]),
+                starttime=starttime,
+                endtime=endtime,
+                detector=detector,
+                freqfactor=freqfactor,
             )
 
             # if resume is set transfer any created files
             if not configdict["overwrite"]:
-                labeldict = {
-                    "det": detector,
-                    "gpsstart": int(starttime),
-                    "gpsend": int(endtime),
-                    "freqfactor": int(freqfactor),
-                }
                 for psr in tmphet.outputfiles.copy():
-                    labeldict["psr"] = psr
-                    psrfile = tmphet.outputfiles[psr].format(**labeldict)
+                    psrfile = tmphet.outputfiles[psr]
 
                     # create empty dummy files, so Condor doesn't complain about files not existing
                     # see https://stackoverflow.com/a/12654798/1862861
@@ -219,8 +216,7 @@ class HeterodyneNode(Node):
 
             # set output files to transfer back
             for psr in tmphet.outputfiles.copy():
-                labeldict["psr"] = psr
-                psrfile = tmphet.outputfiles[psr].format(**labeldict)
+                psrfile = tmphet.outputfiles[psr]
                 output_files_to_transfer.append(os.path.basename(psrfile))
 
             # transfer pulsar parameter files

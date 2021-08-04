@@ -203,9 +203,9 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
     segmentparser.add(
         "--segmentlist",
         help=(
-            "Provide a list of data segment start and end times, as tuple "
-            "pairs in the list, or an ASCII text file containing the "
-            "segment start and end times in two columns. If a list, this "
+            "Provide a list of data segment start and end times, as "
+            "list/tuple pairs in the list, or an ASCII text file containing "
+            "the segment start and end times in two columns. If a list, this "
             "should be in the form of a Python list, surrounded by quotation "
             'marks, e.g., "[(900000000,900086400),(900100000,900186400)]".'
         ),
@@ -494,18 +494,29 @@ def heterodyne(**kwargs):
             except (ValueError, SyntaxError):
                 pass
 
+            # if the value was a string within a string, e.g., '"[2.3]"',
+            # evaluate again just in case it contains a Python object!
+            if isinstance(value, str):
+                try:
+                    value = ast.literal_eval(value)
+                except (ValueError, SyntaxError):
+                    pass
+
             hetkwargs[attr] = value
         elif value is not None:
             hetkwargs[attr] = value
 
-    # make sure pulsar files is not a single entry list containing a dictionary
+    # check if pulsarfiles is a single entry list containing a dictionary
     if isinstance(hetkwargs["pulsarfiles"], list):
         if len(hetkwargs["pulsarfiles"]) == 1:
-            value = ast.literal_eval(hetkwargs["pulsarfiles"][0])
+            try:
+                value = ast.literal_eval(hetkwargs["pulsarfiles"][0])
 
-            if isinstance(value, dict):
-                # switch to passing the dictionary
-                hetkwargs["pulsarfiles"] = value
+                if isinstance(value, dict):
+                    # switch to passing the dictionary
+                    hetkwargs["pulsarfiles"] = value
+            except SyntaxError:
+                pass
 
     signal.signal(signal.SIGALRM, handler=sighandler)
     signal.alarm(hetkwargs.pop("periodic_restart_time", 14400))
@@ -521,6 +532,8 @@ def heterodyne(**kwargs):
     # remove "config" from hetkwargs
     if "config" in hetkwargs:
         hetkwargs.pop("config")
+
+    print(hetkwargs["segmentlist"])
 
     # set up the run
     het = Heterodyne(**hetkwargs)
@@ -1349,24 +1362,17 @@ class HeterodyneDAGRunner(object):
                             pulsarfiles=pulsarfiles,
                         )
                         for psr in pgroup:
-                            labeldict = {
-                                "det": tmphet.detector,
-                                "gpsstart": int(tmphet.starttime),
-                                "gpsend": int(tmphet.endtime),
-                                "freqfactor": int(tmphet.freqfactor),
-                                "psr": psr,
-                            }
                             self.heterodyned_files[det][ff][psr].append(
-                                tmphet.outputfiles[psr].format(**labeldict)
+                                tmphet.outputfiles[psr]
                             )
 
                             if merge and self.mergeoutputs[det][ff][psr] is None:
                                 # use full start and end times
-                                labeldict["gpsstart"] = starttimes[det][0]
-                                labeldict["gpsend"] = endtimes[det][-1]
+                                tmphet.starttime = starttimes[det][0]
+                                tmphet.endtime = endtimes[det][-1]
                                 self.mergeoutputs[det][ff][psr] = os.path.join(
                                     outputdirs[0][det],
-                                    tmphet.outputfiles[psr].format(**labeldict),
+                                    tmphet.outputfiles[psr],
                                 )
 
                         configdict["output"] = outputdirs[0][det]
@@ -1737,10 +1743,13 @@ def heterodyne_dag(**kwargs):
                     "accounting_group_tag", args.accgroup
                 )
 
+            # add pulsars/pulsar ephemerides
+            configfile["ephemerides"] = {}
+            configfile["ephemerides"]["pulsarfiles"] = str(pulsars)
+
             # add heterodyne settings
             configfile["heterodyne"] = {}
             configfile["heterodyne"]["detectors"] = str(detectors)
-            configfile["heterodyne"]["pulsarfiles"] = str(pulsars)
             configfile["heterodyne"]["starttimes"] = str(
                 {det: runtimes[run][det][0] for det in detectors}
             )
