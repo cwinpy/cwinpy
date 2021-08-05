@@ -198,7 +198,7 @@ phi0 = {phi0}
         )
 
         # parameter estimation keyword arguments
-        prior = PriorDict({"h0": Uniform(name="h0", minimum=0.0, maximum=1e-24)})
+        prior = PriorDict({"h0": Uniform(name="h0", minimum=0.0, maximum=5e-25)})
         pekwargs = dict(
             prior=prior, grid=True, grid_kwargs={"grid_size": 100, "label": "pe_kwargs"}
         )
