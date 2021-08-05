@@ -257,6 +257,73 @@ def q22_to_ellipticity(q22):
         return ellipticity
 
 
+def lalinference_to_bilby_result(postfile):
+    """
+    Convert LALInference-derived pulsar posterior samples file, as created by
+    ``lalapps_pulsar_parameter_estimation_nested``, into a
+    :class:`bilby.core.result.Result` object.
+
+    Parameters
+    ----------
+    postfile: str
+        The path to a posterior samples file.
+
+    Returns
+    -------
+    result:
+        The results as a :class:`bilby.core.result.Result` object
+    """
+
+    import h5py
+
+    from bilby.core.result import Result
+    from lalinference import bayespputils as bppu
+    from pandas import DataFrame
+
+    try:
+        peparser = bppu.PEOutputParser("hdf5")
+        nsResultsObject = peparser.parse(postfile)
+        pos = bppu.Posterior(nsResultsObject, SimInspiralTableEntry=None)
+    except Exception as e:
+        raise IOError(f"Could not import posterior samples from {postfile}: {e}")
+
+    # remove any unchanging variables and randomly shuffle the rest
+    pnames = pos.names
+    nsamps = len(pos[pnames[0]].samples)
+    permarr = np.arange(nsamps)
+    np.random.shuffle(permarr)
+
+    posdict = {}
+    for pname in pnames:
+        # ignore if all samples are the same
+        if not pos[pname].samples.tolist().count(pos[pname].samples[0]) == len(
+            pos[pname].samples
+        ):
+            # shuffle and store
+            posdict[pname] = pos[pname].samples[permarr, 0]
+
+    # get evidence values from HDF5 file
+    logZ = None
+    logZn = None
+    logbayes = None
+    try:
+        hdf = h5py.File(postfile, "r")
+        a = hdf["lalinference"]["lalinference_nest"]
+        logZ = a.attrs["log_evidence"]
+        logZn = a.attrs["log_noise_evidence"]
+        logbayes = logZ - logZn
+        hdf.close()
+    except KeyError:
+        pass
+
+    return Result(
+        posterior=DataFrame(posdict),
+        log_evidence=logZ,
+        log_noise_evidence=logZn,
+        log_bayes_factor=logbayes,
+    )
+
+
 def initialise_ephemeris(
     ephem="DE405",
     units="TCB",
