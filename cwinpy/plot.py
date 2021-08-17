@@ -9,12 +9,6 @@ from cwinpy.utils import lalinference_to_bilby_result
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
 from pesummary.conf import colorcycle
 
-# from pesummary.core.plots.plot import (
-#    _1d_analytic_plot,
-#    _1d_histogram_plot,
-#    _make_corner_plot,
-# )
-
 # from pesummary.core.plots.bounded_1d_kde import (
 #    ReflectionBoundedKDE,
 #    TransformBoundedKDE,
@@ -52,7 +46,7 @@ DEFAULT_BOUNDS = {
 TRANSFORM_KDE_PARAMS = ["iota"]
 
 #: list of allowed 1d plot types
-ONED_PLOT_TYPES = ["hist", "kde", "corner"]
+ONED_PLOT_TYPES = ["hist", "kde"]
 
 #: list of allowed 2d plot types
 TWOD_PLOT_TYPES = ["contour", "triangle", "reverse_triangle", "corner"]
@@ -110,15 +104,16 @@ class Plot(object):
             simulated signal), then these will be over-plotted on the output.
         plottype: str
             The type of plot to produce. For 1d plots, this can be: "hist" -
-            produce a histogram of the posterior; "kde" - produce a KDE plot of
-            the posterior; "analytic" - plot a :class:`~bilby.core.grid.Grid`
-            or, "corner" - equivalent to "hist" for the 1d case. For 2d plots,
-            this can be: "contour", "triangle", "reverse_triangle" (cannot be
-            used for multiple plots), or "corner". For higher dimensional plots
-            only corner can be used.
+            produce a histogram of the posterior or "kde" - produce a KDE plot of
+            the posterior. For 2d plots, this can be: "contour", "triangle",
+            "reverse_triangle", or "corner". For higher dimensional plots
+            only "corner" can be used.
         latex_labels: dict
             A dictionary of LaTeX labels to be used for axes for the given
             parameters.
+        kde: bool
+            If plotting a histogram using "hist", set this to True to also plot
+            the KDE. Use the "kde" `plottype` to only plot the KDE.
         untrig: str, list
             A string, or list, of parameters that exist are defined as the
             trigonometric function of another parameters. If given in the list
@@ -132,6 +127,7 @@ class Plot(object):
         self.parameters = parameters
         self.plottype = plottype
         self.latex_labels = latex_labels
+        self.kde = kde
 
     @property
     def results(self):
@@ -323,7 +319,7 @@ class Plot(object):
 
         # don't add percentile title to figure by default
         if "title" not in kwargs:
-            kwargs["title"] = None
+            kwargs["title"] = False
 
         # get colors
         colors = kwargs.get("colors", GW_OBSERVATORY_COLORS)
@@ -334,26 +330,16 @@ class Plot(object):
             for label, value in self.results.items()
             if isinstance(value, Result)
         }
-        samplecolors = {}
-        for i, key in enumerate(samples):
-            if key in colors:
-                samplecolors[key] = colors[key]
-            elif key.lower() == "joint":
-                # if using "Joint" as the multi-detector analysis key, set the color to black
-                samplecolors[key] = "k"
-            else:
-                # use PESummary color cycle
-                samplecolors[key] = list(colorcycle)[i % len(list(colorcycle))]
 
         # get Grid posteriors
         grids = {
-            label: value
+            label: [value, value.ln_evidence]  # store grid and log evidence
             for label, value in self.results.items()
             if isinstance(value, Grid)
         }
 
         colordicts = []
-        for res in [samples, grids]:
+        for j, res in enumerate([samples, grids]):
             colordicts.append({})
             for i, key in enumerate(res):
                 if key in colors:
@@ -363,7 +349,9 @@ class Plot(object):
                     colordicts[-1][key] = "k"
                 else:
                     # use PESummary color cycle
-                    colordicts[-1][key] = list(colorcycle)[i % len(list(colorcycle))]
+                    colordicts[-1][key] = list(colorcycle)[
+                        (j * 2 + i) % len(colorcycle)
+                    ]
 
         # store original keywords arguments
         origkwargs = kwargs.copy()
@@ -372,6 +360,8 @@ class Plot(object):
         fig = None
         if len(samples) > 0:
             kwargs["colors"] = list(colordicts[0].values())
+            if self._num_parameters == 1:
+                fig = self._1d_plot_samples(samples, **kwargs)
             if self._num_parameters == 2:
                 fig = self._2d_plot_samples(samples, **kwargs)
 
@@ -382,6 +372,8 @@ class Plot(object):
             kwargs["colors"] = list(colordicts[1].values())
             if fig is not None and "fig" not in kwargs:
                 kwargs["fig"] = fig
+            if self._num_parameters == 1:
+                fig = self._1d_plot_grid(grids, **kwargs)
             if self._num_parameters == 2:
                 fig = self._2d_plot_grid(grids, **kwargs)
 
@@ -464,10 +456,116 @@ class Plot(object):
 
         return fig
 
-    def _1d_plot(self):
+    def _1d_plot_samples(self, samples, **kwargs):
         """
-        TODO: add functions for 1D plots.
+        Create 1D plots from posterior samples.
         """
+
+        from pesummary.core.plots.plot import _1d_comparison_histogram_plot
+
+        if self.plottype == "kde":
+            # set for plotting a KDE
+            kwargs["kde"] = True
+            kwargs["hist"] = False
+        elif self.plottype == "hist":
+            # set whether or not to also plot the KDE
+            kwargs["kde"] = self.kde
+
+        if kwargs["kde"]:
+            # required to allow KDE generation when sample values are small (see
+            # https://git.ligo.org/lscsoft/pesummary/-/merge_requests/604)
+            # NOTE: this will only be available when PESummary >v0.12.1 is released
+            if "kde_kwargs" in kwargs:
+                kwargs["kde_kwargs"].update({"variance_atol": 0.0})
+            else:
+                kwargs["kde_kwargs"] = {"variance_atol": 0.0}
+
+        singlesamps = [samples[key][self.parameters[0]].values for key in samples]
+
+        origkwargs = kwargs.copy()
+        colors = kwargs.pop("colors")
+        kwargs.pop(
+            "title"
+        )  # already set to False in _1d_comparison_histogram_plot function
+
+        fig = _1d_comparison_histogram_plot(
+            self.parameters[0],
+            singlesamps,
+            colors,
+            self.latex_labels[self.parameters[0]],
+            list(samples.keys()),
+            **kwargs,
+        )
+
+        kwargs = origkwargs
+
+        return fig
+
+    def _1d_plot_grid(self, grids, **kwargs):
+        """
+        Create 1D plots from posterior grids.
+        """
+
+        from pesummary.core.plots.plot import _1d_analytic_plot
+
+        origkwargs = kwargs.copy()
+
+        if "fig" not in kwargs:
+            from pesummary.core.plots.figure import figure
+
+            fig, ax = figure(gca=True)
+            kwargs["fig"] = fig
+            existingfig = False
+        else:
+            fig = kwargs["fig"]
+            ax = fig.gca()
+            existingfig = True
+
+        colors = kwargs.pop("colors")
+
+        for i, (label, grid) in enumerate(grids.items()):
+            x = grid[0].sample_points[self.parameters[0]]
+
+            # NOTE: this will only be available when PESummary >v0.12.1 is released
+            # following merge of https://git.ligo.org/lscsoft/pesummary/-/merge_requests/606
+            pdf = np.exp(
+                grid[0].marginalize_ln_posterior(not_parameters=self.parameters[0])
+                - grid[1]
+            )
+            kwargs["label"] = label
+            kwargs["color"] = colors[i]
+
+            fig = _1d_analytic_plot(
+                self.parameters[0],
+                x,
+                pdf,
+                self.latex_labels[self.parameters[0]],
+                ax=ax,
+                **kwargs,
+            )
+
+        # update the legend
+        if existingfig or len(grids) > 1:
+            from matplotlib.lines import Line2D
+
+            curhandles, labels = ax.get_legend_handles_labels()
+            handles = []
+            for handle, label in zip(curhandles, labels):
+                # switch any Patches labels to Line2D objects
+                legcolor = (
+                    handle.get_color()
+                    if isinstance(handle, Line2D)
+                    else handle.get_edgecolor()
+                )
+                handles.append(
+                    Line2D([], [], linewidth=1.75, color=legcolor, label=label)
+                )
+
+            ax.legend(handles=handles)
+
+        kwargs = origkwargs
+
+        return fig
 
     def _2d_plot_samples(self, samples, **kwargs):
         """
@@ -548,9 +646,9 @@ class Plot(object):
                 kwargs["ax"] = ax
 
             for label, grid in grids:
-                x = grid.sample_points[self.parameters[0]]
-                y = grid.sample_points[self.parameters[1]]
-                density = np.exp(grid.ln_posterior - grid.ln_evidence)
+                x = grid[0].sample_points[self.parameters[0]]
+                y = grid[0].sample_points[self.parameters[1]]
+                density = np.exp(grid.ln_posterior - grid[1])
 
                 fig = plotfunc(x, y, density, label=label, **kwargs)
         elif self.plottype == "triangle":
@@ -602,12 +700,12 @@ class Plot(object):
         :class:`~bilby.core.grid.Grid` object.
         """
 
-        from pesummary.utils.pdf import DiscretePDF
+        from pesummary.utils.array import Array
 
-        # get cumulative probability distribution
         margpost = grid.marginalize_posterior(not_parameters=parameter)
-        pdf = DiscretePDF(grid.sample_points[parameter], margpost)
-        intervals = pdf.percentile([100 * val for val in interval])
+        intervals = Array(grid.sample_points[parameter], weights=margpost).percentile(
+            [100 * val for val in interval]
+        )
 
         return intervals
 
