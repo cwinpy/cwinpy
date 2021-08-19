@@ -2,17 +2,14 @@
 Classes/functions to plot posterior results from known pulsar analyses.
 """
 
+import logging
+
 import numpy as np
 from bilby.core.grid import Grid
 from bilby.core.result import Result, read_in_result
 from cwinpy.utils import lalinference_to_bilby_result
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
 from pesummary.conf import colorcycle
-
-# from pesummary.core.plots.bounded_1d_kde import (
-#    ReflectionBoundedKDE,
-#    TransformBoundedKDE,
-# )
 
 #: dictionary of common parameters and equivalent LaTeX format strings
 LATEX_LABELS = {
@@ -36,14 +33,21 @@ DEFAULT_BOUNDS = {
     "cosiota": {"low": -1.0, "high": 1.0},
     "siniota": {"low": 0.0, "high": 1.0},
     "psi": {"low": 0.0, "high": np.pi / 2},
-    "iota": {"low": 0.0, "high": np.pi},
+    "iota": {"low": 0.0, "high": np.pi, "method": "Transform"},
     "phi0": {"low": 0.0, "high": np.pi},
     "phi21": {"low": 0.0, "high": 2 * np.pi},
     "phi22": {"low": 0.0, "high": np.pi},
 }
 
-#: list of parameters for which to use the TransformBoundedKDE from PEsummary
-TRANSFORM_KDE_PARAMS = ["iota"]
+#: dictionary mapping colors to color map names.
+COLOR_MAP = {
+    "b": "Blues",
+    "r": "Reds",
+    "g": "Greens",
+    "k": "Greys",
+    "m": "Purples",
+    "c": "BuGn",
+}
 
 #: list of allowed 1d plot types
 ONED_PLOT_TYPES = ["hist", "kde"]
@@ -63,6 +67,7 @@ class Plot(object):
         plottype="corner",
         latex_labels=None,
         kde=False,
+        pulsar=None,
         untrig=None,
     ):
         """
@@ -71,15 +76,26 @@ class Plot(object):
 
         .. note::
 
-           Results from a :class:`~bilby.core.grid.Grid` object can only be
-           plotted on a "corner", "hist", or "kde" type plot. In the case of a
-           "corner" plot, the :class:`~bilby.core.grid.Grid` results can only
-           be plotted together with samples from a
-           :class:`~bilby.core.result.Result` object, and the
-           :class:`~bilby.core.result.Result` object must be before the
-           :class:`~bilby.core.grid.Grid` results in the input ``results``
-           dictionary. If plotting :class:`~bilby.core.grid.Grid` results on
-           their own, only single parameters can be specified.
+           In the case of a "corner" plot, the :class:`~bilby.core.grid.Grid`
+           results can only be plotted together with samples from a
+           :class:`~bilby.core.result.Result` object. If plotting
+           :class:`~bilby.core.grid.Grid` results on their own, only single or
+           pairs of parameters can be specified.
+
+        Some examples of use the class are:
+
+        1. Create a 1D histogram of posteriors for the parameter "h0" for
+        results from two detectors, including KDEs of the posteriors:
+
+        >>> from cwinpy.plot import Plot
+        >>> plot = Plot(
+        >>>     {"H1": "results_H1.hdf5", "L1": "results_L1.hdf5"},
+        >>>     parameters="h0",
+        >>>     plottype="hist",
+        >>>     kde=True,
+        >>> )
+        >>> fig = plot.plot()
+        >>> fig.savefig("h0_posterior.pdf")
 
         Parameters
         ----------
@@ -114,6 +130,11 @@ class Plot(object):
         kde: bool
             If plotting a histogram using "hist", set this to True to also plot
             the KDE. Use the "kde" `plottype` to only plot the KDE.
+        pulsar: str, PulsarParametersPy
+            A TEMPO(2)-style pulsar parameter file containing the source
+            parameters. If the requested `parameters` are in the parameter
+            file, e.g., for a simulated signal, then if supplied these will be
+            plotted with the posteriors.
         untrig: str, list
             A string, or list, of parameters that exist are defined as the
             trigonometric function of another parameters. If given in the list
@@ -128,6 +149,7 @@ class Plot(object):
         self.plottype = plottype
         self.latex_labels = latex_labels
         self.kde = kde
+        self.pulsar = pulsar
 
     @property
     def results(self):
@@ -176,6 +198,8 @@ class Plot(object):
 
                             # remove old column
                             self._results[key].posterior.drop(columns=p, inplace=True)
+                elif isinstance(self._results[key], Grid):
+                    raise TypeError("Cannot invert trigonometric parameter in Grid")
 
         # store the available parameters for each result object
         self._results_parameters = {}
@@ -304,6 +328,56 @@ class Plot(object):
 
             self._latex_labels[param] = label
 
+    @property
+    def pulsar(self):
+        """
+        The :class:`PulsarParameterPy` object containing the source parameters.
+        """
+
+        return self._pulsar
+
+    @pulsar.setter
+    def pulsar(self, pulsar):
+        if pulsar is None:
+            self._pulsar = None
+            self._injection_parameters = None
+        else:
+            from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+
+            try:
+                self._pulsar = PulsarParametersPy(pulsar)
+            except ValueError:
+                raise IOError(f"Could not parse pulsar parameter file '{pulsar}'")
+
+            untrig = None
+            if isinstance(self.untrig, (str, list)):
+                untrig = (
+                    [self.untrig] if isinstance(self.untrig, str) else list(self.untrig)
+                )
+
+            self._injection_parameters = {}
+            for param in self.parameters:
+                # check if inverted trigonometric function has been performed
+                # and if so invert parameter value if required
+                if untrig is not None:
+                    for p in untrig:
+                        if param == p[3:] and self._pulsar[param] is None:
+                            if p[0:3] == "cos":  # trig function
+                                self._pulsar[param] = np.arccos(self._pulsar[p])
+                            elif p[0:3] == "sin":
+                                self._pulsar[param] = np.arcsin(self._pulsar[p])
+                            break
+
+                self._injection_parameters[param] = self._pulsar[param]
+
+    @property
+    def injection_parameters(self):
+        """
+        A dictionary of simulated/true source parameters.
+        """
+
+        return self._injection_parameters
+
     def plot(self, **kwargs):
         """
         Create the plot of the data.
@@ -315,31 +389,31 @@ class Plot(object):
             By default the GWpy colour scheme will be used for results keyed by
             GW detector prefixes. If keys are not known detector prefixes then
             the PESummary default color cycle will be used.
+        grid2d: bool
+            If plotting a `corner` plot, and overplotting Grid-based
+            posteriors, set this to True to show the 2D Grid-based posterior
+            densities rather than just the 1D posteriors. Default is False.
         """
-
-        # don't add percentile title to figure by default
-        if "title" not in kwargs:
-            kwargs["title"] = False
 
         # get colors
         colors = kwargs.get("colors", GW_OBSERVATORY_COLORS)
 
         # get Result samples
-        samples = {
+        self._samples = {
             label: value.posterior
             for label, value in self.results.items()
             if isinstance(value, Result)
         }
 
         # get Grid posteriors
-        grids = {
+        self._grids = {
             label: [value, value.ln_evidence]  # store grid and log evidence
             for label, value in self.results.items()
             if isinstance(value, Grid)
         }
 
         colordicts = []
-        for j, res in enumerate([samples, grids]):
+        for j, res in enumerate([self._samples, self._grids]):
             colordicts.append({})
             for i, key in enumerate(res):
                 if key in colors:
@@ -358,110 +432,70 @@ class Plot(object):
 
         # plot samples
         fig = None
-        if len(samples) > 0:
+        if len(self._samples) > 0:
             kwargs["colors"] = list(colordicts[0].values())
             if self._num_parameters == 1:
-                fig = self._1d_plot_samples(samples, **kwargs)
-            if self._num_parameters == 2:
-                fig = self._2d_plot_samples(samples, **kwargs)
+                fig = self._1d_plot_samples(**kwargs)
+            elif self._num_parameters == 2 and self.plottype != "corner":
+                fig = self._2d_plot_samples(**kwargs)
+            else:
+                fig = self._nd_plot_samples(**kwargs)
 
         # restore keywords
         kwargs = origkwargs
 
-        if len(grids) > 0:
+        if len(self._grids) > 0:
             kwargs["colors"] = list(colordicts[1].values())
             if fig is not None and "fig" not in kwargs:
                 kwargs["fig"] = fig
             if self._num_parameters == 1:
-                fig = self._1d_plot_grid(grids, **kwargs)
-            if self._num_parameters == 2:
-                fig = self._2d_plot_grid(grids, **kwargs)
+                fig = self._1d_plot_grid(**kwargs)
+            elif self._num_parameters == 2 and self.plottype != "corner":
+                fig = self._2d_plot_grid(**kwargs)
+            else:
+                fig = self._nd_plot_grid(**kwargs)
 
-        # for key, res in self.results.items():
-        #    samps = isinstance(res, Result)
-        #    if self._num_parameters == 1:
-        #        if "latex_label" not in kwargs:
-        #            kwargs["latex_label"] = list(self.latex_labels.values())
+        # add further figure information
+        if self._num_parameters == 1:
+            ax = fig.gca()
 
-        # set function dependent on whether a Grid is used or not
-        #        func = _1d_analytic_plot if not samps else self.plotfunction
+            # set figure bounds if outside defaults
+            if self.parameters[0] in DEFAULT_BOUNDS:
+                _set_axes_limits(ax, self.parameters[0], axis="x")
 
-        #        if not samps:
-        #            kwargs["x"] = res.sample_points[self.parameters[0]]
-        #            kwargs["pdf"] = res.marginalize_posterior(
-        #                not_parameters=self.parameters[0]
-        #            )
-        #        else:
-        #            kwargs["samples"] = res.posterior[self.parameters[0]]
+            # add injection values
+            if self.injection_parameters is not None:
+                if self.injection_parameters[self.parameters[0]] is not None:
+                    ax.axvline(
+                        self.injection_parameters[self.parameters[0]],
+                        color=kwargs.get("injection_color", "k"),
+                        linewidth=0.5,
+                    )
+        elif self._num_parameters == 2:
+            if "triangle" in self.plottype:
+                a1, a2, a3 = fig[1:]
+                order = ["x", "y"] if self.plottype == "triangle" else ["y", "x"]
+                params = (
+                    self.parameters[:2]
+                    if self.plottype == "triangle"
+                    else self.parameters[1::-1]
+                )
 
-        #        fig = func(fig=fig, param=self.parameters[0], **kwargs)
+                # set figure bounds if outside defaults
+                for param, axes, axis in zip(params, [[a1, a2], [a2, a3]], order):
+                    for ax in axes:
+                        _set_axes_limits(ax, param, axis=axis)
 
-        #        if not samps:
-        #            kwargs.pop("x")
-        #            kwargs.pop("pdf")
-        #        else:
-        #            kwargs.pop("samples")
-        #    else:
-        #        if "latex_labels" not in kwargs and self.plottype == "corner":
-        #            kwargs["latex_labels"] = self.latex_labels
-        #        elif self.plottype != "corner":
-        #            kwargs["xlabel"] = self.latex_labels[self.parameters[0]]
-        #            kwargs["ylabel"] = self.latex_labels[self.parameters[1]]
+        return fig[0] if isinstance(fig, tuple) else fig
 
-        # create multi-D plots is using samples from a Result object
-        #        if self.plottype == "corner" and samps:
-        #            kwargs["samples"] = res.posterior
-
-        #            if "hist_kwargs" not in kwargs:
-        #                # make sure histograms are normalised
-        #                kwargs["hist_kwargs"] = {"density": True}
-
-        #            fig, _, _ = self.plotfunction(
-        #                fig=fig, corner_parameters=self.parameters, **kwargs
-        #            )
-        #            kwargs.pop("samples")
-        #        elif self.plottype != "corner" and samps:
-        #            kwargs["x"] = res.posterior[self.parameters[0]].values
-        #            kwargs["y"] = res.posterior[self.parameters[1]].values
-
-        #            if self.plottype == "triangle":
-        #                if isinstance(fig, tuple):
-        #                    kwargs["existing_figure"] = fig
-        #            else:
-        #                kwargs["fig"] = fig
-
-        #            fig = self.plotfunction(**kwargs)
-        #            kwargs.pop("x")
-        #            kwargs.pop("y")
-        #        elif (
-        #            self.plottype == "corner" and not samps and len(fig.get_axes()) > 1
-        #        ):
-        # add Grid to existing corner plot axes
-
-        # loop over parameters
-        #            ax = fig.get_axes()
-        #            axidx = 0
-        #            idxstep = self._num_parameters + 1
-        #            for param in self.parameters:
-        #                kwargs["x"] = res.sample_points[param]
-        #                kwargs["pdf"] = res.marginalize_posterior(not_parameters=param)
-        #                fig = _1d_analytic_plot(
-        #                    fig=fig, ax=ax[axidx], param=param, **kwargs
-        #                )
-        #                kwargs.pop("x")
-        #                kwargs.pop("pdf")
-        #                axidx += idxstep
-        #        else:
-        #            raise RuntimeError("Problem creating plot")
-
-        return fig
-
-    def _1d_plot_samples(self, samples, **kwargs):
+    def _1d_plot_samples(self, **kwargs):
         """
         Create 1D plots from posterior samples.
         """
 
         from pesummary.core.plots.plot import _1d_comparison_histogram_plot
+
+        param = self.parameters[0]
 
         if self.plottype == "kde":
             # set for plotting a KDE
@@ -471,29 +505,49 @@ class Plot(object):
             # set whether or not to also plot the KDE
             kwargs["kde"] = self.kde
 
+        if "plot_percentile" not in kwargs:
+            kwargs["plot_percentile"] = False
+
+        kde_kwargs = kwargs.pop("kde_kwargs", {})
         if kwargs["kde"]:
+            from pesummary.core.plots.bounded_1d_kde import bounded_1d_kde
+
             # required to allow KDE generation when sample values are small (see
             # https://git.ligo.org/lscsoft/pesummary/-/merge_requests/604)
             # NOTE: this will only be available when PESummary >v0.12.1 is released
-            if "kde_kwargs" in kwargs:
-                kwargs["kde_kwargs"].update({"variance_atol": 0.0})
-            else:
-                kwargs["kde_kwargs"] = {"variance_atol": 0.0}
+            kde_kwargs.update({"variance_atol": 0.0})
 
-        singlesamps = [samples[key][self.parameters[0]].values for key in samples]
+            # add bounds
+            if param in DEFAULT_BOUNDS:
+                kde_kwargs["xlow"] = (
+                    DEFAULT_BOUNDS[param]["low"]
+                    if "low" in DEFAULT_BOUNDS[param]
+                    else None
+                )
+                kde_kwargs["xhigh"] = (
+                    DEFAULT_BOUNDS[param]["high"]
+                    if "high" in DEFAULT_BOUNDS[param]
+                    else None
+                )
+                kde_kwargs["method"] = (
+                    DEFAULT_BOUNDS[param]["method"]
+                    if "method" in DEFAULT_BOUNDS[param]
+                    else "Reflection"
+                )
+                kde_kwargs["kde_kernel"] = bounded_1d_kde
+
+        singlesamps = [self._samples[key][param].values for key in self._samples]
 
         origkwargs = kwargs.copy()
         colors = kwargs.pop("colors")
-        kwargs.pop(
-            "title"
-        )  # already set to False in _1d_comparison_histogram_plot function
 
         fig = _1d_comparison_histogram_plot(
             self.parameters[0],
             singlesamps,
             colors,
-            self.latex_labels[self.parameters[0]],
-            list(samples.keys()),
+            self.latex_labels[param],
+            list(self._samples.keys()),
+            kde_kwargs=kde_kwargs,
             **kwargs,
         )
 
@@ -501,7 +555,7 @@ class Plot(object):
 
         return fig
 
-    def _1d_plot_grid(self, grids, **kwargs):
+    def _1d_plot_grid(self, **kwargs):
         """
         Create 1D plots from posterior grids.
         """
@@ -523,7 +577,11 @@ class Plot(object):
 
         colors = kwargs.pop("colors")
 
-        for i, (label, grid) in enumerate(grids.items()):
+        if "plot_percentile" not in kwargs:
+            # don't plot percentiles by default
+            kwargs["plot_percentile"] = False
+
+        for i, (label, grid) in enumerate(self._grids.items()):
             x = grid[0].sample_points[self.parameters[0]]
 
             # NOTE: this will only be available when PESummary >v0.12.1 is released
@@ -534,6 +592,7 @@ class Plot(object):
             )
             kwargs["label"] = label
             kwargs["color"] = colors[i]
+            kwargs["title"] = False
 
             fig = _1d_analytic_plot(
                 self.parameters[0],
@@ -545,7 +604,7 @@ class Plot(object):
             )
 
         # update the legend
-        if existingfig or len(grids) > 1:
+        if existingfig or len(self._grids) > 1:
             from matplotlib.lines import Line2D
 
             curhandles, labels = ax.get_legend_handles_labels()
@@ -567,75 +626,137 @@ class Plot(object):
 
         return fig
 
-    def _2d_plot_samples(self, samples, **kwargs):
+    def _2d_plot_samples(self, **kwargs):
         """
         Create 2D plots from posterior samples.
         """
-        if self.plottype == "corner":
-            from pesummary.core.plots.plot import (
-                _make_comparison_corner_plot as plotfunc,
+
+        from pesummary.core.plots.bounded_2d_kde import Bounded_2d_kde
+
+        # get bounds
+        lows = []
+        highs = []
+        methods = []
+        for param in self.parameters[0:2]:
+            if param in DEFAULT_BOUNDS:
+                lows.append(
+                    DEFAULT_BOUNDS[param]["low"]
+                    if "low" in DEFAULT_BOUNDS[param]
+                    else None
+                )
+                highs.append(
+                    DEFAULT_BOUNDS[param]["high"]
+                    if "high" in DEFAULT_BOUNDS[param]
+                    else None
+                )
+                methods.append(
+                    DEFAULT_BOUNDS[param]["method"]
+                    if "method" in DEFAULT_BOUNDS[param]
+                    else "Reflection"
+                )
+
+        if self.plottype == "triangle":
+            from pesummary.core.plots.publication import triangle_plot as plotfunc
+        elif self.plottype == "reverse_triangle":
+            from pesummary.core.plots.publication import (
+                reverse_triangle_plot as plotfunc,
+            )
+        else:
+            # contour plot
+            from pesummary.core.plots.publication import (
+                comparison_twod_contour_plot as plotfunc,
             )
 
-            args = [samples]
-            kwargs["corner_parameters"] = self.parameters
-            if "latex_labels" not in kwargs:
-                kwargs["latex_labels"] = self.latex_labels
+            # until https://git.ligo.org/lscsoft/pesummary/-/merge_requests/600 is merged
+            # linestyles will need to be set
+            if "linestyles" not in kwargs:
+                kwargs["linestyles"] = ["-"] * len(self._samples)
 
-            # make sure histograms are normalised
-            if "hist_kwargs" not in kwargs:
-                kwargs["hist_kwargs"] = {"density": True}
+            # set KDE information
+            kwargs.update(
+                {
+                    "kde": Bounded_2d_kde,
+                    "kde_kwargs": {
+                        "xlow": lows[0],
+                        "xhigh": highs[0],
+                        "ylow": lows[1],
+                        "yhigh": highs[1],
+                    },
+                }
+            )
 
-            # get ranges for each parameter to set figure axes extents
-            if "range" not in kwargs:
-                range = []
-                for param in self.parameters:
-                    range.append(
-                        [
-                            np.min([samps[param].min() for samps in samples.values()]),
-                            np.max([samps[param].max() for samps in samples.values()]),
-                        ]
-                    )
-                kwargs["range"] = range
-        elif "triangle" in self.plottype or "contour" in self.plottype:
-            if self.plottype == "triangle":
-                from pesummary.core.plots.publication import triangle_plot as plotfunc
-            elif self.plottype == "reverse_triangle":
-                from pesummary.core.plots.publication import (
-                    reverse_triangle_plot as plotfunc,
-                )
-            else:
-                # contour plot
-                from pesummary.core.plots.publication import (
-                    comparison_twod_contour_plot as plotfunc,
-                )
+        if "triangle" in self.plottype:
+            from pesummary.core.plots.bounded_1d_kde import bounded_1d_kde
 
-                # until https://git.ligo.org/lscsoft/pesummary/-/merge_requests/600 is merged
-                # linestyles will need to be set
-                if "linestyles" not in kwargs:
-                    kwargs["linestyles"] = ["-"] * len(samples)
+            # set KDE informaiton
+            kwargs.update(
+                {
+                    "kde_2d": Bounded_2d_kde,
+                    "kde_2d_kwargs": {
+                        "xlow": lows[0],
+                        "xhigh": highs[0],
+                        "ylow": lows[1],
+                        "yhigh": highs[1],
+                    },
+                    "kde": bounded_1d_kde,
+                }
+            )
 
-            args = [
-                [samps[self.parameters[0]].values for samps in samples.values()],
-                [samps[self.parameters[1]].values for samps in samples.values()],
-            ]
+            kwargs["kde_kwargs"] = {
+                "x_axis": {"xlow": lows[0], "xhigh": highs[0], "method": methods[0]},
+                "y_axis": {"xlow": lows[1], "xhigh": highs[1], "method": methods[1]},
+            }
 
-            if "xlabel" not in kwargs:
-                kwargs["xlabel"] = self.latex_labels[self.parameters[0]]
-            if "ylabel" not in kwargs:
-                kwargs["ylabel"] = self.latex_labels[self.parameters[1]]
+        args = [
+            [samps[self.parameters[0]].values for samps in self._samples.values()],
+            [samps[self.parameters[1]].values for samps in self._samples.values()],
+        ]
 
-        if "labels" not in kwargs and len(samples) > 1:
-            kwargs["labels"] = list(samples.keys())
+        if "xlabel" not in kwargs:
+            kwargs["xlabel"] = self.latex_labels[self.parameters[0]]
+        if "ylabel" not in kwargs:
+            kwargs["ylabel"] = self.latex_labels[self.parameters[1]]
+
+        if "labels" not in kwargs and len(self.results) > 1:
+            kwargs["labels"] = list(self._samples.keys())
+
+        # set injection parameter values
+        if self.injection_parameters is not None:
+            if (
+                self.injection_parameters[self.parameters[0]] is not None
+                and self.injection_parameters[self.parameters[1]] is not None
+            ):
+                kwargname = "truths" if self.plottype == "corner" else "truth"
+                kwargs[kwargname] = [
+                    self.injection_parameters[self.parameters[0]],
+                    self.injection_parameters[self.parameters[1]],
+                ]
 
         # create plot
-        fig = plotfunc(*args, **kwargs)
+        with DisableLogger():
+            fig = plotfunc(*args, **kwargs)
 
         return fig
 
-    def _2d_plot_grid(self, grids, **kwargs):
+    def _2d_plot_grid(self, **kwargs):
         """
         Create 2D plot from posterior grids.
         """
+
+        origkwargs = kwargs.copy()
+        colors = kwargs.pop("colors")
+
+        # add no grid by default
+        if "grid" not in kwargs:
+            kwargs["grid"] = False
+
+        if "shading" not in kwargs:
+            kwargs["shading"] = "gouraud"
+
+        if "levels" not in kwargs:
+            kwargs["levels"] = None
+
+        existingfig = False
         if self.plottype == "contour":
             from pesummary.core.plots.publication import (
                 analytic_twod_contour_plot as plotfunc,
@@ -644,17 +765,272 @@ class Plot(object):
             if "fig" in kwargs:
                 ax = kwargs["fig"].gca()
                 kwargs["ax"] = ax
+                existingfig = True
+        elif "triangle" in self.plottype:
+            if self.plottype == "triangle":
+                from pesummary.core.plots.publication import (
+                    analytic_triangle_plot as plotfunc,
+                )
+            else:
+                from pesummary.core.plots.publication import (
+                    analytic_reverse_triangle_plot as plotfunc,
+                )
 
-            for label, grid in grids:
-                x = grid[0].sample_points[self.parameters[0]]
-                y = grid[0].sample_points[self.parameters[1]]
-                density = np.exp(grid.ln_posterior - grid[1])
+            # get existing figure
+            kwargs["existing_figure"] = kwargs.pop("fig", None)
+            if kwargs["existing_figure"] is not None:
+                existingfig = True
 
-                fig = plotfunc(x, y, density, label=label, **kwargs)
-        elif self.plottype == "triangle":
-            from pesummary.core.plots.publication import (
-                analytic_triangle_plot as plotfunc,
+        for i, (label, grid) in enumerate(self._grids.items()):
+            kwargs["level_kwargs"] = {
+                "colors": [colors[i]]
+            }  # set colour via level_kwargs
+            kwargs["label"] = label
+
+            if colors[i] in COLOR_MAP and "cmap" not in kwargs:
+                kwargs["cmap"] = COLOR_MAP[colors[i]]
+
+            if "zorder" not in kwargs:
+                kwargs["zorder"] = -10  # try and plot 2D plot first
+
+            if self.plottype == "contour":
+                args = [
+                    grid[0].sample_points[self.parameters[0]],
+                    grid[0].sample_points[self.parameters[1]],
+                    np.exp(
+                        grid[0].marginalize_ln_posterior(not_parameters=self.parameters)
+                        - grid[1]
+                    ),
+                ]
+            else:
+                args = [
+                    grid[0].sample_points[self.parameters[0]],
+                    grid[0].sample_points[self.parameters[1]],
+                    np.exp(
+                        grid[0].marginalize_ln_posterior(
+                            not_parameters=self.parameters[0]
+                        )
+                        - grid[1]
+                    ),
+                    np.exp(
+                        grid[0].marginalize_ln_posterior(
+                            not_parameters=self.parameters[1]
+                        )
+                        - grid[1]
+                    ),
+                    np.exp(
+                        grid[0].marginalize_ln_posterior(not_parameters=self.parameters)
+                        - grid[1]
+                    ),
+                ]
+
+            # set orientation of the 2D grid
+            p1idx = grid[0].parameter_names.index(self.parameters[0])
+            p2idx = grid[0].parameter_names.index(self.parameters[1])
+            if p1idx < p2idx:
+                # transpose density
+                args[-1] = args[-1].T
+
+            with DisableLogger():
+                fig = plotfunc(*args, **kwargs)
+
+        # update the legend
+        if (existingfig or len(self._grids) > 1) and "triangle" in self.plottype:
+            from matplotlib.lines import Line2D
+
+            legax = fig[3] if self.plottype == "triangle" else fig[1]
+            curhandles, labels = legax.get_legend_handles_labels()
+            handles = []
+            for handle, label in zip(curhandles, labels):
+                # switch any Patches labels to Line2D objects
+                legcolor = (
+                    handle.get_color()
+                    if isinstance(handle, Line2D)
+                    else handle.get_edgecolor()
+                )
+                handles.append(
+                    Line2D([], [], linewidth=1.75, color=legcolor, label=label)
+                )
+
+            # add any additional labels from grid
+            kdeax = fig[1]
+            for i, label in enumerate(self._grids):
+                for line in kdeax.get_lines():
+                    linecolor = line.get_color()
+                    # test that colours are the same
+                    if linecolor == colors[i]:
+                        handles.append(
+                            Line2D([], [], linewidth=1.75, color=linecolor, label=label)
+                        )
+                        break
+
+            # axis to output legend
+            fig[2].legend(handles=handles, frameon=False, loc="best")
+
+        kwargs = origkwargs
+
+        return fig
+
+    def _nd_plot_samples(self, **kwargs):
+        """
+        Create ND (where N > 2) plots from posterior samples.
+        """
+
+        from pesummary.core.plots.plot import (
+            _make_comparison_corner_plot as plotfunc,
+        )
+
+        args = [self._samples]
+        kwargs["corner_parameters"] = self.parameters
+        if "latex_labels" not in kwargs:
+            kwargs["latex_labels"] = self.latex_labels
+
+        if "plot_percentile" not in kwargs:
+            kwargs["plot_percentile"] = False
+
+        # get ranges for each parameter to set figure axes extents
+        if "range" not in kwargs:
+            range = []
+            for param in self.parameters:
+                range.append(
+                    [
+                        np.min(
+                            [samps[param].min() for samps in self._samples.values()]
+                        ),
+                        np.max(
+                            [samps[param].max() for samps in self._samples.values()]
+                        ),
+                    ]
+                )
+            kwargs["range"] = range
+
+        # default to not show quantile lines
+        if "quantiles" not in kwargs:
+            kwargs["quantiles"] = None
+
+        # set default injection line color
+        if "truth_color" not in kwargs:
+            kwargs["truth_color"] = "k"
+
+        # set injection parameter values
+        if self.injection_parameters is not None:
+            injpars = [
+                self.injection_parameters[p]
+                for p in self.parameters
+                if self.injection_parameters[p] is not None
+            ]
+            if len(injpars) == self._num_parameters:
+                kwargs["truths"] = injpars
+
+        # create plot
+        with DisableLogger():
+            fig = plotfunc(*args, **kwargs)
+
+        return fig
+
+    def _nd_plot_grid(self, **kwargs):
+        """
+        Create ND (where N > 2) plots from posterior grids. These can only be
+        added to existing corner plot figure axes.
+        """
+
+        from matplotlib.lines import Line2D
+        from pesummary.core.plots.publication import pcolormesh
+
+        # only add to corner plot if plotting on an existing figure
+        if "fig" not in kwargs:
+            raise TypeError(
+                "Can only add Grid results to an existing corner plot showing samples"
             )
+
+        colors = kwargs.pop("colors")
+
+        fig = kwargs.pop("fig")
+        ax = fig.axes
+
+        quantiles = kwargs.pop("quantiles", None)
+
+        grid2d = kwargs.pop("grid2d", False)
+
+        for i, (label, grid) in enumerate(self._grids.items()):
+            plotkwargs = {}
+            plotkwargs["color"] = colors[i]
+            plotkwargs["label"] = label
+
+            axidx = 0
+            for j, param in enumerate(self.parameters):
+                x = grid[0].sample_points[param]
+                pdf = np.exp(
+                    grid[0].marginalize_ln_posterior(not_parameters=param) - grid[1]
+                )
+
+                ax[axidx].plot(x, pdf, **plotkwargs)
+
+                if quantiles is not None:
+                    low, high = self._credible_interval_grid(
+                        grid[0], param, interval=quantiles
+                    )
+                    ax[axidx].axvline(low, color=colors[i], ls="--")
+                    ax[axidx].axvline(high, color=colors[i], ls="--")
+
+                # plot 2D posteriors
+                if grid2d:
+                    meshkwargs = {}
+                    meshkwargs["zorder"] = kwargs.get("zorder", -10)
+                    meshkwargs["shading"] = kwargs.get("shading", "gouraud")
+
+                    if "cmap" not in kwargs:
+                        if colors[i] in COLOR_MAP:
+                            meshkwargs["cmap"] = COLOR_MAP[colors[i]]
+                    else:
+                        meshkwargs["cmap"] = kwargs["cmap"]
+
+                    for k in range(j + 1, self._num_parameters):
+                        y = grid[0].sample_points[self.parameters[k]]
+                        density = np.exp(
+                            grid[0].marginalize_ln_posterior(
+                                not_parameters=[param, self.parameters[k]]
+                            )
+                            - grid[1]
+                        )
+
+                        # set orientation of the 2D grid
+                        p1idx = grid[0].parameter_names.index(param)
+                        p2idx = grid[0].parameter_names.index(self.parameters[k])
+                        if p1idx < p2idx:
+                            # transpose density
+                            density = density.T
+
+                        axyidx = axidx + (k - j) * self._num_parameters
+                        pcolormesh(x, y, density, ax=ax[axyidx], **meshkwargs)
+
+                axidx += self._num_parameters + 1
+
+        # update the legend
+        handles = []
+        for legtext, leghandle in zip(
+            fig.legends[0].texts, fig.legends[0].legendHandles
+        ):
+            label = legtext.get_text()
+            legcolor = leghandle.get_color()
+
+            handles.append(Line2D([], [], linewidth=1.75, color=legcolor, label=label))
+
+        for i, label in enumerate(self._grids):
+            for line in ax[0].get_lines():
+                linecolor = line.get_color()
+                # test that colours are the same
+                if linecolor == colors[i]:
+                    handles.append(
+                        Line2D([], [], linewidth=1.75, color=linecolor, label=label)
+                    )
+                    break
+
+        # remove original legend
+        fig.legends = []
+
+        # add legend onto top right corner axis
+        ax[self._num_parameters - 1].legend(handles=handles, frameon=False, loc="best")
 
         return fig
 
@@ -703,8 +1079,10 @@ class Plot(object):
         from pesummary.utils.array import Array
 
         margpost = grid.marginalize_posterior(not_parameters=parameter)
-        intervals = Array(grid.sample_points[parameter], weights=margpost).percentile(
-            [100 * val for val in interval]
+        intervals = Array.percentile(
+            grid.sample_points[parameter],
+            weights=margpost,
+            percentile=[100 * val for val in interval],
         )
 
         return intervals
@@ -730,3 +1108,39 @@ class Plot(object):
         """
 
         return self.credible_interval(parameter, interval=[bound])
+
+
+def _set_axes_limits(ax, parameter, axis="x"):
+    """
+    Define the limits of an axis range using the current limits or the default
+    bounds if current limits are outside those bounds.
+    """
+
+    lims = list(ax.get_xlim()) if axis == "x" else list(ax.get_ylim())
+
+    if "low" in DEFAULT_BOUNDS[parameter]:
+        low = DEFAULT_BOUNDS[parameter]["low"]
+        if lims[0] < low:
+            lims[0] = DEFAULT_BOUNDS[parameter]["low"]
+    if "high" in DEFAULT_BOUNDS[parameter]:
+        high = DEFAULT_BOUNDS[parameter]["high"]
+        if lims[1] > high:
+            lims[1] = DEFAULT_BOUNDS[parameter]["high"]
+
+    if axis == "x":
+        ax.set_xlim(lims)
+    else:
+        ax.set_ylim(lims)
+
+
+class DisableLogger:
+    """
+    Context manager class to disable logging propagated from PESummary.
+    See https://stackoverflow.com/a/20251235/1862861.
+    """
+
+    def __enter__(self):
+        logging.disable(logging.CRITICAL)
+
+    def __exit__(self, exit_type, exit_value, exit_traceback):
+        logging.disable(logging.NOTSET)
