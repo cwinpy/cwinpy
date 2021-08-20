@@ -21,6 +21,14 @@ Bayesian inference
    Likelihood function <likelihood>
    Hierarchical inference <hierarchical>
 
+Plotting results
+================
+
+.. toctree::
+   :maxdepth: 2
+
+   plotting
+
 Signal simulation
 =================
 

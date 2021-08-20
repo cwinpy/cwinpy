@@ -1,7 +1,3 @@
-"""
-Classes/functions to plot posterior results from known pulsar analyses.
-"""
-
 import logging
 
 import numpy as np
@@ -23,6 +19,7 @@ LATEX_LABELS = {
     "phi0": r"$\phi_0$ (rad)",
     "phi21": r"$\Phi_{21}$ (rad)",
     "phi22": r"$\Phi_{22}$ (rad)",
+    "q22": r"$Q_{22}$ ($\text{ kg}\,\text{m}^2$)",
 }
 
 #: dictionary of default parameter bounds
@@ -37,6 +34,7 @@ DEFAULT_BOUNDS = {
     "phi0": {"low": 0.0, "high": np.pi},
     "phi21": {"low": 0.0, "high": 2 * np.pi},
     "phi22": {"low": 0.0, "high": np.pi},
+    "q22": {"low": 0.0},
 }
 
 #: dictionary mapping colors to color map names.
@@ -59,7 +57,7 @@ TWOD_PLOT_TYPES = ["contour", "triangle", "reverse_triangle", "corner"]
 MULTID_PLOT_TYPES = ["corner"]
 
 
-class Plot(object):
+class Plot:
     def __init__(
         self,
         results,
@@ -82,27 +80,12 @@ class Plot(object):
            :class:`~bilby.core.grid.Grid` results on their own, only single or
            pairs of parameters can be specified.
 
-        Some examples of use the class are:
-
-        1. Create a 1D histogram of posteriors for the parameter "h0" for
-        results from two detectors, including KDEs of the posteriors:
-
-        >>> from cwinpy.plot import Plot
-        >>> plot = Plot(
-        >>>     {"H1": "results_H1.hdf5", "L1": "results_L1.hdf5"},
-        >>>     parameters="h0",
-        >>>     plottype="hist",
-        >>>     kde=True,
-        >>> )
-        >>> fig = plot.plot()
-        >>> fig.savefig("h0_posterior.pdf")
-
         Parameters
         ----------
         results: str, dict
             Pass the results to be plotted. This can either be in the form of
-            a string giving the path to the results file, or directly passing
-            bilby :class:`~bilby.core.result.Result` or
+            a string giving the path to the results file(s), or directly
+            passing bilby :class:`~bilby.core.result.Result` or
             :class:`~bilby.core.grid.Grid` objects. If passing a dictionary,
             the values can be file paths, :class:`~bilby.core.result.Result` or
             :class:`~bilby.core.grid.Grid` objects, while the keys may be, for
@@ -136,7 +119,7 @@ class Plot(object):
             file, e.g., for a simulated signal, then if supplied these will be
             plotted with the posteriors.
         untrig: str, list
-            A string, or list, of parameters that exist are defined as the
+            A string, or list, of parameters that are defined as the
             trigonometric function of another parameters. If given in the list
             then those parameters will be inverted, e.g., if "cosiota" is
             present it will be changed to be "iota". This only works for result
@@ -378,6 +361,28 @@ class Plot(object):
 
         return self._injection_parameters
 
+    @property
+    def fig(self):
+        """
+        The :class:`matplotlib.figure.Figure` object created for the plot.
+        """
+
+        return self._fig
+
+    @fig.setter
+    def fig(self, fig):
+        self._fig = fig[0] if isinstance(fig, tuple) else fig
+
+    def savefig(self, fname, **kwargs):
+        """
+        An alias to run :meth:`matplotlib.figure.Figure.savefig` on the produced figure.
+        """
+
+        self.fig.savefig(fname, **kwargs)
+
+    # alias savefig to save
+    save = savefig
+
     def plot(self, **kwargs):
         """
         Create the plot of the data.
@@ -469,7 +474,7 @@ class Plot(object):
                     ax.axvline(
                         self.injection_parameters[self.parameters[0]],
                         color=kwargs.get("injection_color", "k"),
-                        linewidth=0.5,
+                        linewidth=1,
                     )
         elif self._num_parameters == 2:
             if "triangle" in self.plottype:
@@ -486,7 +491,8 @@ class Plot(object):
                     for ax in axes:
                         _set_axes_limits(ax, param, axis=axis)
 
-        return fig[0] if isinstance(fig, tuple) else fig
+        self.fig = fig
+        return self.fig
 
     def _1d_plot_samples(self, **kwargs):
         """
@@ -541,15 +547,20 @@ class Plot(object):
         origkwargs = kwargs.copy()
         colors = kwargs.pop("colors")
 
-        fig = _1d_comparison_histogram_plot(
-            self.parameters[0],
-            singlesamps,
-            colors,
-            self.latex_labels[param],
-            list(self._samples.keys()),
-            kde_kwargs=kde_kwargs,
-            **kwargs,
-        )
+        with DisableLogger():
+            fig = _1d_comparison_histogram_plot(
+                self.parameters[0],
+                singlesamps,
+                colors,
+                self.latex_labels[param],
+                list(self._samples.keys()),
+                kde_kwargs=kde_kwargs,
+                **kwargs,
+            )
+
+        # remove legend if this is the only result to plot
+        if len(self.results) == 1:
+            fig.axes[0].get_legend().remove()
 
         kwargs = origkwargs
 
@@ -574,6 +585,13 @@ class Plot(object):
             fig = kwargs["fig"]
             ax = fig.gca()
             existingfig = True
+
+            # get existing legend info if using a KDE plot
+            if self.plottype == "kde":
+                texts = [
+                    text.get_text() for text in fig.axes[0].get_legend().get_texts()
+                ]
+                leglines = fig.axes[0].get_legend().get_lines()
 
         colors = kwargs.pop("colors")
 
@@ -609,6 +627,12 @@ class Plot(object):
 
             curhandles, labels = ax.get_legend_handles_labels()
             handles = []
+
+            if self.plottype == "kde":
+                # add in values from KDE plot
+                curhandles = leglines + curhandles
+                labels = texts + labels
+
             for handle, label in zip(curhandles, labels):
                 # switch any Patches labels to Line2D objects
                 legcolor = (
@@ -616,9 +640,7 @@ class Plot(object):
                     if isinstance(handle, Line2D)
                     else handle.get_edgecolor()
                 )
-                handles.append(
-                    Line2D([], [], linewidth=1.75, color=legcolor, label=label)
-                )
+                handles.append(Line2D([], [], color=legcolor, label=label))
 
             ax.legend(handles=handles)
 
@@ -926,6 +948,9 @@ class Plot(object):
         with DisableLogger():
             fig = plotfunc(*args, **kwargs)
 
+        # turn frame off on legend
+        fig.legends[0].set_frame_on(False)
+
         return fig
 
     def _nd_plot_grid(self, **kwargs):
@@ -1014,23 +1039,21 @@ class Plot(object):
             label = legtext.get_text()
             legcolor = leghandle.get_color()
 
-            handles.append(Line2D([], [], linewidth=1.75, color=legcolor, label=label))
+            handles.append(Line2D([], [], color=legcolor, label=label))
 
         for i, label in enumerate(self._grids):
             for line in ax[0].get_lines():
                 linecolor = line.get_color()
                 # test that colours are the same
                 if linecolor == colors[i]:
-                    handles.append(
-                        Line2D([], [], linewidth=1.75, color=linecolor, label=label)
-                    )
+                    handles.append(Line2D([], [], color=linecolor, label=label))
                     break
 
         # remove original legend
         fig.legends = []
 
-        # add legend onto top right corner axis
-        ax[self._num_parameters - 1].legend(handles=handles, frameon=False, loc="best")
+        # re-add legend
+        fig.legend(handles=handles, frameon=False, loc="upper right")
 
         return fig
 

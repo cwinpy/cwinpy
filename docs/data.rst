@@ -214,7 +214,7 @@ Data references
    *Mon. Not. R. Astron. Soc.*, **369**, 655 (2006)
 
 .. [5] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
-    <https:arxiv.org/abs/1705.08978v1>`_, 2017.
+    <https:arxiv.org/abs/1705.08978v1>`_ (2017)
 
 .. [6] https://github.com/joferkington/oost_paper_code/blob/master/utilities.py and
    https://stackoverflow.com/a/22357811/1862861
