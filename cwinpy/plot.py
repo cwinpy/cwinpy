@@ -5,6 +5,8 @@ from bilby.core.grid import Grid
 from bilby.core.result import Result, read_in_result
 from cwinpy.utils import lalinference_to_bilby_result
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
+from matplotlib.legend_handler import HandlerBase
+from matplotlib.patches import Rectangle
 from pesummary.conf import colorcycle
 
 #: dictionary of common parameters and equivalent LaTeX format strings
@@ -45,6 +47,12 @@ COLOR_MAP = {
     "k": "Greys",
     "m": "Purples",
     "c": "BuGn",
+    "#222222": "Greys",
+    "#ffb200": "YlOrBr",
+    "#ee0000": "Reds",
+    "#b0dd8b": "YlGn",
+    "#4ba6ff": "Blues",
+    "#9b59b6": "PuRd",
 }
 
 #: list of allowed 1d plot types
@@ -111,8 +119,8 @@ class Plot:
             A dictionary of LaTeX labels to be used for axes for the given
             parameters.
         kde: bool
-            If plotting a histogram using "hist", set this to True to also plot
-            the KDE. Use the "kde" `plottype` to only plot the KDE.
+            If plotting a histogram using ``"hist"``, set this to True to also
+            plot the KDE. Use the ``"kde"`` `plottype` to only plot the KDE.
         pulsar: str, PulsarParametersPy
             A TEMPO(2)-style pulsar parameter file containing the source
             parameters. If the requested `parameters` are in the parameter
@@ -121,7 +129,7 @@ class Plot:
         untrig: str, list
             A string, or list, of parameters that are defined as the
             trigonometric function of another parameters. If given in the list
-            then those parameters will be inverted, e.g., if "cosiota" is
+            then those parameters will be inverted, e.g., if ``"cosiota"`` is
             present it will be changed to be "iota". This only works for result
             samples and not grid values. Default is None.
         """
@@ -230,7 +238,7 @@ class Plot:
         # if None the plot all parameters in the results files
         if parameters is None:
             # check for consistent parameters amoung results
-            checkparams = list(self._results_parameters.values)[0]
+            checkparams = list(self._results_parameters.values())[0]
             for params in self._results_parameters.values():
                 if params != checkparams:
                     raise ValueError(
@@ -295,7 +303,7 @@ class Plot:
         return self._latex_labels
 
     @latex_labels.setter
-    def latex_labels(self, labels):
+    def latex_labels(self, labels):  # pragma: no cover
         self._latex_labels = {}
         for param in self.parameters:
             try:
@@ -367,7 +375,10 @@ class Plot:
         The :class:`matplotlib.figure.Figure` object created for the plot.
         """
 
-        return self._fig
+        if hasattr(self, "_fig"):
+            return self._fig
+        else:
+            return None
 
     @fig.setter
     def fig(self, fig):
@@ -385,7 +396,31 @@ class Plot:
 
     def plot(self, **kwargs):
         """
-        Create the plot of the data.
+        Create the plot of the data. Different keyword arguments can be passed
+        for the different plot options as described below. By default, a
+        particular colour scheme will be used, which if passed results for
+        different detectors will use the
+        `GWPy colour scheme <https://gwpy.github.io/docs/latest/plotter/colors.html>`_
+        to differentiate them.
+
+        For 1D plots using the "hist" option, keyword arguments to the
+        :func:`matplotlib.pyplot.hist` function can be passed using a
+        ``hist_kwargs`` dictionary keyword argument (by default the ``density``
+        options, to plot the probability density, rather than bin counts will
+        be ``True``). For 1D plots using the "kde" option, arguments for the
+        KDE can be passed using a ``kde_kwargs`` dictionary keyword argument.
+
+        When using the "contour" option the keyword arguments for
+        :func:`corner.hist2d` can be used (note that here the
+        ``plot_datapoints`` option will default to ``False``).
+
+        For "corner" plots the keyword options for :func:`corner.corner` can be
+        used.
+
+        For "corner" plots, lines showing credible probability intervals can be
+        set using the ``quantiles`` keyword. For other plots, lines showing the
+        90% credible bounds (between the 5% and 95% percentiles) will be
+        included if the ``plot_percentile`` keyword is set to ``True``.
 
         Parameters
         ----------
@@ -398,6 +433,11 @@ class Plot:
             If plotting a `corner` plot, and overplotting Grid-based
             posteriors, set this to True to show the 2D Grid-based posterior
             densities rather than just the 1D posteriors. Default is False.
+
+        Returns
+        -------
+        fig: Figure
+            The :class:`matplotlib.figure.Figure` object.
         """
 
         # get colors
@@ -707,6 +747,10 @@ class Plot:
                 }
             )
 
+            # default to not showing data points
+            if "plot_datapoints" not in kwargs:
+                kwargs["plot_datapoints"] = False
+
         if "triangle" in self.plottype:
             from pesummary.core.plots.bounded_1d_kde import bounded_1d_kde
 
@@ -857,10 +901,15 @@ class Plot:
                 fig = plotfunc(*args, **kwargs)
 
         # update the legend
-        if (existingfig or len(self._grids) > 1) and "triangle" in self.plottype:
+        if (existingfig or len(self._grids) > 1) and (
+            "triangle" in self.plottype or "contour" == self.plottype
+        ):
             from matplotlib.lines import Line2D
 
-            legax = fig[3] if self.plottype == "triangle" else fig[1]
+            if "triangle" in self.plottype:
+                legax = fig[3] if self.plottype == "triangle" else fig[1]
+            else:
+                legax = fig.gca()
             curhandles, labels = legax.get_legend_handles_labels()
             handles = []
             for handle, label in zip(curhandles, labels):
@@ -870,24 +919,39 @@ class Plot:
                     if isinstance(handle, Line2D)
                     else handle.get_edgecolor()
                 )
-                handles.append(
-                    Line2D([], [], linewidth=1.75, color=legcolor, label=label)
-                )
-
-            # add any additional labels from grid
-            kdeax = fig[1]
-            for i, label in enumerate(self._grids):
-                for line in kdeax.get_lines():
-                    linecolor = line.get_color()
-                    # test that colours are the same
-                    if linecolor == colors[i]:
-                        handles.append(
-                            Line2D([], [], linewidth=1.75, color=linecolor, label=label)
-                        )
-                        break
+                handles.append(Line2D([], [], color=legcolor, label=label))
 
             # axis to output legend
-            fig[2].legend(handles=handles, frameon=False, loc="best")
+            if "triangle" in self.plottype:
+                # add any additional labels from grid
+                kdeax = fig[1]
+                for i, label in enumerate(self._grids):
+                    for line in kdeax.get_lines():
+                        linecolor = line.get_color()
+                        # test that colours are the same
+                        if linecolor == colors[i]:
+                            handles.append(Line2D([], [], color=linecolor, label=label))
+                            break
+                    fig[2].legend(handles=handles, frameon=False, loc="best")
+            else:
+                leghandlemaps = legax.get_legend().get_legend_handler_map()
+
+                for i, (label, grid) in enumerate(self._grids.items()):
+                    if colors[i] in COLOR_MAP:
+                        cmap = COLOR_MAP[colors[i]]
+                    else:
+                        cmap = kwargs.get("cmap", "viridis")
+
+                    handles.append(Rectangle((0, 0), 1, 1, label=label))
+                    leghandlemaps[handles[-1]] = HandlerColormap(cmap)
+
+                # re-draw legend
+                legax.legend(
+                    handles=handles,
+                    handler_map=leghandlemaps,
+                    frameon=False,
+                    loc="best",
+                )
 
         kwargs = origkwargs
 
@@ -1082,13 +1146,14 @@ class Plot:
             raise ValueError(f"Parameter '{parameter}' is not available")
 
         intervals = {}
-        for key, value in self.results:
+        for key, value in self.results.items():
             if isinstance(value, Grid):
                 intervals[key] = Plot._credible_interval_grid(
                     value, parameter, interval
                 )
             else:
-                intervals[key] = value.posterior[parameter].quantile(interval).to_list()
+                credint = value.posterior[parameter].quantile(interval).to_list()
+                intervals[key] = credint[0] if len(interval) == 1 else credint
 
         return list(intervals.values())[0] if len(self.results) == 1 else intervals
 
@@ -1108,7 +1173,7 @@ class Plot:
             percentile=[100 * val for val in interval],
         )
 
-        return intervals
+        return intervals if len(interval) > 1 else intervals[0]
 
     def upper_limit(self, parameter, bound=0.95):
         """
@@ -1167,3 +1232,33 @@ class DisableLogger:
 
     def __exit__(self, exit_type, exit_value, exit_traceback):
         logging.disable(logging.NOTSET)
+
+
+class HandlerColormap(HandlerBase):
+    """
+    A legend handler to create a legend patch to represent a colour map.
+    This is taken from https://stackoverflow.com/a/55501861/1862861.
+    """
+
+    def __init__(self, cmap, num_stripes=16, **kw):
+        from matplotlib.cm import get_cmap
+
+        HandlerBase.__init__(self, **kw)
+        self.cmap = get_cmap(cmap)
+        self.num_stripes = num_stripes
+
+    def create_artists(
+        self, legend, orig_handle, xdescent, ydescent, width, height, fontsize, trans
+    ):
+        stripes = []
+        for i in range(self.num_stripes):
+            s = Rectangle(
+                [xdescent + i * width / self.num_stripes, ydescent],
+                width / self.num_stripes,
+                height,
+                fc=self.cmap((2 * i + 1) / (2 * self.num_stripes)),
+                transform=trans,
+            )
+            stripes.append(s)
+
+        return stripes

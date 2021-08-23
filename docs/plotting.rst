@@ -13,8 +13,25 @@ itself has various methods for plotting the posteriors:
 However, CWInPy also provides a :class:`~cwinpy.plot.Plot` class for producing plots. This makes
 use of various plotting functions from the `PESummary <https://docs.ligo.org/lscsoft/pesummary/>`_
 package [1]_ and `corner.py <https://corner.readthedocs.io/en/latest/>`_ [2]_ and can overplot
-posterior results from multiple different detector/samplers. A selection of example plots are shown
-below. The examples are based on the outputs of the
+posterior results from multiple different detectors/samplers. A selection of example plots are
+shown below, which are selected in :class:`~cwinpy.plot.Plot` class using the ``plottype``
+argument:
+
+* "hist": produce a histogram of posterior samples for a single parameters (the ``kde`` option can
+  be used to also overplot a kernel density estimate of the posterior);
+* "kde": produce a kernel density estimate using posterior samples for a single parameter;
+* "corner": produce what is known as a corner, or triangle, plot of posterior distributons for two or
+  more parameters in this case produced with the
+  `corner.py <https://corner.readthedocs.io/en/latest/>`_ [2]_ package;
+* "triangle": a different style of triangle plot (as produce by the
+  `PESummary <https://docs.ligo.org/lscsoft/pesummary/>`_ package [1]_) that can only be used for
+  a pair of parameters;
+* "reverse_triangle": another style of triangle plot (as produce by the
+  `PESummary <https://docs.ligo.org/lscsoft/pesummary/>`_ package [1]_) that has the 1D
+  distributions to the left/below rather than to the right/above the 2D distribution plot;
+* "contour": a contour plot that can be produced only for a pair of parameters.
+
+The examples are based on the outputs of the
 :ref:`Multiple detectors, software injection (circular polarisation)` example comparing CWInPy with
 the ``lalapps_pulsar_parameter_estimation_nested`` code [3]_.
 
@@ -83,8 +100,9 @@ distributions and 2D joint posterior distributions (over-plotting multiple resul
 Corner plot
 ^^^^^^^^^^^
 
-A "corner" plot (`corner.py <https://corner.readthedocs.io/en/latest/>`_ [2]_) of a pair of
-parameters (:math:`h_0` versus :math:`\cos{\iota}`) can be generated with, e.g.,:
+A "corner" plot, as produced with the `corner.py <https://corner.readthedocs.io/en/latest/>`_ [2]_
+package, of a pair of parameters (in this case :math:`h_0` versus :math:`\cos{\iota}`) can be
+generated with, e.g.,:
 
 .. code-block:: python
 
@@ -113,8 +131,7 @@ which will produce:
 Triangle plot
 ^^^^^^^^^^^^^
 
-A different style of corner plot, which is colloquially known here as a "triangle" plot, can be
-generated with, e.g.,:
+A different style of corner/triangle plot can be generated with, e.g.,:
 
 .. code-block:: python
 
@@ -142,8 +159,8 @@ and will produce:
 Reverse triangle plot
 ^^^^^^^^^^^^^^^^^^^^^
 
-Another style of corner plot, with the 1D marginal distributions shown below the 2D joint plot, is
-a "reverse triangle" plot, which can be generated with, e.g.,:
+Another style of corner plot, with the 1D marginal distributions shown below the 2D joint posterior
+plot, is a "reverse triangle" plot, which can be generated with, e.g.,:
 
 .. code-block:: python
 
@@ -190,8 +207,9 @@ and will produce:
 Example: plotting multiple posteriors
 -------------------------------------
 
-If wanting to plot posteriors for more than two parameters then only a "corner" plot can be used.
-If we wanted to plot :math:`h_0`, :math:`\cos{\iota}`, :math:`\psi` and :math:`\phi_0` we could do:
+If wanting to plot posteriors for more than two parameters then only the "corner" plot option can
+be used. If we wanted to plot :math:`h_0`, :math:`\cos{\iota}`, :math:`\psi` and :math:`\phi_0`
+we could do:
 
 .. code-block:: python
 
@@ -214,7 +232,7 @@ to produce:
 Plotting API
 ------------
 
-.. automodule:: cwinpy.plot
+.. autoclass:: cwinpy.plot.Plot
    :members:
 
 Plotting references
