@@ -560,7 +560,6 @@ class Plot:
 
             # required to allow KDE generation when sample values are small (see
             # https://git.ligo.org/lscsoft/pesummary/-/merge_requests/604)
-            # NOTE: this will only be available when PESummary >v0.12.1 is released
             kde_kwargs.update({"variance_atol": 0.0})
 
             # add bounds
@@ -642,8 +641,6 @@ class Plot:
         for i, (label, grid) in enumerate(self._grids.items()):
             x = grid[0].sample_points[self.parameters[0]]
 
-            # NOTE: this will only be available when PESummary >v0.12.1 is released
-            # following merge of https://git.ligo.org/lscsoft/pesummary/-/merge_requests/606
             pdf = np.exp(
                 grid[0].marginalize_ln_posterior(not_parameters=self.parameters[0])
                 - grid[1]
@@ -728,11 +725,6 @@ class Plot:
             from pesummary.core.plots.publication import (
                 comparison_twod_contour_plot as plotfunc,
             )
-
-            # until https://git.ligo.org/lscsoft/pesummary/-/merge_requests/600 is merged
-            # linestyles will need to be set
-            if "linestyles" not in kwargs:
-                kwargs["linestyles"] = ["-"] * len(self._samples)
 
             # set KDE information
             kwargs.update(
