@@ -23,7 +23,13 @@ from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from scipy.interpolate import splev, splrep
 
 from ..data import HeterodynedData
-from ..utils import MuteStream, get_psr_name, initialise_ephemeris, is_par_file
+from ..utils import (
+    MuteStream,
+    check_for_tempo2,
+    get_psr_name,
+    initialise_ephemeris,
+    is_par_file,
+)
 from .fastheterodyne import fast_heterodyne
 
 #: aliases between GW detector prefixes a TEMPO2 observatory names
@@ -2390,26 +2396,12 @@ class Heterodyne(object):
 
         # check for libstempo
         if usetempo2:
-            self._usetempo2 = True
-
-            try:
-                import libstempo
-                from packaging import version
-
-                hastempo2 = (
-                    True
-                    if version.parse(libstempo.__version__) >= version.parse("2.4.2")
-                    else False
-                )
-            except ImportError:
-                hastempo2 = False
-
-            if not hastempo2:
-                raise ImportError("libstempo v2.4.2 or greater must be installed.")
-            else:
+            if check_for_tempo2():
                 from libstempo import tempopulsar
 
                 self._tempopulsar = tempopulsar
+            else:
+                raise ImportError("libstempo must be installed to use TEMPO2")
 
             return
 

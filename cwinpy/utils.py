@@ -435,6 +435,28 @@ def initialise_ephemeris(
         return (edat, tdat, filepaths) if filenames else (edat, tdat)
 
 
+def check_for_tempo2():
+    """
+    Check whether the `libstempo <https://github.com/vallis/libstempo>`_
+    package (v2.4.2 or greater), and therefore also TEMPO2, is available.
+    """
+
+    from packaging import version
+
+    try:
+        import libstempo
+
+        hastempo2 = (
+            True
+            if version.parse(libstempo.__version__) >= version.parse("2.4.2")
+            else False
+        )
+    except ImportError:
+        hastempo2 = False
+
+    return hastempo2
+
+
 def sighandler(signum, frame):
     # perform periodic eviction with exit code 77
     # see https://git.ligo.org/lscsoft/bilby_pipe/-/commit/c63c3e718f20ce39b0340da27fb696c49409fcd8  # noqa: E501

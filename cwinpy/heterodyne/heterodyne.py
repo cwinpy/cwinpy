@@ -38,6 +38,7 @@ from ..info import (
 from ..utils import (
     LAL_BINARY_MODELS,
     LAL_EPHEMERIS_TYPES,
+    check_for_tempo2,
     initialise_ephemeris,
     sighandler,
 )
@@ -382,6 +383,21 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "Set this to True to include removing the phase evolution of a "
             "series of sinusoids designed to model low-frequency timing noise "
             "in the pulsar signal during the heterodyne."
+        ),
+    )
+    heterodyneparser.add(
+        "--usetempo2",
+        action="store_true",
+        default=False,
+        help=(
+            "Set this to True to use TEMPO2 (via libstempo) to calculate the "
+            "signal phase evolution. For this to be used v2.4.2 or greater of "
+            "libstempo must be installed. When using TEMPO2 the "
+            '"--earthephemeris", "--sunephemeris" and "--timeephemeris" '
+            "arguments do not need to be supplied. This can only be used when "
+            "running the full heterodyne in one stage, but not for "
+            're-heterodyning previous data, as such all the "--include..." '
+            "arguments will be assumed to be True."
         ),
     )
 
@@ -1179,6 +1195,13 @@ class HeterodyneDAGRunner(object):
             # filter knee frequency (default to 0.5 Hz for two stage heterodyne)
             filterknee = config.getfloat("heterodyne", "filterknee", fallback=0.5)
 
+        # get whether using TEMPO2 or not and check it's availability
+        usetempo2 = config.getboolean("heterodyne", "usetempo2", fallback=False)
+        if usetempo2 and not check_for_tempo2():
+            raise ImportError(
+                "libstempo is not installed so 'usetempo2' option cannot be used"
+            )
+
         # get the required solar system ephemeris types and binary model for
         # the given pulsars
         etypes = []
@@ -1232,20 +1255,22 @@ class HeterodyneDAGRunner(object):
                         edat[etype] = tmpephem
 
         # check that ephemeris files exist for all required types
-        for etype in etypes:
-            if etype not in earthephemeris or etype not in sunephemeris:
-                raise ValueError(
-                    f"Pulsar(s) require ephemeris '{etype}' which has not been supplied"
-                )
+        if not usetempo2:
+            for etype in etypes:
+                if etype not in earthephemeris or etype not in sunephemeris:
+                    raise ValueError(
+                        f"Pulsar(s) require ephemeris '{etype}' which has not been supplied"
+                    )
 
         # check that binary models exist for all required types
-        # NOTE: in the future, if libstempo can be used for phase generation,
-        # this can be relaxed
-        for bmodel in binarymodels:
-            if bmodel not in LAL_BINARY_MODELS:
-                raise ValueError(
-                    f"Pulsar(s) require binary model type '{bmodel}' which is not available in LALSuite"
-                )
+        if not usetempo2:
+            for bmodel in binarymodels:
+                if bmodel not in LAL_BINARY_MODELS:
+                    raise ValueError(
+                        f"Pulsar(s) require binary model type '{bmodel}' "
+                        "which is not available in LALSuite. Try the "
+                        "usetempo2 option."
+                    )
 
         # check output directories and labels lists are correct length
         if stages == 1:
@@ -1342,6 +1367,7 @@ class HeterodyneDAGRunner(object):
                         configdict["includeglitch"] = includeglitch[0]
                         configdict["includefitwaves"] = includefitwaves[0]
                         configdict["interpolationstep"] = interpolationstep
+                        configdict["usetempo2"] = usetempo2
 
                         # include ephemeris files
                         configdict["earthephemeris"] = earthephemeris
