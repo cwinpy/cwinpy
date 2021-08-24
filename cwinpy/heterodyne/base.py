@@ -6,6 +6,7 @@ import inspect
 import os
 import re
 import signal
+import sys
 import tempfile
 from pathlib import Path
 
@@ -22,7 +23,7 @@ from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from scipy.interpolate import splev, splrep
 
 from ..data import HeterodynedData
-from ..utils import get_psr_name, initialise_ephemeris, is_par_file
+from ..utils import MuteStream, get_psr_name, initialise_ephemeris, is_par_file
 from .fastheterodyne import fast_heterodyne
 
 #: aliases between GW detector prefixes a TEMPO2 observatory names
@@ -1412,7 +1413,7 @@ class Heterodyne(object):
         if self.heterodyneddata:
             # re-heterodyne data
 
-            if self._usetempo2:
+            if self.usetempo2:
                 raise ValueError("Cannot use TEMPO2 when re-heterodyning data")
 
             # loop over pulsars
@@ -1586,7 +1587,7 @@ class Heterodyne(object):
         else:
             self._datadict = {}
 
-            if not self.includessb and not self._usetempo2:
+            if not self.includessb and not self.usetempo2:
                 if self.includebsb or self.includeglitch or self.includefitwaves:
                     raise ValueError(
                         "includessb must be True if trying to include binary evolution, glitches or FITWAVES parameters"
@@ -1694,7 +1695,7 @@ class Heterodyne(object):
                         self._setup_filters(self.filterknee, data.sample_rate.value)
 
                     # convert times to GPS time vector
-                    if not self._usetempo2:
+                    if not self.usetempo2:
                         gpstimes = lalpulsar.CreateTimestampVector(data.size)
                         for i, time in enumerate(data.times.value):
                             gpstimes.data[i] = lal.LIGOTimeGPS(time)
@@ -1702,8 +1703,8 @@ class Heterodyne(object):
                     # get times for interpolation if required
                     if (
                         self.interpolationstep > 0 and self.includessb
-                    ) or self._usetempo2:
-                        if self._usetempo2 and self.interpolationstep <= 0:
+                    ) or self.usetempo2:
+                        if self.usetempo2 and self.interpolationstep <= 0:
                             raise ValueError(
                                 "If using TEMPO2 the 'interpolationstep' must be set and non-zero."
                             )
@@ -1712,11 +1713,11 @@ class Heterodyne(object):
                         ntimes = int(np.ceil(data.size / idxstep)) + 1
                         gpstimesint = (
                             np.zeros(ntimes)
-                            if self._usetempo2
+                            if self.usetempo2
                             else lalpulsar.CreateTimestampVector(ntimes)
                         )
                         for i, time in enumerate(data.times.value[::idxstep]):
-                            if self._usetempo2:
+                            if self.usetempo2:
                                 # convert times to MJD
                                 gpstimesint[i] = Time(
                                     time, format="gps", scale="utc"
@@ -1724,7 +1725,7 @@ class Heterodyne(object):
                             else:
                                 gpstimesint.data[i] = lal.LIGOTimeGPS(time)
                         # include final time value
-                        if self._usetempo2:
+                        if self.usetempo2:
                             gpstimesint[-1] = Time(
                                 data.times.value[-1], format="gps", scale="utc"
                             ).mjd
@@ -1739,32 +1740,46 @@ class Heterodyne(object):
                         if pulsar not in self._datadict:
                             self._datadict[pulsar] = TimeSeriesList()
 
-                        if self._usetempo2:
+                        if self.usetempo2:
                             # do stuff
                             toaerr = 1e-15  # need to set tiny TOA error
 
                             if self.detector not in TEMPO2_GW_ALIASES:
                                 raise KeyError("Detector is not available in TEMPO2")
 
-                            tempopsr = self._tempopulsar(
-                                parfile=self._pulsars[pulsar],
-                                toas=gpstimesint,
-                                toaerrs=toaerr,
-                                observatory=TEMPO2_GW_ALIASES[self.detector],
-                                dofit=False,
-                            )
+                            with MuteStream(stream=sys.stdout):
+                                tempopsr = self._tempopulsar(
+                                    parfile=self._pulsars[pulsar],
+                                    toas=gpstimesint,
+                                    toaerrs=toaerr,
+                                    observatory=TEMPO2_GW_ALIASES[self.detector],
+                                    dofit=False,
+                                )
 
-                            # get phases
-                            phaseint = tempopsr.phaseresiduals(
-                                removemean="refphs",
-                                site="@",
-                                epoch=tempopsr["PEPOCH"].val,
-                            )
+                                # get phases (need to calculate phase residual
+                                # and then add on pulse number - this is
+                                # required so that the reference epoch is used
+                                # correctly)
+                                phaseint = tempopsr.phaseresiduals(
+                                    removemean="refphs",
+                                    site="@",
+                                    epoch=tempopsr["PEPOCH"].val,
+                                )
+
+                                phasenum = tempopsr.pulsenumbers(
+                                    updatebats=False,
+                                    formresiduals=False,
+                                    removemean=False,
+                                )
+
+                            phaseint += phasenum
 
                             # create interpolation function
                             k = (len(timesint) - 1) if len(timesint) < 4 else 3
                             tckphase = splrep(timesint, phaseint, k=k)
-                            hetphase = splev(data.times.value, tckphase)
+                            hetphase = self.freqfactor * splev(
+                                data.times.value, tckphase
+                            )
                         else:
                             # read pulsar parameter file
                             psr = PulsarParametersPy(self._pulsars[pulsar])
@@ -2327,6 +2342,14 @@ class Heterodyne(object):
     def includefitwaves(self, incl):
         self._includefitwaves = bool(incl)
 
+    @property
+    def usetempo2(self):
+        """
+        A boolean stating whether the phase calculation used TEMPO2 or not.
+        """
+
+        return self._usetempo2 if hasattr(self, "_usetempo2") else False
+
     def set_ephemeris(
         self,
         earthephemeris=None,
@@ -2375,7 +2398,7 @@ class Heterodyne(object):
 
                 hastempo2 = (
                     True
-                    if version(libstempo.__version__) >= version.parse("2.4.2")
+                    if version.parse(libstempo.__version__) >= version.parse("2.4.2")
                     else False
                 )
             except ImportError:
