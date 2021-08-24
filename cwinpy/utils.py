@@ -457,10 +457,7 @@ class MuteStream(object):
     """
 
     def __init__(self, stream=None):
-        self.origstream = None
-        if self.origstream is None:
-            self.origstream = sys.stderr
-        self.origstream = sys.stderr
+        self.origstream = sys.stderr if stream is None else stream
         self.origstreamfd = self.origstream.fileno()
         # Create a pipe so the stream can be captured:
         self.pipe_out, self.pipe_in = os.pipe()
