@@ -12,6 +12,7 @@ from pathlib import Path
 import lal
 import lalpulsar
 import numpy as np
+from astropy.time import Time
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from gwosc.timeline import get_segments
 from gwpy.io.cache import is_cache, read_cache
@@ -23,6 +24,16 @@ from scipy.interpolate import splev, splrep
 from ..data import HeterodynedData
 from ..utils import get_psr_name, initialise_ephemeris, is_par_file
 from .fastheterodyne import fast_heterodyne
+
+#: aliases between GW detector prefixes a TEMPO2 observatory names
+TEMPO2_GW_ALIASES = {
+    "G1": "GEO600",
+    "H1": "HANFORD",
+    "H2": "HANFORD",
+    "K1": "KAGRA",
+    "L1": "LIVINGSTON",
+    "V1": "VIRGO",
+}
 
 
 class Heterodyne(object):
@@ -196,6 +207,14 @@ class Heterodyne(object):
         that time system. If a pulsar requires a specific ephemeris that is not
         provided in this dictionary, then the code will automatically attempt
         to find or download the required file if available.
+    usetempo2: bool
+        Set this to True to use TEMPO2 (via libstempo) to calculate the signal
+        phase evolution. For this to be used v2.4.2 or greater of libstempo
+        must be installed. When using TEMPO2 the ``earthephemeris``,
+        ``sunephemeris`` and ``timeephemeris`` arguments do not need to be
+        supplied. This can only be used when running the full heterodyne in
+        one stage, but not for re-heterodyning previous data, as such all the
+        ``include...`` arguments will be assumed to be ``True``.
     resume: bool
         Set to True to resume heterodyning in case not all pulsars completed.
         This checks whether output files (as set using ``output`` and
@@ -246,6 +265,7 @@ class Heterodyne(object):
         earthephemeris=None,
         sunephemeris=None,
         timeephemeris=None,
+        usetempo2=False,
         resume=False,
         cwinpy_heterodyne_dag_config_file=None,
     ):
@@ -302,7 +322,9 @@ class Heterodyne(object):
         self.interpolationstep = interpolationstep
 
         # set ephemeris information
-        self.set_ephemeris(earthephemeris, sunephemeris, timeephemeris)
+        self.set_ephemeris(
+            earthephemeris, sunephemeris, timeephemeris, usetempo2=usetempo2
+        )
 
         # set the name of any DAG configuration file
         self.cwinpy_heterodyne_dag_config_file = cwinpy_heterodyne_dag_config_file
@@ -1390,6 +1412,9 @@ class Heterodyne(object):
         if self.heterodyneddata:
             # re-heterodyne data
 
+            if self._usetempo2:
+                raise ValueError("Cannot use TEMPO2 when re-heterodyning data")
+
             # loop over pulsars
             for pulsar in pulsarlist:
                 if self.resume:
@@ -1561,7 +1586,7 @@ class Heterodyne(object):
         else:
             self._datadict = {}
 
-            if not self.includessb:
+            if not self.includessb and not self._usetempo2:
                 if self.includebsb or self.includeglitch or self.includefitwaves:
                     raise ValueError(
                         "includessb must be True if trying to include binary evolution, glitches or FITWAVES parameters"
@@ -1669,19 +1694,42 @@ class Heterodyne(object):
                         self._setup_filters(self.filterknee, data.sample_rate.value)
 
                     # convert times to GPS time vector
-                    gpstimes = lalpulsar.CreateTimestampVector(data.size)
-                    for i, time in enumerate(data.times.value):
-                        gpstimes.data[i] = lal.LIGOTimeGPS(time)
+                    if not self._usetempo2:
+                        gpstimes = lalpulsar.CreateTimestampVector(data.size)
+                        for i, time in enumerate(data.times.value):
+                            gpstimes.data[i] = lal.LIGOTimeGPS(time)
 
                     # get times for interpolation if required
-                    if self.interpolationstep > 0 and self.includessb:
+                    if (
+                        self.interpolationstep > 0 and self.includessb
+                    ) or self._usetempo2:
+                        if self._usetempo2 and self.interpolationstep <= 0:
+                            raise ValueError(
+                                "If using TEMPO2 the 'interpolationstep' must be set and non-zero."
+                            )
+
                         idxstep = int(data.sample_rate.value * self.interpolationstep)
                         ntimes = int(np.ceil(data.size / idxstep)) + 1
-                        gpstimesint = lalpulsar.CreateTimestampVector(ntimes)
+                        gpstimesint = (
+                            np.zeros(ntimes)
+                            if self._usetempo2
+                            else lalpulsar.CreateTimestampVector(ntimes)
+                        )
                         for i, time in enumerate(data.times.value[::idxstep]):
-                            gpstimesint.data[i] = lal.LIGOTimeGPS(time)
+                            if self._usetempo2:
+                                # convert times to MJD
+                                gpstimesint[i] = Time(
+                                    time, format="gps", scale="utc"
+                                ).mjd
+                            else:
+                                gpstimesint.data[i] = lal.LIGOTimeGPS(time)
                         # include final time value
-                        gpstimesint.data[-1] = lal.LIGOTimeGPS(data.times.value[-1])
+                        if self._usetempo2:
+                            gpstimesint[-1] = Time(
+                                data.times.value[-1], format="gps", scale="utc"
+                            ).mjd
+                        else:
+                            gpstimesint.data[-1] = lal.LIGOTimeGPS(data.times.value[-1])
                         timesint = np.append(
                             data.times.value[::idxstep], [data.times.value[-1]]
                         )
@@ -1691,132 +1739,181 @@ class Heterodyne(object):
                         if pulsar not in self._datadict:
                             self._datadict[pulsar] = TimeSeriesList()
 
-                        # read pulsar parameter file
-                        psr = PulsarParametersPy(self._pulsars[pulsar])
+                        if self._usetempo2:
+                            # do stuff
+                            toaerr = 1e-15  # need to set tiny TOA error
 
-                        # initialise ephemerides if required
-                        edat = lalpulsar.EphemerisData()
-                        tdat = None
-                        units = "TCB"
-                        if self.includessb:
-                            ephem = (
-                                psr["EPHEM"] if psr["EPHEM"] is not None else "DE405"
+                            if self.detector not in TEMPO2_GW_ALIASES:
+                                raise KeyError("Detector is not available in TEMPO2")
+
+                            tempopsr = self._tempopulsar(
+                                parfile=self._pulsars[pulsar],
+                                toas=gpstimesint,
+                                toaerrs=toaerr,
+                                observatory=TEMPO2_GW_ALIASES[self.detector],
+                                dofit=False,
                             )
-                            units = psr["UNITS"] if psr["UNITS"] is not None else "TCB"
 
-                            if ephem is None:
-                                raise ValueError(
-                                    "Pulsar '{}' has no 'EPHEM' value set".format(
-                                        pulsar
-                                    )
+                            # get phases
+                            phaseint = tempopsr.phaseresiduals(
+                                removemean="refphs",
+                                site="@",
+                                epoch=tempopsr["PEPOCH"].val,
+                            )
+
+                            # create interpolation function
+                            k = (len(timesint) - 1) if len(timesint) < 4 else 3
+                            tckphase = splrep(timesint, phaseint, k=k)
+                            hetphase = splev(data.times.value, tckphase)
+                        else:
+                            # read pulsar parameter file
+                            psr = PulsarParametersPy(self._pulsars[pulsar])
+
+                            # initialise ephemerides if required
+                            edat = lalpulsar.EphemerisData()
+                            tdat = None
+                            units = "TCB"
+                            if self.includessb:
+                                ephem = (
+                                    psr["EPHEM"]
+                                    if psr["EPHEM"] is not None
+                                    else "DE405"
+                                )
+                                units = (
+                                    psr["UNITS"] if psr["UNITS"] is not None else "TCB"
                                 )
 
-                            if (
-                                ephem not in self._ephemerides
-                                or units not in self._timecorr
-                            ):
-                                edat, tdat = initialise_ephemeris(
-                                    ephem=ephem, units=units
-                                )
-
-                                if ephem not in self._ephemerides:
-                                    self._ephemerides[ephem] = edat
-
-                                if units not in self._timecorr:
-                                    self._timecorr[units] = tdat
-
-                            if self.interpolationstep > 0:
-                                # calculate SSB delay and BSB delay at interpolation nodes
-                                ssbdelay = lalpulsar.HeterodynedPulsarGetSSBDelay(
-                                    psr.PulsarParameters(),
-                                    gpstimesint,
-                                    self.laldetector,
-                                    self._ephemerides[ephem],
-                                    self._timecorr[units],
-                                    ttype[units],
-                                )
-
-                                # create interpolation function
-                                k = (len(timesint) - 1) if len(timesint) < 4 else 3
-                                tckssb = splrep(timesint, ssbdelay.data, k=k)
-                                ssbdelayint = lal.CreateREAL8Vector(data.size)
-                                ssbdelayint.data = splev(data.times.value, tckssb)
-
-                                if self.includebsb:
-                                    # calculate BSB delay
-                                    bsbdelay = lalpulsar.HeterodynedPulsarGetBSBDelay(
-                                        psr.PulsarParameters(),
-                                        gpstimesint,
-                                        ssbdelay,
-                                        self._ephemerides[ephem],
-                                    )
-
-                                    # create interpolation function
-                                    tckbsb = splrep(timesint, bsbdelay.data, k=k)
-                                    bsbdelayint = lal.CreateREAL8Vector(data.size)
-                                    bsbdelayint.data = splev(data.times.value, tckbsb)
-                                else:
-                                    bsbdelayint = None
-
-                                # get the heterodyne glitch phase
-                                if self.includeglitch:
-                                    glphase = lalpulsar.HeterodynedPulsarGetGlitchPhase(
-                                        psr.PulsarParameters(),
-                                        gpstimesint,
-                                        ssbdelay,
-                                        bsbdelay,
-                                    )
-
-                                    # create interpolation function (note due to the minus sign in
-                                    # the heterodyne the glitch phase sign needs to be flipped)
-                                    tckglph = splrep(timesint, -1.0 * glphase.data, k=k)
-                                    glphaseint = lal.CreateREAL8Vector(data.size)
-                                    glphaseint.data = splev(data.times.value, tckglph)
-                                else:
-                                    glphaseint = None
-
-                                # get fitwaves phase
-                                if self.includefitwaves:
-                                    fwphase = (
-                                        lalpulsar.HeterodynedPulsarGetFITWAVESPhase(
-                                            psr.PulsarParameters(),
-                                            gpstimesint,
-                                            ssbdelay,
-                                            psr["F0"],
+                                if ephem is None:
+                                    raise ValueError(
+                                        "Pulsar '{}' has no 'EPHEM' value set".format(
+                                            pulsar
                                         )
                                     )
 
-                                    # create interpolation function (note due to the minus sign in
-                                    # the heterodyne the fitwaves phase sign needs to be flipped)
-                                    tckfwph = splrep(timesint, -1.0 * fwphase.data, k=k)
-                                    fwphaseint = lal.CreateREAL8Vector(data.size)
-                                    fwphaseint.data = splev(data.times.value, tckfwph)
-                                else:
-                                    fwphaseint = None
+                                if (
+                                    ephem not in self._ephemerides
+                                    or units not in self._timecorr
+                                ):
+                                    edat, tdat = initialise_ephemeris(
+                                        ephem=ephem, units=units
+                                    )
 
-                        # get phase evolution
-                        useint = self.interpolationstep > 0 and self.includessb
-                        phase = lalpulsar.HeterodynedPulsarPhaseDifference(
-                            psr.PulsarParameters(),
-                            None,
-                            gpstimes,
-                            self.freqfactor,
-                            ssbdelayint if useint else None,
-                            0 if useint else int(self.includessb),
-                            bsbdelayint if useint else None,
-                            0 if useint else int(self.includebsb),
-                            glphaseint if useint else None,
-                            0 if useint else int(self.includeglitch),
-                            fwphaseint if useint else None,
-                            0 if useint else int(self.includefitwaves),
-                            self.laldetector,
-                            edat if not self.includessb else self._ephemerides[ephem],
-                            tdat if not self.includessb else self._timecorr[units],
-                            ttype[units],
-                        )
+                                    if ephem not in self._ephemerides:
+                                        self._ephemerides[ephem] = edat
+
+                                    if units not in self._timecorr:
+                                        self._timecorr[units] = tdat
+
+                                if self.interpolationstep > 0:
+                                    # calculate SSB delay and BSB delay at interpolation nodes
+                                    ssbdelay = lalpulsar.HeterodynedPulsarGetSSBDelay(
+                                        psr.PulsarParameters(),
+                                        gpstimesint,
+                                        self.laldetector,
+                                        self._ephemerides[ephem],
+                                        self._timecorr[units],
+                                        ttype[units],
+                                    )
+
+                                    # create interpolation function
+                                    k = (len(timesint) - 1) if len(timesint) < 4 else 3
+                                    tckssb = splrep(timesint, ssbdelay.data, k=k)
+                                    ssbdelayint = lal.CreateREAL8Vector(data.size)
+                                    ssbdelayint.data = splev(data.times.value, tckssb)
+
+                                    if self.includebsb:
+                                        # calculate BSB delay
+                                        bsbdelay = (
+                                            lalpulsar.HeterodynedPulsarGetBSBDelay(
+                                                psr.PulsarParameters(),
+                                                gpstimesint,
+                                                ssbdelay,
+                                                self._ephemerides[ephem],
+                                            )
+                                        )
+
+                                        # create interpolation function
+                                        tckbsb = splrep(timesint, bsbdelay.data, k=k)
+                                        bsbdelayint = lal.CreateREAL8Vector(data.size)
+                                        bsbdelayint.data = splev(
+                                            data.times.value, tckbsb
+                                        )
+                                    else:
+                                        bsbdelayint = None
+
+                                    # get the heterodyne glitch phase
+                                    if self.includeglitch:
+                                        glphase = (
+                                            lalpulsar.HeterodynedPulsarGetGlitchPhase(
+                                                psr.PulsarParameters(),
+                                                gpstimesint,
+                                                ssbdelay,
+                                                bsbdelay,
+                                            )
+                                        )
+
+                                        # create interpolation function (note due to the minus sign in
+                                        # the heterodyne the glitch phase sign needs to be flipped)
+                                        tckglph = splrep(
+                                            timesint, -1.0 * glphase.data, k=k
+                                        )
+                                        glphaseint = lal.CreateREAL8Vector(data.size)
+                                        glphaseint.data = splev(
+                                            data.times.value, tckglph
+                                        )
+                                    else:
+                                        glphaseint = None
+
+                                    # get fitwaves phase
+                                    if self.includefitwaves:
+                                        fwphase = (
+                                            lalpulsar.HeterodynedPulsarGetFITWAVESPhase(
+                                                psr.PulsarParameters(),
+                                                gpstimesint,
+                                                ssbdelay,
+                                                psr["F0"],
+                                            )
+                                        )
+
+                                        # create interpolation function (note due to the minus sign in
+                                        # the heterodyne the fitwaves phase sign needs to be flipped)
+                                        tckfwph = splrep(
+                                            timesint, -1.0 * fwphase.data, k=k
+                                        )
+                                        fwphaseint = lal.CreateREAL8Vector(data.size)
+                                        fwphaseint.data = splev(
+                                            data.times.value, tckfwph
+                                        )
+                                    else:
+                                        fwphaseint = None
+
+                            # get phase evolution
+                            useint = self.interpolationstep > 0 and self.includessb
+                            phase = lalpulsar.HeterodynedPulsarPhaseDifference(
+                                psr.PulsarParameters(),
+                                None,
+                                gpstimes,
+                                self.freqfactor,
+                                ssbdelayint if useint else None,
+                                0 if useint else int(self.includessb),
+                                bsbdelayint if useint else None,
+                                0 if useint else int(self.includebsb),
+                                glphaseint if useint else None,
+                                0 if useint else int(self.includeglitch),
+                                fwphaseint if useint else None,
+                                0 if useint else int(self.includefitwaves),
+                                self.laldetector,
+                                edat
+                                if not self.includessb
+                                else self._ephemerides[ephem],
+                                tdat if not self.includessb else self._timecorr[units],
+                                ttype[units],
+                            )
+
+                            hetphase = -phase.data
 
                         # heterodyne data
-                        datahet = fast_heterodyne(data, -phase.data)
+                        datahet = fast_heterodyne(data, hetphase)
 
                         # filter data
                         self._filter_data(pulsar, datahet)
@@ -2230,7 +2327,13 @@ class Heterodyne(object):
     def includefitwaves(self, incl):
         self._includefitwaves = bool(incl)
 
-    def set_ephemeris(self, earthephemeris=None, sunephemeris=None, timeephemeris=None):
+    def set_ephemeris(
+        self,
+        earthephemeris=None,
+        sunephemeris=None,
+        timeephemeris=None,
+        usetempo2=False,
+    ):
         """
         Initialise the solar system and time ephemeris data.
 
@@ -2246,6 +2349,8 @@ class Heterodyne(object):
             A dictionary, keyed to time system name, which can be either "TCB"
             or "TDB", pointing to the location of a file containing that
             ephemeris for that time system.
+        usetempo2: bool
+            Set if using TEMPO2, via libstempo, for phase generation.
         """
 
         if not hasattr(self, "_ephemerides"):
@@ -2259,6 +2364,31 @@ class Heterodyne(object):
 
         if not hasattr(self, "_sunephemeris"):
             self._sunephemeris = sunephemeris
+
+        # check for libstempo
+        if usetempo2:
+            self._usetempo2 = True
+
+            try:
+                import libstempo
+                from packaging import version
+
+                hastempo2 = (
+                    True
+                    if version(libstempo.__version__) >= version.parse("2.4.2")
+                    else False
+                )
+            except ImportError:
+                hastempo2 = False
+
+            if not hastempo2:
+                raise ImportError("libstempo v2.4.2 or greater must be installed.")
+            else:
+                from libstempo import tempopulsar
+
+                self._tempopulsar = tempopulsar
+
+            return
 
         if isinstance(earthephemeris, dict) and isinstance(sunephemeris, dict):
             if not hasattr(self, "_earthephemeris"):
