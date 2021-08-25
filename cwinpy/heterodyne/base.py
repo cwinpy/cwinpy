@@ -2399,6 +2399,7 @@ class Heterodyne(object):
             if check_for_tempo2():
                 from libstempo import tempopulsar
 
+                self._usetempo2 = True
                 self._tempopulsar = tempopulsar
             else:
                 raise ImportError("libstempo must be installed to use TEMPO2")
