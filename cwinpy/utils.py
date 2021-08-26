@@ -36,6 +36,16 @@ LAL_BINARY_MODELS = [
     "T2",
 ]
 
+#: aliases between GW detector prefixes a TEMPO2 observatory names
+TEMPO2_GW_ALIASES = {
+    "G1": "GEO600",
+    "H1": "HANFORD",
+    "H2": "HANFORD",
+    "K1": "KAGRA",
+    "L1": "LIVINGSTON",
+    "V1": "VIRGO",
+}
+
 # create a numba-ified version of scipy's gammaln function (see, e.g.
 # https://github.com/numba/numba/issues/3086#issuecomment-403469308)
 addr = get_cython_function_address("scipy.special.cython_special", "gammaln")

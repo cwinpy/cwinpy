@@ -24,6 +24,7 @@ from scipy.interpolate import splev, splrep
 
 from ..data import HeterodynedData
 from ..utils import (
+    TEMPO2_GW_ALIASES,
     MuteStream,
     check_for_tempo2,
     get_psr_name,
@@ -31,16 +32,6 @@ from ..utils import (
     is_par_file,
 )
 from .fastheterodyne import fast_heterodyne
-
-#: aliases between GW detector prefixes a TEMPO2 observatory names
-TEMPO2_GW_ALIASES = {
-    "G1": "GEO600",
-    "H1": "HANFORD",
-    "H2": "HANFORD",
-    "K1": "KAGRA",
-    "L1": "LIVINGSTON",
-    "V1": "VIRGO",
-}
 
 
 class Heterodyne(object):
@@ -1717,29 +1708,21 @@ class Heterodyne(object):
 
                         idxstep = int(data.sample_rate.value * self.interpolationstep)
                         ntimes = int(np.ceil(data.size / idxstep)) + 1
-                        gpstimesint = (
-                            np.zeros(ntimes)
-                            if self.usetempo2
-                            else lalpulsar.CreateTimestampVector(ntimes)
-                        )
-                        for i, time in enumerate(data.times.value[::idxstep]):
-                            if self.usetempo2:
-                                # convert times to MJD
-                                gpstimesint[i] = Time(
-                                    time, format="gps", scale="utc"
-                                ).mjd
-                            else:
+                        if not self.usetempo2:
+                            gpstimesint = lalpulsar.CreateTimestampVector(ntimes)
+                            for i, time in enumerate(data.times.value[::idxstep]):
                                 gpstimesint.data[i] = lal.LIGOTimeGPS(time)
-                        # include final time value
-                        if self.usetempo2:
-                            gpstimesint[-1] = Time(
-                                data.times.value[-1], format="gps", scale="utc"
-                            ).mjd
-                        else:
+
+                            # include final time value
                             gpstimesint.data[-1] = lal.LIGOTimeGPS(data.times.value[-1])
+
                         timesint = np.append(
                             data.times.value[::idxstep], [data.times.value[-1]]
                         )
+
+                        # set MJD times if using TEMPO2
+                        if self.usetempo2:
+                            gpstimesint = Time(timesint, format="gps", scale="utc").mjd
 
                     # loop over pulsars
                     for pulsar in pulsarlist:
