@@ -95,7 +95,14 @@ import lalpulsar
 import numpy as np
 from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
-from .utils import initialise_ephemeris, is_par_file
+from .utils import (
+    TEMPO2_GW_ALIASES,
+    MuteStream,
+    check_for_tempo2,
+    get_psr_name,
+    initialise_ephemeris,
+    is_par_file,
+)
 
 
 class HeterodynedCWSimulator(object):
@@ -109,6 +116,7 @@ class HeterodynedCWSimulator(object):
         time_corr=None,
         ephem="DE405",
         units="TCB",
+        usetempo2=False,
         t0=None,
         dt=None,
     ):
@@ -158,76 +166,90 @@ class HeterodynedCWSimulator(object):
             the ``UNITS`` value from the ``par`` will be used, but if not
             found, and if this value is not set, it will (like TEMPO2) default
             to ``"TCB"``.
+        usetempo2: bool
+            Set to True to use TEMPO2, via libstempo, for calculating the phase
+            of the signal. To use libstempo must be installed. If using TEMPO2
+            the Earth, Sun and time ephemerides, and the ``ephem`` and
+            ``units`` arguments are not required. Information on the correct
+            ephemeris will all be calculated internally by TEMPO2 using the
+            information from the pulsar parameter file.
         """
 
-        self.__hetpar = self._read_par(par)
+        self.usetempo2 = check_for_tempo2() if usetempo2 else False
+        if usetempo2 and not self.usetempo2:
+            raise ImportError(
+                "TEMPO2 is not available, so the usetempo2 option cannot be used"
+            )
+
+        self.__hetpar, self.__parfile = self._read_par(par)
         self.detector = det
         self.times = times
 
         # mapping between time units and time correction file prefix
         self.__units_map = {"TCB": "te405", "TDB": "tdb"}
 
-        self.ephem = ephem
-        self.units = units
+        if not self.usetempo2:
+            self.ephem = ephem
+            self.units = units
 
-        # initialise the solar system ephemeris files
-        self.__edat, self.__tdat = initialise_ephemeris(
-            ephem=self.ephem,
-            units=self.units,
-            earthfile=earth_ephem,
-            sunfile=sun_ephem,
-            timefile=time_corr,
-        )
-
-        # set the "heterodyne" SSB time delay
-        if self.times is not None:
-            self.__hetSSBdelay = lalpulsar.HeterodynedPulsarGetSSBDelay(
-                self.hetpar.PulsarParameters(),
-                self.gpstimes,
-                self.detector,
-                self.__edat,
-                self.__tdat,
-                self.__units_type,
+            # initialise the solar system ephemeris files
+            self.__edat, self.__tdat = initialise_ephemeris(
+                ephem=self.ephem,
+                units=self.units,
+                earthfile=earth_ephem,
+                sunfile=sun_ephem,
+                timefile=time_corr,
             )
-        else:
-            self.__hetSSBdelay = None
 
-        # set the "heterodyne" BSB time delay
-        if self.times is not None and self.hetpar["BINARY"] is not None:
-            self.__hetBSBdelay = lalpulsar.HeterodynedPulsarGetBSBDelay(
-                self.hetpar.PulsarParameters(),
-                self.gpstimes,
-                self.__hetSSBdelay,
-                self.__edat,
-            )
-        else:
-            self.__hetBSBdelay = None
+            # set the "heterodyne" SSB time delay
+            if self.times is not None:
+                self.__hetSSBdelay = lalpulsar.HeterodynedPulsarGetSSBDelay(
+                    self.hetpar.PulsarParameters(),
+                    self.gpstimes,
+                    self.detector,
+                    self.__edat,
+                    self.__tdat,
+                    self.__units_type,
+                )
+            else:
+                self.__hetSSBdelay = None
 
-        # set the "heterodyne" glitch phase
-        if self.times is not None and self.hetpar["GLEP"] is not None:
-            self.__hetglitchphase = lalpulsar.HeterodynedPulsarGetGlitchPhase(
-                self.hetpar.PulsarParameters(),
-                self.gpstimes,
-                self.__hetSSBdelay,
-                self.__hetBSBdelay,
-            )
-        else:
-            self.__hetglitchphase = None
+            # set the "heterodyne" BSB time delay
+            if self.times is not None and self.hetpar["BINARY"] is not None:
+                self.__hetBSBdelay = lalpulsar.HeterodynedPulsarGetBSBDelay(
+                    self.hetpar.PulsarParameters(),
+                    self.gpstimes,
+                    self.__hetSSBdelay,
+                    self.__edat,
+                )
+            else:
+                self.__hetBSBdelay = None
 
-        # set the "heterodyne" FITWAVES phase
-        if (
-            self.times is not None
-            and self.hetpar["WAVESIN"] is not None
-            and self.hetpar["WAVECOS"] is not None
-        ):
-            self.__hetfitwavesphase = lalpulsar.HeterodynedPulsarGetFITWAVESPhase(
-                self.hetpar.PulsarParameters(),
-                self.gpstimes,
-                self.__hetSSBdelay,
-                self.hetpar["F0"],
-            )
-        else:
-            self.__hetfitwavesphase = None
+            # set the "heterodyne" glitch phase
+            if self.times is not None and self.hetpar["GLEP"] is not None:
+                self.__hetglitchphase = lalpulsar.HeterodynedPulsarGetGlitchPhase(
+                    self.hetpar.PulsarParameters(),
+                    self.gpstimes,
+                    self.__hetSSBdelay,
+                    self.__hetBSBdelay,
+                )
+            else:
+                self.__hetglitchphase = None
+
+            # set the "heterodyne" FITWAVES phase
+            if (
+                self.times is not None
+                and self.hetpar["WAVESIN"] is not None
+                and self.hetpar["WAVECOS"] is not None
+            ):
+                self.__hetfitwavesphase = lalpulsar.HeterodynedPulsarGetFITWAVESPhase(
+                    self.hetpar.PulsarParameters(),
+                    self.gpstimes,
+                    self.__hetSSBdelay,
+                    self.hetpar["F0"],
+                )
+            else:
+                self.__hetfitwavesphase = None
 
         # set the response function
         if self.times is None and t0 is None:
@@ -264,6 +286,10 @@ class HeterodynedCWSimulator(object):
     @property
     def hetpar(self):
         return self.__hetpar
+
+    @property
+    def parfile(self):
+        return self.__parfile
 
     @property
     def detector(self):
@@ -451,37 +477,105 @@ class HeterodynedCWSimulator(object):
             A complex array containing the strain data
         """
 
-        if newpar is not None:
-            parupdate = self._read_par(newpar)
+        if not self.usetempo2 or not newpar or not usephase:
+            # if not using TEMPO, or phase is not being updated, use LAL function
+            if newpar is not None:
+                parupdate, _ = self._read_par(newpar)
+            else:
+                parupdate = self.hetpar
+
+            origpar = self.hetpar
+
+            self.__nonGR = self._check_nonGR(parupdate)
+            compstrain = lalpulsar.HeterodynedPulsarGetModel(
+                parupdate.PulsarParameters(),
+                origpar.PulsarParameters(),
+                freqfactor,
+                int(usephase),  # phase is varying between par files
+                int(roq),  # using ROQ?
+                self.__nonGR,  # using non-tensorial modes?
+                self.gpstimes,
+                self.ssbdelay,
+                int(
+                    updateSSB
+                ),  # the SSB delay should be updated compared to hetSSBdelay
+                self.bsbdelay,
+                int(
+                    updateBSB
+                ),  # the BSB delay should be updated compared to hetBSBdelay
+                self.glitchphase,
+                int(updateglphase),
+                self.fitwavesphase,
+                int(updatefitwaves),
+                self.resp,
+                self.__edat,
+                self.__tdat,
+                self.__units_type,
+            )
+
+            return compstrain.data.data
         else:
-            parupdate = self.hetpar
+            # use tempo2 to calculate the phase
+            import sys
+            from astropy.time import Time
+            from libstempo import tempopulsar
+            from .heterodyne.fastheterodyne import fast_heterodyne
 
-        origpar = self.hetpar
+            # convert times to MJD
+            mjdtimes = Time(self.times, format="gps", scale="utc").mjd
 
-        self.__nonGR = self._check_nonGR(parupdate)
-        compstrain = lalpulsar.HeterodynedPulsarGetModel(
-            parupdate.PulsarParameters(),
-            origpar.PulsarParameters(),
-            freqfactor,
-            int(usephase),  # phase is varying between par files
-            int(roq),  # using ROQ?
-            self.__nonGR,  # using non-tensorial modes?
-            self.gpstimes,
-            self.ssbdelay,
-            int(updateSSB),  # the SSB delay should be updated compared to hetSSBdelay
-            self.bsbdelay,
-            int(updateBSB),  # the BSB delay should be updated compared to hetBSBdelay
-            self.glitchphase,
-            int(updateglphase),
-            self.fitwavesphase,
-            int(updatefitwaves),
-            self.resp,
-            self.__edat,
-            self.__tdat,
-            self.__units_type,
-        )
+            toaerr = 1e-15  # add tiny error value to stop errors
+            with MuteStream(stream=sys.stdout):
+                psrorig = tempopulsar(
+                    parfile=self.parfile,
+                    toas=mjdtimes,
+                    toaerrs=toaerr,
+                    observatory=TEMPO2_GW_ALIASES[self.__detector_name],
+                    dofit=False,
+                )
 
-        return compstrain.data.data
+                # get phase residuals
+                phaseorig = psrorig.phaseresiduals(
+                    removemean="refphs",
+                    site="@",
+                    epoch=psrorig["PEPOCH"].val,
+                )
+
+            parupdate, parfile = self._read_par(newpar)
+
+            with MuteStream(stream=sys.stdour):
+                psrnew = tempopulsar(
+                    parfile=parfile,
+                    toas=mjdtimes,
+                    toaerrs=toaerr,
+                    observatory=TEMPO2_GW_ALIASES[self.__detector_name],
+                    dofit=False,
+                )
+
+                # get phase residuals
+                phasenew = psrnew.phaseresiduals(
+                    removemean="refphs",
+                    site="@",
+                    epoch=psrorig["PEPOCH"].val,
+                )
+
+            # get phase difference
+            phasediff = freqfactor * (phasenew - phaseorig)
+
+            # get amplitude model
+            self.__nonGR = self._check_nonGR(parupdate)
+            compstrain = lalpulsar.HeterodynedPulsarGetAmplitudeModel(
+                parupdate.PulsarParameters(),
+                freqfactor,
+                0,
+                int(roq),
+                self.__nonGR,
+                self.gpstimes,
+                self.resp,
+            )
+
+            # re-heterodyne with phase difference
+            return fast_heterodyne(compstrain.data.data, phasediff)
 
     def _read_par(self, par):
         """
@@ -489,13 +583,21 @@ class HeterodynedCWSimulator(object):
         """
 
         if isinstance(par, PulsarParametersPy):
-            return par
+            if not self.usetempo2:
+                return par, None
+            else:
+                # convert PulsarParametersPy to a file and return
+                import tempfile
+
+                parfile = tempfile.mkstemp(suffix=".par", prefix=get_psr_name(par))
+                par.pp_to_par(parfile)
+                return par, parfile
 
         if isinstance(par, str):
             if not is_par_file(par):
                 raise IOError("Could not read in parameter file: '{}'".format(par))
             else:
-                raise PulsarParametersPy(par)
+                return PulsarParametersPy(par), par
         else:
             raise TypeError("The parameter file must be a string")
 

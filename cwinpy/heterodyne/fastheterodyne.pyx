@@ -23,11 +23,11 @@ def fast_heterodyne(timeseries, phase):
 
     Parameters
     ----------
-    timeseries: TimeSeries
-        A :class:`gwpy.timeseries.TimeSeries` object.
+    timeseries: TimeSeries, array_like
+        A :class:`gwpy.timeseries.TimeSeries` object or complex array.
     phase: array_like
         An array of phase values in cycles
-    
+
     Returns
     -------
     het: TimeSeries
@@ -35,12 +35,19 @@ def fast_heterodyne(timeseries, phase):
     """
 
     # create new complex time series
-    het = TimeSeries(numpy.zeros(len(timeseries), dtype=complex))
-    het.__array_finalize__(timeseries)
-    het.sample_rate = timeseries.sample_rate
+    if isinstance(timeseries, TimeSeries):
+        het = TimeSeries(numpy.zeros(len(timeseries), dtype=complex))
+        het.__array_finalize__(timeseries)
+        het.sample_rate = timeseries.sample_rate
+        input = timeseries.value
+        output = het.value
+    else:
+        het = numpy.zeros(len(timeseries), dtype=complex)
+        input = timeseries
+        output = het
 
     # do the heterodyning
-    do_heterodyne(het.value, timeseries.value, phase)
+    do_heterodyne(output, input, phase)
 
     return het
 
