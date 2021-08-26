@@ -18,7 +18,7 @@ An example usage to generate the complex heterodyned signal time series is:
 
     # set the pulsar parameters
     par = PulsarParametersPy()
-    pos = SkyCoord("01:23:34.5 -45:01:23.4", units=("hourangle", "deg"))
+    pos = SkyCoord("01:23:34.5 -45:01:23.4", unit=("hourangle", "deg"))
     par["RAJ"] = pos.ra.rad
     par["DECJ"] = pos.dec.rad
     par["F"] = [123.456789, -9.87654321e-12]  # frequency and first derivative
@@ -70,10 +70,10 @@ that are not identical to the heterodyned parameters would be:
 
    # set the updated parameters
    parupdate = PulsarParametersPy()
-   par["RAJ"] = pos.ra.rad
-   par["DECJ"] = pos.dec.rad
+   parupdate["RAJ"] = pos.ra.rad
+   parupdate["DECJ"] = pos.dec.rad
    parupdate["F"] = [123.456789, -9.87654321e-12]  # different frequency and first derivative
-   par["PEPOCH"] = Time(58000, format="mjd", scale="tt").gps  # frequency epoch
+   parupdate["PEPOCH"] = Time(58000, format="mjd", scale="tt").gps  # frequency epoch
    parupdate["H0"] = 5.6e-26     # GW amplitude
    parupdate["COSIOTA"] = -0.2   # cosine of inclination angle
    parupdate["PSI"] = 0.4        # polarization angle (rads)
@@ -184,9 +184,6 @@ class HeterodynedCWSimulator(object):
         self.__hetpar, self.__parfile = self._read_par(par)
         self.detector = det
         self.times = times
-
-        # mapping between time units and time correction file prefix
-        self.__units_map = {"TCB": "te405", "TDB": "tdb"}
 
         if not self.usetempo2:
             self.ephem = ephem
@@ -359,7 +356,7 @@ class HeterodynedCWSimulator(object):
         elif isinstance(times, lalpulsar.LIGOTimeGPSVector):
             self.__gpstimes = times
             self.__times = np.zeros(len(times.data), dtype=np.float128)
-            for i, gpstime in enumerate(times.data):
+            for i in range(len(times.data)):
                 self.__times[i] = (
                     times.data[i].gpsSeconds + 1e-9 * times.data[i].gpsNanoSeconds
                 )
@@ -543,7 +540,7 @@ class HeterodynedCWSimulator(object):
 
             parupdate, parfile = self._read_par(newpar)
 
-            with MuteStream(stream=sys.stdour):
+            with MuteStream(stream=sys.stdout):
                 psrnew = tempopulsar(
                     parfile=parfile,
                     toas=mjdtimes,
@@ -560,14 +557,14 @@ class HeterodynedCWSimulator(object):
                 )
 
             # get phase difference
-            phasediff = freqfactor * (phasenew - phaseorig)
+            phasediff = freqfactor * (phaseorig - phasenew).astype(float)
 
             # get amplitude model
             self.__nonGR = self._check_nonGR(parupdate)
             compstrain = lalpulsar.HeterodynedPulsarGetAmplitudeModel(
                 parupdate.PulsarParameters(),
                 freqfactor,
-                0,
+                1,
                 int(roq),
                 self.__nonGR,
                 self.gpstimes,
@@ -590,8 +587,8 @@ class HeterodynedCWSimulator(object):
                 import tempfile
 
                 parfile = tempfile.mkstemp(suffix=".par", prefix=get_psr_name(par))
-                par.pp_to_par(parfile)
-                return par, parfile
+                par.pp_to_par(parfile[1])
+                return par, parfile[1]
 
         if isinstance(par, str):
             if not is_par_file(par):

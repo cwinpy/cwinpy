@@ -47,7 +47,10 @@ def fast_heterodyne(timeseries, phase):
         output = het
 
     # do the heterodyning
-    do_heterodyne(output, input, phase)
+    if input.dtype == float:
+        do_heterodyne(output, input, phase)
+    else:
+        do_complex_heterodyne(output, input, phase)
 
     return het
 
@@ -64,6 +67,26 @@ cdef void do_heterodyne(
     cdef int max = len(input)
     cdef double complex mtwopii = -2.0 * M_PI * I
     cdef double currentvalue = 0.0
+    cdef double currentphase = 0.0
+
+    for i in range(max):
+        currentvalue = input[i]
+        currentphase = phase[i]
+        output[i] = currentvalue * cexp(currentphase * mtwopii)
+
+
+cdef void do_complex_heterodyne(
+    numpy.ndarray[COMPLEX_DTYPE_t, ndim=1] output,
+    numpy.ndarray[COMPLEX_DTYPE_t, ndim=1] input,
+    numpy.ndarray[DTYPE_t, ndim=1] phase
+):
+    assert len(input) == len(phase), "Time series input and phase must be the same length"
+    assert len(output) == len(phase), "Time series output and phase must be the same length"
+
+    cdef int i = 0
+    cdef int max = len(input)
+    cdef double complex mtwopii = -2.0 * M_PI * I
+    cdef double complex currentvalue = 0.0 + 0.0 * I
     cdef double currentphase = 0.0
 
     for i in range(max):

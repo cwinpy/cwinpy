@@ -39,11 +39,17 @@ LAL_BINARY_MODELS = [
 #: aliases between GW detector prefixes a TEMPO2 observatory names
 TEMPO2_GW_ALIASES = {
     "G1": "GEO600",
+    "GEO_600": "GEO600",
     "H1": "HANFORD",
     "H2": "HANFORD",
+    "LHO_4k": "HANFORD",
+    "LHO_2k": "HANFORD",
     "K1": "KAGRA",
+    "KAGRA": "KAGRA",
     "L1": "LIVINGSTON",
+    "LLO_4k": "LIVINGSTON",
     "V1": "VIRGO",
+    "VIRGO": "VIRGO",
 }
 
 # create a numba-ified version of scipy's gammaln function (see, e.g.
