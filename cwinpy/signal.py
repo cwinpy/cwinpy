@@ -474,105 +474,102 @@ class HeterodynedCWSimulator(object):
             A complex array containing the strain data
         """
 
-        if not self.usetempo2 or not newpar or not usephase:
-            # if not using TEMPO, or phase is not being updated, use LAL function
-            if newpar is not None:
-                parupdate, _ = self._read_par(newpar)
-            else:
-                parupdate = self.hetpar
-
-            origpar = self.hetpar
-
-            self.__nonGR = self._check_nonGR(parupdate)
-            compstrain = lalpulsar.HeterodynedPulsarGetModel(
-                parupdate.PulsarParameters(),
-                origpar.PulsarParameters(),
-                freqfactor,
-                int(usephase),  # phase is varying between par files
-                int(roq),  # using ROQ?
-                self.__nonGR,  # using non-tensorial modes?
-                self.gpstimes,
-                self.ssbdelay,
-                int(
-                    updateSSB
-                ),  # the SSB delay should be updated compared to hetSSBdelay
-                self.bsbdelay,
-                int(
-                    updateBSB
-                ),  # the BSB delay should be updated compared to hetBSBdelay
-                self.glitchphase,
-                int(updateglphase),
-                self.fitwavesphase,
-                int(updatefitwaves),
-                self.resp,
-                self.__edat,
-                self.__tdat,
-                self.__units_type,
-            )
-
-            return compstrain.data.data
-        else:
-            # use tempo2 to calculate the phase
-            import sys
-            from astropy.time import Time
-            from libstempo import tempopulsar
-            from .heterodyne.fastheterodyne import fast_heterodyne
-
-            # convert times to MJD
-            mjdtimes = Time(self.times, format="gps", scale="utc").mjd
-
-            toaerr = 1e-15  # add tiny error value to stop errors
-            with MuteStream(stream=sys.stdout):
-                psrorig = tempopulsar(
-                    parfile=self.parfile,
-                    toas=mjdtimes,
-                    toaerrs=toaerr,
-                    observatory=TEMPO2_GW_ALIASES[self.__detector_name],
-                    dofit=False,
-                )
-
-                # get phase residuals
-                phaseorig = psrorig.phaseresiduals(
-                    removemean="refphs",
-                    site="@",
-                    epoch=psrorig["PEPOCH"].val,
-                )
-
+        if newpar is not None:
             parupdate, parfile = self._read_par(newpar)
+        else:
+            parupdate = self.hetpar
 
-            with MuteStream(stream=sys.stdout):
-                psrnew = tempopulsar(
-                    parfile=parfile,
-                    toas=mjdtimes,
-                    toaerrs=toaerr,
-                    observatory=TEMPO2_GW_ALIASES[self.__detector_name],
-                    dofit=False,
+        # get signal amplitude model
+        self.__nonGR = self._check_nonGR(parupdate)
+        compstrain = lalpulsar.HeterodynedPulsarGetAmplitudeModel(
+            parupdate.PulsarParameters(),
+            freqfactor,
+            int(usephase),
+            int(roq),
+            self.__nonGR,
+            self.gpstimes,
+            self.resp,
+        )
+
+        if usephase:
+            if not self.usetempo2:
+                # use LAL function for phase calculation
+                origpar = self.hetpar
+
+                phase = lalpulsar.HeterodynedPulsarPhaseDifference(
+                    parupdate.PulsarParameters(),
+                    origpar.PulsarParameters(),
+                    self.gpstimes,
+                    freqfactor,
+                    self.ssbdelay,
+                    int(
+                        updateSSB
+                    ),  # the SSB delay should be updated compared to hetSSBdelay
+                    self.bsbdelay,
+                    int(
+                        updateBSB
+                    ),  # the BSB delay should be updated compared to hetBSBdelay
+                    self.glitchphase,
+                    int(updateglphase),
+                    self.fitwavesphase,
+                    int(updatefitwaves),
+                    self.resp,
+                    self.__edat,
+                    self.__tdat,
+                    self.__units_type,
                 )
 
-                # get phase residuals
-                phasenew = psrnew.phaseresiduals(
-                    removemean="refphs",
-                    site="@",
-                    epoch=psrorig["PEPOCH"].val,
-                )
+                phasediff = -phase.data
+            else:
+                # use TEMPO2 for phase calculation
+                import sys
+                from astropy.time import Time
+                from libstempo import tempopulsar
+                from .heterodyne.fastheterodyne import fast_heterodyne
 
-            # get phase difference
-            phasediff = freqfactor * (phaseorig - phasenew).astype(float)
+                # convert times to MJD
+                mjdtimes = Time(self.times, format="gps", scale="utc").mjd
 
-            # get amplitude model
-            self.__nonGR = self._check_nonGR(parupdate)
-            compstrain = lalpulsar.HeterodynedPulsarGetAmplitudeModel(
-                parupdate.PulsarParameters(),
-                freqfactor,
-                1,
-                int(roq),
-                self.__nonGR,
-                self.gpstimes,
-                self.resp,
-            )
+                toaerr = 1e-15  # add tiny error value to stop errors
+                with MuteStream(stream=sys.stdout):
+                    psrorig = tempopulsar(
+                        parfile=self.parfile,
+                        toas=mjdtimes,
+                        toaerrs=toaerr,
+                        observatory=TEMPO2_GW_ALIASES[self.__detector_name],
+                        dofit=False,
+                    )
+
+                    # get phase residuals
+                    phaseorig = psrorig.phaseresiduals(
+                        removemean="refphs",
+                        site="@",
+                        epoch=psrorig["PEPOCH"].val,
+                    )
+
+                with MuteStream(stream=sys.stdout):
+                    psrnew = tempopulsar(
+                        parfile=parfile,
+                        toas=mjdtimes,
+                        toaerrs=toaerr,
+                        observatory=TEMPO2_GW_ALIASES[self.__detector_name],
+                        dofit=False,
+                    )
+
+                    # get phase residuals
+                    phasenew = psrnew.phaseresiduals(
+                        removemean="refphs",
+                        site="@",
+                        epoch=psrorig["PEPOCH"].val,
+                    )
+
+                # get phase difference
+                phasediff = freqfactor * (phaseorig - phasenew).astype(float)
 
             # re-heterodyne with phase difference
             return fast_heterodyne(compstrain.data.data, phasediff)
+        else:
+            return compstrain.data.data
 
     def _read_par(self, par):
         """
