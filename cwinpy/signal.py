@@ -491,7 +491,11 @@ class HeterodynedCWSimulator(object):
             self.resp,
         )
 
-        if usephase:
+        if (usephase and newpar is None) or roq or not usephase:
+            return compstrain.data.data
+        else:
+            from .heterodyne.fastheterodyne import fast_heterodyne
+
             if not self.usetempo2:
                 # use LAL function for phase calculation
                 origpar = self.hetpar
@@ -513,19 +517,18 @@ class HeterodynedCWSimulator(object):
                     int(updateglphase),
                     self.fitwavesphase,
                     int(updatefitwaves),
-                    self.resp,
+                    self.resp.det,
                     self.__edat,
                     self.__tdat,
                     self.__units_type,
                 )
 
-                phasediff = -phase.data
+                phasediff = -phase.data.astype(float)
             else:
                 # use TEMPO2 for phase calculation
                 import sys
                 from astropy.time import Time
                 from libstempo import tempopulsar
-                from .heterodyne.fastheterodyne import fast_heterodyne
 
                 # convert times to MJD
                 mjdtimes = Time(self.times, format="gps", scale="utc").mjd
@@ -568,8 +571,6 @@ class HeterodynedCWSimulator(object):
 
             # re-heterodyne with phase difference
             return fast_heterodyne(compstrain.data.data, phasediff)
-        else:
-            return compstrain.data.data
 
     def _read_par(self, par):
         """
