@@ -414,9 +414,9 @@ class HeterodynedCWSimulator(object):
             )
 
         if self.__units == "TCB":
-            self.__units_type = lalpulsar.lalpulsar.TIMECORRECTION_TCB
+            self.__units_type = lalpulsar.TIMECORRECTION_TCB
         else:
-            self.__units_type = lalpulsar.lalpulsar.TIMECORRECTION_TDB
+            self.__units_type = lalpulsar.TIMECORRECTION_TDB
 
     def model(
         self,
@@ -500,6 +500,22 @@ class HeterodynedCWSimulator(object):
                 # use LAL function for phase calculation
                 origpar = self.hetpar
 
+                if updateSSB:
+                    # if updating SSB other delays *must* also be updated if
+                    # required
+                    updateBSB = True if parupdate["BINARY"] is not None else updateBSB
+                    updateglphase = (
+                        True if parupdate["GLEP"] is not None else updateglphase
+                    )
+                    updatefitwaves = (
+                        True if parupdate["WAVEEPOCH"] is not None else updatefitwaves
+                    )
+                elif updateBSB:
+                    # if updating BSB the glitch phase must be updated if required
+                    updateglphase = (
+                        True if parupdate["GLEP"] is not None else updateglphase
+                    )
+
                 phase = lalpulsar.HeterodynedPulsarPhaseDifference(
                     parupdate.PulsarParameters(),
                     origpar.PulsarParameters(),
@@ -544,6 +560,8 @@ class HeterodynedCWSimulator(object):
                     )
 
                     # get phase residuals
+                    # NOTE: referencing this to a site and epoch may not be
+                    # necessary, but we'll do it as a precaution
                     phaseorig = psrorig.phaseresiduals(
                         removemean="refphs",
                         site="@",

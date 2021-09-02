@@ -26,6 +26,14 @@ def relative_difference(data, model):
     return np.abs(data - model) / np.abs(model)
 
 
+def mismatch(model1, model2):
+    """
+    Compute the mismatch between two models.
+    """
+
+    return 1.0 - np.abs(np.vdot(model1, model2) / np.vdot(model1, model1))
+
+
 class TestHeterodyne(object):
     """
     Test the Heterodyne object.
@@ -203,7 +211,7 @@ transientTau = {tau}
         cls.fakepulsarpar[1]["DECJ"] = delta
         cls.fakepulsarpar[1]["PEPOCH"] = pepoch
         cls.fakepulsarpar[1]["BINARY"] = "BT"
-        cls.fakepulsarpar[1]["E"] = ecc
+        cls.fakepulsarpar[1]["ECC"] = ecc
         cls.fakepulsarpar[1]["A1"] = asini
         cls.fakepulsarpar[1]["T0"] = Tp
         cls.fakepulsarpar[1]["OM"] = argp
@@ -315,7 +323,7 @@ transientTau = {tau}
         cls.fakepulsarpar[2]["DECJ"] = delta
         cls.fakepulsarpar[2]["PEPOCH"] = pepoch
         cls.fakepulsarpar[2]["BINARY"] = "BT"
-        cls.fakepulsarpar[2]["E"] = ecc
+        cls.fakepulsarpar[2]["ECC"] = ecc
         cls.fakepulsarpar[2]["A1"] = asini
         cls.fakepulsarpar[2]["T0"] = Tp
         cls.fakepulsarpar[2]["OM"] = argp
@@ -1250,16 +1258,23 @@ transientTau = {tau}
 
             # increase tolerance for acceptance due to small outliers (still
             # equivalent at the ~2% level)
-            if psr == "J0000+0000":  # isolated pulsar
+            if psr == "J0000+0000":
                 assert np.all(relative_difference(hetdata.data, model) < 0.02)
-            else:
-                # for binary signals the initial phase when using tempo2 will
-                # be shifted, but check that the shift is approximately
-                # constant (maximum variation within 1.5 degs and standard
-                # deviation within 0.1 degs)
-                phasedata = np.angle(hetdata.data, deg=True)
-                phasemodel = np.angle(model, deg=True)
-                phasediff = np.mod(phasedata - phasemodel, 360)
 
-                assert np.std(phasediff) < 0.1
-                assert phasediff.max() - phasediff.min() < 1.5
+            # check that the models match to within 1e-5
+            assert mismatch(hetdata.data, model) < 1e-5
+
+            # for binary signals the initial phase when using tempo2 will
+            # be shifted, but check that the shift is approximately
+            # constant (maximum variation within 1.5 degs and standard
+            # deviation within 0.1 degs)
+            phasedata = np.angle(hetdata.data, deg=True)
+            phasemodel = np.angle(model, deg=True)
+            phasediff = phasedata - phasemodel
+
+            # add on 180 degs so that J0000+0000, which should have zero phase shift,
+            # passes the tests (otherwise there are point around 0 and 360 degs)
+            phasediff = np.mod(phasediff + 180, 360)
+
+            assert np.std(phasediff) < 0.1
+            assert phasediff.max() - phasediff.min() < 1.5
