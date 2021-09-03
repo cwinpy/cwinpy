@@ -197,7 +197,7 @@ class TestSignal(object):
             het = HeterodynedCWSimulator(
                 par=self.comparison, det=det, times=self.timesfixed
             )
-            model = het.model(usephase=True, freqfactor=2)
+            model = het.model(freqfactor=2)
 
             assert len(model) == len(self.timesfixed)
             assert model.dtype == complex
@@ -214,7 +214,7 @@ class TestSignal(object):
             het = HeterodynedCWSimulator(
                 par=self.comparison, det=det, times=self.timesfixed
             )
-            model = het.model(usephase=True, freqfactor=1)
+            model = het.model(freqfactor=1)
 
             assert len(model) == len(self.timesfixed)
             assert model.dtype == complex
@@ -231,15 +231,13 @@ class TestSignal(object):
             het = HeterodynedCWSimulator(
                 par=self.comparison, det=det, times=self.timesvary
             )
-            modellal = het.model(
-                usephase=True, newpar=self.offset, freqfactor=2, updateSSB=True
-            )
+            modellal = het.model(newpar=self.offset, freqfactor=2, updateSSB=True)
 
             # using TEMPO2 routines
             hettempo = HeterodynedCWSimulator(
                 par=self.comparison, det=det, times=self.timesvary, usetempo2=True
             )
-            modeltempo = hettempo.model(usephase=True, newpar=self.offset, freqfactor=2)
+            modeltempo = hettempo.model(newpar=self.offset, freqfactor=2)
 
             assert len(modellal) == len(self.timesvary)
             assert len(modeltempo) == len(self.timesvary)
