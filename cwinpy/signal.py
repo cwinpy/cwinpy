@@ -1,95 +1,3 @@
-"""
-This module provides the :class:`~cwinpy.signal.HeterodynedCWSimulator` class
-for simulating a signal from a continuous wave source after application of a
-heterodyne as described in Equations 7 and 8 of [1]_.
-
-Examples
-========
-
-An example usage to generate the complex heterodyned signal time series is:
-
-.. code-block::
-
-    from cwinpy.signal import HeterodynedCWSimulator
-    from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-    from astropy.time import Time
-    from astropy.coordinates import SkyCoord
-    import numpy as np
-
-    # set the pulsar parameters
-    par = PulsarParametersPy()
-    pos = SkyCoord("01:23:34.5 -45:01:23.4", unit=("hourangle", "deg"))
-    par["RAJ"] = pos.ra.rad
-    par["DECJ"] = pos.dec.rad
-    par["F"] = [123.456789, -9.87654321e-12]  # frequency and first derivative
-    par["PEPOCH"] = Time(58000, format="mjd", scale="tt").gps  # frequency epoch
-    par["H0"] = 5.6e-26     # GW amplitude
-    par["COSIOTA"] = -0.2   # cosine of inclination angle
-    par["PSI"] = 0.4        # polarization angle (rads)
-    par["PHI0"] = 2.3       # initial phase (rads)
-
-    # set the GPS times of the data
-    times = np.arange(1000000000.0, 1000086400.0, 3600, dtype=np.float128)
-
-    # set the detector
-    det = "H1"  # the LIGO Hanford Observatory
-
-    # create the HeterodynedCWSimulator object
-    het = HeterodynedCWSimulator(par, det, times=times)
-
-    # get the model complex strain time series
-    model = het.model(usephase=True)
-
-An example of getting the time series for a signal that has phase parameters
-that are not identical to the heterodyned parameters would be:
-
-.. code-block::
-
-   from cwinpy.signal import HeterodynedCWSimulator
-   from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-   from astropy.time import Time
-   from astropy.coordinates import SkyCoord
-   import numpy as np
-
-   # set the "heterodyne" pulsar parameters
-   par = PulsarParametersPy()
-   pos = SkyCoord("01:23:34.5 -45:01:23.4", units=("hourangle", "deg"))
-   par["RAJ"] = pos.ra.rad
-   par["DECJ"] = pos.dec.rad
-   par["F"] = [123.4567, -9.876e-12]  # frequency and first derivative
-   par["PEPOCH"] = Time(58000, format="mjd", scale="tt").gps  # frequency epoch
-
-   # set the times
-   times = np.arange(1000000000.0, 1000000600.0, 60, dtype=np.float128)
-
-   # set the detector
-   det = "H1"  # the LIGO Hanford Observatory
-
-   # create the HeterodynedCWSimulator object
-   het = HeterodynedCWSimulator(par, det, times=times)
-
-   # set the updated parameters
-   parupdate = PulsarParametersPy()
-   parupdate["RAJ"] = pos.ra.rad
-   parupdate["DECJ"] = pos.dec.rad
-   parupdate["F"] = [123.456789, -9.87654321e-12]  # different frequency and first derivative
-   parupdate["PEPOCH"] = Time(58000, format="mjd", scale="tt").gps  # frequency epoch
-   parupdate["H0"] = 5.6e-26     # GW amplitude
-   parupdate["COSIOTA"] = -0.2   # cosine of inclination angle
-   parupdate["PSI"] = 0.4        # polarization angle (rads)
-   parupdate["PHI0"] = 2.3       # initial phase (rads)
-
-   # get the model complex strain time series
-   model = het.model(parupdate, usephase=True, updateSSB=True)
-
-Signal references
-=================
-
-.. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
-    <https:arxiv.org/abs/1705.08978v1>`_, 2017.
-
-"""
-
 import lal
 import lalpulsar
 import numpy as np
@@ -426,7 +334,7 @@ class HeterodynedCWSimulator(object):
         updateglphase=False,
         updatefitwaves=False,
         freqfactor=2.0,
-        usephase=False,
+        outputampcoeffs=False,
         roq=False,
     ):
         """
@@ -459,11 +367,13 @@ class HeterodynedCWSimulator(object):
             The factor by which the frequency evolution is multiplied for the
             source model. This defaults to 2 for emission from the
             :math:`l=m=2` quadrupole mode.
-        usephase: bool
-            Set to ``True`` if the model is to include the phase evolution,
-            i.e., if phase parameters are being updated, otherwise only two
-            (six for non-GR sources) values giving the amplitides will be
-            output.
+        outputampcoeffs: bool
+            If ``False`` (default) then the full complex time series of the
+            signal (calculated at the time steps used when initialising the
+            object) will be output. If ``True`` only two complex amplitudes
+            (six for non-GR sources) will be output for use when a pre-summed
+            signal model is being used - this should only be used if phase
+            parameters are not being updated.
         roq: bool
             A boolean value to set to ``True`` if requiring the output for
             a ROQ model (NOT YET IMPLEMENTED).
@@ -484,14 +394,14 @@ class HeterodynedCWSimulator(object):
         compstrain = lalpulsar.HeterodynedPulsarGetAmplitudeModel(
             parupdate.PulsarParameters(),
             freqfactor,
-            int(usephase),
+            int(not outputampcoeffs),
             int(roq),
             self.__nonGR,
             self.gpstimes,
             self.resp,
         )
 
-        if (usephase and newpar is None) or roq or not usephase:
+        if (not outputampcoeffs and newpar is None) or roq or outputampcoeffs:
             return compstrain.data.data
         else:
             from .heterodyne.fastheterodyne import fast_heterodyne

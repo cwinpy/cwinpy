@@ -498,7 +498,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             # calculate the model
             m = model.model(
                 par,
-                usephase=self.include_phase,
+                outputampcoeffs=(not self.include_phase),
                 updateSSB=self.update_ssb,
                 updateBSB=self.include_binary,
                 updateglphase=self.include_glitch,
