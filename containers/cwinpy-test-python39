@@ -16,7 +16,6 @@ RUN conda info
 RUN python --version
 
 # Install pymultinest requirements
-RUN apt-get -qq update
 RUN apt-get install -y --no-install-recommends libblas3 libblas-dev liblapack3 \
 liblapack-dev libatlas3-base libatlas-base-dev cmake build-essential gfortran \
 texlive texlive-latex-extra dvipng libgslcblas0 libgsl-dev
