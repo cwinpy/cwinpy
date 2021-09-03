@@ -1781,7 +1781,7 @@ class HeterodynedData(TimeSeriesBase):
         # get the injection
         if signalpar is None:
             # use self.par for the injection parameters
-            signal = het.model(usephase=True, freqfactor=self.freq_factor)
+            signal = het.model(freqfactor=self.freq_factor)
         else:
             signal = het.model(
                 signalpar,
@@ -1789,7 +1789,6 @@ class HeterodynedData(TimeSeriesBase):
                 updateBSB=True,
                 updateglphase=True,
                 updatefitwaves=True,
-                usephase=True,
                 freqfactor=self.freq_factor,
             )
 

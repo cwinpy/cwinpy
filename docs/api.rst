@@ -35,7 +35,7 @@ Signal simulation
 .. toctree::
    :maxdepth: 2
 
-   Simulating a individual signal <signal>
+   Simulating an individual signal <signal>
    Simulating a population of signals <simulation>
 
 Observing run information

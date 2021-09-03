@@ -42,7 +42,11 @@ is downsampled to 1/60 Hz (one sample per minute).
 
 CWInPy can be used to perform this heterodyning, taking files containing raw gravitational-wave
 strain and returning the complex, filtered, down-sampled time series in a form that can be read in
-as a :class:`~cwinpy.data.HeterodynedData` object.
+as a :class:`~cwinpy.data.HeterodynedData` object. To generate the phase evolution used for the
+heterodyne, CWInPy can either use functions within `LALSuite
+<https://lscsoft.docs.ligo.org/lalsuite/>`_ (the default) or, if installed, use the `Tempo2
+<https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package  (via the `libstempo
+<https://vallis.github.io/libstempo/>`_ wrapper package).
 
 CWInPy comes with an executable, ``cwinpy_heterodyne``, for implementing this, which closely (but
 not identically) emulates the functionality from the `LALSuite
@@ -77,7 +81,6 @@ data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
 <https://cvmfs.readthedocs.io/>`_. To find out more about accessing this data see the instructions
 `here <https://www.gw-openscience.org/cvmfs/>`_.
 
-
 .. note::
 
    To run a heterodyne analysis as multiple jobs on your own machine with HTCondor see :ref:`Local
@@ -97,7 +100,7 @@ Generating the data
 To generate the data we will use the LALSuite `programme
 <https://lscsoft.docs.ligo.org/lalsuite/lalapps/makefakedata__v5_8c.html>`_
 ``lalapps_Makefakedata_v5`` (you can skip straight to the heterodyning description
-:ref:`here<Heterodyning the data>`). The two fake pulsars have parameters defined in TEMPO(2)-style
+:ref:`here<Heterodyning the data>`). The two fake pulsars have parameters defined in Tempo(2)-style
 parameter files (where frequencies, frequency derivatives and phases are the rotational values
 rather than the gravitational-wave values), as follows:
 
@@ -217,6 +220,48 @@ The second way is to explicitly pass all the options as arguments, e.g.,
        includebsb=True,  # correct to binary system barycentre
    )
 
+Using Tempo2
+^^^^^^^^^^^^
+
+If you have the `Tempo2 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package,
+and the `libstempo <https://vallis.github.io/libstempo/>`_ Python wrapper for it, installed you can
+use it to generate the phase evolution used to heterodyne the data. This is achieved by including:
+
+.. code-block::
+
+   usetempo2 = True
+
+in your configuration file, or as another keyword argument to the
+:func:`~cwinpy.heterodyne.heterodyne` function. The ``includeX`` keywords are not required in this
+case and all delay corrections will be included.
+
+.. note::
+
+   For signals from sources in binary systems there will be a phase offset between signals
+   heterodyned using the default `LALSuite <https://lscsoft.docs.ligo.org/lalsuite/>`_  functions
+   and those heterodyned using Tempo2. This offset is not present for non-binary sources. In general
+   this is not problematic, but will mean that the if heterodyning data containing a simulated
+   binary signal created using, e.g., ``lalapps_Makefakedata_v5``, the recovered initial phase will
+   not be consistent with the expected value.
+
+Comparisons between heterodyning a described in the previous section and that using Tempo2 are shown
+below (the heterodyne using Tempo2 is shown as the black dashed lines):
+
+.. thumbnail:: examples/example1_plot_tempo1.png
+   :width: 600px
+   :align: center
+
+.. thumbnail:: examples/example1_plot_tempo2.png
+   :width: 600px
+   :align: center
+
+As noted there is a constant phase offset for the binary source J0404-0404, but the absolute value
+of the time series' can be seen to be the same:
+
+.. thumbnail:: examples/example1_plot_tempo3.png
+   :width: 600px
+   :align: center
+
 Example: hardware injections in LIGO O1 data
 ============================================
 
@@ -245,8 +290,8 @@ to use all available valid science quality data for the H1 detector, and ``H1_NO
 specifying the exclusion of times when no continuous-wave hardware injections were being carried
 out.
 
-Running this analysis can then be achieved with the following code, where the first two lines
-just substitute the location of the parameter files into the configuration file:
+Running this analysis can then be achieved with the following code, where the first two lines just
+substitute the location of the parameter files into the configuration file:
 
 .. code-block:: bash
 
@@ -381,8 +426,8 @@ Running using HTCondor
 When heterodyning long stretches of data it is preferable to split the observations up into more
 manageable chunks of time. The can be achieved by splitting up the analysis and running it as
 multiple independent jobs on a machine/cluster, or over the `Open Science Grid
-<https://opensciencegrid.org/>`_, using the `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ job
-scheduler system. This can be done using the ``cwinpy_heterodyne_dag`` executable (or the
+<https://opensciencegrid.org/>`_, using the `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_
+job scheduler system. This can be done using the ``cwinpy_heterodyne_dag`` executable (or the
 :func:`~cwinpy.heterodyne.heterodyne_dag` API).
 
 This can be run using a configuration script containing the information as described in the example
@@ -479,8 +524,8 @@ To create a DAG for this "two stage" approach the following option needs to be s
 
 The `resamplerate` option can then be given as a list containing two values: the resample rates for
 each stage. If not given, the default is to resample to 1 Hz for the first stage and 1/60 Hz for the
-second stage. The values in the dictionary given for the ``outputdir`` option should also be lists of
-two directories where the outputs of each stage will be located. The options ``includessb``,
+second stage. The values in the dictionary given for the ``outputdir`` option should also be lists
+of two directories where the outputs of each stage will be located. The options ``includessb``,
 ``includebsb``, ``includeglitch`` and ``includefitwaves`` should also be two-valued lists of
 booleans stating which phase model components to include in each stage. By default, the first stage
 will have these all as ``False`` and the second stage will have them all as ``True``.
@@ -511,7 +556,7 @@ the machine/cluster that you are running HTCondor on has access to open data fro
 via CVMFS. It is also recommended that you run CWInPy from within an `IGWN conda environment
 <https://computing.docs.ligo.org/conda/>`_ 
 
-For example, if you have a TEMPO(2)-style pulsar parameter file, e.g., ``J0740+6620.par``, and you
+For example, if you have a Tempo(2)-style pulsar parameter file, e.g., ``J0740+6620.par``, and you
 want to analyse the open `O1 data <https://www.gw-openscience.org/O1/>`_ for the two LIGO detectors
 you can simply run:
 
@@ -522,8 +567,8 @@ you can simply run:
 where ``/home/usr/heterodyneddata`` is the name of the directory where the run information and
 results will be stored (if you don't specify an ``--output`` then the current working directory will
 be used). This command will automatically submit the HTCondor DAG for the job. To specify multiple
-pulsars you can use the ``--pulsar`` option multiple times. If you do not have a parameter file
-for a pulsar you can instead use the ephemeris given by the `ATNF pulsar catalogue
+pulsars you can use the ``--pulsar`` option multiple times. If you do not have a parameter file for
+a pulsar you can instead use the ephemeris given by the `ATNF pulsar catalogue
 <https://www.atnf.csiro.au/research/pulsar/psrcat/>`_. To do this you need to instead supply a
 pulsar name (as recognised by the catalogue), for example, to run the analysis using O2 data for the
 pulsar `J0737-3039A <https://en.wikipedia.org/wiki/PSR_J0737%E2%88%923039>`_ you could do:

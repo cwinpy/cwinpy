@@ -36,6 +36,22 @@ LAL_BINARY_MODELS = [
     "T2",
 ]
 
+#: aliases between GW detector prefixes a TEMPO2 observatory names
+TEMPO2_GW_ALIASES = {
+    "G1": "GEO600",
+    "GEO_600": "GEO600",
+    "H1": "HANFORD",
+    "H2": "HANFORD",
+    "LHO_4k": "HANFORD",
+    "LHO_2k": "HANFORD",
+    "K1": "KAGRA",
+    "KAGRA": "KAGRA",
+    "L1": "LIVINGSTON",
+    "LLO_4k": "LIVINGSTON",
+    "V1": "VIRGO",
+    "VIRGO": "VIRGO",
+}
+
 # create a numba-ified version of scipy's gammaln function (see, e.g.
 # https://github.com/numba/numba/issues/3086#issuecomment-403469308)
 addr = get_cython_function_address("scipy.special.cython_special", "gammaln")
@@ -435,6 +451,28 @@ def initialise_ephemeris(
         return (edat, tdat, filepaths) if filenames else (edat, tdat)
 
 
+def check_for_tempo2():
+    """
+    Check whether the `libstempo <https://github.com/vallis/libstempo>`_
+    package (v2.4.2 or greater), and therefore also TEMPO2, is available.
+    """
+
+    from packaging import version
+
+    try:
+        import libstempo
+
+        hastempo2 = (
+            True
+            if version.parse(libstempo.__version__) >= version.parse("2.4.2")
+            else False
+        )
+    except ImportError:
+        hastempo2 = False
+
+    return hastempo2
+
+
 def sighandler(signum, frame):
     # perform periodic eviction with exit code 77
     # see https://git.ligo.org/lscsoft/bilby_pipe/-/commit/c63c3e718f20ce39b0340da27fb696c49409fcd8  # noqa: E501
@@ -457,10 +495,7 @@ class MuteStream(object):
     """
 
     def __init__(self, stream=None):
-        self.origstream = None
-        if self.origstream is None:
-            self.origstream = sys.stderr
-        self.origstream = sys.stderr
+        self.origstream = sys.stderr if stream is None else stream
         self.origstreamfd = self.origstream.fileno()
         # Create a pipe so the stream can be captured:
         self.pipe_out, self.pipe_in = os.pipe()

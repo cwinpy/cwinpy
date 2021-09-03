@@ -26,6 +26,14 @@ def relative_difference(data, model):
     return np.abs(data - model) / np.abs(model)
 
 
+def mismatch(model1, model2):
+    """
+    Compute the mismatch between two models.
+    """
+
+    return 1.0 - np.abs(np.vdot(model1, model2) / np.vdot(model1, model1))
+
+
 class TestHeterodyne(object):
     """
     Test the Heterodyne object.
@@ -203,7 +211,7 @@ transientTau = {tau}
         cls.fakepulsarpar[1]["DECJ"] = delta
         cls.fakepulsarpar[1]["PEPOCH"] = pepoch
         cls.fakepulsarpar[1]["BINARY"] = "BT"
-        cls.fakepulsarpar[1]["E"] = ecc
+        cls.fakepulsarpar[1]["ECC"] = ecc
         cls.fakepulsarpar[1]["A1"] = asini
         cls.fakepulsarpar[1]["T0"] = Tp
         cls.fakepulsarpar[1]["OM"] = argp
@@ -315,7 +323,7 @@ transientTau = {tau}
         cls.fakepulsarpar[2]["DECJ"] = delta
         cls.fakepulsarpar[2]["PEPOCH"] = pepoch
         cls.fakepulsarpar[2]["BINARY"] = "BT"
-        cls.fakepulsarpar[2]["E"] = ecc
+        cls.fakepulsarpar[2]["ECC"] = ecc
         cls.fakepulsarpar[2]["A1"] = asini
         cls.fakepulsarpar[2]["T0"] = Tp
         cls.fakepulsarpar[2]["OM"] = argp
@@ -1182,3 +1190,91 @@ transientTau = {tau}
             # increase tolerance for acceptance due to small outliers (still
             # equivalent at the ~2% level)
             assert np.all(relative_difference(hetdata.data, model) < 0.02)
+
+    def test_full_heterodyne_tempo2(self):
+        """
+        Test heterodyning on fake data, performing the heterodyne in one step,
+        using TEMPO2 for the phase calculation.
+        """
+
+        segments = [
+            (self.fakedatastarts[i], self.fakedatastarts[i] + self.fakedataduration[i])
+            for i in range(len(self.fakedatastarts))
+        ]
+
+        # perform heterodyne in one step
+        fulloutdir = os.path.join(self.fakedatadir, "full_heterodyne_output_tempo2")
+
+        inputkwargs = dict(
+            starttime=segments[0][0],
+            endtime=segments[-1][-1],
+            pulsarfiles=self.fakeparfile,
+            segmentlist=segments,
+            framecache=self.fakedatadir,
+            channel=self.fakedatachannels[0],
+            freqfactor=2,
+            stride=86400 // 2,
+            resamplerate=1 / 60,
+            usetempo2=True,
+            output=fulloutdir,
+            label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+        )
+
+        het = heterodyne(**inputkwargs)
+
+        # compare against model
+        for i, psr in enumerate(["J0000+0000", "J1111+1111", "J2222+2222"]):
+            # load data
+            hetdata = HeterodynedData.read(het.outputfiles[psr])
+
+            assert het.resamplerate == 1 / hetdata.dt.value
+
+            # check heterodyne_arguments were stored and retrieved correctly
+            assert isinstance(hetdata.heterodyne_arguments, dict)
+            for param in inputkwargs:
+                if param == "pulsarfiles":
+                    assert inputkwargs[param][i] == hetdata.heterodyne_arguments[param]
+                    assert hetdata.heterodyne_arguments["pulsars"] == psr
+                else:
+                    assert inputkwargs[param] == hetdata.heterodyne_arguments[param]
+
+            # set expected model
+            sim = HeterodynedCWSimulator(
+                hetdata.par,
+                hetdata.detector,
+                times=hetdata.times.value,
+                earth_ephem=hetdata.ephemearth,
+                sun_ephem=hetdata.ephemsun,
+            )
+
+            # due to how the HeterodynedCWSimulator works we need to set
+            # updateglphase = True for the glitching signal to generate a
+            # signal without the glitch phase included!
+            model = sim.model(
+                usephase=True,
+                freqfactor=hetdata.freq_factor,
+                updateglphase=(True if psr == "J2222+2222" else False),
+            )
+
+            # increase tolerance for acceptance due to small outliers (still
+            # equivalent at the ~2% level)
+            if psr == "J0000+0000":
+                assert np.all(relative_difference(hetdata.data, model) < 0.02)
+
+            # check that the models match to within 1e-5
+            assert mismatch(hetdata.data, model) < 1e-5
+
+            # for binary signals the initial phase when using tempo2 will
+            # be shifted, but check that the shift is approximately
+            # constant (maximum variation within 1.5 degs and standard
+            # deviation within 0.1 degs)
+            phasedata = np.angle(hetdata.data, deg=True)
+            phasemodel = np.angle(model, deg=True)
+            phasediff = phasedata - phasemodel
+
+            # add on 180 degs so that J0000+0000, which should have zero phase shift,
+            # passes the tests (otherwise there are point around 0 and 360 degs)
+            phasediff = np.mod(phasediff + 180, 360)
+
+            assert np.std(phasediff) < 0.1
+            assert phasediff.max() - phasediff.min() < 1.5

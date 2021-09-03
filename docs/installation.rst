@@ -73,6 +73,17 @@ then install the requirements and the software using:
    message about why it failed. In these cases you will have to manually correct the offending
    files before running ``git commit`` again.
 
+   .. note::
+
+      If installing the ``test`` packages you will need to have the
+      `Tempo2 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package
+      installed. The easiest way to install this is by using ``conda`` to install the
+      `libstempo <https://vallis.github.io/libstempo/>`_ package:
+
+      .. code-block:: console
+
+         $ conda install -c conda-forge libstempo 
+
 To run the parameter estimation via the `bilby <https://lscsoft.docs.ligo.org/bilby/index.html>`_
 package with any sampler other than the default of `dynesty
 <https://dynesty.readthedocs.io/en/latest/>`_, requires those additional samplers to be `installed
@@ -143,3 +154,14 @@ and then run `pytest <https://docs.pytest.org/en/latest/>`_ with:
    $ pytest
 
 from the repository's base directory after the code has been installed.
+
+.. note::
+
+   If installing the ``test`` packages you will need to have the
+   `Tempo2 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package
+   installed. The easiest way to install this is by using ``conda`` to install the
+   `libstempo <https://vallis.github.io/libstempo/>`_ package:
+
+   .. code-block:: console
+
+      $ conda install -c conda-forge libstempo 
