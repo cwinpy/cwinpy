@@ -1761,7 +1761,7 @@ class Heterodyne(object):
                                     removemean=False,
                                 )
 
-                            phaseint += phasenum
+                            phaseint += phasenum - phasenum[0]
 
                             # create interpolation function
                             k = (len(timesint) - 1) if len(timesint) < 4 else 3
