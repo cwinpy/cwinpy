@@ -16,6 +16,7 @@ RUN conda info
 RUN python --version
 
 # Install TeXlive
+RUN apt-get update --fix-missing
 RUN apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng
 
 # Install conda-installable programs
