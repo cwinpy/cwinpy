@@ -69,8 +69,8 @@ shows the priors used for the generation of signal parameters and their recovery
    When drawing parameters from the :math:`h_0` prior a maximum cut-off (``maxamp`` in the code)
    that is lower than the upper range of the prior is used. This is to ensure that posteriors are
    not truncated by the upper end of the prior in this case. However, this should not bias the
-   recovered credible intervals due to the :math:`h_0` prior being uniform and extended well
-   above the ``maxamp`` value.
+   recovered credible intervals due to the :math:`h_0` prior being uniform and extended well above
+   the ``maxamp`` value.
 
 .. thumbnail:: ppplot_2f.png
    :width: 600px
@@ -125,18 +125,35 @@ Pipeline comparison
 
 We can compare the results of the full pipeline produced by the `LALSuite
 <https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalapps_knope`` with that produced using the CWInPy
-code ``cwinpy_knope_dag``. We will do this comparison by analysing the set of
-:ref:`<Hardware injections>` and analysis of real pulsar data using open data from the two LIGO
-detectors during the `first advanced LIGO observing run <https://www.gw-openscience.org/O1/>`_
-(O1). 
+code ``cwinpy_knope_dag``. We will do this comparison by analysing the set of :ref:`<Hardware
+injections>` and analysis of real pulsar data using open data from the two LIGO detectors during the
+`first advanced LIGO observing run <https://www.gw-openscience.org/O1/>`_ (O1). 
 
 O1 hardware injections
 ----------------------
 
-To analysis the 15 hardware injections in O1 using the ``lalapps_knope`` pipeline, the following
+To analyse the 15 hardware injections in O1 using the ``lalapps_knope`` pipeline the following
 configuration file (named ``lalapps_knope_O1injections.ini``) has been used:
 
 .. literalinclude:: knope/lalapps_knope_O1injections.ini
+
+In this case the included segment lists have been made using the following code:
+
+.. code-block:: python
+
+   from cwinpy.heterodyne import generate_segments
+   from cwinpy.info import HW_INJ_SEGMENTS, RUNTIMES
+
+   for det in ["H1", "L1"]:
+       start, end = RUNTIMES["O1"][det]
+       _ = generate_segments(
+           starttime=start,
+           endtime=end,
+           includeflags=HW_INJ_SEGMENTS["O1"][det]["includesegments"],
+           excludeflags=HW_INJ_SEGMENTS["O1"][det]["excludesegments"],
+           usegwosc=True,
+           writesegments=f"{det}segments.txt",
+       )
 
 This has then been submitted (on the `UWM Nemo computing cluster
 <https://cgca.uwm.edu/datacenter.html>`_) with:
@@ -152,10 +169,11 @@ To perform the analysis using CWInPy, the :ref:`<Quick setup>` has been used:
    Because these analyses used LVK computing resources the
    ``accounting_group`` / ``--accounting-group-tag`` inputs have had to be set.
 
-In terms of total `wall-clock time <https://en.wikipedia.org/wiki/Elapsed_real_time#:~:text=Elapsed%20real%20time%2C%20real%20time,at%20which%20the%20task%20started.>`_
-the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took XX hours YY mins and 5 hours 34 mins, respectively.
-In terms of total CPU hours the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took
-approximately XX hours and 105 hours, respectively.
+In terms of total `wall-clock time
+<https://en.wikipedia.org/wiki/Elapsed_real_time#:~:text=Elapsed%20real%20time%2C%20real%20time,at%20which%20the%20task%20started.>`_
+the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took XX hours YY mins and 5 hours 34 mins,
+respectively. In terms of total CPU hours the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines
+took approximately XX hours and 105 hours, respectively.
 
 Heterodyned data comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -167,7 +185,7 @@ Comparison References
 =====================
 
 .. [1]  M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
-   <https:arxiv.org/abs/1705.08978v1>`_, 2017.
+   <https:arxiv.org/abs/1705.08978v1>`_ (2017).
 .. [2] `A. P. Dawid
    <https://www.tandfonline.com/doi/abs/10.1080/01621459.1982.10477856>`_, *Journal of the
    American Statistical Association*, **77**, 379 (1982).
@@ -175,4 +193,4 @@ Comparison References
    <https://ui.adsabs.harvard.edu/abs/2015PhRvD..91d2003V/abstract>`_,
    *PRD*, **91**, 042003 (2015)
 .. [4] S. Talts, M. Betancourt, D. Simpson, A. Vehtari & A. Gelman, `arXiv:1804.06788
-   <https:arxiv.org/abs/1804.06788>`_, 2018.
+   <https:arxiv.org/abs/1804.06788>`_ (2018).
