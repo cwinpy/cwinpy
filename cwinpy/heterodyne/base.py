@@ -2951,6 +2951,6 @@ def generate_segments(
                 segments.append((float(thisseg[0]), float(thisseg[1])))
 
                 if isinstance(writesegments, str):
-                    fp.write("{} {}\n".format(float(thisseg[0]), float(thisseg[1])))
+                    fp.write("{} {}\n".format(int(thisseg[0]), int(thisseg[1])))
 
         return segments
