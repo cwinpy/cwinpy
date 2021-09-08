@@ -2459,7 +2459,7 @@ def remote_frame_cache(
     """
     Generate a cache list of gravitational-wave data files using a remote
     server. This is based on the code from the :method:`~gwpy.timesseries.find`
-    method.
+    method. This will only return list of GWF files and not HDF5 files.
 
     Examples
     --------
@@ -2474,6 +2474,9 @@ def remote_frame_cache(
     >>> channels = ['H1:DCH-CLEAN_STRAIN_C02', 'L1:DCH-CLEAN_STRAIN_C02']
     >>> frametype = ['H1_CLEANED_HOFT_C02', 'L1_CLEANED_HOFT_C02']
     >>> cache = remote_frame_cache(start, end, channels, frametype=frametype)
+
+    To instead generate CVMFS locations of GWOSC open data set the host
+    argument to be `"datafind.gw-openscience.org"`.
 
     Parameters
     ----------

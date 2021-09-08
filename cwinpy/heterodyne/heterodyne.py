@@ -28,8 +28,9 @@ from ..condor.hetnodes import HeterodyneInput, HeterodyneNode, MergeHeterodyneNo
 from ..data import HeterodynedData
 from ..info import (
     ANALYSIS_SEGMENTS,
+    CVMFS_GWOSC_DATA_SERVER,
+    CVMFS_GWOSC_DATA_TYPES,
     CVMFS_GWOSC_FRAME_CHANNELS,
-    CVMFS_GWOSC_FRAME_DATA_LOCATIONS,
     HW_INJ,
     HW_INJ_RUNTIMES,
     HW_INJ_SEGMENTS,
@@ -1781,15 +1782,13 @@ def heterodyne_dag(**kwargs):
                 {det: runtimes[run][det][1] for det in detectors}
             )
 
-            configfile["heterodyne"]["framecaches"] = str(
-                {
-                    det: CVMFS_GWOSC_FRAME_DATA_LOCATIONS[run]["4k"][det]
-                    for det in detectors
-                }
+            configfile["heterodyne"]["frametypes"] = str(
+                {det: CVMFS_GWOSC_DATA_TYPES[run]["4k"][det] for det in detectors}
             )
             configfile["heterodyne"]["channels"] = str(
                 {det: CVMFS_GWOSC_FRAME_CHANNELS[run]["4k"][det] for det in detectors}
             )
+            configfile["heterodyne"]["host"] = CVMFS_GWOSC_DATA_SERVER
             if args.hwinj:
                 configfile["heterodyne"]["includeflags"] = str(
                     {det: segments[run][det]["includesegments"] for det in detectors}
