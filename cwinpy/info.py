@@ -264,16 +264,16 @@ CVMFS_GWOSC_DATA_TYPES = {
         },
     },
     "O3a": {
-        # "4k": {
-        #    "H1": "H1_GWOSC_O3a_4KHZ_R1",
-        #    "L1": "L1_GWOSC_O3a_4KHZ_R1",
-        #    "V1": "V1_GWOSC_O3a_4KHZ_R1",
-        # },
+        "4k": {
+            "H1": "H1_GWOSC_O3a_4KHZ_R1",
+            "L1": "L1_GWOSC_O3a_4KHZ_R1",
+            "V1": "V1_GWOSC_O3a_4KHZ_R1",
+        },
         "16k": {
             "H1": "H1_GWOSC_O3a_16KHZ_R1",
             "L1": "L1_GWOSC_O3a_16KHZ_R1",
             "V1": "V1_GWOSC_O3a_16KHZ_R1",
-        }
+        },
     },
 }
 
