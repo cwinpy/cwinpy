@@ -1,8 +1,3 @@
-"""
-A wrapper to the LALPulsar ``PulsarParameters`` structure. This is based on the
-``PulsarParameters.py`` structure in LALPulsar.
-"""
-
 import os
 import re
 
@@ -174,7 +169,7 @@ TEMPOERRUNITS = {
 }
 
 
-class PulsarParameters(object):
+class PulsarParameters:
     keynames = []  # parameter names in PulsarParameters structure
     length = 0  # number of parameters
     _pulsarparameters = None
