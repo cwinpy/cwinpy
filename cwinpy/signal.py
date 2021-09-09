@@ -449,7 +449,7 @@ class HeterodynedCWSimulator(object):
                     self.__units_type,
                 )
 
-                phasediff = -phase.data.astype(float)
+                self._phasediff = -phase.data.astype(float)
             else:
                 # use TEMPO2 for phase calculation
                 import sys
@@ -495,10 +495,10 @@ class HeterodynedCWSimulator(object):
                     )
 
                 # get phase difference
-                phasediff = freqfactor * (phaseorig - phasenew).astype(float)
+                self._phasediff = freqfactor * (phaseorig - phasenew).astype(float)
 
             # re-heterodyne with phase difference
-            return fast_heterodyne(compstrain.data.data, phasediff)
+            return fast_heterodyne(compstrain.data.data, self.phasediff)
 
     def _read_par(self, par):
         """
@@ -523,6 +523,10 @@ class HeterodynedCWSimulator(object):
                 return PulsarParametersPy(par), par
         else:
             raise TypeError("The parameter file must be a string")
+
+    @property
+    def phasediff(self):
+        return getattr(self, "_phasediff", np.zeros(len(self.times), dtype=float))
 
     @property
     def ssbdelay(self):
