@@ -1022,7 +1022,6 @@ transientTau = {tau}
             # signal without the glitch phase included!
             models.append(
                 sim.model(
-                    usephase=True,
                     freqfactor=hetdata.freq_factor,
                     updateglphase=(True if psr == "J2222+2222" else False),
                 )
@@ -1181,7 +1180,6 @@ transientTau = {tau}
             # updateglphase = True for the glitching signal to generate a
             # signal without the glitch phase included!
             model = sim.model(
-                usephase=True,
                 freqfactor=hetdata.freq_factor,
                 updateglphase=(True if psr == "J2222+2222" else False),
             )
@@ -1250,7 +1248,6 @@ transientTau = {tau}
             # updateglphase = True for the glitching signal to generate a
             # signal without the glitch phase included!
             model = sim.model(
-                usephase=True,
                 freqfactor=hetdata.freq_factor,
                 updateglphase=(True if psr == "J2222+2222" else False),
             )
