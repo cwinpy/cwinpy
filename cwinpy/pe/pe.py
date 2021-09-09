@@ -1408,10 +1408,9 @@ class PEDAGRunner(object):
         # get any additional submission options
         self.submit_options = config.get(dagsection, "submit_options", fallback=None)
 
-        # check for required configuration file sections
-        for section in ["pe", "ephemerides"]:
-            if not config.has_section(section):
-                raise IOError(f"Configuration file must have a [{section}] section.")
+        # check for required configuration file section
+        if not config.has_section("pe"):
+            raise IOError(f"Configuration file must have a [pe] section.")
 
         # create configurations for each cwinpy_pe job
         # get the paths to the pulsar parameter files
@@ -1423,6 +1422,7 @@ class PEDAGRunner(object):
         #  - a directory (or glob-able directory pattern) containing parameter files
         #  - a combination of a list of directories and/or files
         # All files must have the extension '.par'
+        pulsardict = {}
         if parfiles is not None:
             parfiles = self.eval(parfiles)
             if not isinstance(parfiles, list):
@@ -1444,7 +1444,6 @@ class PEDAGRunner(object):
                 )
 
             # get names of all the pulsars
-            pulsardict = {}
             for pulsar in list(pulsars):
                 if is_par_file(pulsar):
                     psr = PulsarParameters(pulsar)
