@@ -369,6 +369,17 @@ class PulsarParameters(object):
         else:
             raise ValueError("Data-type not one of know types")
 
+        self._updated = True
+
+    @property
+    def updated(self):
+        """
+        Flag to state whether any new parameters have been set, or current
+        parameters updated.
+        """
+
+        return getattr(self, "_updated", False)
+
     def convert_to_units(self, name, value):
         """
         Convert parameter values to equivalent dimensional versions.
@@ -729,7 +740,7 @@ class PulsarParameters(object):
             The contents in Tempo-format
         """
 
-        if hasattr(self, "_parcontent"):
+        if hasattr(self, "_parcontent") and not self.updated:
             # if structure contains store par file return that
             return self._parcontent
 
