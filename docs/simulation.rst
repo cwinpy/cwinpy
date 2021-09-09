@@ -96,11 +96,11 @@ We can take a look at the distribution of parameters that gets produced with:
     import corner
     import glob
     import numpy as np
-    from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+    from cwinpy import PulsarParameters
 
     params = np.zeros((1000, 8))
     for i, parfile in enumerate(glob.glob("pulsars/*.par")):
-        psr = PulsarParametersPy(parfile)
+        psr = PulsarParameters(parfile)
         params[i, :] = [psr["Q22"], psr["DIST"], psr["F0"], psr["RAJ"], psr["DECJ"], psr["IOTA"], psr["PHI0"], psr["PSI"]]
 
     # make a corner plot of the distributions
@@ -182,11 +182,11 @@ our pulsar population with:
     from matplotlib import pyplot as pl
     import glob
     import numpy as np
-    from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+    from cwinpy import PulsarParameters
 
     params = np.zeros((1000, 2))
     for i, parfile in enumerate(glob.glob("pulsars/*.par")): 
-        psr = PulsarParametersPy(parfile) 
+        psr = PulsarParameters(parfile) 
         params[i, :] = [-psr["RAJ"] if psr["RAJ"] < np.pi else -(psr["RAJ"] - 2 * np.pi), psr["DECJ"]]
     fig, ax = pl.subplots(1, 1, subplot_kw={"projection": "mollweide"})
     ax.scatter(params[:,0], params[:,1], s=8)
@@ -244,7 +244,7 @@ deconvolution [2]_ (other packages can be used for this).
     from matplotlib import pyplot as pl
     import glob
     import numpy as np
-    from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+    from cwinpy import PulsarParameters
 
     from cwinpy.pe.simulation import PEPulsarSimulationDAG
     from bilby.core.prior import PriorDict, Uniform, Exponential, Sine
@@ -299,7 +299,7 @@ deconvolution [2]_ (other packages can be used for this).
     # plot the distribution (c)
     params = np.zeros((1000, 2))
     for i, parfile in enumerate(glob.glob("pulsars/*.par")): 
-        psr = PulsarParametersPy(parfile) 
+        psr = PulsarParameters(parfile) 
         params[i, :] = [-psr["RAJ"] if psr["RAJ"] < np.pi else -(psr["RAJ"] - 2 * np.pi), psr["DECJ"]]
     pparams = np.zeros((len(t), 2)) 
     for i, rasdecs in enumerate(zip(np.deg2rad(t["RAJD"]), np.deg2rad(t["DECJD"]))):

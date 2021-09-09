@@ -22,7 +22,6 @@ from bilby_pipe.utils import (
     parse_args,
 )
 from configargparse import ArgumentError
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 from ..condor.hetnodes import HeterodyneInput, HeterodyneNode, MergeHeterodyneNode
 from ..data import HeterodynedData
@@ -36,6 +35,7 @@ from ..info import (
     HW_INJ_SEGMENTS,
     RUNTIMES,
 )
+from ..parfile import PulsarParameters
 from ..utils import (
     LAL_BINARY_MODELS,
     LAL_EPHEMERIS_TYPES,
@@ -1208,7 +1208,7 @@ class HeterodyneDAGRunner(object):
         etypes = []
         binarymodels = []
         for pf in het.pulsarfiles:
-            par = PulsarParametersPy(het.pulsarfiles[pf])
+            par = PulsarParameters(het.pulsarfiles[pf])
             etypes.append(par["EPHEM"] if par["EPHEM"] is not None else "DE405")
             if par["BINARY"] is not None:
                 binarymodels.append(par["BINARY"])

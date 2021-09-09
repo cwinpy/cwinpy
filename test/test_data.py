@@ -8,9 +8,8 @@ import cwinpy
 import lal
 import numpy as np
 import pytest
-from cwinpy import HeterodynedData, MultiHeterodynedData
+from cwinpy import HeterodynedData, MultiHeterodynedData, PulsarParameters
 from cwinpy.data import PSDwrapper
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from matplotlib.figure import Figure
 
 
@@ -933,7 +932,7 @@ PHI0     2.4
 
         het = HeterodynedData(data, times=times, detector=det, par=parfile)
 
-        assert isinstance(het.par, PulsarParametersPy)
+        assert isinstance(het.par, PulsarParameters)
         assert len(het.par["F"]) == 2
         assert (het.par["F"][0] == 567.89) and (het.par["F"][1] == -1.2e-12)
         assert (
@@ -947,13 +946,13 @@ PHI0     2.4
         pepoch = lal.TranslateStringMJDTTtoGPS("56789")
         assert het.par["PEPOCH"] == (pepoch.gpsSeconds + 1e-9 * pepoch.gpsNanoSeconds)
 
-        # pass parameters as PulsarParametersPy object
+        # pass parameters as PulsarParameters object
         del het
 
-        par = PulsarParametersPy(parfile)
+        par = PulsarParameters(parfile)
         het = HeterodynedData(data, times=times, detector=det, par=par)
 
-        assert isinstance(het.par, PulsarParametersPy)
+        assert isinstance(het.par, PulsarParameters)
         assert len(het.par["F"]) == len(par["F"])
         assert (het.par["F"][0] == par["F"][0]) and (het.par["F"][1] == par["F"][1])
         assert (

@@ -9,6 +9,8 @@ from matplotlib.legend_handler import HandlerBase
 from matplotlib.patches import Rectangle
 from pesummary.conf import colorcycle
 
+from .parfile import PulsarParameters
+
 #: dictionary of common parameters and equivalent LaTeX format strings
 LATEX_LABELS = {
     "h0": r"$h_0$",
@@ -121,8 +123,8 @@ class Plot:
         kde: bool
             If plotting a histogram using ``"hist"``, set this to True to also
             plot the KDE. Use the ``"kde"`` `plottype` to only plot the KDE.
-        pulsar: str, PulsarParametersPy
-            A TEMPO(2)-style pulsar parameter file containing the source
+        pulsar: str, PulsarParameters
+            A Tempo(2)-style pulsar parameter file containing the source
             parameters. If the requested `parameters` are in the parameter
             file, e.g., for a simulated signal, then if supplied these will be
             plotted with the posteriors.
@@ -322,7 +324,8 @@ class Plot:
     @property
     def pulsar(self):
         """
-        The :class:`PulsarParameterPy` object containing the source parameters.
+        The :class:`~cwinpy.parfile.PulsarParameters` object containing the
+        source parameters.
         """
 
         return self._pulsar
@@ -333,10 +336,8 @@ class Plot:
             self._pulsar = None
             self._injection_parameters = None
         else:
-            from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-
             try:
-                self._pulsar = PulsarParametersPy(pulsar)
+                self._pulsar = PulsarParameters(pulsar)
             except ValueError:
                 raise IOError(f"Could not parse pulsar parameter file '{pulsar}'")
 

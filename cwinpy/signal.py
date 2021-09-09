@@ -1,8 +1,8 @@
 import lal
 import lalpulsar
 import numpy as np
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
+from .parfile import PulsarParameters
 from .utils import (
     TEMPO2_GW_ALIASES,
     MuteStream,
@@ -37,10 +37,11 @@ class HeterodynedCWSimulator(object):
 
         Parameters
         ----------
-        par: str, ``PulsarParametersPy``
-            A TEMPO-style text file, or a PulsarParametersPy structure,
-            containing the parameters for the source, in particular the phase
-            parameters at which the data is "heterodyned".
+        par: str, PulsarParameters
+            A Tempo-style text file, or a
+            :class:`~cwinpy.parfile.PulsarParameters` object, containing the
+            parameters for the source, in particular the phase parameters at
+            which the data is "heterodyned".
         det: str
             The name of a gravitational-wave detector.
         times: array_like
@@ -343,10 +344,11 @@ class HeterodynedCWSimulator(object):
 
         Parameters
         ----------
-        newpar: str, ``PulsarParameterPy``
-            A text parameter file, or ``PulsarParameterPy()`` object,
-            containing a set of parameter at which to calculate the strain
-            model. If this is ``None`` then the "heterodyne" parameters are used.
+        newpar: str, PulsarParameters
+            A text parameter file, or :class:`~cwinpy.parfile.PulsarParameters`
+            object, containing a set of parameter at which to calculate the
+            strain model. If this is ``None`` then the "heterodyne" parameters
+            are used.
         updateSSB: bool
             Set to ``True`` to update the solar system barycentring time delays
             compared to those used in heterodyning, i.e., if the ``newpar``
@@ -502,14 +504,15 @@ class HeterodynedCWSimulator(object):
 
     def _read_par(self, par):
         """
-        Read a TEMPO-style parameter file into a PulsarParameterPy object.
+        Read a TEMPO-style parameter file into a
+        :class:`~cwinpy.parfile.PulsarParameters` object.
         """
 
-        if isinstance(par, PulsarParametersPy):
+        if isinstance(par, PulsarParameters):
             if not self.usetempo2:
                 return par, None
             else:
-                # convert PulsarParametersPy to a file and return
+                # convert PulsarParameters to a file and return
                 import tempfile
 
                 parfile = tempfile.mkstemp(suffix=".par", prefix=get_psr_name(par))
@@ -520,7 +523,7 @@ class HeterodynedCWSimulator(object):
             if not is_par_file(par):
                 raise IOError("Could not read in parameter file: '{}'".format(par))
             else:
-                return PulsarParametersPy(par), par
+                return PulsarParameters(par), par
         else:
             raise TypeError("The parameter file must be a string")
 

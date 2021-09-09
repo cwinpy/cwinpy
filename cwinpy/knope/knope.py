@@ -7,8 +7,9 @@ import cwinpy
 from ..heterodyne.heterodyne import HeterodyneDAGRunner, heterodyne
 from ..info import (
     ANALYSIS_SEGMENTS,
+    CVMFS_GWOSC_DATA_SERVER,
+    CVMFS_GWOSC_DATA_TYPES,
     CVMFS_GWOSC_FRAME_CHANNELS,
-    CVMFS_GWOSC_FRAME_DATA_LOCATIONS,
     HW_INJ,
     HW_INJ_RUNTIMES,
     HW_INJ_SEGMENTS,
@@ -468,12 +469,10 @@ def knope_dag(**kwargs):
                 {det: runtimes[run][det][1] for det in detectors}
             )
 
-            hetconfigfile["heterodyne"]["framecaches"] = str(
-                {
-                    det: CVMFS_GWOSC_FRAME_DATA_LOCATIONS[run]["4k"][det]
-                    for det in detectors
-                }
+            hetconfigfile["heterodyne"]["frametypes"] = str(
+                {det: CVMFS_GWOSC_DATA_TYPES[run]["4k"][det] for det in detectors}
             )
+            hetconfigfile["heterodyne"]["host"] = CVMFS_GWOSC_DATA_SERVER
             hetconfigfile["heterodyne"]["channels"] = str(
                 {det: CVMFS_GWOSC_FRAME_CHANNELS[run]["4k"][det] for det in detectors}
             )

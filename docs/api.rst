@@ -54,3 +54,10 @@ Utility functions
 
    utils
 
+Reading/storing pulsar parameters
+=================================
+
+.. toctree::
+   :maxdepth: 2
+
+   .. automodule:: cwinpy.parfile

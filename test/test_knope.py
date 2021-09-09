@@ -10,10 +10,9 @@ import numpy as np
 import pytest
 from astropy.utils.data import download_file
 from bilby.core.prior import PriorDict, Uniform
-from cwinpy.data import HeterodynedData
+from cwinpy import HeterodynedData, PulsarParameters
 from cwinpy.knope import knope
 from cwinpy.utils import LAL_EPHEMERIS_URL
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
 class TestKnope(object):
@@ -84,7 +83,7 @@ phi0 = {phi0}
             "phi0": phi0,
         }
 
-        cls.fakepulsarpar.append(PulsarParametersPy())
+        cls.fakepulsarpar.append(PulsarParameters())
         cls.fakepulsarpar[0]["PSRJ"] = "J0000+0000"
         cls.fakepulsarpar[0]["H0"] = h0
         cls.fakepulsarpar[0]["PHI0"] = phi0 / 2.0

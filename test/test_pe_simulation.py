@@ -10,10 +10,9 @@ import bilby
 import numpy as np
 import pytest
 from astropy import units as u
-from cwinpy.data import HeterodynedData
+from cwinpy import HeterodynedData, PulsarParameters
 from cwinpy.hierarchical import DeltaFunctionDistribution
 from cwinpy.pe.simulation import PEPulsarSimulationDAG
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
 class TestPESimulation(object):
@@ -41,7 +40,7 @@ class TestPESimulation(object):
         cls.dists = [1.0, None]
         cls.pardict = {}
         for name, ra, dec, dist in zip(cls.names, cls.ras, cls.decs, cls.dists):
-            par = PulsarParametersPy()
+            par = PulsarParameters()
             par["PSRJ"] = name
             par["F"] = [100.0]  # set frequency to 100 Hz
             par["RAJ"] = ra
@@ -293,7 +292,7 @@ class TestPESimulation(object):
             assert sim.priors[pname] == expectedprior
 
             # check fake pulsars contain the same values
-            psr = PulsarParametersPy(
+            psr = PulsarParameters(
                 os.path.join(testdir, "pulsars", "{}.par".format(pname))
             )
 
@@ -335,7 +334,7 @@ class TestPESimulation(object):
         dists = []
         for pname in sim.priors:
             # check fake pulsars contain the same values
-            psr = PulsarParametersPy(
+            psr = PulsarParameters(
                 os.path.join(testdir, "pulsars", "{}.par".format(pname))
             )
 
@@ -374,7 +373,7 @@ class TestPESimulation(object):
         dists = []
         for pname in sim.priors:
             # check fake pulsars contain the same values
-            psr = PulsarParametersPy(
+            psr = PulsarParameters(
                 os.path.join(testdir, "pulsars", "{}.par".format(pname))
             )
 
@@ -455,7 +454,7 @@ class TestPESimulation(object):
         # check signal values are correct
         for i, pname in enumerate(self.names):
             # check fake pulsars contain the same values
-            psr = PulsarParametersPy(
+            psr = PulsarParameters(
                 os.path.join(testdir, "pulsars", "{}.par".format(pname))
             )
 
@@ -515,7 +514,7 @@ class TestPESimulation(object):
         # check signal values are correct
         for i, pname in enumerate(self.names):
             # check fake pulsars contain the same values
-            psr = PulsarParametersPy(
+            psr = PulsarParameters(
                 os.path.join(testdir, "pulsars", "{}.par".format(pname))
             )
 
@@ -571,7 +570,7 @@ class TestPESimulation(object):
         # check signal values are correct
         for i, pname in enumerate(self.names):
             # check fake pulsars contain the same values
-            psr = PulsarParametersPy(
+            psr = PulsarParameters(
                 os.path.join(testdir, "pulsars", "{}.par".format(pname))
             )
 
@@ -624,7 +623,7 @@ class TestPESimulation(object):
         # check signal values are correct
         for i, pname in enumerate(self.names):
             # check fake pulsars contain the same values
-            psr = PulsarParametersPy(
+            psr = PulsarParameters(
                 os.path.join(testdir, "pulsars", "{}.par".format(pname))
             )
 
@@ -665,7 +664,7 @@ class TestPESimulation(object):
         # check signal values are correct
         for i, pname in enumerate(self.names):
             # check fake pulsars contain the same values
-            psr = PulsarParametersPy(
+            psr = PulsarParameters(
                 os.path.join(testdir, "pulsars", "{}.par".format(pname))
             )
 

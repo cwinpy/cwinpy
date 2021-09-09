@@ -393,9 +393,9 @@ distribution of :math:`Q_{22}` values. Both these are shown below.
 .. code-block:: python
 
    from bilby.core.prior import Exponential
+   from cwinpy import PulsarParameters
    import glob
    import json
-   from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
    from matplotlib import pyplot as plt
    from matplotlib import rc
 
@@ -415,7 +415,7 @@ distribution of :math:`Q_{22}` values. Both these are shown below.
 
    # load in simulation pulsar parameters and extract Q22 values
    pulsarfiles = glob.glob("/home/user/exponential/pulsars/*.par")
-   trueq22 = np.array([PulsarParametersPy(pf)["Q22"] for pf in pulsarfiles])
+   trueq22 = np.array([PulsarParameters(pf)["Q22"] for pf in pulsarfiles])
 
    # create plot
    rc("mathtext", **{"fontset": "stix"})

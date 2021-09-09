@@ -3,7 +3,8 @@ import os
 
 import pkg_resources
 from astropy.time import Time
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+
+from .parfile import PulsarParameters
 
 
 class Runtimes(dict):
@@ -172,7 +173,7 @@ HW_INJ = {
 }
 for run in HW_INJ:
     HW_INJ[run]["hw_inj_parameters"] = [
-        PulsarParametersPy(par) for par in HW_INJ[run]["hw_inj_files"]
+        PulsarParameters(par) for par in HW_INJ[run]["hw_inj_files"]
     ]
 
 #: Analysis segment flags for continuous-wave injections from GWOSC

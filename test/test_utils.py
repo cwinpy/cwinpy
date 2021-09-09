@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pytest
 from astropy import units as u
+from cwinpy import PulsarParameters
 from cwinpy.utils import (
     ellipticity_to_q22,
     gcd_array,
@@ -17,7 +18,6 @@ from cwinpy.utils import (
     logfactorial,
     q22_to_ellipticity,
 )
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
 def test_logfactorial():
@@ -91,7 +91,7 @@ def test_is_par_file():
 
     for leavekey in list(values.keys()):
         keys = list(values.keys())
-        psr = PulsarParametersPy()
+        psr = PulsarParameters()
         for key in keys:
             if key != leavekey:
                 psr[key] = values[key]
@@ -112,7 +112,7 @@ def test_get_psr_name():
         ["PSRJ", "PSRB", "PSR", "NAME"],
         ["J0123+1234", "B0124+12", "J0123+1234", "B0124+12"],
     ):
-        psr = PulsarParametersPy()
+        psr = PulsarParameters()
         psr[item] = name
 
         assert get_psr_name(psr) == name
