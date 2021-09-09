@@ -256,8 +256,8 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         help=(
             "This specifies the pulsars for which to heterodyne the data. It "
             "can be either i) a string giving the path to an individual "
-            "pulsar TEMPO(2)-style parameter file, ii) a string giving the "
-            "path to a directory containing multiple TEMPO(2)-style parameter "
+            "pulsar Tempo(2)-style parameter file, ii) a string giving the "
+            "path to a directory containing multiple Tempo(2)-style parameter "
             "files (the path will be recursively searched for any file with "
             'the extension ".par"), iii) a list of paths to individual '
             "pulsar parameter files, iv) a dictionary containing paths to "
@@ -391,9 +391,9 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         action="store_true",
         default=False,
         help=(
-            "Set this to True to use TEMPO2 (via libstempo) to calculate the "
+            "Set this to True to use Tempo2 (via libstempo) to calculate the "
             "signal phase evolution. For this to be used v2.4.2 or greater of "
-            "libstempo must be installed. When using TEMPO2 the "
+            "libstempo must be installed. When using Tempo2 the "
             '"--earthephemeris", "--sunephemeris" and "--timeephemeris" '
             "arguments do not need to be supplied. This can only be used when "
             "running the full heterodyne in one stage, but not for "
@@ -1196,7 +1196,7 @@ class HeterodyneDAGRunner(object):
             # filter knee frequency (default to 0.5 Hz for two stage heterodyne)
             filterknee = config.getfloat("heterodyne", "filterknee", fallback=0.5)
 
-        # get whether using TEMPO2 or not and check it's availability
+        # get whether using Tempo2 or not and check it's availability
         usetempo2 = config.getboolean("heterodyne", "usetempo2", fallback=False)
         if usetempo2 and not check_for_tempo2():
             raise ImportError(
@@ -1583,7 +1583,7 @@ def heterodyne_dag(**kwargs):
         Set this to True to analyse the continuous hardware injections for a
         given run. No ``pulsar`` argument is required in this case.
     pulsar: str, list
-        The path to, or list of paths to, a TEMPO(2)-style pulsar parameter
+        The path to, or list of paths to, a Tempo(2)-style pulsar parameter
         file(s), or directory containing multiple parameter files, to
         heterodyne. If a pulsar name is given instead of a parameter file
         then an attempt will be made to find the pulsar's ephemeris from the
@@ -1601,6 +1601,9 @@ def heterodyne_dag(**kwargs):
         is set to 0, then the whole dataset is treated as a single job.
     accounting_group_tag: str
         For LVK users this sets the computing accounting group tag.
+    usetempo2: bool
+        Set this flag to use Tempo2 (if installed) for calculating the signal
+        phase evolution rather than the default LALSuite functions.
 
     Returns
     -------
@@ -1660,7 +1663,7 @@ def heterodyne_dag(**kwargs):
             "--pulsar",
             action="append",
             help=(
-                "The path to a TEMPO(2)-style pulsar parameter file, or "
+                "The path to a Tempo(2)-style pulsar parameter file, or "
                 "directory containing multiple parameter files, to "
                 "heterodyne. This can be used multiple times to specify "
                 "multiple pulsar inputs. If a pulsar name is given instead "
@@ -1700,6 +1703,15 @@ def heterodyne_dag(**kwargs):
             "--accounting-group-tag",
             dest="accgroup",
             help=("For LVK users this sets the computing accounting group tag"),
+        )
+        optional.add_argument(
+            "--usetempo2",
+            action="store_true",
+            help=(
+                "Set this flag to use Tempo2 (if installed) for calculating "
+                "the signal phase evolution rather than the default LALSuite "
+                "functions."
+            ),
         )
 
         args = parser.parse_args()
@@ -1807,6 +1819,10 @@ def heterodyne_dag(**kwargs):
                 }
             )
             configfile["heterodyne"]["overwrite"] = "False"
+
+            # set whether to use Tempo2 for phase evolution
+            if kwargs.get("usetempo2", args.usetempo2):
+                configfile["heterodyne"]["usetempo2"] = "True"
 
             # split the analysis into on average day long chunks
             if kwargs.get("joblength", args.joblength) is None:

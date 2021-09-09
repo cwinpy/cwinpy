@@ -250,6 +250,10 @@ def knope_dag(**kwargs):
         is set to 0, then the whole dataset is treated as a single job.
     accounting_group_tag: str
         For LVK users this sets the computing accounting group tag.
+    usetempo2: bool
+        Set this flag to use Tempo2 (if installed) for calculating the signal
+        phase evolution for the heterodyne rather than the default LALSuite
+        functions.
 
     Returns
     -------
@@ -362,6 +366,15 @@ def knope_dag(**kwargs):
             "--accounting-group-tag",
             dest="accgroup",
             help=("For LVK users this sets the computing accounting group tag"),
+        )
+        optional.add_argument(
+            "--usetempo2",
+            action="store_true",
+            help=(
+                "Set this flag to use Tempo2 (if installed) for calculating "
+                "the signal phase evolution for the heterodyne rather than "
+                "the default LALSuite functions."
+            ),
         )
 
         args = parser.parse_args()
@@ -479,6 +492,10 @@ def knope_dag(**kwargs):
                 {det: os.path.join(args.output, det) for det in detectors}
             )
             hetconfigfile["heterodyne"]["overwrite"] = "False"
+
+            # set whether to use Tempo2 for phase evolution
+            if kwargs.get("usetempo2", args.usetempo2):
+                hetconfigfile["heterodyne"]["usetempo2"] = "True"
 
             # split the analysis into on average day long chunks
             if kwargs.get("joblength", args.joblength) is None:
