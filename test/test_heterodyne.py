@@ -145,6 +145,10 @@ transientTau = {tau}
         cls.fakepulsarpar[0]["EPHEM"] = "DE405"
         cls.fakepulsarpar[0]["UNITS"] = "TDB"
 
+        # add in dispersion measure just to check that it actually gets ignored
+        # by the Tempo2 test
+        cls.fakepulsarpar[0]["DM"] = 13.7177
+
         cls.fakepardir = "testing_fake_par_dir"
         os.makedirs(cls.fakepardir, exist_ok=True)
         cls.fakeparfile = []

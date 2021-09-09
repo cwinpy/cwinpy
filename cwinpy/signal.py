@@ -469,6 +469,7 @@ class HeterodynedCWSimulator(object):
                         toaerrs=toaerr,
                         observatory=TEMPO2_GW_ALIASES[self.__detector_name],
                         dofit=False,
+                        obsfreq=0.0,  # set to 0 so as not to calculate DM delay
                     )
 
                     # get phase residuals
@@ -487,6 +488,7 @@ class HeterodynedCWSimulator(object):
                         toaerrs=toaerr,
                         observatory=TEMPO2_GW_ALIASES[self.__detector_name],
                         dofit=False,
+                        obsfreq=0.0,  # set to 0 so as not to calculate DM delay
                     )
 
                     # get phase residuals

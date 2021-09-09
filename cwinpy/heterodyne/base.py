@@ -1743,6 +1743,7 @@ class Heterodyne(object):
                                     toaerrs=toaerr,
                                     observatory=TEMPO2_GW_ALIASES[self.detector],
                                     dofit=False,
+                                    obsfreq=0.0,  # set to 0 so as not to calculate DM delay
                                 )
 
                                 # get phases (need to calculate phase residual
