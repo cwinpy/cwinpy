@@ -18,7 +18,7 @@ from gwpy.timeseries import TimeSeries, TimeSeriesBase
 from gwpy.types import Series
 from numba import jit
 
-# import utility functions
+from .parfile import PulsarParameters
 from .utils import gcd_array, get_psr_name, is_par_file, logfactorial
 
 
@@ -754,8 +754,8 @@ class HeterodynedData(TimeSeriesBase):
     times: array_like
         If the data was passed using the `data` argument, then the associated
         time stamps should be passed using this argument.
-    par: str, ``lalpulsar.PulsarParametersPy``
-        A parameter file, or :class:`lalpulsar.PulsarParametersPy` object
+    par: str, PulsarParameters
+        A parameter file, or :class:`~cwinpy.parfile.PulsarParameters` object
         containing the parameters with which the data was heterodyned.
     detector: str, ``lal.Detector``
         A string, or :class:`lal.Detector` object, identifying the detector
@@ -767,8 +767,8 @@ class HeterodynedData(TimeSeriesBase):
     inject: bool, False
         Set to ``True`` to add a simulated signal to the data based on the
         parameters supplied in `injpar`, or `par` if `injpar` is not given.
-    injpar: str, ``lalpulsar.PulsarParametersPy``
-        A parameter file name or :class:`lalpulsar.PulsarParametersPy`
+    injpar: str, PulsarParameters
+        A parameter file name or :class:`~cwinpy.parfile.PulsarParameters`
         object containing values for the injected signal. A `par` file must
         also have been provided, and the injected signal will assume that
         the data has already been heterodyned using the parameters from
@@ -1311,27 +1311,25 @@ class HeterodynedData(TimeSeriesBase):
 
     def _parse_par(self, par):
         """
-        Parse a pulsar parameter file or :class:`lalpulsar.PulsarParametersPy`
-        object.
+        Parse a pulsar parameter file or
+        :class:`~cwinpy.parfile.PulsarParameters` object.
 
         Parameters
         ----------
-        par: (str, lalpulsar.PulsarParametersPy)
+        par: (str, PulsarParameters)
             A file or object containing a set of pulsar parameters.
 
         Returns
         -------
-        lalpulsar.PulsarParametersPy
+        PulsarParameters
         """
 
         if par is not None:
-            from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-
-            if isinstance(par, PulsarParametersPy):
+            if isinstance(par, PulsarParameters):
                 return par
             elif isinstance(par, str):
                 if is_par_file(par):
-                    newpar = PulsarParametersPy(par)
+                    newpar = PulsarParameters(par)
                 else:
                     raise IOError("Could not read in pulsar parameter file")
             else:
@@ -1579,7 +1577,7 @@ class HeterodynedData(TimeSeriesBase):
 
         Parameters
         ----------
-        injpar: (str, lalpulsar.PulsarParametersPy)
+        injpar: (str, PulsarParameters)
             A parameter file or object containing the parameters for the
             simulated signal.
         injtimes: list
@@ -1748,7 +1746,7 @@ class HeterodynedData(TimeSeriesBase):
 
         Parameters
         ----------
-        signalpar: str, ``lalpulsar.PulsarParametersPy``
+        signalpar: str, PulsarParameters
             A parameter file or object containing the parameters for the
             simulated signal.
 
@@ -1801,7 +1799,7 @@ class HeterodynedData(TimeSeriesBase):
 
         Parameters
         ----------
-        signalpar: str, ``lalpulsar.PulsarParametersPy``
+        signalpar: str, PulsarParameters
             A parameter file or object containing the parameters for the
             simulated signal.
 

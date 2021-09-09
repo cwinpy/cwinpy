@@ -19,10 +19,10 @@ from gwosc.timeline import get_segments
 from gwpy.io.cache import is_cache, read_cache
 from gwpy.segments import DataQualityFlag, SegmentList
 from gwpy.timeseries import TimeSeries, TimeSeriesDict, TimeSeriesList
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from scipy.interpolate import splev, splrep
 
 from ..data import HeterodynedData
+from ..parfile import PulsarParameters
 from ..utils import (
     TEMPO2_GW_ALIASES,
     MuteStream,
@@ -1052,7 +1052,7 @@ class Heterodyne(object):
             for i, pf in enumerate(pfilelist):
                 if is_par_file(pf):
                     # read parameters
-                    par = PulsarParametersPy(pf)
+                    par = PulsarParameters(pf)
 
                     # get pulsar name
                     pname = get_psr_name(par)
@@ -1093,7 +1093,7 @@ class Heterodyne(object):
                             fp.write(par)
 
                         # get pulsar name
-                        readpar = PulsarParametersPy(tmppar[1])
+                        readpar = PulsarParameters(tmppar[1])
                         pname = get_psr_name(readpar)
                         self._pulsars[pname] = tmppar[1]
         elif pfiles is not None:
@@ -1109,9 +1109,9 @@ class Heterodyne(object):
 
     @pulsars.setter
     def pulsars(self, pulsars):
-        if isinstance(pulsars, (str, list, PulsarParametersPy)):
+        if isinstance(pulsars, (str, list, PulsarParameters)):
             pulsarlist = (
-                [pulsars] if isinstance(pulsars, (str, PulsarParametersPy)) else pulsars
+                [pulsars] if isinstance(pulsars, (str, PulsarParameters)) else pulsars
             )
 
             # check if any supplied pulsars have associated parameter files
@@ -1433,7 +1433,7 @@ class Heterodyne(object):
                         )
 
                     origparams = thishet.par
-                    psr = PulsarParametersPy(self._pulsars[pulsar])
+                    psr = PulsarParameters(self._pulsars[pulsar])
 
                     units = [
                         u for u in [origparams["UNITS"], psr["UNITS"]] if u is not None
@@ -1771,7 +1771,7 @@ class Heterodyne(object):
                             )
                         else:
                             # read pulsar parameter file
-                            psr = PulsarParametersPy(self._pulsars[pulsar])
+                            psr = PulsarParameters(self._pulsars[pulsar])
 
                             # initialise ephemerides if required
                             edat = lalpulsar.EphemerisData()

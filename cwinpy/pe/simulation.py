@@ -9,9 +9,9 @@ import astropy.units as u
 import bilby
 import numpy as np
 from astropy.coordinates import ICRS, Galactic, Galactocentric
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 from ..hierarchical import BaseDistribution
+from ..parfile import PulsarParameters
 from ..utils import ellipticity_to_q22, int_to_alpha, is_par_file
 from .pe import pe_dag
 
@@ -357,7 +357,7 @@ class PEPulsarSimulationDAG(object):
                     for pf in os.listdir(parfiles):
                         parfile = os.path.join(parfiles, pf)
                         if is_par_file(parfile):
-                            psr = PulsarParametersPy(parfile)
+                            psr = PulsarParameters(parfile)
 
                             # add parfile to dictionary
                             for name in ["PSRJ", "PSRB", "PSR", "NAME"]:
@@ -518,7 +518,7 @@ class PEPulsarSimulationDAG(object):
             orientation = self.oridist.sample()
 
             if self.parfiles is None:
-                pulsar = PulsarParametersPy()
+                pulsar = PulsarParameters()
                 pulsar["RAJ"] = skyloc["ra"]
                 pulsar["DECJ"] = skyloc["dec"]
                 pulsar["DIST"] = (skyloc["dist"] * u.kpc).to("m").value
@@ -552,7 +552,7 @@ class PEPulsarSimulationDAG(object):
                 self.priors[pname] = self.prior
             else:
                 pfile = list(self.parfiles.values())[i]
-                pulsar = PulsarParametersPy(pfile)
+                pulsar = PulsarParameters(pfile)
                 pname = list(self.parfiles.keys())[i]
                 injfile = os.path.join(self.pulsardir, "{}.par".format(pname))
 

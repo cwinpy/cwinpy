@@ -9,8 +9,8 @@ import numpy as np
 import pytest
 from bilby.core.grid import Grid
 from bilby.core.result import Result, read_in_result
+from cwinpy import PulsarParameters
 from cwinpy.plot import DEFAULT_BOUNDS, Plot
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from matplotlib.figure import Figure
 
 
@@ -200,7 +200,7 @@ class TestPlotting(object):
 
         assert list(plot.injection_parameters.keys()) == ["iota"]
         assert plot.injection_parameters["iota"] == np.arccos(
-            PulsarParametersPy(self.pulsar)["COSIOTA"]
+            PulsarParameters(self.pulsar)["COSIOTA"]
         )
 
     def test_plot_1d(self):

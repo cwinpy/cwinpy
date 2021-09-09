@@ -10,12 +10,11 @@ import lal
 import numpy as np
 import pytest
 from astropy.utils.data import download_file
-from cwinpy import HeterodynedData
+from cwinpy import HeterodynedData, PulsarParameters
 from cwinpy.heterodyne import Heterodyne, heterodyne
 from cwinpy.signal import HeterodynedCWSimulator
 from cwinpy.utils import LAL_EPHEMERIS_URL
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
 def relative_difference(data, model):
@@ -133,7 +132,7 @@ transientTau = {tau}
             "phi0": phi0,
         }
 
-        cls.fakepulsarpar.append(PulsarParametersPy())
+        cls.fakepulsarpar.append(PulsarParameters())
         cls.fakepulsarpar[0]["PSRJ"] = "J0000+0000"
         cls.fakepulsarpar[0]["H0"] = h0
         cls.fakepulsarpar[0]["PHI0"] = phi0 / 2.0
@@ -200,7 +199,7 @@ transientTau = {tau}
             "ecc": ecc,
         }
 
-        cls.fakepulsarpar.append(PulsarParametersPy())
+        cls.fakepulsarpar.append(PulsarParameters())
         cls.fakepulsarpar[1]["PSRJ"] = "J1111+1111"
         cls.fakepulsarpar[1]["H0"] = h0
         cls.fakepulsarpar[1]["PHI0"] = phi0 / 2.0
@@ -312,7 +311,7 @@ transientTau = {tau}
             fp.write(binarystr.format(**mfdbindic))
             fp.write(transientstr.format(**mfdtransientdic))
 
-        cls.fakepulsarpar.append(PulsarParametersPy())
+        cls.fakepulsarpar.append(PulsarParameters())
         cls.fakepulsarpar[2]["PSRJ"] = "J2222+2222"
         cls.fakepulsarpar[2]["H0"] = h0
         cls.fakepulsarpar[2]["PHI0"] = phi0 / 2.0
@@ -1023,7 +1022,6 @@ transientTau = {tau}
             # signal without the glitch phase included!
             models.append(
                 sim.model(
-                    usephase=True,
                     freqfactor=hetdata.freq_factor,
                     updateglphase=(True if psr == "J2222+2222" else False),
                 )
@@ -1182,7 +1180,6 @@ transientTau = {tau}
             # updateglphase = True for the glitching signal to generate a
             # signal without the glitch phase included!
             model = sim.model(
-                usephase=True,
                 freqfactor=hetdata.freq_factor,
                 updateglphase=(True if psr == "J2222+2222" else False),
             )
@@ -1251,7 +1248,6 @@ transientTau = {tau}
             # updateglphase = True for the glitching signal to generate a
             # signal without the glitch phase included!
             model = sim.model(
-                usephase=True,
                 freqfactor=hetdata.freq_factor,
                 updateglphase=(True if psr == "J2222+2222" else False),
             )

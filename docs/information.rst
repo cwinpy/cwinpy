@@ -31,7 +31,8 @@ In each of the observing runs simulated signals from a variety of sources have b
 frequencies and amplitudes. TEMPO-style pulsar parameter files containing the parameters of these
 continuous signals are packaged with CWInPy and can be found in the :obj:`~cwinpy.info.HW_INJ`
 dictionary. This dictionary is keyed on the observing run names and for each run contains both the
-file paths and the contents of the files in ``PulsarParametersPy`` classes that were injected.
+file paths and the contents of the files in :class:`~cwinpy.parfile.PulsarParameters` objects that
+were injected.
 
 .. note::
 

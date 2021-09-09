@@ -41,8 +41,8 @@ import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
+from cwinpy import PulsarParameters
 from cwinpy.signal import HeterodynedCWSimulator
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 
 def mismatch(model1, model2):
@@ -68,7 +68,7 @@ class TestSignal(object):
         cls.detectors = ["H1", "L1", "V1", "G1"]
 
         # set comparison signal parameters
-        cls.comparison = PulsarParametersPy()
+        cls.comparison = PulsarParameters()
         pos = SkyCoord("01:23:34.5 -45:01:23.4", unit=("hourangle", "deg"))
         cls.comparison["PSRJ"] = "J0123-4501"
         cls.comparison["RAJ"] = pos.ra.rad

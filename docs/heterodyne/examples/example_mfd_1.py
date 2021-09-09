@@ -4,8 +4,8 @@ import shutil
 import subprocess as sp
 
 from astropy.utils.data import download_file
+from cwinpy import PulsarParameters
 from cwinpy.utils import LAL_EPHEMERIS_URL
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 
 # set data start, duration and bandwidth
 fakedatastart = 1000000000
@@ -41,7 +41,7 @@ injfile = "inj.dat"
 fp = open(injfile, "w")
 
 for i, parfile in enumerate(parfiles):
-    p = PulsarParametersPy(parfile)
+    p = PulsarParameters(parfile)
     fp.write("[Pulsar {}]\n".format(i + 1))
 
     # set parameters (multiply freqs/phase by 2)

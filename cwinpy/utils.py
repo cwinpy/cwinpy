@@ -13,9 +13,10 @@ import lalpulsar
 import numpy as np
 from astropy import units as u
 from bilby_pipe.utils import CHECKPOINT_EXIT_CODE
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from numba import jit, njit
 from numba.extending import get_cython_function_address
+
+from .parfile import PulsarParameters
 
 #: URL for LALSuite solar system ephemeris files
 LAL_EPHEMERIS_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
@@ -120,7 +121,7 @@ def is_par_file(parfile):
     """
 
     try:
-        psr = PulsarParametersPy(parfile)
+        psr = PulsarParameters(parfile)
     except (ValueError, IOError):
         return False
 
@@ -139,13 +140,13 @@ def is_par_file(parfile):
 
 def get_psr_name(psr):
     """
-    Get the pulsar name from the TEMPO(2)-style parameter files by trying the
+    Get the pulsar name from the Tempo(2)-style parameter files by trying the
     keys "PSRJ", "PSRB", "PSR", and "NAME" in that order of precedence.
 
     Parameters
     ----------
-    psr: PulsarParameterPy
-        A PulsarParameterPy object
+    psr: PulsarParameter
+        A :class:`~cwinpy.parfile.PulsarParameters` object
 
     Returns
     -------
