@@ -8,6 +8,7 @@ import re
 import signal
 import sys
 import tempfile
+import warnings
 from pathlib import Path
 
 import lal
@@ -1737,7 +1738,7 @@ class Heterodyne(object):
                         if self.freqfactor * psr["F0"] > 0.8 * (
                             data.sample_rate.value / 2.0
                         ):
-                            raise ValueError(
+                            warnings.warn(
                                 (
                                     "The PSR {} signal frequency is greater than 80% of the "
                                     "Nyquist frequency. If using 4 kHz sampled data consider "
