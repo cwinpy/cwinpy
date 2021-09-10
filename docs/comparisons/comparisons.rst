@@ -169,11 +169,22 @@ To perform the analysis using CWInPy, the :ref:`<Quick setup>` has been used:
    Because these analyses used LVK computing resources the
    ``accounting_group`` / ``--accounting-group-tag`` inputs have had to be set.
 
-In terms of total `wall-clock time
+In terms of `wall-clock time
 <https://en.wikipedia.org/wiki/Elapsed_real_time#:~:text=Elapsed%20real%20time%2C%20real%20time,at%20which%20the%20task%20started.>`_
-the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took XX hours YY mins and 5 hours 34 mins,
-respectively. In terms of total CPU hours the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines
-took approximately XX hours and 105 hours, respectively.
+the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took 9 hours 32 mins and 5 hours 34 mins,
+respectively (differences here could just relate to availability of cluster nodes at the time of
+running). In terms of total CPU hours used by all the jobs for the ``lalapps_knope`` and
+``cwinpy_knope_dag`` pipelines these took approximately 133 hours and 139 hours, respectively.
+
+.. note::
+
+   To gather than total time for all the jobs in a Condor DAG I have used:
+
+   .. code-block:: bash
+
+      condor_history matthew -constraint "DAGManJobId == <dagman_id>" -limit <num> -af RemoteWallClockTime | paste -s -d+ - | bc
+
+   where `<dagman_id>` is the ID of the DAGMan job, which can be found in the `.dagman.log` file.
 
 Heterodyned data comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
