@@ -2965,7 +2965,8 @@ class HeterodynedData(TimeSeriesBase):
             times = self.times.value
             tottime = self.tottime.value
 
-        Fs = 1.0 / np.diff(times).min()  # sampling frequency
+        Fs = 1.0 / gcd_array(np.diff(times))  # sampling frequency of padded data
+        Fn = 1.0 / np.diff(times).min()  # sampling frequency of non-padded data
 
         if ptype in ["spectrogram", "power"]:
             dt = speckwargs.get("dt", 86400)
@@ -3057,8 +3058,8 @@ class HeterodynedData(TimeSeriesBase):
                 if fraction_label_num < 1:
                     raise ValueError("'fraction_label_num' must be positive")
 
-                df = Fs / fraction_label_num
-                ticks = np.linspace(-Fs / 2, Fs / 2, int(Fs / df) + 1)
+                df = Fn / fraction_label_num
+                ticks = np.linspace(-Fn / 2, Fn / 2, int(Fn / df) + 1)
                 labels = []
                 for tick in ticks:
                     if tick == 0.0:
@@ -3085,7 +3086,7 @@ class HeterodynedData(TimeSeriesBase):
 
                 # extents of the plot
                 if "extent" not in plotkwargs:
-                    plotkwargs["extent"] = [0, tottime, -2 / Fs, 2 / Fs]
+                    plotkwargs["extent"] = [0, tottime, -2 / Fn, 2 / Fn]
 
                 if "aspect" not in plotkwargs:
                     plotkwargs["aspect"] = "auto"
@@ -3152,7 +3153,7 @@ class HeterodynedData(TimeSeriesBase):
                 thisax.set_xlabel(
                     "Frequency (Hz)", fontname=fontname, fontsize=fontsize
                 )
-                thisax.set_xlim([-Fs / 2, Fs / 2])
+                thisax.set_xlim([-Fn / 2, Fn / 2])
 
                 if fraction_labels:
                     thisax.set_xticks(ticks)

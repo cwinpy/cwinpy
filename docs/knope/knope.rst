@@ -119,7 +119,7 @@ Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid
 
 .. code-block:: bash
 
-   cwinpy_heterodyne_dag --run O1 --hwinj --output /home/user/O1injections --accounting-group-tag ligo.prod.o1.cw.targeted.bayesian
+   cwinpy_knope_dag --run O1 --hwinj --output /home/user/O1injections --accounting-group-tag ligo.prod.o1.cw.targeted.bayesian
 
 .. note::
 
