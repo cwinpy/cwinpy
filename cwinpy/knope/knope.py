@@ -232,6 +232,13 @@ def knope_dag(**kwargs):
     hwinj: bool
         Set this to True to analyse the continuous hardware injections for a
         given run. No ``pulsar`` argument is required in this case.
+    samplerate: str:
+        Select the sample rate of the data to use. This can either be 4k or
+        16k for data sampled at 4096 or 16384 Hz, respectively. The default
+        is 4k, except if running on hardware injections for O1 or later, for
+        which 16k will be used due to being requred for the highest frequency
+        source. For the S5 and S6 runs only 4k data is avaialble from GWOSC,
+        so if 16k is chosen it will be ignored.
     pulsar: str, list
         The path to, or list of paths to, a TEMPO(2)-style pulsar parameter
         file(s), or directory containing multiple parameter files, to
@@ -312,6 +319,19 @@ def knope_dag(**kwargs):
                 "for a given run. No '--pulsar' arguments are required in "
                 "this case."
             ),
+        )
+        optional.add_argument(
+            "--samplerate",
+            help=(
+                "Select the sample rate of the data to use. This can either "
+                "be 4k or 16k for data sampled at 4096 or 16384 Hz, "
+                "respectively. The default is 4k, except if running on "
+                "hardware injections for O1 or later, for which 16k will be "
+                "used due to being requred for the highest frequency source. "
+                "For the S5 and S6 runs only 4k data is avaialble from GWOSC, "
+                "so if 16k is chosen it will be ignored."
+            ),
+            default="4k",
         )
         optional.add_argument(
             "--pulsar",
@@ -397,6 +417,9 @@ def knope_dag(**kwargs):
                 runtimes = HW_INJ_RUNTIMES
                 segments = HW_INJ_SEGMENTS
                 pulsars.extend(HW_INJ[run]["hw_inj_files"])
+
+                # set sample rate to 16k, expect for S runs
+                srate = "16k" if run[0] == "O" else "4k"
             else:
                 # use pulsars provided
                 runtimes = RUNTIMES
@@ -407,6 +430,11 @@ def knope_dag(**kwargs):
                     raise ValueError("No pulsar parameter files have be provided")
 
                 pulsars.extend(pulsar if isinstance(list) else [pulsar])
+
+                # get sample rate
+                srate = (
+                    "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
+                )
 
             # check pulsar files/directories exist
             pulsars = [
@@ -470,11 +498,11 @@ def knope_dag(**kwargs):
             )
 
             hetconfigfile["heterodyne"]["frametypes"] = str(
-                {det: CVMFS_GWOSC_DATA_TYPES[run]["4k"][det] for det in detectors}
+                {det: CVMFS_GWOSC_DATA_TYPES[run][srate][det] for det in detectors}
             )
             hetconfigfile["heterodyne"]["host"] = CVMFS_GWOSC_DATA_SERVER
             hetconfigfile["heterodyne"]["channels"] = str(
-                {det: CVMFS_GWOSC_FRAME_CHANNELS[run]["4k"][det] for det in detectors}
+                {det: CVMFS_GWOSC_FRAME_CHANNELS[run][srate][det] for det in detectors}
             )
             if args.hwinj:
                 hetconfigfile["heterodyne"]["includeflags"] = str(

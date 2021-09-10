@@ -1729,6 +1729,22 @@ class Heterodyne(object):
                         if pulsar not in self._datadict:
                             self._datadict[pulsar] = TimeSeriesList()
 
+                        # read pulsar parameter file
+                        psr = PulsarParameters(self._pulsars[pulsar])
+
+                        # check signal frequency is less than 80% of the Nyquist frequency,
+                        # above which a low-pass filter cut-off will affect data
+                        if self.freqfactor * psr["F0"] > 0.8 * (
+                            data.sample_rate.value / 2.0
+                        ):
+                            raise ValueError(
+                                (
+                                    "The PSR {} signal frequency is greater than 80% of the "
+                                    "Nyquist frequency. If using 4 kHz sampled data consider "
+                                    "trying again using the 16 kHz sampled data."
+                                ).format(get_psr_name(psr))
+                            )
+
                         if self.usetempo2:
                             # do stuff
                             toaerr = 1e-15  # need to set tiny TOA error
@@ -1771,9 +1787,6 @@ class Heterodyne(object):
                                 data.times.value, tckphase
                             )
                         else:
-                            # read pulsar parameter file
-                            psr = PulsarParameters(self._pulsars[pulsar])
-
                             # initialise ephemerides if required
                             edat = lalpulsar.EphemerisData()
                             tdat = None

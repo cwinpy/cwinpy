@@ -127,6 +127,12 @@ Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid
    estimation. For "production" analyses, or if you want more control over the parameters, it is
    recommended that you use a configuration file to set up the run.
 
+   The frame data used by the quick setup defaults to that with a 4096 Hz sample rate. However, if
+   analysing sources with frequencies above about 1.6 kHz this should be switched, using the
+   ``--samplerate`` flag to using the 16 kHz sampled data. By default, if analysing hardware
+   injections for any of the advanced detector runs the 16 kHz data will be used due to frequency of
+   the fastest pulsar being above 1.6 kHz.
+
 .. _knope Command line arguments:
 
 *knope* Command line arguments

@@ -79,7 +79,10 @@ certificate to allow the analysis script to access frame files, e.g.,:
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
 data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
 <https://cvmfs.readthedocs.io/>`_. To find out more about accessing this data see the instructions
-`here <https://www.gw-openscience.org/cvmfs/>`_.
+`here <https://www.gw-openscience.org/cvmfs/>`_. If using GWOSC data sampled at 4 kHz it should be
+noted that that this has a low-pass filter applied that causes a sharp drop-off above about 1.6 kHz,
+which is below the Nyquist rate. Therefore, if analysing sources with gravitational-wave signal
+frequencies greater than about 1.6 kHz the 16 kHz sample rate data should be used.
 
 .. note::
 
@@ -602,6 +605,12 @@ Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid
    The quick setup will only be able to use default parameter values for the heterodyne. For
    "production" analyses, or if you want more control over the parameters, it is recommended that
    you use a configuration file to set up the run.
+
+   The frame data used by the quick setup defaults to that with a 4096 Hz sample rate. However, if
+   analysing sources with frequencies above about 1.6 kHz this should be switched, using the
+   ``--samplerate`` flag to using the 16 kHz sampled data. By default, if analysing hardware
+   injections for any of the advanced detector runs the 16 kHz data will be used due to frequency of
+   the fastest pulsar being above 1.6 kHz.
 
 .. _heterodyne Command line arguments:
 

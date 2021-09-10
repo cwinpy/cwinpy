@@ -2849,7 +2849,7 @@ class HeterodynedData(TimeSeriesBase):
         **plotkwargs,
     ):
         """
-        Compute and plot the power spectrum of the data. This compute the
+        Compute and plot the power spectrum of the data. This computes the
         spectrogram, and averages the power over time.
 
         See :meth:`~cwinpy.data.HeterodynedData.spectrogram` for input

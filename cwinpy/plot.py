@@ -107,10 +107,6 @@ class Plot:
             single parameter this can be a string with the parameter name. If
             this value is ``None`` (the default) then all parameters will be
             plotted.
-        parfile: str
-            The path to a TEMPO(2)-style pulsar parameter file. If given, and
-            containing values of the requested parameters (such as for a
-            simulated signal), then these will be over-plotted on the output.
         plottype: str
             The type of plot to produce. For 1d plots, this can be: "hist" -
             produce a histogram of the posterior or "kde" - produce a KDE plot of

@@ -189,6 +189,37 @@ running). In terms of total CPU hours used by all the jobs for the ``lalapps_kno
 Heterodyned data comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+from cwinpy import HeterodynedData
+from matplotlib import pyplot as plt
+
+lalappsbase = "/home/matthew/lalapps_knope/O1injections/{det}/JPULSAR{num}/data/fine/2f/fine-{det}-1126051217-1137254417.txt.gz"
+cwinpybase = "/home/matthew/cwinpy_knope_old/O1injections/{det}/heterodyne_JPULSAR{num}_{det}_2_1129136736-1137253524.hdf5"
+
+numbers = [f"{i:02d}" for i in range(15)]
+
+for det in ["H1", "L1"]:
+    fig, axs = plt.subplots(5, 3, figsize=(20, 18))
+
+    det = "H1"
+
+    # loop over pulsars
+    for num, ax in zip(numbers, axs.flat):
+        # read in heterodyned data
+        ck = HeterodynedData(cwinpybase.format(det=det, num=num))
+        lk = HeterodynedData(lalappsbase.format(det=det, num=num))
+
+        # plot median power spectrum of data
+        lk.power_spectrum(remove_outliers=True, label="lalapps", lw=3, color="k", ax=ax)
+        ck.power_spectrum(remove_outliers=True, label="cwinpy", alpha=0.8, ls="--", ax=ax)
+        ax.set_title(f"PULSAR{num}")
+
+        if int(num) < 12:
+            ax.xaxis.set_visible(False)
+    
+    fig.tight_layout()
+    fig.savefig(f"hwinj_comparison_spectrum_{det}.png", dpi=200)
+
+
 Injection parameter comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
