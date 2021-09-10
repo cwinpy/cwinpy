@@ -2965,7 +2965,7 @@ class HeterodynedData(TimeSeriesBase):
             times = self.times.value
             tottime = self.tottime.value
 
-        Fs = 1.0 / gcd_array(np.diff(times))  # sampling frequency
+        Fs = 1.0 / np.diff(times).min()  # sampling frequency
 
         if ptype in ["spectrogram", "power"]:
             dt = speckwargs.get("dt", 86400)
