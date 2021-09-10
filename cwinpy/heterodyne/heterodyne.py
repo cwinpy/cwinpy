@@ -1388,7 +1388,7 @@ class HeterodyneDAGRunner(object):
                         )
                         for psr in pgroup:
                             self.heterodyned_files[det][ff][psr].append(
-                                tmphet.outputfiles[psr]
+                                copy.deepcopy(tmphet.outputfiles[psr])
                             )
 
                             if merge and self.mergeoutputs[det][ff][psr] is None:
