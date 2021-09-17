@@ -3291,7 +3291,7 @@ class HeterodynedData(TimeSeriesBase):
         Return the data as a :class:`gwpy.timeseries.TimeSeries`.
         """
 
-        return TimeSeries(self.data, times=self.times, channel=self.channel)
+        return CWInPyTimeSeries(self.data, times=self.times, channel=self.channel)
 
     @property
     def filter_history(self):
@@ -3407,69 +3407,6 @@ class HeterodynedData(TimeSeriesBase):
 
         return out
 
-    def crop(self, start=None, end=None, copy=False):
-        """
-        Overload the :meth:`gwpy.timeseries.TimesSeries.crop` method to allow
-        cropping of unevenly sampled data.
-        """
-
-        try:
-            # the TimeSeries crop method will work for evenly sampled data
-            return super(HeterodynedData, self).crop(start, end, copy)
-        except AttributeError:
-            # edited code from TimeSeries crop method
-            x0, x1 = self.xspan
-            xtype = type(x0)
-            if isinstance(start, Quantity):
-                start = start.to(self.xunit).value
-            if isinstance(end, Quantity):
-                end = end.to(self.xunit).value
-
-            # pin early starts to time-series start
-            if start == x0:
-                start = None
-            elif start is not None and xtype(start) < x0:
-                warn(
-                    "%s.crop given start smaller than current start, "
-                    "crop will begin when the Series actually starts."
-                    % type(self).__name__
-                )
-                start = None
-
-            # pin late ends to time-series end
-            if end == x1:
-                end = None
-            if end is not None and xtype(end) > x1:
-                warn(
-                    "%s.crop given end larger than current end, "
-                    "crop will end when the Series actually ends." % type(self).__name__
-                )
-                end = None
-
-            # find start index
-            if start is None:
-                idx0 = None
-            else:
-                # find closest index
-                idx0 = np.searchsorted(self.times.value, xtype(start), side="left")
-
-            # find end index
-            if end is None:
-                idx1 = None
-            else:
-                if xtype(end) >= self.times.value[-1]:
-                    idx1 = None
-                else:
-                    # find closest index
-                    idx1 = (
-                        np.searchsorted(self.times.value, xtype(end), side="left") - 1
-                    )
-
-            # crop
-            if copy:
-                return self[idx0:idx1].copy()
-            return self[idx0:idx1]
-
     @property
     def heterodyne_arguments(self):
         """
@@ -3533,8 +3470,142 @@ class HeterodynedData(TimeSeriesBase):
 
         self._cwinpy_heterodyne_dag_config = config
 
+    def crop(self, start=None, end=None, copy=False):
+        """
+        Overload the :meth:`gwpy.timeseries.TimesSeries.crop` method to allow
+        cropping of unevenly sampled data.
+        """
+
+        try:
+            # the TimeSeries crop method will work for evenly sampled data
+            return super(TimeSeriesBase, self).crop(start, end, copy)
+        except AttributeError:
+            # edited code from TimeSeries crop method
+            x0, x1 = self.xspan
+            xtype = type(x0)
+            if isinstance(start, Quantity):
+                start = start.to(self.xunit).value
+            if isinstance(end, Quantity):
+                end = end.to(self.xunit).value
+
+            # pin early starts to time-series start
+            if start == x0:
+                start = None
+            elif start is not None and xtype(start) < x0:
+                warn(
+                    "%s.crop given start smaller than current start, "
+                    "crop will begin when the Series actually starts."
+                    % type(self).__name__
+                )
+                start = None
+
+            # pin late ends to time-series end
+            if end == x1:
+                end = None
+            if end is not None and xtype(end) > x1:
+                warn(
+                    "%s.crop given end larger than current end, "
+                    "crop will end when the Series actually ends." % type(self).__name__
+                )
+                end = None
+
+            # find start index
+            if start is None:
+                idx0 = None
+            else:
+                # find closest index
+                idx0 = np.searchsorted(self.times.value, xtype(start), side="left")
+
+            # find end index
+            if end is None:
+                idx1 = None
+            else:
+                if xtype(end) >= self.times.value[-1]:
+                    idx1 = None
+                else:
+                    # find closest index
+                    idx1 = (
+                        np.searchsorted(self.times.value, xtype(end), side="left") - 1
+                    )
+
+            # crop
+            if copy:
+                return self[idx0:idx1].copy()
+            return self[idx0:idx1]
+
     def __len__(self):
         return len(self.data)
+
+
+class CWInPyTimeSeries(TimeSeries):
+    """
+    This is equivalent to a GWPy :class:`~gwpy.timeseries.TimeSeries` object,
+    but with the :meth:`~cwinpy.data.CWInPyTimesSeries.crop` method allowing
+    unevenly sampled data.
+    """
+
+    def crop(self, start=None, end=None, copy=False):
+        """
+        Overload the :meth:`gwpy.timeseries.TimesSeries.crop` method to allow
+        cropping of unevenly sampled data.
+        """
+
+        try:
+            # the TimeSeries crop method will work for evenly sampled data
+            return super(CWInPyTimeSeries, self).crop(start, end, copy)
+        except AttributeError:
+            # edited code from TimeSeries crop method
+            x0, x1 = self.xspan
+            xtype = type(x0)
+            if isinstance(start, Quantity):
+                start = start.to(self.xunit).value
+            if isinstance(end, Quantity):
+                end = end.to(self.xunit).value
+
+            # pin early starts to time-series start
+            if start == x0:
+                start = None
+            elif start is not None and xtype(start) < x0:
+                warn(
+                    "%s.crop given start smaller than current start, "
+                    "crop will begin when the Series actually starts."
+                    % type(self).__name__
+                )
+                start = None
+
+            # pin late ends to time-series end
+            if end == x1:
+                end = None
+            if end is not None and xtype(end) > x1:
+                warn(
+                    "%s.crop given end larger than current end, "
+                    "crop will end when the Series actually ends." % type(self).__name__
+                )
+                end = None
+
+            # find start index
+            if start is None:
+                idx0 = None
+            else:
+                # find closest index
+                idx0 = np.searchsorted(self.times.value, xtype(start), side="left")
+
+            # find end index
+            if end is None:
+                idx1 = None
+            else:
+                if xtype(end) >= self.times.value[-1]:
+                    idx1 = None
+                else:
+                    # find closest index
+                    idx1 = (
+                        np.searchsorted(self.times.value, xtype(end), side="left") - 1
+                    )
+
+            # crop
+            if copy:
+                return self[idx0:idx1].copy()
+            return self[idx0:idx1]
 
 
 class PSDwrapper(object):
