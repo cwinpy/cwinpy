@@ -1239,22 +1239,6 @@ class HeterodynedData(TimeSeriesBase):
             raise TypeError("Window must be an integer")
 
     @property
-    def dt(self):
-        try:
-            return self.dx
-        except AttributeError:
-            return self._dt
-
-    @dt.setter
-    def dt(self, dt):
-        """
-        Overload the default setting of the time step in a TimeSeries, so that
-        it does not delete non-uniform time values.
-        """
-
-        self._dt = dt
-
-    @property
     def comments(self):
         """Any comments on the data"""
 
