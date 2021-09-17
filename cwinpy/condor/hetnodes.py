@@ -53,7 +53,7 @@ class HeterodyneInput(Input):
             "log",
             fallback=os.path.join(os.path.abspath(self._outdir), "log"),
         )
-        self.request_memory = cf.get(jobsection, "request_memory", fallback="8 GB")
+        self.request_memory = cf.get(jobsection, "request_memory", fallback="4 GB")
         self.request_cpus = cf.getint(jobsection, "request_cpus", fallback=1)
         self.accounting = cf.get(
             jobsection, "accounting_group", fallback="cwinpy"
