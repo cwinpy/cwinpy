@@ -1743,7 +1743,7 @@ def heterodyne_dag(**kwargs):
 
             run = kwargs.get("run", args.run)
             if run not in RUNTIMES:
-                raise ValueError("Requested run '{}' is not available".format(run))
+                raise ValueError(f"Requested run '{run}' is not available")
 
             pulsars = []
             if kwargs.get("hwinj", args.hwinj):
@@ -1770,15 +1770,6 @@ def heterodyne_dag(**kwargs):
                     "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
                 )
 
-            # check pulsar files/directories exist
-            pulsars = [
-                pulsar
-                for pulsar in pulsars
-                if (os.path.isfile(pulsar) or os.path.idir(pulsar))
-            ]
-            if len(pulsars) == 0:
-                raise ValueError("No valid pulsar parameter files have be provided")
-
             detector = kwargs.get("detector", args.detector)
             if args.detector is None:
                 detectors = list(runtimes[run].keys())
@@ -1787,9 +1778,7 @@ def heterodyne_dag(**kwargs):
                 detectors = [det for det in detector if det in runtimes[run]]
                 if len(detectors) == 0:
                     raise ValueError(
-                        "Provided detectors '{}' are not valid for the given run".format(
-                            detector
-                        )
+                        f"Provided detectors '{detector}' are not valid for the given run"
                     )
 
             # create required settings
@@ -1874,9 +1863,7 @@ def heterodyne_dag(**kwargs):
         try:
             config.read_file(open(configfile, "r"))
         except Exception as e:
-            raise IOError(
-                "Problem reading configuration file '{}'\n: {}".format(configfile, e)
-            )
+            raise IOError(f"Problem reading configuration file '{configfile}'\n: {e}")
 
     return HeterodyneDAGRunner(config, **kwargs)
 

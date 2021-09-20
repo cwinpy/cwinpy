@@ -327,8 +327,8 @@ def knope_dag(**kwargs):
                 "be 4k or 16k for data sampled at 4096 or 16384 Hz, "
                 "respectively. The default is 4k, except if running on "
                 "hardware injections for O1 or later, for which 16k will be "
-                "used due to being requred for the highest frequency source. "
-                "For the S5 and S6 runs only 4k data is avaialble from GWOSC, "
+                "used due to being required for the highest frequency source. "
+                "For the S5 and S6 runs only 4k data is available from GWOSC, "
                 "so if 16k is chosen it will be ignored."
             ),
             default="4k",
@@ -409,7 +409,7 @@ def knope_dag(**kwargs):
 
             run = kwargs.get("run", args.run)
             if run not in RUNTIMES:
-                raise ValueError("Requested run '{}' is not available".format(run))
+                raise ValueError(f"Requested run '{run}' is not available")
 
             pulsars = []
             if args.hwinj:
@@ -436,15 +436,6 @@ def knope_dag(**kwargs):
                     "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
                 )
 
-            # check pulsar files/directories exist
-            pulsars = [
-                pulsar
-                for pulsar in pulsars
-                if (os.path.isfile(pulsar) or os.path.idir(pulsar))
-            ]
-            if len(pulsars) == 0:
-                raise ValueError("No valid pulsar parameter files have be provided")
-
             detector = kwargs.get("detector", args.detector)
             if detector is None:
                 detectors = list(runtimes[run].keys())
@@ -453,9 +444,7 @@ def knope_dag(**kwargs):
                 detectors = [det for det in args.detector if det in runtimes[run]]
                 if len(detectors) == 0:
                     raise ValueError(
-                        "Provided detectors '{}' are not valid for the given run".format(
-                            detector
-                        )
+                        f"Provided detectors '{detector}' are not valid for the given run"
                     )
 
             # create required settings
@@ -559,15 +548,13 @@ def knope_dag(**kwargs):
             hetconfig.read_file(open(hetconfigfile, "r"))
         except Exception as e:
             raise IOError(
-                "Problem reading configuration file '{}'\n: {}".format(hetconfigfile, e)
+                f"Problem reading configuration file '{hetconfigfile}'\n: {e}"
             )
 
         try:
             peconfig.read_file(open(peconfigfile, "r"))
         except Exception as e:
-            raise IOError(
-                "Problem reading configuration file '{}'\n: {}".format(peconfigfile, e)
-            )
+            raise IOError(f"Problem reading configuration file '{peconfigfile}'\n: {e}")
 
     # make sure "file transfer" is consistent with heterodyne value
     if hetconfig.getboolean(
