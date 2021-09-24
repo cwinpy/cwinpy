@@ -1386,11 +1386,15 @@ class HeterodyneDAGRunner(object):
                             pulsars=copy.deepcopy(pgroup),
                             pulsarfiles=pulsarfiles,
                         )
+
+                        # get lists of set of output heterodyned files for each pulsar/detector
                         for psr in pgroup:
                             self.heterodyned_files[det][ff][psr].append(
                                 copy.deepcopy(tmphet.outputfiles[psr])
                             )
 
+                        # set the final merged output files
+                        for psr in pgroup:
                             if merge and self.mergeoutputs[det][ff][psr] is None:
                                 # use full start and end times
                                 tmphet.starttime = starttimes[det][0]
