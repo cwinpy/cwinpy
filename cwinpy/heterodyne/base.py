@@ -15,6 +15,7 @@ import lal
 import lalpulsar
 import numpy as np
 from astropy.time import Time
+from bilby_pipe.utils import CHECKPOINT_EXIT_CODE
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from gwosc.timeline import get_segments
 from gwpy.io.cache import is_cache, read_cache
@@ -332,7 +333,12 @@ class Heterodyne(object):
         signal.signal(signal.SIGTERM, self._write_current_pulsars_and_exit)
         signal.signal(signal.SIGINT, self._write_current_pulsars_and_exit)
         signal.signal(signal.SIGALRM, self._write_current_pulsars_and_exit)
-        self.exit_code = 130  # exit code expected by HTCondor from eviction
+
+        if self.cwinpy_heterodyne_dag_config_file is None:
+            self.exit_code = 130  # exit code expected by HTCondor from eviction
+        else:
+            # exit code that will automatically restart job after checkpoint eviction
+            self.exit_code = CHECKPOINT_EXIT_CODE
 
     @property
     def starttime(self):
