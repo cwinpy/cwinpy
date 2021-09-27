@@ -679,7 +679,7 @@ def heterodyne_merge(**kwargs):
     return het
 
 
-def heterodyne_merge_cli(**kwargs):  # pragme: no cover
+def heterodyne_merge_cli(**kwargs):  # pragma: no cover
     """
     Entry point to ``cwinpy_heterodyne_merge`` script. This just calls
     :func:`cwinpy.heterodyne.heterodyne_merge`, but does not return any
@@ -772,7 +772,8 @@ class HeterodyneDAGRunner(object):
             elif isinstance(outputdir, dict):
                 if sorted(outputdir.keys()) != sorted(detectors):
                     raise KeyError(
-                        "outputdirs dictionary must have same keys as the given detectors"
+                        "outputdirs dictionary must have same keys as the given "
+                        "detectors"
                     )
                 for det in detectors:
                     if not isinstance(outputdir[det], str):
@@ -850,7 +851,8 @@ class HeterodyneDAGRunner(object):
         framedata = {det: [] for det in detectors}
         if frametypes is None and framecaches is None and heterodyneddata is None:
             raise ValueError(
-                "Frame types, frame cache files, or heterodyned data information must be supplied"
+                "Frame types, frame cache files, or heterodyned data information must "
+                "be supplied"
             )
 
         if heterodyneddata is None:

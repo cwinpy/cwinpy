@@ -17,7 +17,12 @@ import cwinpy
 import numpy as np
 from bilby_pipe.bilbyargparser import BilbyArgParser
 from bilby_pipe.job_creation.dag import Dag
-from bilby_pipe.utils import BilbyPipeError, convert_string_to_dict, parse_args
+from bilby_pipe.utils import (
+    CHECKPOINT_EXIT_CODE,
+    BilbyPipeError,
+    convert_string_to_dict,
+    parse_args,
+)
 
 from ..condor.penodes import MergePENode, PEInput, PulsarPENode
 from ..data import HeterodynedData, MultiHeterodynedData
@@ -1065,7 +1070,7 @@ class PERunner(object):
             self.sampler_kwargs["check_point_plot"] = False
 
         # default restart time to 1000000 seconds if not running through CLI
-        self.periodic_restart_time = kwargs.get("periodic_restart_time", 10000000)
+        self.periodic_restart_time = kwargs.get("periodic_restart_time", 1000000)
 
     def set_likelihood(self):
         """
@@ -1410,7 +1415,7 @@ class PEDAGRunner(object):
 
         # check for required configuration file section
         if not config.has_section("pe"):
-            raise IOError(f"Configuration file must have a [pe] section.")
+            raise IOError("Configuration file must have a [pe] section.")
 
         # create configurations for each cwinpy_pe job
         # get the paths to the pulsar parameter files
@@ -1458,8 +1463,8 @@ class PEDAGRunner(object):
                         pulsardict[names[0]] = pulsar
                     else:
                         warnings.warn(
-                            "Parameter file '{}' has no name, so it will be "
-                            "ignored".format(pulsar)
+                            f"Parameter file '{pulsar}' has no name, so it will be "
+                            "ignored"
                         )
 
         # the "injections" option in the [ephemerides] section can be specified
@@ -1501,8 +1506,8 @@ class PEDAGRunner(object):
                         injdict[names[0]] = inj
                     else:
                         warnings.warn(
-                            "Parameter file '{}' has no name, so it will "
-                            "be ignored".format(inj)
+                            f"Parameter file '{inj}' has no name, so it will "
+                            "be ignored"
                         )
 
         # the "data-file-1f" and "data-file-2f" options in the [pe]
@@ -1619,8 +1624,8 @@ class PEDAGRunner(object):
                                     datadict[pname][freqfactor][det] = datafile
                                 else:
                                     print(
-                                        "Duplicate pulsar '{}' data. Ignoring "
-                                        "duplicate.".format(pname)
+                                        f"Duplicate pulsar '{pname}' data. Ignoring "
+                                        "duplicate."
                                     )
         elif fakeasd1f is not None or fakeasd2f is not None:
             # set to use simulated data
@@ -1747,13 +1752,11 @@ class PEDAGRunner(object):
                                         break
                                     else:
                                         warnings.warn(
-                                            "Duplicate prior '{}' data. Ignoring "
-                                            "duplicate.".format(pname)
+                                            f"Duplicate prior '{pname}' data. Ignoring "
+                                            "duplicate."
                                         )
                     else:
-                        raise ValueError(
-                            "Prior file '{}' does not exist".format(priors)
-                        )
+                        raise ValueError(f"Prior file '{priors}' does not exist")
                 else:
                     raise TypeError("Prior type is no recognised")
         else:
@@ -1779,8 +1782,8 @@ class PEDAGRunner(object):
                 continue
             else:
                 print(
-                    "Removing pulsar '{}' as either no data, or no prior "
-                    "is given".format(pname)
+                    f"Removing pulsar '{pname}' as either no data, or no prior "
+                    "is given"
                 )
                 if pname in datanames:
                     datadict.pop(pname)
@@ -1796,7 +1799,7 @@ class PEDAGRunner(object):
         sampler = config.get("pe", "sampler", fallback="dynesty")
 
         # get the sampler keyword arguments
-        samplerkwargs = config.get("pe", "sampler_kwargs", fallback=None)
+        samplerkwargs = self.eval(config.get("pe", "sampler_kwargs", fallback="{}"))
 
         # get whether to use numba (default to True in DAG)
         disablenumba = config.getboolean("pe", "disable-numba", fallback=False)
@@ -1844,8 +1847,11 @@ class PEDAGRunner(object):
             configdict["sampler"] = sampler
             configdict["disable_numba"] = disablenumba
 
-            if samplerkwargs is not None:
-                configdict["sampler_kwargs"] = samplerkwargs
+            # add checkpoint exit code if none is given
+            if "exit_code" not in samplerkwargs:
+                samplerkwargs["exit_code"] = CHECKPOINT_EXIT_CODE
+
+            configdict["sampler_kwargs"] = str(samplerkwargs)
 
             if outputsnr:
                 configdict["output_snr"] = "True"

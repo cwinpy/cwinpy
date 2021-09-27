@@ -193,7 +193,7 @@ from cwinpy import HeterodynedData
 from matplotlib import pyplot as plt
 
 lalappsbase = "/home/matthew/lalapps_knope/O1injections/{det}/JPULSAR{num}/data/fine/2f/fine-{det}-1126051217-1137254417.txt.gz"
-cwinpybase = "/home/matthew/cwinpy_knope_old/O1injections/{det}/heterodyne_JPULSAR{num}_{det}_2_1129136736-1137253524.hdf5"
+cwinpybase = "/home/matthew/cwinpy_knope/O1injections/{det}/heterodyne_JPULSAR{num}_{det}_2_1129136736-1137253524.hdf5"
 
 numbers = [f"{i:02d}" for i in range(15)]
 
