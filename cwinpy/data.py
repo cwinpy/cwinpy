@@ -2100,13 +2100,24 @@ class HeterodynedData(TimeSeriesBase):
                 self._change_point_indices_and_ratios
             )
 
-            # if any chunks are longer than maxlength, then split them
+            # if any chunks are longer than maxlength, then split them while
+            # making sure to not leave chunks smaller than minlength
             if self.bbmaxlength < len(self):
                 insertcps = []
                 cppos = 0
                 for clength in self.chunk_lengths:
-                    if clength > self.bbmaxlength:
-                        insertcps.append((cppos + maxlength, 0))
+                    cl = clength
+                    chunkcount = 0
+                    while cl > self.bbmaxlength:
+                        chunkcount += self.bbmaxlength
+                        if cl < (self.bbminlength + self.bbmaxlength):
+                            # split final chunk to leave at least minlength
+                            insertcps.append((cppos + clength - self.bbminlength, 0))
+                        else:
+                            insertcps.append((cppos + chunkcount, 0))
+
+                        cl -= self.bbmaxlength
+
                     cppos += clength
 
                 self._change_point_indices_and_ratios += insertcps
