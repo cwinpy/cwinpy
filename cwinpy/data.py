@@ -3,7 +3,6 @@ Classes for dealing with data products.
 """
 
 import os
-import warnings
 from warnings import warn
 
 import cwinpy
@@ -965,13 +964,23 @@ class HeterodynedData(TimeSeriesBase):
                         "Supplied times and times in data file are not the same"
                     )
 
+            # check for and remove any duplicate time stamps
+            utimes, uidx = np.unique(hettimes, return_index=True)
+
+            if len(utimes) < len(hettimes):
+                warn(
+                    "Data contained duplicate time stamps. Any duplicates will be removed."
+                )
+
             # generate TimeSeriesBase
-            new = super(HeterodynedData, cls).__new__(cls, dataarray, times=hettimes)
+            new = super(HeterodynedData, cls).__new__(
+                cls, dataarray[uidx], times=utimes
+            )
 
             new.stds = None
             if stds is not None:
                 # set pre-calculated data standard deviations
-                new.stds = stds
+                new.stds = stds[uidx]
                 new._input_stds = True
             else:
                 new._input_stds = False
@@ -994,7 +1003,7 @@ class HeterodynedData(TimeSeriesBase):
             if len(new) > 1:
                 new.dt = np.min(np.diff(new.times))
             else:
-                warnings.warn("Your data is only one data point long!")
+                warn("Your data is only one data point long!")
                 new.dt = None
 
         # don't recompute values on data that has been read in or have had outliers

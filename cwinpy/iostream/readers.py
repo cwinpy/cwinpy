@@ -172,13 +172,16 @@ def read_hdf5_series(
 
 
 def write_ascii_series(series, output, **kwargs):
-    """Write a `Series` to a file in ASCII format
+    """
+    Write a `Series` to a file in ASCII format
+
     Parameters
     ----------
     series : :class:`~gwpy.data.Series`
         data series to write
     output : `str`, `file`
         file to write to
+
     See also
     --------
     numpy.savetxt
@@ -212,17 +215,15 @@ def write_ascii_series(series, output, **kwargs):
 
 
 def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
-    """Write a `Series` to a file in ASCII format
+    """
+    Write a `Series` to a file in HDF5 format
+
     Parameters
     ----------
     series : :class:`~gwpy.data.Series`
         data series to write
     output : `str`, `file`
         file to write to
-    See also
-    --------
-    numpy.savetxt
-        for documentation of keyword arguments
     """
 
     # set additional attributes to save
