@@ -3544,9 +3544,7 @@ class HeterodynedData(TimeSeriesBase):
                     idx1 = None
                 else:
                     # find closest index
-                    idx1 = (
-                        np.searchsorted(self.times.value, xtype(end), side="left") - 1
-                    )
+                    idx1 = np.searchsorted(self.times.value, xtype(end), side="left")
 
             # crop
             if copy:
