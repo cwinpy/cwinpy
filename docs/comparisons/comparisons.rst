@@ -171,10 +171,10 @@ To perform the analysis using CWInPy, the :ref:`<Quick setup>` has been used:
 
 In terms of `wall-clock time
 <https://en.wikipedia.org/wiki/Elapsed_real_time#:~:text=Elapsed%20real%20time%2C%20real%20time,at%20which%20the%20task%20started.>`_
-the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took 9 hours 32 mins and 5 hours 34 mins,
-respectively (differences here could just relate to availability of cluster nodes at the time of
+the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took 32 hours 8 mins and 13 hours 1 min,
+respectively (differences here could in part relate to availability of cluster nodes at the time of
 running). In terms of total CPU hours used by all the jobs for the ``lalapps_knope`` and
-``cwinpy_knope_dag`` pipelines these took approximately 133 hours and 139 hours, respectively.
+``cwinpy_knope_dag`` pipelines these took approximately XX days and 27.9 days, respectively.
 
 .. note::
 
@@ -189,36 +189,56 @@ running). In terms of total CPU hours used by all the jobs for the ``lalapps_kno
 Heterodyned data comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-from cwinpy import HeterodynedData
-from matplotlib import pyplot as plt
+To compare the heterodyned data we can look at the power spectra obtained using `lalapps_knope` and
+`cwinpy_knope_dag`. The following code has been used to produce these spectra:
 
-lalappsbase = "/home/matthew/lalapps_knope/O1injections/{det}/JPULSAR{num}/data/fine/2f/fine-{det}-1126051217-1137254417.txt.gz"
-cwinpybase = "/home/matthew/cwinpy_knope/O1injections/{det}/heterodyne_JPULSAR{num}_{det}_2_1129136736-1137253524.hdf5"
-
-numbers = [f"{i:02d}" for i in range(15)]
-
-for det in ["H1", "L1"]:
-    fig, axs = plt.subplots(5, 3, figsize=(20, 18))
-
-    det = "H1"
-
-    # loop over pulsars
-    for num, ax in zip(numbers, axs.flat):
-        # read in heterodyned data
-        ck = HeterodynedData(cwinpybase.format(det=det, num=num))
-        lk = HeterodynedData(lalappsbase.format(det=det, num=num))
-
-        # plot median power spectrum of data
-        lk.power_spectrum(remove_outliers=True, label="lalapps", lw=3, color="k", ax=ax)
-        ck.power_spectrum(remove_outliers=True, label="cwinpy", alpha=0.8, ls="--", ax=ax)
-        ax.set_title(f"PULSAR{num}")
-
-        if int(num) < 12:
-            ax.xaxis.set_visible(False)
+.. code-block:: python
     
-    fig.tight_layout()
-    fig.savefig(f"hwinj_comparison_spectrum_{det}.png", dpi=200)
+    import lal
+    from cwinpy import HeterodynedData
+    from matplotlib import pyplot as plt
 
+    lalappsbase = "/home/matthew/lalapps_knope/O1injections/{det}/JPULSAR{num}/data/fine/2f/fine-{det}-{span}.txt.gz"
+    cwinpybase = "/home/matthew/cwinpy_knope/O1injections/{det}/heterodyne_JPULSAR{num}_{det}_2_{span}.hdf5"
+
+    numbers = [f"{i:02d}" for i in range(15)]
+
+    timespans = {
+        "lalapps": {"H1": "1126051217-1137254417", "L1": "1126051217-1137254417"},
+        "cwinpy": {"H1": "1129136736-1137253524", "L1": "1126164689-1137250767"},
+    }
+
+    for det in ["H1", "L1"]:
+        fig, axs = plt.subplots(5, 3, figsize=(20, 18))
+
+        # loop over pulsars
+        for num, ax in zip(numbers, axs.flat):
+            # read in heterodyned data
+            ck = HeterodynedData(cwinpybase.format(det=det, num=num, span=timespans["cwinpy"][det]))
+            lk = HeterodynedData(lalappsbase.format(det=det, num=num, span=timespans["lalapps"][det]))
+
+            # plot median power spectrum of data
+            lk.power_spectrum(remove_outliers=True, dt=int(lal.DAYSID_SI * 10), label="lalapps", lw=3, color="k", ax=ax)
+            ck.power_spectrum(remove_outliers=True, dt=int(lal.DAYSID_SI * 10), label="cwinpy", alpha=0.8, ls="--", ax=ax)
+            ax.set_title(f"PULSAR{num}")
+
+            if int(num) < 12:
+                ax.xaxis.set_visible(False)
+    
+        fig.tight_layout()
+        fig.savefig(f"hwinj_comparison_spectrum_{det}.png", dpi=200)
+
+giving the following spectra for H1:
+
+.. thumbnail:: hwinj_comparison_spectrum_H1.png
+   :width: 600px
+   :align: center
+
+and L1:
+
+.. thumbnail:: hwinj_comparison_spectrum_L1.png
+   :width: 600px
+   :align: center
 
 Injection parameter comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
