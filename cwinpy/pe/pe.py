@@ -444,6 +444,10 @@ class PERunner(object):
             if not isinstance(self.datakwargs["injtimes"], (list, np.ndarray)):
                 raise TypeError("Injection times must be a list")
 
+        # by default apply thresholding to remove outliers if not set
+        if "remove_outliers" not in self.datakwargs:
+            self.datakwargs["remove_outliers"] = True
+
         # get solar system ephemeris information if provided
         self.datakwargs.setdefault("ephemearth", kwargs.get("ephem_earth", None))
         self.datakwargs.setdefault("ephemsun", kwargs.get("ephem_sun", None))
