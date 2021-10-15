@@ -182,13 +182,14 @@ class TestPE(object):
         """
 
         # single detector and single data file
-        config = "par-file = {}\n" "data-file = {}\n" "prior = {}\n"
+        config = "par-file = {}\ndata-file = {}\nprior = {}\ndata-kwargs={}"
         configfile = "config_test.ini"
 
         datafile = self.H1file[1]
+        datakwargs = {"remove_outliers": False}
 
         with open(configfile, "w") as fp:
-            fp.write(config.format(self.parfile, datafile, self.priorfile))
+            fp.write(config.format(self.parfile, datafile, self.priorfile, datakwargs))
 
         # no detector specified
         with pytest.raises(ValueError):
@@ -209,6 +210,7 @@ class TestPE(object):
             data_file=datafile,
             detector="H1",
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -216,17 +218,23 @@ class TestPE(object):
             par_file=self.parfile,
             data_file="{}:{}".format("H1", datafile),
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
         t1kw3 = pe(
-            par_file=self.parfile, data_file={"H1": datafile}, prior=self.priorbilby
+            par_file=self.parfile,
+            data_file={"H1": datafile},
+            prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
-        config = "par-file = {}\n" "data-file = {}\n" "prior = {}\n" "detector = H1"
+        config = (
+            "par-file = {}\ndata-file = {}\nprior = {}\ndetector = H1\ndata-kwargs = {}"
+        )
         with open(configfile, "w") as fp:
-            fp.write(config.format(self.parfile, datafile, self.priorfile))
+            fp.write(config.format(self.parfile, datafile, self.priorfile, datakwargs))
         t1c1 = pe(config=configfile)
 
         # use the data_file_2f option instead
@@ -235,6 +243,7 @@ class TestPE(object):
             data_file_2f=datafile,
             detector="H1",
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -242,17 +251,21 @@ class TestPE(object):
             par_file=self.parfile,
             data_file_2f="{}:{}".format("H1", datafile),
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
         t1kw6 = pe(
-            par_file=self.parfile, data_file_2f={"H1": datafile}, prior=self.priorbilby
+            par_file=self.parfile,
+            data_file_2f={"H1": datafile},
+            prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
-        config = "par-file = {}\n" "data-file-2f = {}\n" "prior = {}\n" "detector = H1"
+        config = "par-file = {}\ndata-file-2f = {}\nprior = {}\ndetector = H1\ndata-kwargs = {}"
         with open(configfile, "w") as fp:
-            fp.write(config.format(self.parfile, datafile, self.priorfile))
+            fp.write(config.format(self.parfile, datafile, self.priorfile, datakwargs))
         t1c2 = pe(config=configfile)
 
         # perform consistency checks
@@ -273,6 +286,7 @@ class TestPE(object):
             data_file=[self.H1file[1], self.L1file[1]],
             detector=["H1", "L1"],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -283,6 +297,7 @@ class TestPE(object):
                 "{}:{}".format("L1", self.L1file[1]),
             ],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
@@ -290,6 +305,7 @@ class TestPE(object):
             par_file=self.parfile,
             data_file={"H1": self.H1file[1], "L1": self.L1file[1]},
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
@@ -297,12 +313,17 @@ class TestPE(object):
             "par-file = {}\n"
             "data-file = [{}, {}]\n"
             "prior = {}\n"
-            "detector = [H1, L1]"
+            "detector = [H1, L1]\n"
+            "data-kwargs = {}"
         )
         with open(configfile, "w") as fp:
             fp.write(
                 config.format(
-                    self.parfile, self.H1file[1], self.L1file[1], self.priorfile
+                    self.parfile,
+                    self.H1file[1],
+                    self.L1file[1],
+                    self.priorfile,
+                    datakwargs,
                 )
             )
         t2c1 = pe(config=configfile)
@@ -313,6 +334,7 @@ class TestPE(object):
             data_file_2f=[self.H1file[1], self.L1file[1]],
             detector=["H1", "L1"],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -323,6 +345,7 @@ class TestPE(object):
                 "{}:{}".format("L1", self.L1file[1]),
             ],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
@@ -330,6 +353,7 @@ class TestPE(object):
             par_file=self.parfile,
             data_file_2f={"H1": self.H1file[1], "L1": self.L1file[1]},
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
@@ -337,12 +361,17 @@ class TestPE(object):
             "par-file = {}\n"
             "data-file-2f = [{}, {}]\n"
             "prior = {}\n"
-            "detector = [H1, L1]"
+            "detector = [H1, L1]\n"
+            "data-kwargs = {}"
         )
         with open(configfile, "w") as fp:
             fp.write(
                 config.format(
-                    self.parfile, self.H1file[1], self.L1file[1], self.priorfile
+                    self.parfile,
+                    self.H1file[1],
+                    self.L1file[1],
+                    self.priorfile,
+                    datakwargs,
                 )
             )
         t2c2 = pe(config=configfile)
@@ -368,6 +397,7 @@ class TestPE(object):
             data_file_1f=datafile,
             detector="H1",
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -375,17 +405,21 @@ class TestPE(object):
             par_file=self.parfile,
             data_file_1f="{}:{}".format("H1", datafile),
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
         t3kw3 = pe(
-            par_file=self.parfile, data_file_1f={"H1": datafile}, prior=self.priorbilby
+            par_file=self.parfile,
+            data_file_1f={"H1": datafile},
+            prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
-        config = "par-file = {}\n" "data-file-1f = {}\n" "prior = {}\n" "detector = H1"
+        config = "par-file = {}\ndata-file-1f = {}\nprior = {}\ndetector = H1\ndata-kwargs = {}"
         with open(configfile, "w") as fp:
-            fp.write(config.format(self.parfile, datafile, self.priorfile))
+            fp.write(config.format(self.parfile, datafile, self.priorfile, datakwargs))
         t3c1 = pe(config=configfile)
 
         # perform consistency checks
@@ -407,6 +441,7 @@ class TestPE(object):
             data_file_2f=[self.H1file[1], self.L1file[1]],
             detector=["H1", "L1"],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -421,6 +456,7 @@ class TestPE(object):
                 "{}:{}".format("L1", self.L1file[1]),
             ],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
@@ -429,6 +465,7 @@ class TestPE(object):
             data_file_1f={"H1": self.H1file[0], "L1": self.L1file[0]},
             data_file_2f={"H1": self.H1file[1], "L1": self.L1file[1]},
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
@@ -437,7 +474,8 @@ class TestPE(object):
             "data-file-1f = [{}, {}]\n"
             "data-file-2f = [{}, {}]\n"
             "prior = {}\n"
-            "detector = [H1, L1]"
+            "detector = [H1, L1]\n"
+            "data-kwargs = {}"
         )
         with open(configfile, "w") as fp:
             fp.write(
@@ -448,6 +486,7 @@ class TestPE(object):
                     self.H1file[1],
                     self.L1file[1],
                     self.priorfile,
+                    datakwargs,
                 )
             )
         t4c1 = pe(config=configfile)

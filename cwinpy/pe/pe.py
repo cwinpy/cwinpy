@@ -422,7 +422,11 @@ class PERunner(object):
                 kwargs.pop(key)
 
         # keyword arguments for creating the HeterodynedData objects
-        self.datakwargs = kwargs.get("data_kwargs", {})
+        try:
+            self.datakwargs = convert_string_to_dict(kwargs.get("data_kwargs", "{}"))
+        except AttributeError:
+            # value is already a dictionary
+            self.datakwargs = kwargs["data_kwargs"].copy()
 
         if "par_file" in kwargs:
             self.datakwargs["par"] = kwargs["par_file"]
