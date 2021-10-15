@@ -2,11 +2,11 @@
 Heterodyning data
 #################
 
-Gravitational-wave strain data is often sampled at 16384 Hz. It is only feasible to perform
-:ref:`parameter estimation<Known pulsar parameter estimation>` for a continuous gravitational-wave
-signal from a particular pulsar using data that is heavily downsampled. As described in
-:ref:`Heterodyned data`, this is done using the method from [1]_. The pulsar's phase evolution is
-assumed to be well described by a Taylor expansion
+Gravitational-wave strain data is often sampled at rates of 4096 Hz or 16384 Hz. It is only feasible
+to perform :ref:`parameter estimation<Known pulsar parameter estimation>` for a continuous
+gravitational-wave signal from a particular pulsar using data that is heavily downsampled compared
+to this rate. As described in :ref:`Heterodyned data`, this is done using the method from [1]_. The
+pulsar's phase evolution is assumed to be well described by a Taylor expansion
 
 .. math::
 
@@ -43,7 +43,7 @@ is downsampled to 1/60 Hz (one sample per minute).
 CWInPy can be used to perform this heterodyning, taking files containing raw gravitational-wave
 strain and returning the complex, filtered, down-sampled time series in a form that can be read in
 as a :class:`~cwinpy.data.HeterodynedData` object. To generate the phase evolution used for the
-heterodyne, CWInPy can either use functions within `LALSuite
+heterodyne CWInPy can either use functions within `LALSuite
 <https://lscsoft.docs.ligo.org/lalsuite/>`_ (the default) or, if installed, use the `Tempo2
 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package  (via the `libstempo
 <https://vallis.github.io/libstempo/>`_ wrapper package).
