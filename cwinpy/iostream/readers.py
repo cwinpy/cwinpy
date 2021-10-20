@@ -196,10 +196,7 @@ def write_ascii_series(series, output, **kwargs):
     if series._input_stds:
         stds = series.stds
 
-    try:
-        comments = series.comments
-    except AttributeError:
-        comments = ""
+    comments = series.comments if series.comments is not None else ""
 
     if stds is None:
         return np.savetxt(
