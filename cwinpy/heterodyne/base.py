@@ -1626,7 +1626,7 @@ class Heterodyne(object):
 
                             # get the time at which to resume
                             if endtime < minend:
-                                minend = endtime + self.resamplerate / 2
+                                minend = endtime
 
                             self._filter_history[pulsar] = prevdata.filter_history
                     else:
@@ -1637,18 +1637,24 @@ class Heterodyne(object):
                     print("Heterodyne for all pulsars is complete")
                     return
 
-                # crop any in case some pulsars run past minend
-                for pulsar in list(pulsarlist):
-                    if pulsar in self._datadict:
-                        cropped = self._datadict[pulsar][0].crop(
-                            end=minend + self.resamplerate / 2, copy=True
-                        )
-                        self._datadict[pulsar][0] = cropped
+                # crop in case some pulsars run past minend
+                if minend > self.starttime:
+                    for pulsar in list(pulsarlist):
+                        if pulsar in self._datadict:
+                            if minend < self._datadict[pulsar][0].times.value[-1]:
+                                try:
+                                    cropped = self._datadict[pulsar][0].crop(
+                                        end=minend + self.resamplerate, copy=True
+                                    )
+                                    self._datadict[pulsar][0] = cropped
+                                except IndexError:
+                                    # remove pulsar data as cropping only leaves one value
+                                    self._datadict.pop(pulsar)
 
-                # reset starttime (and store original)
-                self._origstart = self.starttime
-                self._origstarts = [seg[0] for seg in self.segments]
-                self.starttime = minend
+                    # reset starttime (and store original)
+                    self._origstart = self.starttime
+                    self._origstarts = [seg[0] for seg in self.segments]
+                    self.starttime = minend + self.resamplerate / 2
 
             # loop over segments
             samplerates = []
