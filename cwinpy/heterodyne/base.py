@@ -1641,7 +1641,7 @@ class Heterodyne(object):
                 for pulsar in list(pulsarlist):
                     if pulsar in self._datadict:
                         cropped = self._datadict[pulsar][0].crop(
-                            end=minend + self.resamplerate / 2, copy=True
+                            end=minend + self.resamplerate, copy=True
                         )
                         self._datadict[pulsar][0] = cropped
 

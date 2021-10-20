@@ -250,7 +250,7 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
         "heterodyne_arguments",
     ]
 
-    if series._input_stds:
+    if series.input_stds:
         # allow vars to be included
         badslots.remove("vars")
 
@@ -278,7 +278,7 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
     write_metadata(segments, output, path=path + "TimeSegments", append=True)
 
     # add standard deviations to a different dataset (path+"Sigmas") in the HDF5 file
-    if series._input_stds:
+    if series.input_stds:
         write_metadata(series.stds, output, path=path + "Sigmas", append=True)
 
     # check heterodyne_arguments for segment list/frame cache list

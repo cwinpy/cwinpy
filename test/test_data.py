@@ -63,7 +63,7 @@ class TestHeterodynedData(object):
 
         # create four datasets
         times1 = np.linspace(1000000000.0, 1000086340.0, 1440)
-        data1 = np.random.normal(0.0, 1e-25, size=(1440, 2))
+        data1 = np.random.normal(0.0, 1e-25, size=(1440, 2)).tolist()
         detector1 = "H1"
 
         times2 = np.linspace(1000000000.0, 1000086340.0, 1440)

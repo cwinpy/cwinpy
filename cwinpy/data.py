@@ -10,7 +10,6 @@ import lal
 import lalpulsar
 import numpy as np
 from astropy.io import registry as io_registry
-from astropy.units import Quantity
 from gwpy.detector import Channel
 from gwpy.io.mp import read_multi
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
@@ -893,7 +892,7 @@ class HeterodynedData(TimeSeriesBase):
         stds = None  # initialise standard deviations
 
         # read/parse data
-        if isinstance(data, (str, list)):
+        if isinstance(data, (str, list)) and np.array(data).dtype.type == np.str_:
             try:
                 new = cls.read(data)
             except Exception as e:
@@ -981,9 +980,9 @@ class HeterodynedData(TimeSeriesBase):
             if stds is not None:
                 # set pre-calculated data standard deviations
                 new.stds = stds[uidx]
-                new._input_stds = True
+                new.input_stds = True
             else:
-                new._input_stds = False
+                new.input_stds = False
 
             new.detector = detector
 
@@ -1204,7 +1203,7 @@ class HeterodynedData(TimeSeriesBase):
                 raise ValueError("Incompatible frequency factors")
 
         # check variances either are all set or not set
-        if self._input_stds != other._input_stds:
+        if self.input_stds != other.input_stds:
             raise ValueError("Incompatible setting of variances")
 
         # check injection times are all set or not set
@@ -1235,7 +1234,10 @@ class HeterodynedData(TimeSeriesBase):
     def window(self):
         """The running median window length."""
 
-        return self._window
+        try:
+            return self._window
+        except AttributeError:
+            return None
 
     @window.setter
     def window(self, window):
@@ -1251,7 +1253,10 @@ class HeterodynedData(TimeSeriesBase):
     def comments(self):
         """Any comments on the data"""
 
-        return self._comments
+        try:
+            return self._comments
+        except AttributeError:
+            return None
 
     @comments.setter
     def comments(self, comment):
@@ -1290,7 +1295,10 @@ class HeterodynedData(TimeSeriesBase):
 
     @property
     def par(self):
-        return self._par
+        try:
+            return self._par
+        except AttributeError:
+            return None
 
     @par.setter
     def par(self, par):
@@ -1298,7 +1306,10 @@ class HeterodynedData(TimeSeriesBase):
 
     @property
     def injpar(self):
-        return self._injpar
+        try:
+            return self._injpar
+        except AttributeError:
+            return None
 
     @injpar.setter
     def injpar(self, par):
@@ -1355,16 +1366,21 @@ class HeterodynedData(TimeSeriesBase):
         except AttributeError:
             return None
 
+    @laldetector.setter
+    def laldetector(self, detector):
+        if isinstance(detector, lal.Detector):
+            self._laldetector = detector
+
     @detector.setter
     def detector(self, detector):
         if isinstance(detector, lal.Detector):
             self.channel = Channel("{}:".format(detector.frDetector.prefix))
-            self._laldetector = detector
+            self.laldetector = detector
         elif isinstance(detector, str):
             self.channel = Channel("{}:".format(detector))
 
             try:
-                self._laldetector = lalpulsar.GetSiteInfo(detector)
+                self.laldetector = lalpulsar.GetSiteInfo(detector)
             except RuntimeError:
                 raise ValueError("Could not set LAL detector!")
 
@@ -1372,7 +1388,14 @@ class HeterodynedData(TimeSeriesBase):
     def running_median(self):
         """A :class:`~numpy.ndarray` containing the running median of the data."""
 
-        return self._running_median
+        try:
+            return self._running_median
+        except AttributeError:
+            return None
+
+    @running_median.setter
+    def running_median(self, rm):
+        self._running_median = rm
 
     def compute_running_median(self, N=30):
         """
@@ -1398,7 +1421,7 @@ class HeterodynedData(TimeSeriesBase):
         if N < 2 and N != 0:
             raise ValueError("The running median window must be greater than 1")
 
-        self._running_median = TimeSeriesBase(
+        self.running_median = TimeSeriesBase(
             np.zeros(len(self), dtype=complex), times=self.times
         )
         if N > 0:
@@ -1495,6 +1518,22 @@ class HeterodynedData(TimeSeriesBase):
             self.vars = stds ** 2
         else:
             self.vars = None
+
+    @property
+    def input_stds(self):
+        """
+        A boolean stating whether the standard deviations where provides as an
+        input.
+        """
+
+        try:
+            return self._input_stds
+        except AttributeError:
+            return False
+
+    @input_stds.setter
+    def input_stds(self, inputstds):
+        self._input_stds = bool(inputstds)
 
     def compute_variance(self, change_points=None, N=30):
         """
@@ -1820,7 +1859,10 @@ class HeterodynedData(TimeSeriesBase):
         was heterodyned.
         """
 
-        return self._freqfactor
+        try:
+            return self._freqfactor
+        except AttributeError:
+            return None
 
     @freq_factor.setter
     def freq_factor(self, freqfactor):
@@ -1840,6 +1882,10 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         return self.freq_factor
+
+    @freqfactor.setter
+    def freqfactor(self, freqfactor):
+        self.freq_factor = freqfactor
 
     def add_noise(self, asd, issigma=False, seed=None):
         """
@@ -2040,7 +2086,7 @@ class HeterodynedData(TimeSeriesBase):
         self.stds = sigmaval
 
         # standard devaitions have been provided rather than calculated
-        self._input_stds = True
+        self.input_stds = True
 
     def bayesian_blocks(self, threshold="default", minlength=5, maxlength=np.inf):
         """
@@ -2126,7 +2172,7 @@ class HeterodynedData(TimeSeriesBase):
                 )
 
         # (re)calculate the variances for each chunk
-        if not self._input_stds:
+        if not self.input_stds:
             _ = self.compute_variance(N=self.window)
 
     @property
@@ -3311,7 +3357,7 @@ class HeterodynedData(TimeSeriesBase):
         Return the data as a :class:`gwpy.timeseries.TimeSeries`.
         """
 
-        return CWInPyTimeSeries(self.data, times=self.times, channel=self.channel)
+        return TimeSeries(self.data, times=self.times, channel=self.channel)
 
     @property
     def filter_history(self):
@@ -3490,140 +3536,8 @@ class HeterodynedData(TimeSeriesBase):
 
         self._cwinpy_heterodyne_dag_config = config
 
-    def crop(self, start=None, end=None, copy=False):
-        """
-        Overload the :meth:`gwpy.timeseries.TimesSeries.crop` method to allow
-        cropping of unevenly sampled data.
-        """
-
-        try:
-            # the TimeSeries crop method will work for evenly sampled data
-            return super(TimeSeriesBase, self).crop(start, end, copy)
-        except AttributeError:
-            # edited code from TimeSeries crop method
-            x0, x1 = self.xspan
-            xtype = type(x0)
-            if isinstance(start, Quantity):
-                start = start.to(self.xunit).value
-            if isinstance(end, Quantity):
-                end = end.to(self.xunit).value
-
-            # pin early starts to time-series start
-            if start == x0:
-                start = None
-            elif start is not None and xtype(start) < x0:
-                warn(
-                    "%s.crop given start smaller than current start, "
-                    "crop will begin when the Series actually starts."
-                    % type(self).__name__
-                )
-                start = None
-
-            # pin late ends to time-series end
-            if end == x1:
-                end = None
-            if end is not None and xtype(end) > x1:
-                warn(
-                    "%s.crop given end larger than current end, "
-                    "crop will end when the Series actually ends." % type(self).__name__
-                )
-                end = None
-
-            # find start index
-            if start is None:
-                idx0 = None
-            else:
-                # find closest index
-                idx0 = np.searchsorted(self.times.value, xtype(start), side="left")
-
-            # find end index
-            if end is None:
-                idx1 = None
-            else:
-                if xtype(end) >= self.times.value[-1]:
-                    idx1 = None
-                else:
-                    # find closest index
-                    idx1 = np.searchsorted(self.times.value, xtype(end), side="left")
-
-            # crop
-            if copy:
-                return self[idx0:idx1].copy()
-            return self[idx0:idx1]
-
     def __len__(self):
         return len(self.data)
-
-
-class CWInPyTimeSeries(TimeSeries):
-    """
-    This is equivalent to a GWPy :class:`~gwpy.timeseries.TimeSeries` object,
-    but with the :meth:`~cwinpy.data.CWInPyTimesSeries.crop` method allowing
-    unevenly sampled data.
-    """
-
-    def crop(self, start=None, end=None, copy=False):
-        """
-        Overload the :meth:`gwpy.timeseries.TimesSeries.crop` method to allow
-        cropping of unevenly sampled data.
-        """
-
-        try:
-            # the TimeSeries crop method will work for evenly sampled data
-            return super(CWInPyTimeSeries, self).crop(start, end, copy)
-        except AttributeError:
-            # edited code from TimeSeries crop method
-            x0, x1 = self.xspan
-            xtype = type(x0)
-            if isinstance(start, Quantity):
-                start = start.to(self.xunit).value
-            if isinstance(end, Quantity):
-                end = end.to(self.xunit).value
-
-            # pin early starts to time-series start
-            if start == x0:
-                start = None
-            elif start is not None and xtype(start) < x0:
-                warn(
-                    "%s.crop given start smaller than current start, "
-                    "crop will begin when the Series actually starts."
-                    % type(self).__name__
-                )
-                start = None
-
-            # pin late ends to time-series end
-            if end == x1:
-                end = None
-            if end is not None and xtype(end) > x1:
-                warn(
-                    "%s.crop given end larger than current end, "
-                    "crop will end when the Series actually ends." % type(self).__name__
-                )
-                end = None
-
-            # find start index
-            if start is None:
-                idx0 = None
-            else:
-                # find closest index
-                idx0 = np.searchsorted(self.times.value, xtype(start), side="left")
-
-            # find end index
-            if end is None:
-                idx1 = None
-            else:
-                if xtype(end) >= self.times.value[-1]:
-                    idx1 = None
-                else:
-                    # find closest index
-                    idx1 = (
-                        np.searchsorted(self.times.value, xtype(end), side="left") - 1
-                    )
-
-            # crop
-            if copy:
-                return self[idx0:idx1].copy()
-            return self[idx0:idx1]
 
 
 class PSDwrapper(object):
