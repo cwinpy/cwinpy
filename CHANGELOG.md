@@ -13,7 +13,9 @@ Changes for this release:
 
 Note: several of of these changes is are major updates and may break some backwards compatibility.
 There may still be some minor bugs in the implementation and there are more comparison tests to
-perform, but the avoid further unwieldy MRs these have been put into a release.
+perform, but the avoid further unwieldy MRs these have been put into a release. This release also
+requires a development version of LALSuite, so a Conda installable release of this version will not
+be available.
 
 ## [0.6.0] 2021-06-22
 
