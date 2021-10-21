@@ -1073,9 +1073,14 @@ class PERunner(object):
         if "use_ratio" not in self.sampler_kwargs:
             self.sampler_kwargs["use_ratio"] = False
 
-        # turn off check_point_plot for dynesty by default
-        if self.sampler == "dynesty" and "check_point_plot" not in self.sampler_kwargs:
-            self.sampler_kwargs["check_point_plot"] = False
+        if self.sampler == "dynesty":
+            # turn off check_point_plot for dynesty by default
+            if "check_point_plot" not in self.sampler_kwargs:
+                self.sampler_kwargs["check_point_plot"] = False
+
+            # set print out interval to 10s by default
+            if "print_method" not in self.sampler_kwargs:
+                self.sampler_kwargs["print_method"] = "interval-10"
 
         # default restart time to 1000000 seconds if not running through CLI
         self.periodic_restart_time = kwargs.get("periodic_restart_time", 1000000)
