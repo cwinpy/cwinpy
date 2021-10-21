@@ -6,7 +6,7 @@ Here we document comparisons between the analysis produced using CWInPy compared
 `LALSuite
 <https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalapps_pulsar_parameter_estimation_nested``,
 and the full pipeline generation code ``lalapps_knope``, which
-are described in [1]_.Pitkin et al., `arXiv:1705.08978v1 <https://arxiv.org/abs/1705.08978v1>`_.
+are described in [1]_.
 
 The codes will be run on identical data and in configurations that are as close as possible.
 

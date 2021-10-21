@@ -6,8 +6,8 @@ CWInPy is a Python package designed to perform searches for, and inference on, `
 quasi-monochromatic gravitational-wave signals <https://www.ligo.org/science/GW-Continuous.php>`_.
 In particular, signals that might be emitted by non-axisymmetric and rapidly rotating `neutron stars
 <https://en.wikipedia.org/wiki/Neutron_star>`_, such as `pulsars
-<https://en.wikipedia.org/wiki/Pulsar>`_. CWInPy stands for "**C**ontinuous (gravitational) **W**ave
-**In**ference in **Py**thon".
+<https://en.wikipedia.org/wiki/Pulsar>`_. CWInPy stands for "\ **C**\ ontinuous (gravitational) **W**\ ave
+**In**\ ference in **Py**\ thon".
 
 The package provides tools for processing raw gravitational-wave strain time-series data based on
 the phase evolution of a given source (using a `TEMPO <https://en.wikipedia.org/wiki/Tempo_(astronomy)>`_-style parameter file); a class to store and
