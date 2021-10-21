@@ -8,9 +8,8 @@ import cwinpy
 import lal
 import numpy as np
 import pytest
-from cwinpy import HeterodynedData, MultiHeterodynedData
+from cwinpy import HeterodynedData, MultiHeterodynedData, PulsarParameters
 from cwinpy.data import PSDwrapper
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from matplotlib.figure import Figure
 
 
@@ -64,7 +63,7 @@ class TestHeterodynedData(object):
 
         # create four datasets
         times1 = np.linspace(1000000000.0, 1000086340.0, 1440)
-        data1 = np.random.normal(0.0, 1e-25, size=(1440, 2))
+        data1 = np.random.normal(0.0, 1e-25, size=(1440, 2)).tolist()
         detector1 = "H1"
 
         times2 = np.linspace(1000000000.0, 1000086340.0, 1440)
@@ -226,6 +225,41 @@ class TestHeterodynedData(object):
 1000000000.0  -2.3e-25   4.3e-26   1.1e-26
 1000000060.0   3.2e-26   1.2e-25   2.1e-26
 1000000120.0  -1.7e-25  -2.8e-25   1.5e-26
+1000000180.0  -7.6e-26  -8.9e-26   1.3e-26
+"""
+        datafile = "testdata.txt"
+        with open("testdata.txt", "w") as fp:
+            fp.write(hetdata)
+
+        het = HeterodynedData(datafile)
+
+        assert len(het) == 4
+        assert (het.data.real[0] == -2.3e-25) and (het.data.real[-1] == -7.6e-26)
+        assert (het.data.imag[0] == 4.3e-26) and (het.data.imag[-1] == -8.9e-26)
+        assert (het.stds[0] == 1.1e-26) and (het.stds[-1] == 1.3e-26)
+        assert (het.vars[0] == (1.1e-26) ** 2) and (het.vars[-1] == (1.3e-26) ** 2)
+        assert (het.times[0].value == 1000000000.0) and (
+            het.times[-1].value == 1000000180.0
+        )
+        assert het.dt.value == 60.0
+        assert het.sample_rate.value == 1.0 / 60.0
+
+        os.remove(datafile)  # clean up file
+
+    def test_remove_duplicate_data(self):
+        """
+        Test that duplicate data time stamps are removed.
+        """
+
+        # create a data file to output
+        hetdata = """\
+# times       real      imaginary  std
+1000000000.0  -2.3e-25   4.3e-26   1.1e-26
+1000000060.0   3.2e-26   1.2e-25   2.1e-26
+1000000060.0   3.2e-26   1.2e-25   2.1e-26
+1000000060.0   3.2e-26   1.2e-25   2.1e-26
+1000000120.0  -1.7e-25  -2.8e-25   1.5e-26
+1000000180.0  -7.6e-26  -8.9e-26   1.3e-26
 1000000180.0  -7.6e-26  -8.9e-26   1.3e-26
 """
         datafile = "testdata.txt"
@@ -933,7 +967,7 @@ PHI0     2.4
 
         het = HeterodynedData(data, times=times, detector=det, par=parfile)
 
-        assert isinstance(het.par, PulsarParametersPy)
+        assert isinstance(het.par, PulsarParameters)
         assert len(het.par["F"]) == 2
         assert (het.par["F"][0] == 567.89) and (het.par["F"][1] == -1.2e-12)
         assert (
@@ -947,13 +981,13 @@ PHI0     2.4
         pepoch = lal.TranslateStringMJDTTtoGPS("56789")
         assert het.par["PEPOCH"] == (pepoch.gpsSeconds + 1e-9 * pepoch.gpsNanoSeconds)
 
-        # pass parameters as PulsarParametersPy object
+        # pass parameters as PulsarParameters object
         del het
 
-        par = PulsarParametersPy(parfile)
+        par = PulsarParameters(parfile)
         het = HeterodynedData(data, times=times, detector=det, par=par)
 
-        assert isinstance(het.par, PulsarParametersPy)
+        assert isinstance(het.par, PulsarParameters)
         assert len(het.par["F"]) == len(par["F"])
         assert (het.par["F"][0] == par["F"][0]) and (het.par["F"][1] == par["F"][1])
         assert (
@@ -1241,11 +1275,11 @@ PHI0     2.4
         del het3
 
         # do the same tests using a numpy RandomSeed
-        seed1 = np.random.RandomState(875329)
+        seed1 = np.random.default_rng(875329)
         het1 = HeterodynedData(
             times=times, fakeasd=1e-24, detector="H1", fakeseed=seed1
         )
-        seed2 = np.random.RandomState(875329)
+        seed2 = np.random.default_rng(875329)
         het2 = HeterodynedData(
             times=times, fakeasd=1e-24, detector="H1", fakeseed=seed2
         )

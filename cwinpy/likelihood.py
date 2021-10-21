@@ -3,11 +3,11 @@ Classes providing likelihood functions.
 """
 
 import re
+from copy import deepcopy
 
 import bilby
 import lal
 import numpy as np
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from numba import jit, types
 from numba.typed import Dict as numbadict
 
@@ -156,9 +156,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
     # the parameters that are held as vectors
     VECTOR_PARAMS = ["F", "GLEP", "GLPH", "GLF0", "GLF1", "GLF2", "GLF0D", "GLTD", "FB"]
 
-    def __init__(
-        self, data, priors, par=None, det=None, likelihood="studentst", numba=False
-    ):
+    def __init__(self, data, priors, likelihood="studentst", numba=False):
 
         super().__init__(dict())  # initialise likelihood class
 
@@ -261,9 +259,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 )
             )
             # copy of heterodyned parameters
-            newpar = PulsarParametersPy()
-            for item in het.par.items():
-                newpar[item[0]] = item[1]
+            newpar = deepcopy(het.par)
             self.basepars.append(newpar)
 
         # if phase evolution is not in the model set the pre-summed products
@@ -483,22 +479,10 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     # make sure values are floats
                     par[pname.upper()] = float(pval)
 
-                    if pname.upper() in self.SOURCE_AMPLITUDE_PARAMETERS:
-                        # reset waveform parameters (otherwise these can
-                        # potentially be given by the previous value if the
-                        # new value is zero). NOTE: in the future it might be
-                        # better to pass a copy of the PulsarParameters
-                        # structure to the model function, so that this is not
-                        # problem
-                        par["C21"] = 0.0
-                        par["C22"] = 0.0
-                        par["PHI22"] = 0.0
-                        par["PHI21"] = 0.0
-
             # calculate the model
             m = model.model(
-                par,
-                usephase=self.include_phase,
+                deepcopy(par),
+                outputampcoeffs=(not self.include_phase),
                 updateSSB=self.update_ssb,
                 updateBSB=self.include_binary,
                 updateglphase=self.include_glitch,

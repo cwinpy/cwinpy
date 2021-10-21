@@ -13,9 +13,10 @@ import lalpulsar
 import numpy as np
 from astropy import units as u
 from bilby_pipe.utils import CHECKPOINT_EXIT_CODE
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
 from numba import jit, njit
 from numba.extending import get_cython_function_address
+
+from .parfile import PulsarParameters
 
 #: URL for LALSuite solar system ephemeris files
 LAL_EPHEMERIS_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
@@ -35,6 +36,22 @@ LAL_BINARY_MODELS = [
     "MSS",
     "T2",
 ]
+
+#: aliases between GW detector prefixes a TEMPO2 observatory names
+TEMPO2_GW_ALIASES = {
+    "G1": "GEO600",
+    "GEO_600": "GEO600",
+    "H1": "HANFORD",
+    "H2": "HANFORD",
+    "LHO_4k": "HANFORD",
+    "LHO_2k": "HANFORD",
+    "K1": "KAGRA",
+    "KAGRA": "KAGRA",
+    "L1": "LIVINGSTON",
+    "LLO_4k": "LIVINGSTON",
+    "V1": "VIRGO",
+    "VIRGO": "VIRGO",
+}
 
 # create a numba-ified version of scipy's gammaln function (see, e.g.
 # https://github.com/numba/numba/issues/3086#issuecomment-403469308)
@@ -104,7 +121,7 @@ def is_par_file(parfile):
     """
 
     try:
-        psr = PulsarParametersPy(parfile)
+        psr = PulsarParameters(parfile)
     except (ValueError, IOError):
         return False
 
@@ -123,13 +140,13 @@ def is_par_file(parfile):
 
 def get_psr_name(psr):
     """
-    Get the pulsar name from the TEMPO(2)-style parameter files by trying the
+    Get the pulsar name from the Tempo(2)-style parameter files by trying the
     keys "PSRJ", "PSRB", "PSR", and "NAME" in that order of precedence.
 
     Parameters
     ----------
-    psr: PulsarParameterPy
-        A PulsarParameterPy object
+    psr: PulsarParameter
+        A :class:`~cwinpy.parfile.PulsarParameters` object
 
     Returns
     -------
@@ -257,6 +274,73 @@ def q22_to_ellipticity(q22):
         return ellipticity
 
 
+def lalinference_to_bilby_result(postfile):
+    """
+    Convert LALInference-derived pulsar posterior samples file, as created by
+    ``lalapps_pulsar_parameter_estimation_nested``, into a
+    :class:`bilby.core.result.Result` object.
+
+    Parameters
+    ----------
+    postfile: str
+        The path to a posterior samples file.
+
+    Returns
+    -------
+    result:
+        The results as a :class:`bilby.core.result.Result` object
+    """
+
+    import h5py
+
+    from bilby.core.result import Result
+    from lalinference import bayespputils as bppu
+    from pandas import DataFrame
+
+    try:
+        peparser = bppu.PEOutputParser("hdf5")
+        nsResultsObject = peparser.parse(postfile)
+        pos = bppu.Posterior(nsResultsObject, SimInspiralTableEntry=None)
+    except Exception as e:
+        raise IOError(f"Could not import posterior samples from {postfile}: {e}")
+
+    # remove any unchanging variables and randomly shuffle the rest
+    pnames = pos.names
+    nsamps = len(pos[pnames[0]].samples)
+    permarr = np.arange(nsamps)
+    np.random.shuffle(permarr)
+
+    posdict = {}
+    for pname in pnames:
+        # ignore if all samples are the same
+        if not pos[pname].samples.tolist().count(pos[pname].samples[0]) == len(
+            pos[pname].samples
+        ):
+            # shuffle and store
+            posdict[pname] = pos[pname].samples[permarr, 0]
+
+    # get evidence values from HDF5 file
+    logZ = None
+    logZn = None
+    logbayes = None
+    try:
+        hdf = h5py.File(postfile, "r")
+        a = hdf["lalinference"]["lalinference_nest"]
+        logZ = a.attrs["log_evidence"]
+        logZn = a.attrs["log_noise_evidence"]
+        logbayes = logZ - logZn
+        hdf.close()
+    except KeyError:
+        pass
+
+    return Result(
+        posterior=DataFrame(posdict),
+        log_evidence=logZ,
+        log_noise_evidence=logZn,
+        log_bayes_factor=logbayes,
+    )
+
+
 def initialise_ephemeris(
     ephem="DE405",
     units="TCB",
@@ -368,6 +452,28 @@ def initialise_ephemeris(
         return (edat, tdat, filepaths) if filenames else (edat, tdat)
 
 
+def check_for_tempo2():
+    """
+    Check whether the `libstempo <https://github.com/vallis/libstempo>`_
+    package (v2.4.2 or greater), and therefore also TEMPO2, is available.
+    """
+
+    from packaging import version
+
+    try:
+        import libstempo
+
+        hastempo2 = (
+            True
+            if version.parse(libstempo.__version__) >= version.parse("2.4.2")
+            else False
+        )
+    except ImportError:
+        hastempo2 = False
+
+    return hastempo2
+
+
 def sighandler(signum, frame):
     # perform periodic eviction with exit code 77
     # see https://git.ligo.org/lscsoft/bilby_pipe/-/commit/c63c3e718f20ce39b0340da27fb696c49409fcd8  # noqa: E501
@@ -390,10 +496,7 @@ class MuteStream(object):
     """
 
     def __init__(self, stream=None):
-        self.origstream = None
-        if self.origstream is None:
-            self.origstream = sys.stderr
-        self.origstream = sys.stderr
+        self.origstream = sys.stderr if stream is None else stream
         self.origstreamfd = self.origstream.fileno()
         # Create a pipe so the stream can be captured:
         self.pipe_out, self.pipe_in = os.pipe()

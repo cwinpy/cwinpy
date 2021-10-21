@@ -172,13 +172,16 @@ def read_hdf5_series(
 
 
 def write_ascii_series(series, output, **kwargs):
-    """Write a `Series` to a file in ASCII format
+    """
+    Write a `Series` to a file in ASCII format
+
     Parameters
     ----------
     series : :class:`~gwpy.data.Series`
         data series to write
     output : `str`, `file`
         file to write to
+
     See also
     --------
     numpy.savetxt
@@ -193,10 +196,7 @@ def write_ascii_series(series, output, **kwargs):
     if series._input_stds:
         stds = series.stds
 
-    try:
-        comments = series.comments
-    except AttributeError:
-        comments = ""
+    comments = series.comments if series.comments is not None else ""
 
     if stds is None:
         return np.savetxt(
@@ -212,17 +212,15 @@ def write_ascii_series(series, output, **kwargs):
 
 
 def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
-    """Write a `Series` to a file in ASCII format
+    """
+    Write a `Series` to a file in HDF5 format
+
     Parameters
     ----------
     series : :class:`~gwpy.data.Series`
         data series to write
     output : `str`, `file`
         file to write to
-    See also
-    --------
-    numpy.savetxt
-        for documentation of keyword arguments
     """
 
     # set additional attributes to save
@@ -249,7 +247,7 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
         "heterodyne_arguments",
     ]
 
-    if series._input_stds:
+    if series.input_stds:
         # allow vars to be included
         badslots.remove("vars")
 
@@ -277,7 +275,7 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
     write_metadata(segments, output, path=path + "TimeSegments", append=True)
 
     # add standard deviations to a different dataset (path+"Sigmas") in the HDF5 file
-    if series._input_stds:
+    if series.input_stds:
         write_metadata(series.stds, output, path=path + "Sigmas", append=True)
 
     # check heterodyne_arguments for segment list/frame cache list

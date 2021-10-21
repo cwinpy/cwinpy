@@ -28,7 +28,7 @@ where :math:`p(\mathbf{d}_i|{Q_{22}}_i,I)` is the marginalised likelihood distri
 :math:`p(\vec{\theta}|I)` is the prior on the hyperparameters.
 
 The hierarchical module in CWInPy allows the outputs of pulsar :ref:`parameter estimation<Known
-pulsar parameter estimation>` for mutiple sources to be combined to estimate the hyperparameters of
+pulsar parameter estimation>` for multiple sources to be combined to estimate the hyperparameters of
 several different potential :math:`Q_{22}` (or ellipticity) distributions. To do this it is required
 that the parameter estimation has been performed using :math:`Q_{22}` when defining the signal
 amplitude, rather than :math:`h_0`, and that the distance is either assumed to be precisely known,
@@ -213,7 +213,7 @@ Gaussian distribution with a mode a zero, but excluding negative values) for the
 :math:`\mu`, with a scale parameter :math:`\sigma = 10^{34}\,{\textrm kg}\,{\textrm m}^2` roughly
 based on the largest sustainable quadrupole deformations as described in [1]_.
 
-The first example below uses the integral evalution method that performs the integrals over
+The first example below uses the integral evaluation method that performs the integrals over
 :math:`Q_{22}` numerically with the trapezium rule, which requires the ``"numerical"`` argument, and
 uses the default nested sampling routine to draw the samples from :math:`\mu`.
 
@@ -393,9 +393,9 @@ distribution of :math:`Q_{22}` values. Both these are shown below.
 .. code-block:: python
 
    from bilby.core.prior import Exponential
+   from cwinpy import PulsarParameters
    import glob
    import json
-   from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
    from matplotlib import pyplot as plt
    from matplotlib import rc
 
@@ -415,7 +415,7 @@ distribution of :math:`Q_{22}` values. Both these are shown below.
 
    # load in simulation pulsar parameters and extract Q22 values
    pulsarfiles = glob.glob("/home/user/exponential/pulsars/*.par")
-   trueq22 = np.array([PulsarParametersPy(pf)["Q22"] for pf in pulsarfiles])
+   trueq22 = np.array([PulsarParameters(pf)["Q22"] for pf in pulsarfiles])
 
    # create plot
    rc("mathtext", **{"fontset": "stix"})

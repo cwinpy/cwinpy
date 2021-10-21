@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pytest
 from bilby.core.prior import PriorDict
+from cwinpy.data import HeterodynedData
 from cwinpy.pe.pe import PERunner, pe
 
 
@@ -26,12 +27,28 @@ class TestPE(object):
         cls.times = np.arange(start, end, step)
         size = len(cls.times)
 
+        # create pulsar parameter file
+        cls.f0 = 100.1  # frequency
+        parcontent = (
+            "PSRJ     J0341-1253\n"
+            "F0       {}\n"
+            "F1       6.5e-12\n"
+            "RAJ      03:41:00.0\n"
+            "DECJ     -12:53:00.0\n"
+            "PEPOCH   56789"
+        )
+
+        cls.parfile = "pe_test.par"
+        with open(cls.parfile, "w") as fp:
+            fp.write(parcontent.format(cls.f0))
+
         # set random seed
         np.random.seed(seed)
 
         # create simulated H1 data (at 1 and 2f)
         cls.H1data = []
         cls.H1file = []
+        cls.H1fileh5 = []
         H1sigma = 1e-24
         for i in [1, 2]:
             cls.H1data.append(
@@ -47,9 +64,15 @@ class TestPE(object):
             cls.H1file.append("H1data{}f.txt".format(i))
             np.savetxt(cls.H1file[-1], cls.H1data[-1])
 
+            # create HDF5 version of data
+            cls.H1fileh5.append("H1data{}f.hdf5".format(i))
+            hd = HeterodynedData(data=cls.H1data[-1], detector="H1", par=cls.parfile)
+            hd.write(cls.H1fileh5[-1])
+
         # create simulated L1 data
         cls.L1data = []
         cls.L1file = []
+        cls.L1fileh5 = []
         L1sigma = 0.7e-24
         for i in [1, 2]:
             cls.L1data.append(
@@ -65,20 +88,10 @@ class TestPE(object):
             cls.L1file.append("L1data{}f.txt".format(i))
             np.savetxt(cls.L1file[-1], cls.L1data[-1])
 
-        # create pulsar parameter file
-        cls.f0 = 100.1  # frequency
-        parcontent = (
-            "PSRJ     J0341-1253\n"
-            "F0       {}\n"
-            "F1       6.5e-12\n"
-            "RAJ      03:41:00.0\n"
-            "DECJ     -12:53:00.0\n"
-            "PEPOCH   56789"
-        )
-
-        cls.parfile = "pe_test.par"
-        with open(cls.parfile, "w") as fp:
-            fp.write(parcontent.format(cls.f0))
+            # create HDF5 version of data
+            cls.L1fileh5.append("L1data{}f.hdf5".format(i))
+            hd = HeterodynedData(data=cls.L1data[-1], detector="L1", par=cls.parfile)
+            hd.write(cls.L1fileh5[-1])
 
         # create a pulsar parameter file containing GW signal parameters
         # (for comparison with lalapps_pulsar_parameter_estimation_nested)
@@ -148,7 +161,7 @@ class TestPE(object):
         Remove data set files.
         """
 
-        for dfile in cls.H1file + cls.L1file:
+        for dfile in cls.H1file + cls.L1file + cls.H1fileh5 + cls.L1fileh5:
             os.remove(dfile)
         os.remove(cls.parfile)
         os.remove(cls.parfilesig)
@@ -169,13 +182,14 @@ class TestPE(object):
         """
 
         # single detector and single data file
-        config = "par-file = {}\n" "data-file = {}\n" "prior = {}\n"
+        config = "par-file = {}\ndata-file = {}\nprior = {}\ndata-kwargs={}"
         configfile = "config_test.ini"
 
         datafile = self.H1file[1]
+        datakwargs = {"remove_outliers": False}
 
         with open(configfile, "w") as fp:
-            fp.write(config.format(self.parfile, datafile, self.priorfile))
+            fp.write(config.format(self.parfile, datafile, self.priorfile, datakwargs))
 
         # no detector specified
         with pytest.raises(ValueError):
@@ -196,6 +210,7 @@ class TestPE(object):
             data_file=datafile,
             detector="H1",
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -203,17 +218,23 @@ class TestPE(object):
             par_file=self.parfile,
             data_file="{}:{}".format("H1", datafile),
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
         t1kw3 = pe(
-            par_file=self.parfile, data_file={"H1": datafile}, prior=self.priorbilby
+            par_file=self.parfile,
+            data_file={"H1": datafile},
+            prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
-        config = "par-file = {}\n" "data-file = {}\n" "prior = {}\n" "detector = H1"
+        config = (
+            "par-file = {}\ndata-file = {}\nprior = {}\ndetector = H1\ndata-kwargs = {}"
+        )
         with open(configfile, "w") as fp:
-            fp.write(config.format(self.parfile, datafile, self.priorfile))
+            fp.write(config.format(self.parfile, datafile, self.priorfile, datakwargs))
         t1c1 = pe(config=configfile)
 
         # use the data_file_2f option instead
@@ -222,6 +243,7 @@ class TestPE(object):
             data_file_2f=datafile,
             detector="H1",
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -229,17 +251,21 @@ class TestPE(object):
             par_file=self.parfile,
             data_file_2f="{}:{}".format("H1", datafile),
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
         t1kw6 = pe(
-            par_file=self.parfile, data_file_2f={"H1": datafile}, prior=self.priorbilby
+            par_file=self.parfile,
+            data_file_2f={"H1": datafile},
+            prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
-        config = "par-file = {}\n" "data-file-2f = {}\n" "prior = {}\n" "detector = H1"
+        config = "par-file = {}\ndata-file-2f = {}\nprior = {}\ndetector = H1\ndata-kwargs = {}"
         with open(configfile, "w") as fp:
-            fp.write(config.format(self.parfile, datafile, self.priorfile))
+            fp.write(config.format(self.parfile, datafile, self.priorfile, datakwargs))
         t1c2 = pe(config=configfile)
 
         # perform consistency checks
@@ -260,6 +286,7 @@ class TestPE(object):
             data_file=[self.H1file[1], self.L1file[1]],
             detector=["H1", "L1"],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -270,6 +297,7 @@ class TestPE(object):
                 "{}:{}".format("L1", self.L1file[1]),
             ],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
@@ -277,6 +305,7 @@ class TestPE(object):
             par_file=self.parfile,
             data_file={"H1": self.H1file[1], "L1": self.L1file[1]},
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
@@ -284,12 +313,17 @@ class TestPE(object):
             "par-file = {}\n"
             "data-file = [{}, {}]\n"
             "prior = {}\n"
-            "detector = [H1, L1]"
+            "detector = [H1, L1]\n"
+            "data-kwargs = {}"
         )
         with open(configfile, "w") as fp:
             fp.write(
                 config.format(
-                    self.parfile, self.H1file[1], self.L1file[1], self.priorfile
+                    self.parfile,
+                    self.H1file[1],
+                    self.L1file[1],
+                    self.priorfile,
+                    datakwargs,
                 )
             )
         t2c1 = pe(config=configfile)
@@ -300,6 +334,7 @@ class TestPE(object):
             data_file_2f=[self.H1file[1], self.L1file[1]],
             detector=["H1", "L1"],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -310,6 +345,7 @@ class TestPE(object):
                 "{}:{}".format("L1", self.L1file[1]),
             ],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
@@ -317,6 +353,7 @@ class TestPE(object):
             par_file=self.parfile,
             data_file_2f={"H1": self.H1file[1], "L1": self.L1file[1]},
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
@@ -324,12 +361,17 @@ class TestPE(object):
             "par-file = {}\n"
             "data-file-2f = [{}, {}]\n"
             "prior = {}\n"
-            "detector = [H1, L1]"
+            "detector = [H1, L1]\n"
+            "data-kwargs = {}"
         )
         with open(configfile, "w") as fp:
             fp.write(
                 config.format(
-                    self.parfile, self.H1file[1], self.L1file[1], self.priorfile
+                    self.parfile,
+                    self.H1file[1],
+                    self.L1file[1],
+                    self.priorfile,
+                    datakwargs,
                 )
             )
         t2c2 = pe(config=configfile)
@@ -355,6 +397,7 @@ class TestPE(object):
             data_file_1f=datafile,
             detector="H1",
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -362,17 +405,21 @@ class TestPE(object):
             par_file=self.parfile,
             data_file_1f="{}:{}".format("H1", datafile),
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
         t3kw3 = pe(
-            par_file=self.parfile, data_file_1f={"H1": datafile}, prior=self.priorbilby
+            par_file=self.parfile,
+            data_file_1f={"H1": datafile},
+            prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
-        config = "par-file = {}\n" "data-file-1f = {}\n" "prior = {}\n" "detector = H1"
+        config = "par-file = {}\ndata-file-1f = {}\nprior = {}\ndetector = H1\ndata-kwargs = {}"
         with open(configfile, "w") as fp:
-            fp.write(config.format(self.parfile, datafile, self.priorfile))
+            fp.write(config.format(self.parfile, datafile, self.priorfile, datakwargs))
         t3c1 = pe(config=configfile)
 
         # perform consistency checks
@@ -394,6 +441,7 @@ class TestPE(object):
             data_file_2f=[self.H1file[1], self.L1file[1]],
             detector=["H1", "L1"],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file string)
@@ -408,6 +456,7 @@ class TestPE(object):
                 "{}:{}".format("L1", self.L1file[1]),
             ],
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as keyword arguments (detector in data file dict)
@@ -416,6 +465,7 @@ class TestPE(object):
             data_file_1f={"H1": self.H1file[0], "L1": self.L1file[0]},
             data_file_2f={"H1": self.H1file[1], "L1": self.L1file[1]},
             prior=self.priorbilby,
+            data_kwargs=datakwargs,
         )
 
         # pass as config file
@@ -424,7 +474,8 @@ class TestPE(object):
             "data-file-1f = [{}, {}]\n"
             "data-file-2f = [{}, {}]\n"
             "prior = {}\n"
-            "detector = [H1, L1]"
+            "detector = [H1, L1]\n"
+            "data-kwargs = {}"
         )
         with open(configfile, "w") as fp:
             fp.write(
@@ -435,6 +486,7 @@ class TestPE(object):
                     self.H1file[1],
                     self.L1file[1],
                     self.priorfile,
+                    datakwargs,
                 )
             )
         t4c1 = pe(config=configfile)
@@ -460,6 +512,51 @@ class TestPE(object):
                 assert np.allclose(tv.hetdata[det][1].data.imag, data2f[:, 2])
                 assert np.allclose(tv.hetdata[det][1].times.value, self.times)
                 assert PriorDict(tv.prior) == self.priorbilby
+        os.remove(configfile)
+
+    def test_no_par_input(self):
+        """
+        Test using parameter file stored in HDF5 HeterodynedData.
+        """
+
+        configfile = "config_test.ini"
+
+        config = (
+            "data-file-1f = [{}, {}]\n"
+            "data-file-2f = [{}, {}]\n"
+            "prior = {}\n"
+            "detector = [H1, L1]"
+        )
+
+        # pass as config file with no par-file, but reading in txt data
+        with open(configfile, "w") as fp:
+            fp.write(
+                config.format(
+                    self.H1file[0],
+                    self.L1file[0],
+                    self.H1file[1],
+                    self.L1file[1],
+                    self.priorfile,
+                )
+            )
+
+        with pytest.raises(ValueError):
+            pe(config=configfile)
+
+        # pass as config file with no par-file, but reading in HDF5 data
+        with open(configfile, "w") as fp:
+            fp.write(
+                config.format(
+                    self.H1fileh5[0],
+                    self.L1fileh5[0],
+                    self.H1fileh5[1],
+                    self.L1fileh5[1],
+                    self.priorfile,
+                )
+            )
+
+        _ = pe(config=configfile)
+
         os.remove(configfile)
 
     def test_fake_data_exceptions(self):
@@ -867,5 +964,94 @@ class TestPE(object):
             self.sigL12f[:, 1] + 1j * self.sigL12f[:, 2],
             atol=0.0,
         )
+
+        os.remove(configfile)
+
+    def test_fake_data_2det_2harm_dictionary_seed(self):
+        """
+        Test generation of fake data for two detectors and two harmonics when
+        specifying data seeds using dictionaries.
+        """
+
+        configfile = "config_test.ini"
+        seed = {"H1": 178203, "L1": 853451}
+
+        # Test creating fake noise for two detectors at 1f and 2f
+        config = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "detector = [H1, L1]\n"
+            "fake-asd-1f = [1e-24, 2e-24]\n"
+            "fake-asd-2f = [2e-24, 4e-24]\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, "w") as fp:
+            fp.write(config.format(self.parfile, self.parfile, self.priorfile, seed))
+
+        fd1 = pe(config=configfile)
+
+        configH1 = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "fake-asd-1f = [H1:1e-24]\n"
+            "fake-asd-2f = [H1:2e-24]\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, "w") as fp:
+            fp.write(
+                configH1.format(
+                    self.parfile, self.parfile, self.priorfile, "[H1:sdgkg]"
+                )
+            )
+
+        # seed is not an integer
+        with pytest.raises(ValueError):
+            fdH1 = pe(config=configfile)
+
+        with open(configfile, "w") as fp:
+            fp.write(
+                configH1.format(
+                    self.parfile,
+                    self.parfile,
+                    self.priorfile,
+                    "[H1:{}]".format(seed["H1"]),
+                )
+            )
+
+        fdH1 = pe(config=configfile)
+
+        configL1 = (
+            "par-file = {}\n"
+            "inj-par = {}\n"
+            "prior = {}\n"
+            "fake-asd-1f = [L1:2e-24]\n"
+            "fake-asd-2f = [L1:4e-24]\n"
+            "fake-seed = {}"
+        )
+
+        with open(configfile, "w") as fp:
+            fp.write(
+                configL1.format(
+                    self.parfile,
+                    self.parfile,
+                    self.priorfile,
+                    "[L1:{}]".format(seed["L1"]),
+                )
+            )
+
+        fdL1 = pe(config=configfile)
+
+        assert np.array_equal(fd1.hetdata["H1"][0].times, fdH1.hetdata["H1"][0].times)
+        assert np.array_equal(fd1.hetdata["H1"][0].times, fd1.hetdata["H1"][1].times)
+        assert np.array_equal(fd1.hetdata["L1"][0].times, fdL1.hetdata["L1"][0].times)
+        assert np.array_equal(fd1.hetdata["L1"][0].times, fdL1.hetdata["L1"][1].times)
+        assert np.array_equal(fd1.hetdata["H1"][0].data, fdH1.hetdata["H1"][0].data)
+        assert np.array_equal(fd1.hetdata["H1"][1].data, fdH1.hetdata["H1"][1].data)
+        assert np.array_equal(fd1.hetdata["L1"][0].data, fdL1.hetdata["L1"][0].data)
+        assert np.array_equal(fd1.hetdata["L1"][1].data, fdL1.hetdata["L1"][1].data)
 
         os.remove(configfile)

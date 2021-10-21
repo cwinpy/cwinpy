@@ -3,7 +3,8 @@ import os
 
 import pkg_resources
 from astropy.time import Time
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+
+from .parfile import PulsarParameters
 
 
 class Runtimes(dict):
@@ -172,7 +173,7 @@ HW_INJ = {
 }
 for run in HW_INJ:
     HW_INJ[run]["hw_inj_parameters"] = [
-        PulsarParametersPy(par) for par in HW_INJ[run]["hw_inj_files"]
+        PulsarParameters(par) for par in HW_INJ[run]["hw_inj_files"]
     ]
 
 #: Analysis segment flags for continuous-wave injections from GWOSC
@@ -221,18 +222,59 @@ ANALYSIS_SEGMENTS = {
 
 #: Base CVMFS directory for open GWOSC frame data
 CVMFS_GWOSC_BASE = "/cvmfs/gwosc.osgstorage.org/gwdata"
-#: CVMFS frame data locations for each run for open GWOSC frame data
-CVMFS_GWOSC_FRAME_DATA_LOCATIONS = {
-    run: {
-        rate: {
-            det: os.path.join(
-                CVMFS_GWOSC_BASE, run, "strain.{}".format(rate), "frame.v1", det
-            )
-            for det in RUNTIMES[run]
+
+#: GWOSC data server URL
+CVMFS_GWOSC_DATA_SERVER = "datafind.gw-openscience.org"
+
+#: GWOSC data types for different runs
+CVMFS_GWOSC_DATA_TYPES = {
+    "S5": {
+        "4k": {
+            "H1": "H1_LOSC_4_V1",
+            "H2": "H2_LOSC_4_V1",
+            "L1": "L1_LOSC_4_V1",
+        },
+    },
+    "S6": {
+        "4k": {
+            "H1": "H1_LOSC_4_V1",
+            "L1": "L1_LOSC_4_V1",
         }
-        for rate in (["4k", "16k"] if run[0] == "O" else ["4k"])
-    }
-    for run in RUNTIMES
+    },
+    "O1": {
+        "4k": {
+            "H1": "H1_LOSC_4_V1",
+            "L1": "L1_LOSC_4_V1",
+        },
+        "16k": {
+            "H1": "H1_LOSC_16_V1",
+            "L1": "L1_LOSC_16_V1",
+        },
+    },
+    "O2": {
+        "4k": {
+            "H1": "H1_GWOSC_O2_4KHZ_R1",
+            "L1": "L1_GWOSC_O2_4KHZ_R1",
+            "V1": "V1_GWOSC_O2_4KHZ_R1",
+        },
+        "16k": {
+            "H1": "H1_GWOSC_O2_16KHZ_R1",
+            "L1": "L1_GWOSC_O2_16KHZ_R1",
+            "V1": "V1_GWOSC_O2_16KHZ_R1",
+        },
+    },
+    "O3a": {
+        "4k": {
+            "H1": "H1_GWOSC_O3a_4KHZ_R1",
+            "L1": "L1_GWOSC_O3a_4KHZ_R1",
+            "V1": "V1_GWOSC_O3a_4KHZ_R1",
+        },
+        "16k": {
+            "H1": "H1_GWOSC_O3a_16KHZ_R1",
+            "L1": "L1_GWOSC_O3a_16KHZ_R1",
+            "V1": "V1_GWOSC_O3a_16KHZ_R1",
+        },
+    },
 }
 
 #: data channel names in the GWOSC data frames
@@ -284,20 +326,6 @@ CVMFS_GWOSC_FRAME_CHANNELS = {
             "V1": "V1:GWOSC-16KHZ_R1_STRAIN",
         },
     },
-}
-
-#: CVMFS HDF5 data locations for each run
-CVMFS_GWOSC_HDF5_DATA_LOCATIONS = {
-    run: {
-        rate: {
-            det: os.path.join(
-                CVMFS_GWOSC_BASE, run, "strain.{}".format(rate), "hdf.v1", det
-            )
-            for det in RUNTIMES[run]
-        }
-        for rate in (["4k", "16k"] if run[0] == "O" else ["4k"])
-    }
-    for run in RUNTIMES
 }
 
 #: Base CVMFS directory for proprietory LVK frame data

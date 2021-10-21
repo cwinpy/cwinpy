@@ -8,14 +8,14 @@ repos:
     hooks:
       - id: flake8  # checks for flake8 errors
   - repo: https://github.com/psf/black
-    rev: stable
+    rev: 21.9b0
     hooks:
       - id: black  # runs black formatting
 #  - repo: https://github.com/codespell-project/codespell
 #    rev: v2.0.0
 #    hooks:
 #      - id: codespell # Spellchecker
-#        args: [-L, nd, --skip, "*ipynb,*.html,*.png,*.gz,./build,./__pycache__,./cwinpy.egg-info,./dist,./htmlcov,./docs/_build,./docs/_images,./docs/comparisons/scripts/data,./docs/comparisons/scripts/outputs,./docs/comparisons/scripts/__pycache__,versioneer.py,./cwinpy/_version.py,./logo", --ignore-words=.dictionary.txt]
+#        args: [-L, nd, --skip, "*ipynb,*.html,*.png,*.gz,./build,./__pycache__,./cwinpy.egg-info,./dist,./htmlcov,./docs/_build,./docs/_images,./docs/comparisons/scripts/data,./docs/comparisons/scripts/outputs,./docs/comparisons/scripts/__pycache__,./cwinpy/_version.py,./logo,./.git", --ignore-words=.dictionary.txt]
   - repo: https://github.com/asottile/seed-isort-config
     rev: v1.3.0
     hooks:

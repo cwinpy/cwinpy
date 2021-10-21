@@ -5,8 +5,8 @@ Installation
 Install CWInPy from source
 --------------------------
 
-CWInPy can be installed using the supplied Python setup script,
-from its source `git <https://git-scm.com/>`_ `repository <https://github.com/cwinpy/cwinpy>`_.
+CWInPy can be installed from its source `git <https://git-scm.com/>`_ `repository
+<https://github.com/cwinpy/cwinpy>`_ using the supplied Python setup script.
 
 First, clone the repository
 
@@ -68,14 +68,25 @@ then install the requirements and the software using:
 
    within the ``cwinpy`` repository directory, which will add the ``pre-commit`` hook file to
    your ``.git/hooks`` directory. After this, when running ``git commit`` the checks will
-   automatically be run, and results will be presented to you. In some cases the required fixes
+   automatically be run and results will be presented to you. In some cases the required fixes
    will be automatically applied, but in cases where there was some failure it will print a
    message about why it failed. In these cases you will have to manually correct the offending
    files before running ``git commit`` again.
 
-To run the parameter estimation via the `bilby <https://lscsoft.docs.ligo.org/bilby/index.html>`_
+   .. note::
+
+      If installing the ``test`` packages you will need to have the
+      `Tempo2 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package
+      installed. The easiest way to install this is by using ``conda`` to install the
+      `libstempo <https://vallis.github.io/libstempo/>`_ package:
+
+      .. code-block:: console
+
+         $ conda install -c conda-forge libstempo 
+
+Running parameter estimation via the `bilby <https://lscsoft.docs.ligo.org/bilby/index.html>`_
 package with any sampler other than the default of `dynesty
-<https://dynesty.readthedocs.io/en/latest/>`_, requires those additional samplers to be `installed
+<https://dynesty.readthedocs.io/en/latest/>`_ requires those additional samplers to be `installed
 separately <https://lscsoft.docs.ligo.org/bilby/samplers.html#installing-samplers>`_.
 
 Install CWInPy via a package manager
@@ -143,3 +154,14 @@ and then run `pytest <https://docs.pytest.org/en/latest/>`_ with:
    $ pytest
 
 from the repository's base directory after the code has been installed.
+
+.. note::
+
+   If installing the ``test`` packages you will need to have the
+   `Tempo2 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package
+   installed. The easiest way to install this is by using ``conda`` to install the
+   `libstempo <https://vallis.github.io/libstempo/>`_ package:
+
+   .. code-block:: console
+
+      $ conda install -c conda-forge libstempo 
