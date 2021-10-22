@@ -2014,13 +2014,19 @@ class Heterodyne(object):
             hetargs["pulsarfiles"] = self.pulsarfiles[pulsar]
             hetargs["output"] = os.path.split(self.outputfiles[pulsar])[0]
 
+            # store concatenated time stamps (these may not be constructed for
+            # all heterodyned data chunks, so need to be explicitly created)
+            times = np.empty((0,), dtype=float)
+            for d in self._datadict[pulsar]:
+                times = np.append(times, d.times.value)
+
             # concatentate the datasets
             data = self._datadict[pulsar].join(gap="ignore")
 
             # convert to HeterodynedData
             het = HeterodynedData(
                 data=data.value,
-                times=data.times.value,
+                times=times,
                 detector=self.detector,
                 par=self._pulsars[pulsar],
                 freqfactor=self.freqfactor,
