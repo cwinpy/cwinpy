@@ -1617,7 +1617,10 @@ class Heterodyne(object):
 
                         endtime = prevdata.times.value[-1]
 
-                        if endtime >= self.endtime - self.resamplerate / 2 - self.crop:
+                        if (
+                            endtime
+                            >= self.endtime - (0.5 / self.resamplerate) - self.crop
+                        ):
                             # pulsar already completed, so can be skipped
                             pulsarlist.remove(pulsar)
                         else:
@@ -1644,7 +1647,7 @@ class Heterodyne(object):
                             if minend < self._datadict[pulsar][0].times.value[-1]:
                                 try:
                                     cropped = self._datadict[pulsar][0].crop(
-                                        end=minend + self.resamplerate, copy=True
+                                        end=minend + (1 / self.resamplerate), copy=True
                                     )
                                     self._datadict[pulsar][0] = cropped
                                 except IndexError:
@@ -1654,7 +1657,7 @@ class Heterodyne(object):
                     # reset starttime (and store original)
                     self._origstart = self.starttime
                     self._origstarts = [seg[0] for seg in self.segments]
-                    self.starttime = minend + self.resamplerate / 2
+                    self.starttime = minend + (0.5 / self.resamplerate)
 
             # loop over segments
             samplerates = []
@@ -2011,18 +2014,19 @@ class Heterodyne(object):
             hetargs["pulsarfiles"] = self.pulsarfiles[pulsar]
             hetargs["output"] = os.path.split(self.outputfiles[pulsar])[0]
 
-            # get time stamps
+            # store concatenated time stamps (these may not be constructed for
+            # all heterodyned data chunks, so need to be explicitly created)
             times = np.empty((0,), dtype=float)
             for d in self._datadict[pulsar]:
                 times = np.append(times, d.times.value)
-                del d.xindex  # delete times (otherwise join has issues!)
 
+            # concatentate the datasets
             data = self._datadict[pulsar].join(gap="ignore")
 
             # convert to HeterodynedData
             het = HeterodynedData(
                 data=data.value,
-                times=times,  # preserve uneven time stamps
+                times=times,
                 detector=self.detector,
                 par=self._pulsars[pulsar],
                 freqfactor=self.freqfactor,
