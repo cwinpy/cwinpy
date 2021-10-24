@@ -2019,6 +2019,7 @@ class Heterodyne(object):
             times = np.empty((0,), dtype=float)
             for d in self._datadict[pulsar]:
                 times = np.append(times, d.times.value)
+                del d.xindex  # delete times (otherwise join has issues!)
 
             # concatentate the datasets
             data = self._datadict[pulsar].join(gap="ignore")
