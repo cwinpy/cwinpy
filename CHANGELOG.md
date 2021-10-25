@@ -1,5 +1,11 @@
 # Notable changes between versions
 
+## [0.7.1] 2021-10-25
+
+Changes for this release:
+
+- Fix bug in resample rate usage when resuming a heterodyne analysis (!68)
+
 ## [0.7.0] 2021-10-22
 
 Changes for this release:
