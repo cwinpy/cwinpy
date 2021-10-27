@@ -1983,7 +1983,8 @@ class Heterodyne(object):
                         datadown.t0 = datadown.t0.value + 0.5 / self.resamplerate
 
                         # store the heterodyned and downsampled data
-                        self._datadict[pulsar].append(datadown)
+                        if len(datadown) > 0:
+                            self._datadict[pulsar].append(datadown)
 
                     counter += 1
 
@@ -2018,8 +2019,11 @@ class Heterodyne(object):
             # all heterodyned data chunks, so need to be explicitly created)
             times = np.empty((0,), dtype=float)
             for d in self._datadict[pulsar]:
+                t0 = d.times.value[0]
                 times = np.append(times, d.times.value)
                 del d.xindex  # delete times (otherwise join has issues!)
+                d.t0 = t0  # reset initial time for sorting
+                d.sample_rate = self.resamplerate  # reset sample rate
 
             # concatentate the datasets
             data = self._datadict[pulsar].join(gap="ignore")
