@@ -56,7 +56,7 @@ There is also an API for running this analysis from within a Python shell or scr
 :ref:`below<heterodyne API>`.
 
 Running the analysis
---------------------
+====================
 
 The ``cwinpy_heterodyne`` executable and :ref:`API<heterodyne API>` can be used to process
 gravitational-wave data for individual pulsars or multiple pulsars. We will cover some examples of
@@ -78,8 +78,8 @@ certificate to allow the analysis script to access frame files, e.g.,:
 
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
 data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
-<https://cvmfs.readthedocs.io/>`_. To find out more about accessing this data see the instructions
-`here <https://www.gw-openscience.org/cvmfs/>`_. If using GWOSC data sampled at 4 kHz it should be
+<https://cvmfs.readthedocs.io/>`__. To find out more about accessing this data see the instructions
+`here <https://www.gw-openscience.org/cvmfs/>`__. If using GWOSC data sampled at 4 kHz it should be
 noted that that this has a low-pass filter applied that causes a sharp drop-off above about 1.6 kHz,
 which is below the Nyquist rate. Therefore, if analysing sources with gravitational-wave signal
 frequencies greater than about 1.6 kHz the 16 kHz sample rate data should be used.
@@ -98,7 +98,7 @@ time we will generate only one day of data at a sample rate of 16 Hz (the standa
 rate is 16384 Hz).
 
 Generating the data
-###################
+-------------------
 
 To generate the data we will use the LALSuite `programme
 <https://lscsoft.docs.ligo.org/lalsuite/lalapps/makefakedata__v5_8c.html>`_
@@ -124,7 +124,7 @@ low level of simulated noise, so that the signals can be seen prominently):
 This should create the file ``H-H1_FAKEDATA-1000000000-86400.gwf`` in the gwf format.
 
 Heterodyning the data
-#####################
+---------------------
 
 We will show how to heterodyne the data in ``H-H1_FAKEDATA-1000000000-86400.gwf`` for the two
 different pulsars by i) using a configuration file for the ``cwinpy_heterodyne`` executable, and ii)
@@ -223,8 +223,8 @@ The second way is to explicitly pass all the options as arguments, e.g.,
        includebsb=True,  # correct to binary system barycentre
    )
 
-Using Tempo2
-^^^^^^^^^^^^
+Using Tempo2 for phase calculation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you have the `Tempo2 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package,
 and the `libstempo <https://vallis.github.io/libstempo/>`_ Python wrapper for it, installed you can
@@ -271,11 +271,11 @@ Example: hardware injections in LIGO O1 data
 In this example we will heterodyne the data for several `hardware injection
 <https://www.gw-openscience.org/o1_inj/>`_ signals in LIGO Handford (H1) data during a day of the
 first observing run `O1 <https://www.gw-openscience.org/O1/>`_. This will require access to the data
-via `CVMFS <https://www.gw-openscience.org/cvmfs/>`_. The data time span will be from 1132478127 to
+via `CVMFS <https://www.gw-openscience.org/cvmfs/>`__. The data time span will be from 1132478127 to
 1132564527.
 
 The example will look for the hardware injection signals ``5`` and ``6`` from the table `here
-<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`_ (note that the table
+<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`__ (note that the table
 contains the gravitational-wave signal frequency and frequency derivative, which must be halved to
 give equivalent "rotational" values in the parameter files). Files containing the parameters for all
 these injections for each observing run are packaged with CWInPy with locations given in the
@@ -489,7 +489,7 @@ be altered using the ``label`` option.
 
    If running on LIGO Scientific Collaboration computing clusters the ``acounting_group`` value must
    be specified and provide a valid tag. Valid tag names can be found `here
-   <https://accounting.ligo.org/user>`_ unless custom values for a specific cluster are allowed.
+   <https://accounting.ligo.org/user>`__ unless custom values for a specific cluster are allowed.
 
    As stated earlier, if accessing proprietary LIGO/Virgo data on a cluster you will need to make
    sure to run:
@@ -547,7 +547,7 @@ outputs of the first stage of a two stage analysis) then you can use the configu
 ``stages`` option set to ``1``, but instead supply the ``heterodyneddata`` option in the
 ``[heterodyne]`` section rather than frame information. This can be a path to a directory containing
 previously heterodyned data (:class:`~cwinpy.data.HeterodynedData` objects saved in HDF5 format), an
-inidividual file path (if analysing a single pulsar), or a dictionary keyed to the pulsar name and
+individual file path (if analysing a single pulsar), or a dictionary keyed to the pulsar name and
 pointing to the heterodyned data path for that source.
 
 Quick setup
@@ -615,7 +615,7 @@ Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid
 .. _heterodyne Command line arguments:
 
 Command line arguments
-----------------------
+======================
 
 The command line arguments for ``cwinpy_heterodyne`` (as extracted using ``cwinpy_heterodyne --help``) are
 given below:
@@ -632,7 +632,7 @@ The command line arguments for ``cwinpy_heterodyne_dag`` (as extracted using
 .. _heterodyne API:
 
 Heterodyne API
---------------
+==============
 
 .. automodule:: cwinpy.heterodyne
    :members: Heterodyne, heterodyne, heterodyne_dag, heterodyne_merge

@@ -3,7 +3,7 @@ Installation
 ############
 
 Install CWInPy from source
---------------------------
+==========================
 
 CWInPy can be installed from its source `git <https://git-scm.com/>`_ `repository
 <https://github.com/cwinpy/cwinpy>`_ using the supplied Python setup script.
@@ -90,10 +90,10 @@ package with any sampler other than the default of `dynesty
 separately <https://lscsoft.docs.ligo.org/bilby/samplers.html#installing-samplers>`_.
 
 Install CWInPy via a package manager
-------------------------------------
+====================================
 
-CWInPy is available through the `PyPI <https://pypi.org/project/cwinpy/>`_ and
-`Conda <https://anaconda.org/conda-forge/cwinpy>`_ package management systems and can be installed using:
+CWInPy is available through the `PyPI <https://pypi.org/project/cwinpy/>`_ and `Conda
+<https://anaconda.org/conda-forge/cwinpy>`_ package management systems and can be installed using:
 
 .. tabbed:: PyPI
 
@@ -112,7 +112,7 @@ CWInPy is available through the `PyPI <https://pypi.org/project/cwinpy/>`_ and
 CWInPy is also available within the Conda environment supplied via the `International
 Gravitational-Wave Observatory Network <https://computing.docs.ligo.org/conda/>`_ (IGWN) over CVMFS.
 To install CVMFS (for Linux and macOS only) you can follow the instructions `here
-<https://computing.docs.ligo.org/guide/cvmfs/>`_. Once this is installed you can enter the, e.g.,
+<https://computing.docs.ligo.org/guide/cvmfs/>`__. Once this is installed you can enter the, e.g.,
 ``igwn-py38`` Conda environment from a terminal using:
 
    .. code-block:: console

@@ -9,7 +9,7 @@ Run times
 ---------
 
 The start and end GPS times of the LIGO and Virgo observation runs available as open data via `GWOSC
-<https://www.gw-openscience.org/data/>`_ can be found by in the :obj:`~cwinpy.info.RUNTIMES`
+<https://www.gw-openscience.org/data/>`__ can be found by in the :obj:`~cwinpy.info.RUNTIMES`
 :class:`~cwinpy.info.Runtimes` dictionary. This dictionary has methods to convert the start and end
 times to ISO format (or Modified Julian Data format), extract times for a single observing run, or a
 single detector. The available run names currently are: ``S5``, ``S6``, ``O1``, ``O2`` and ``O3a``.
@@ -96,7 +96,7 @@ O1
 ~~
 
 In O1 there were `15 continuous injections
-<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`_ labeled
+<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`__ labeled
 ``PULSAR00``-``PULSAR14``. The first 10 are the same as those in :ref:`S5` and :ref:`S6`, but with
 adjusted amplitudes. All injections now use the DE405 solar system ephemeris.
 
@@ -104,7 +104,7 @@ O2
 ~~
 
 In O2 there were the same `15 continuous injections
-<https://www.gw-openscience.org/O2_injection_params/>`_ as in :ref:`O1`, although a subset have
+<https://www.gw-openscience.org/O2_injection_params/>`__ as in :ref:`O1`, although a subset have
 different amplitudes.
 
 O3

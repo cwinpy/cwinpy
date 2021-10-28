@@ -23,7 +23,7 @@ The ``cwinpy_pe`` executable, and :ref:`API`, can be used to perform parameter e
 variety of signal parameter both on real data or simulated data. We will cover some examples of both
 cases and show equivalent ways of running the analysis via the use of: command line arguments to the
 ``cwinpy_pe`` executable, a configuration file, or the :ref:`API`. The current command line
-arguments for ``cwinpy_pe`` are given :ref:`below<Command line arguments>`.
+arguments for ``cwinpy_pe`` are given :ref:`below<pe Command line arguments>`.
 
 Example: single detector data
 =============================
@@ -90,7 +90,7 @@ comments describing the parameters given inline:
    arguments are left at their default values. If using ``rwalk`` it is worthwhile exploring
    different values of the ``walks`` argument to find the most efficient settings. Further
    information on dynesty settings can be found
-   `here <https://dynesty.readthedocs.io/en/latest/faq.html#sampling-questions>`_.
+   `here <https://dynesty.readthedocs.io/en/latest/faq.html#sampling-questions>`__.
 
    Note also that the ``unif`` sampling method of dynesty will often fail due to samples being drawn
    from outside the prior range.
@@ -107,7 +107,7 @@ This will create a directory called ``example1`` containing: the results as a bi
 object saved, by default, in an `HDF5
 <https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5>`_
 format file called ``example1_result.hdf5`` (see `here
-<https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on reading
+<https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`__ for information on reading
 this information within Python); and (due to the setting of ``'plot': True`` in the
 ``sampler_kwargs`` dictionary), a "`corner <https://corner.readthedocs.io/en/latest/>`_ plot" in the
 file ``example1_corner.png`` showing 1D and 2D marginalised posterior probability distributions for
@@ -185,7 +185,7 @@ This will create a directory called ``example2`` containing: the results as a bi
 object saved, by default, in an `HDF5
 <https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5>`_ format file called
 ``example2_result.hdf5`` (see `here
-<https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on reading
+<https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`__ for information on reading
 this information within Python); and (due to the setting of ``'plot': True`` in the
 ``sampler_kwargs`` dictionary), a "`corner <https://corner.readthedocs.io/en/latest/>`_ plot" in the
 file ``example2_corner.png`` showing 1D and 2D marginalised posterior probability distributions for
@@ -228,7 +228,7 @@ Running on multiple sources
 
 You may have multiple real sources for which you want to perform parameter estimation, or you may
 want to simulate data from many sources. If you have a multicore machine or access to a computer
-cluster with `HTCondor <https://htcondor.readthedocs.io>`_ installed you can use CWInPy to
+cluster with `HTCondor <https://htcondor.readthedocs.io>`__ installed you can use CWInPy to
 create a set of analysis jobs, in the form of an HTCondor `DAG
 <https://htcondor.readthedocs.io/en/v8_8_4/users-manual/dagman-applications.html>`_, for each
 source. This makes use of `PyCondor <https://jrbourbeau.github.io/pycondor/installation.html>`_,
@@ -337,7 +337,9 @@ submitted with:
 
    If running on LIGO Scientific Collaboration computing clusters the ``acounting_group`` value must
    be specified and be a valid tag. Valid tag names can be found `here
-   <https://accounting.ligo.org/user>`_ unless custom values for a specific cluster are allowed.
+   <https://accounting.ligo.org/user>`__ unless custom values for a specific cluster are allowed.
+
+.. _pe Command line arguments:
 
 Command line arguments
 ----------------------

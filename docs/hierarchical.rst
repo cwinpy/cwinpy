@@ -24,7 +24,7 @@ prior distribution for :math:`Q_{22}` defined by a set of hyperparameters :math:
    p(\vec{\theta}|\mathbf{D}, I) = \left(\prod_{i=1}^N \int^{{Q_{22}}_i} p(\mathbf{d}_i|{Q_{22}}_i,I) p({Q_{22}}_i|\vec{\theta},I) {\textrm d}{Q_{22}}_i\right) p(\vec{\theta}|I),
 
 where :math:`p(\mathbf{d}_i|{Q_{22}}_i,I)` is the marginalised likelihood distribution on
-:math:`Q_{22}` for an individual pulsar given it's obervations :math:`\mathbf{d}_i`, and
+:math:`Q_{22}` for an individual pulsar given it's observations :math:`\mathbf{d}_i`, and
 :math:`p(\vec{\theta}|I)` is the prior on the hyperparameters.
 
 The hierarchical module in CWInPy allows the outputs of pulsar :ref:`parameter estimation<Known
@@ -36,7 +36,7 @@ or the parameter estimation has included distance within the estimation via the 
 prior.
 
 Evaluating the integral
------------------------
+=======================
 
 Within the CWInPy implementation there are two ways provided of evaluating the integrals in the
 equation for :math:`p(\vec{\theta}|\mathbf{D}, I)`.
@@ -53,7 +53,7 @@ where :math:`p({Q_{22}}_i|I)` is the prior on :math:`Q_{22}` used during the par
 and :math:`p(\mathbf{d}_i|I)` is the marginal likelihood given the data for the i\ :sup:`th` pulsar.
 
 The second method uses the fact that the integrals are equivalent to calculating the expectation
-value of the prior distributuion:
+value of the prior distribution (see, e.g., [3]_):
 
 .. math::
 
@@ -70,7 +70,7 @@ still can still be calculated.
 .. note::
 
    Both these methods should be equivalent, but as discussed in [2]_, for the particular case of
-   estimtating the pulsar mass quadrupole distribution, the "expectation value" method appears to
+   estimating the pulsar mass quadrupole distribution, the "expectation value" method appears to
    suffer from numerical issues. This is particularly prominent for cases where to are no
    significantly detected signals for any pulsar, although it appears to have some effect even when
    strong signals are present (see the example :ref:`below<Sampling the hyperparameters>`). It is
@@ -82,7 +82,7 @@ still can still be calculated.
    KDEs of the posteriors.
 
 Available distributions
------------------------
+=======================
 
 The currently allowed distributions are:
 
@@ -112,7 +112,7 @@ These names can also be used for the ``distribution`` argument of
 :class:`~cwinpy.hierarchical.MassQuadrupoleDistribution`.
 
 Example
--------
+=======
 
 In this example we will use the :ref:`simulation<Pulsar simulations>` module to generate a set of
 pulsars with mass quadrupoles drawn from an `exponential distribution
@@ -385,7 +385,7 @@ For comparison, we can plot the results from these different methods as below (a
    :width: 600px
    :align: center
 
-It's interesting to look at the distribution of the signal-to-noise ratios of the simulation versus
+It is interesting to look at the distribution of the signal-to-noise ratios of the simulation versus
 the recovered maximum a-posteriori signal to noise ratios. Another informative plot is a posterior
 predictive plot that checks the recovered exponential distribution matches the simulated
 distribution of :math:`Q_{22}` values. Both these are shown below.
@@ -633,13 +633,13 @@ predictive plots:
 We can see that both models do a reasonable job at recovering the simulated distribution.
 
 Hierarchical module API
------------------------
+=======================
 
 .. automodule:: cwinpy.hierarchical
    :members:
 
 Hierarchical analysis references
---------------------------------
+================================
 
 .. [1] `N. K. Johnson-McDaniel & B. J. Owen
    <https://ui.adsabs.harvard.edu/abs/2013PhRvD..88d4004J/abstract>`_, *PRD*,

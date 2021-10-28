@@ -1221,13 +1221,6 @@ class MassQuadrupoleDistribution(object):
         If True, work with fiducial ellipticity :math:`\\varepsilon` rather
         than mass quadrupole.
 
-    To do
-    -----
-
-    Distributions that could be added include:
-
-    * a Student's t-distributions with unknown mean and number of degrees of
-      freedom.
     """
 
     def __init__(

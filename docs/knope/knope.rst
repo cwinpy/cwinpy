@@ -21,19 +21,20 @@ estimation>` is provided elsewhere on this site and will be required for running
 Running the *knope* analysis
 ----------------------------
 
-CWInPy has two command line executables for running *knope*: ``cwinpy_knope`` and 
+CWInPy has two command line executables for running *knope*: ``cwinpy_knope`` and
 ``cwinpy_knope_dag``. The former will run the pipeline on the machine on which it is called, while
-the latter will generate an `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ DAG to run the analysis across multiple machines. For example,
-users of CWInPy within the LVK can run the DAG on collaboration computer clusters. It is also
-possible to run the analysis via the `Open Science Grid <https://opensciencegrid.org/>`_ if you
-have access to an appropriate submit machine. In addition to the command line executables, the same
-results can be using the Python API with the :func:`cwinpy.knope.knope` and
-:func:`cwinpy.knope.knope_dag` functions, respectively.
+the latter will generate an `HTCondor <https://htcondor.readthedocs.io/en/latest/>`__ DAG to run the
+analysis across multiple machines. For example, users of CWInPy within the LVK can run the DAG on
+collaboration computer clusters. It is also possible to run the analysis via the `Open Science Grid
+<https://opensciencegrid.org/>`_ if you have access to an appropriate submit machine. In addition to
+the command line executables, the same results can be using the Python API with the
+:func:`cwinpy.knope.knope` and :func:`cwinpy.knope.knope_dag` functions, respectively.
 
 It is highly recommended to run this analysis using ``cwinpy_knope_dag`` (instructions for setting
-up `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ on your own *Linux* machine are provided :ref:`here<Local use of HTCondor>`) and the
-instructions here will focus on that method. A brief description of using ``cwinpy_knope`` will be
-provided, although this should primarily be used, if required, for quick testing.
+up `HTCondor <https://htcondor.readthedocs.io/en/latest/>`__ on your own *Linux* machine are provided
+:ref:`here<Local use of HTCondor>`) and the instructions here will focus on that method. A brief
+description of using ``cwinpy_knope`` will be provided, although this should primarily be used, if
+required, for quick testing.
 
 For LVK users, if running on proprietary data you may need to generate a proxy certificate to allow
 the analysis scripts to access frame files, e.g.,:
@@ -43,9 +44,9 @@ the analysis scripts to access frame files, e.g.,:
    ligo-proxy-init -p albert.einstein
 
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
-data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
-<https://cvmfs.readthedocs.io/>`_. To find out more about accessing this data see the instructions
-`here <https://www.gw-openscience.org/cvmfs/>`_.
+data available from the `GWOSC <https://www.gw-openscience.org/>`__ via `CVMFS
+<https://cvmfs.readthedocs.io/>`__. To find out more about accessing this data see the instructions
+`here <https://www.gw-openscience.org/cvmfs/>`__.
 
 Configuration file
 ------------------
