@@ -1,5 +1,11 @@
 # Notable changes between versions
 
+## [0.7.2] 2021-10-29
+
+Changes for this release:
+
+- Fix bug when combining multiple heterodyned time series during heterodyne pipeline (!69)
+
 ## [0.7.1] 2021-10-25
 
 Changes for this release:
