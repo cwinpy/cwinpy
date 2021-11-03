@@ -174,7 +174,7 @@ In terms of `wall-clock time
 the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took 32 hours 8 mins and 13 hours 1 min,
 respectively (differences here could in part relate to availability of cluster nodes at the time of
 running). In terms of total CPU hours used by all the jobs for the ``lalapps_knope`` and
-``cwinpy_knope_dag`` pipelines these took approximately XX days and 27.9 days, respectively.
+``cwinpy_knope_dag`` pipelines these took approximately 43.4 days and 27.9 days, respectively.
 
 .. note::
 
@@ -189,8 +189,8 @@ running). In terms of total CPU hours used by all the jobs for the ``lalapps_kno
 Heterodyned data comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To compare the heterodyned data we can look at the power spectra obtained using `lalapps_knope` and
-`cwinpy_knope_dag`. The following code has been used to produce these spectra:
+To compare the heterodyned data we can look at the power spectra obtained using ``lalapps_knope`` and
+``cwinpy_knope_dag``. The following code has been used to produce these spectra:
 
 .. code-block:: python
     
@@ -242,6 +242,212 @@ and L1:
 
 Injection parameter comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To compare the final parameter estimation between the ``lalapps_knope`` and ``cwinpy_knope_dag`` to
+following code has been used:
+
+.. code-block:: python
+
+    import os
+    from cwinpy.plot import Plot
+    from cwinpy.info import HW_INJ
+    from gwpy.plot.colors import GW_OBSERVATORY_COLORS
+
+    basedir = "/home/matthew"
+
+    cwinpydir = os.path.join(basedir, "cwinpy_knope", "O1injections", "results")
+    lppndir = os.path.join(basedir, "lalapps_knope", "O1injections", "posterior_samples")
+
+    for pulnum in range(15):
+        pulsar = f"JPULSAR{pulnum:02d}"
+
+        for det in ["H1", "L1"]:
+            results = {}
+            colors = {}
+
+            for a in ["cwinpy", "lalapps"]:
+                if a == "cwinpy":
+                    resfile = os.path.join(cwinpydir, pulsar, f"cwinpy_pe_{det}_{pulsar}_result.hdf5")
+                    colors[a] = GW_OBSERVATORY_COLORS[det]
+                else:
+                    resfile = os.path.join(lppndir, pulsar, det, "2f", f"posterior_samples_{pulsar}.hdf")
+                    colors[a] = "grey"
+                results[a] = resfile
+
+            p = Plot(
+                results,
+                parameters=["h0", "iota", "phi0", "psi"],
+                plottype="corner",
+                pulsar=HW_INJ["O1"]["hw_inj_files"][pulnum],
+                untrig="cosiota"
+            )
+
+            fig = p.plot(colors=colors)
+            p.fig.suptitle(f"{det}: {pulsar}")
+            p.save(f"{pulsar}_{det}_plot.png", dpi=200)
+
+            fig.clf()
+            fig.close()
+
+which produces the following plots:
+
+.. thumbnail:: JPULSAR00_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR00_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR01_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR01_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR02_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR02_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR03_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR03_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR04_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR04_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR05_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR05_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR06_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR06_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR07_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR07_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR08_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR08_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR09_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR09_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR10_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR10_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR11_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR11_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR12_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR12_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR13_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR13_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+.. thumbnail:: JPULSAR14_H1_plot.png
+   :width: 200px
+   :align: left
+   :group: injections
+
+.. thumbnail:: JPULSAR14_L1_plot.png
+   :width: 200px
+   :align: right
+   :group: injections
+
+These show very consistent posteriors produced by both codes, which extract the parameters as
+expected. They would not be expected to be identical due to are range of differences including:
+``lalapps_knope`` performed the heterodyne in two stages rather than the one used by
+``cwinpy_knope_dag``; ``lalapps_knope`` uses a low-pass filter with knee frequency of 0.25 Hz rather
+than the default 0.1 Hz used by ``cwinpy_knope_dag``; the outlier vetoing for the two codes is
+different; the default "chunking" of the heterodyned data into stationary segments used during
+parameter estimation is different between the codes.
 
 Comparison References
 =====================
