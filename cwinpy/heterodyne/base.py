@@ -1049,12 +1049,12 @@ class Heterodyne(object):
             else:
                 pfilelist = []
                 for pf in pfiles:
-                    if os.path.isfile(pf):
-                        pfilelist.append(pf)
-                    elif os.path.isdir(pf):
+                    if os.path.isdir(pf):
                         pfilelist += [
                             str(pfp.resolve()) for pfp in Path(pf).rglob("*.par")
                         ]
+                    else:
+                        pfilelist.append(pf)
 
             for i, pf in enumerate(pfilelist):
                 if is_par_file(pf):
