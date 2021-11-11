@@ -36,7 +36,7 @@ from ..utils import (
 from .fastheterodyne import fast_heterodyne
 
 #: hold PSRQPy query when/if required
-PSRQPY_QUERY = None
+psrqpy_query = None
 
 
 class Heterodyne(object):
@@ -1081,14 +1081,14 @@ class Heterodyne(object):
                     # try checking if a pulsar name has been given and if that
                     # is present in the ATNF catalogue. In that case use the
                     # ATNF ephemeris.
-                    global PSRQPY_QUERY
+                    global psrqpy_query
 
-                    if PSRQPY_QUERY is None:
+                    if psrqpy_query is None:
                         from psrqpy import QueryATNF
 
-                        PSRQPY_QUERY = QueryATNF()
+                        psrqpy_query = QueryATNF()
 
-                    par = PSRQPY_QUERY.get_ephemeris(psr=pf)
+                    par = psrqpy_query.get_ephemeris(psr=pf)
 
                     if par is None:
                         print(
