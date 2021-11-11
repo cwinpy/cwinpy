@@ -37,14 +37,13 @@ from ..info import (
 )
 from ..parfile import PulsarParameters
 from ..utils import (
-    _ATNF_PULSAR_CACHE,
     LAL_BINARY_MODELS,
     LAL_EPHEMERIS_TYPES,
     check_for_tempo2,
     initialise_ephemeris,
     sighandler,
 )
-from .base import Heterodyne, generate_segments, remote_frame_cache
+from .base import _ATNF_PULSAR_CACHE, Heterodyne, generate_segments, remote_frame_cache
 
 
 def create_heterodyne_parser():

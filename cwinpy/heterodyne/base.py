@@ -26,7 +26,6 @@ from scipy.interpolate import splev, splrep
 from ..data import HeterodynedData
 from ..parfile import PulsarParameters
 from ..utils import (
-    _ATNF_PULSAR_CACHE,
     TEMPO2_GW_ALIASES,
     MuteStream,
     check_for_tempo2,
@@ -35,6 +34,9 @@ from ..utils import (
     is_par_file,
 )
 from .fastheterodyne import fast_heterodyne
+
+global _ATNF_PULSAR_CACHE
+_ATNF_PULSAR_CACHE = {}
 
 
 class Heterodyne(object):
