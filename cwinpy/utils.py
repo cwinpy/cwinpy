@@ -18,6 +18,9 @@ from numba.extending import get_cython_function_address
 
 from .parfile import PulsarParameters
 
+global _ATNF_PULSAR_CACHE
+_ATNF_PULSAR_CACHE = {}
+
 #: URL for LALSuite solar system ephemeris files
 LAL_EPHEMERIS_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
 

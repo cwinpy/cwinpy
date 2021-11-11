@@ -26,6 +26,7 @@ from scipy.interpolate import splev, splrep
 from ..data import HeterodynedData
 from ..parfile import PulsarParameters
 from ..utils import (
+    _ATNF_PULSAR_CACHE,
     TEMPO2_GW_ALIASES,
     MuteStream,
     check_for_tempo2,
@@ -1083,26 +1084,32 @@ class Heterodyne(object):
 
                         self._atnf_query = QueryATNF()
 
-                    par = self._atnf_query.get_ephemeris(psr=pf)
+                    # cache
+                    if pf not in _ATNF_PULSAR_CACHE:
+                        par = self._atnf_query.get_ephemeris(psr=pf)
 
-                    if par is None:
-                        print(
-                            f"Pulsar file '{pf}' could not be read. This pulsar will be ignored."
-                        )
-                        continue
+                        if par is None:
+                            print(
+                                f"Pulsar file '{pf}' could not be read. This pulsar will be ignored."
+                            )
+                            continue
+                        else:
+                            _ATNF_PULSAR_CACHE[pf] = par
+                            print(
+                                f"Ephemeris for '{pf}' has been obtained from the ATNF pulsar catalogue"
+                            )
                     else:
-                        print(
-                            f"Ephemeris for '{pf}' has been obtained from the ATNF pulsar catalogue"
-                        )
-                        # create temporary par file containing ATNF ephemeris
-                        tmppar = tempfile.mkstemp(suffix=".par", prefix=pf)
-                        with open(tmppar[1], "w") as fp:
-                            fp.write(par)
+                        par = _ATNF_PULSAR_CACHE[pf]
 
-                        # get pulsar name
-                        readpar = PulsarParameters(tmppar[1])
-                        pname = get_psr_name(readpar)
-                        self._pulsars[pname] = tmppar[1]
+                    # create temporary par file containing ATNF ephemeris
+                    tmppar = tempfile.mkstemp(suffix=".par", prefix=pf)
+                    with open(tmppar[1], "w") as fp:
+                        fp.write(par)
+
+                    # get pulsar name
+                    readpar = PulsarParameters(tmppar[1])
+                    pname = get_psr_name(readpar)
+                    self._pulsars[pname] = tmppar[1]
         elif pfiles is not None:
             raise TypeError("pulsarfiles must be a string, list or dict")
 
