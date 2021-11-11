@@ -43,7 +43,7 @@ from ..utils import (
     initialise_ephemeris,
     sighandler,
 )
-from .base import _ATNF_PULSAR_CACHE, Heterodyne, generate_segments, remote_frame_cache
+from .base import Heterodyne, generate_segments, remote_frame_cache
 
 
 def create_heterodyne_parser():
@@ -1126,7 +1126,6 @@ class HeterodyneDAGRunner(object):
             raise ValueError("Length of each job must be a positive integer")
 
         # create Heterodyne object to get pulsar parameter file information
-        _ATNF_PULSAR_CACHE.clear()
         het = Heterodyne(
             pulsarfiles=pulsarfiles,
             pulsars=pulsars,
@@ -1510,8 +1509,6 @@ class HeterodyneDAGRunner(object):
                                         generation_node=mergechildren[det][ff][psr],
                                     )
                                 )
-
-        _ATNF_PULSAR_CACHE.clear()
 
         if self.build:
             self.dag.build()

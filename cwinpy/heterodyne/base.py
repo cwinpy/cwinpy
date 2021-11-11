@@ -35,8 +35,8 @@ from ..utils import (
 )
 from .fastheterodyne import fast_heterodyne
 
-global _ATNF_PULSAR_CACHE
-_ATNF_PULSAR_CACHE = {}
+#: hold PSRQPy query when/if required
+PSRQPY_QUERY = None
 
 
 class Heterodyne(object):
@@ -1081,27 +1081,24 @@ class Heterodyne(object):
                     # try checking if a pulsar name has been given and if that
                     # is present in the ATNF catalogue. In that case use the
                     # ATNF ephemeris.
-                    if not hasattr(self, "_atnf_query"):
+                    global PSRQPY_QUERY
+
+                    if PSRQPY_QUERY is None:
                         from psrqpy import QueryATNF
 
-                        self._atnf_query = QueryATNF()
+                        PSRQPY_QUERY = QueryATNF()
 
-                    # cache
-                    if pf not in _ATNF_PULSAR_CACHE:
-                        par = self._atnf_query.get_ephemeris(psr=pf)
+                    par = PSRQPY_QUERY.get_ephemeris(psr=pf)
 
-                        if par is None:
-                            print(
-                                f"Pulsar file '{pf}' could not be read. This pulsar will be ignored."
-                            )
-                            continue
-                        else:
-                            _ATNF_PULSAR_CACHE[pf] = par
-                            print(
-                                f"Ephemeris for '{pf}' has been obtained from the ATNF pulsar catalogue"
-                            )
+                    if par is None:
+                        print(
+                            f"Pulsar file '{pf}' could not be read. This pulsar will be ignored."
+                        )
+                        continue
                     else:
-                        par = _ATNF_PULSAR_CACHE[pf]
+                        print(
+                            f"Ephemeris for '{pf}' has been obtained from the ATNF pulsar catalogue"
+                        )
 
                     # create temporary par file containing ATNF ephemeris
                     tmppar = tempfile.mkstemp(suffix=".par", prefix=pf)
