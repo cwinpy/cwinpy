@@ -236,8 +236,8 @@ def knope_pipeline(**kwargs):
         Select the sample rate of the data to use. This can either be 4k or
         16k for data sampled at 4096 or 16384 Hz, respectively. The default
         is 4k, except if running on hardware injections for O1 or later, for
-        which 16k will be used due to being requred for the highest frequency
-        source. For the S5 and S6 runs only 4k data is avaialble from GWOSC,
+        which 16k will be used due to being required for the highest frequency
+        source. For the S5 and S6 runs only 4k data is available from GWOSC,
         so if 16k is chosen it will be ignored.
     pulsar: str, list
         The path to, or list of paths to, a TEMPO(2)-style pulsar parameter
@@ -254,7 +254,7 @@ def knope_pipeline(**kwargs):
         for each detector will be created.
     joblength: int
         The length of data (in seconds) into which to split the individual
-        analysis jobs. By default this is set to 86400, i.e., one day. If this
+        heterodyne jobs. By default this is set to 86400, i.e., one day. If this
         is set to 0, then the whole dataset is treated as a single job.
     accounting_group_tag: str
         For LVK users this sets the computing accounting group tag.
