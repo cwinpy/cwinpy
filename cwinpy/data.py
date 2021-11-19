@@ -861,7 +861,7 @@ class HeterodynedData(TimeSeriesBase):
         "include_fitwaves",
         "cwinpy_version",
         "heterodyne_arguments",
-        "cwinpy_heterodyne_dag_config",
+        "cwinpy_heterodyne_pipeline_config",
     )
 
     def __new__(
@@ -3509,22 +3509,22 @@ class HeterodynedData(TimeSeriesBase):
             self._heterodyne_arguments.append(args)
 
     @property
-    def cwinpy_heterodyne_dag_config(self):
+    def cwinpy_heterodyne_pipeline_config(self):
         """
         If the :class:`~cwinpy.data.HeterodynedData` object was created through
         :class:`~cwinpy.heterodyne.Heterodyne` being called within a HTCondor
-        DAG, which itself was set up using the ``cwinpy_heterodyne_dag``
+        DAG, which itself was set up using the ``cwinpy_heterodyne_pipeline``
         script, then this attribute can contain the contents of the
         configuration file that created the DAG.
         """
 
-        if hasattr(self, "_cwinpy_heterodyne_dag_config"):
-            return self._cwinpy_heterodyne_dag_config
+        if hasattr(self, "_cwinpy_heterodyne_pipeline_config"):
+            return self._cwinpy_heterodyne_pipeline_config
         else:
             return None
 
-    @cwinpy_heterodyne_dag_config.setter
-    def cwinpy_heterodyne_dag_config(self, config):
+    @cwinpy_heterodyne_pipeline_config.setter
+    def cwinpy_heterodyne_pipeline_config(self, config):
         # check config can be converted into a valid ConfigParser object
         try:
             import configparser
@@ -3534,7 +3534,7 @@ class HeterodynedData(TimeSeriesBase):
         except (TypeError, configparser.MissingSectionHeaderError):
             raise TypeError("Configuration file is not valid")
 
-        self._cwinpy_heterodyne_dag_config = config
+        self._cwinpy_heterodyne_pipeline_config = config
 
     def __len__(self):
         return len(self.data)

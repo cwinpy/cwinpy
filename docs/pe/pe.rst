@@ -271,21 +271,21 @@ An example of such a directory tree structure might be:
     |    └── ...
     └── ...
 
-The DAG for the analysis can be created using the ``cwinpy_pe_dag`` executable, which requires a
-configuration file as its only input. An example configuration file, based on the above directory
+The DAG for the analysis can be created using the ``cwinpy_pe_pipeline`` executable, which requires
+a configuration file as its only input. An example configuration file, based on the above directory
 tree structure is given below. Comments about each input parameter, and different potential input
 options are given inline; some input parameters are also commented out using a ``;`` if the default
 values are appropriate. For more information on the various HTCondor options see the `user manual
 <https://htcondor.readthedocs.io/en/v8_8_4/users-manual/index.html>`_.
 
-.. literalinclude:: cwinpy_pe_dag.ini
+.. literalinclude:: cwinpy_pe_pipeline.ini
 
-Once the configuration file is created (called, say, ``cwinpy_pe_dag.ini``), the Condor DAG dag
+Once the configuration file is created (called, say, ``cwinpy_pe_pipeline.ini``), the Condor DAG dag
 can be generated with:
 
 .. code-block:: bash
 
-    cwinpy_pe_dag cwinpy_pe_dag.ini
+    cwinpy_pe_pipeline cwinpy_pe_pipeline.ini
 
 This will, using the defaults and values in the above file, generate the following directory tree
 structure:
@@ -320,7 +320,7 @@ file should contain
 The submit files and the final output parameter estimation files will show the combination of
 detectors used in the filename.
 
-If the original ``cwinpy_pe_dag`` configuration file contained the line:
+If the original ``cwinpy_pe_pipeline`` configuration file contained the line:
 
 .. code-block:: bash
 
@@ -354,7 +354,7 @@ API
 ---
 
 .. automodule:: cwinpy.pe.pe
-   :members: pe, pe_dag
+   :members: pe, pe_pipeline
 
 .. automodule:: cwinpy.pe.testing
    :members: PEPPPlotsDAG, generate_pp_plots

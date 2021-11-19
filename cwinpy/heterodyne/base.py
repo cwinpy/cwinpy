@@ -224,7 +224,7 @@ class Heterodyne(object):
         ``label`` arguments) already exist and does not repeat the analysis
         if that is the case. If wanting to overwrite existing files make sure
         this is False. Defaults to False.
-    cwinpy_heterodyne_dag_config_file: str
+    cwinpy_heterodyne_pipeline_config_file: str
         If Heterodyne is being called by a job in a HTCondor DAG, then this can
         provide the path to the configuration file that was used to setup the
         DAG. Defaults to None.
@@ -270,7 +270,7 @@ class Heterodyne(object):
         timeephemeris=None,
         usetempo2=False,
         resume=False,
-        cwinpy_heterodyne_dag_config_file=None,
+        cwinpy_heterodyne_pipeline_config_file=None,
     ):
         # set analysis times
         self.starttime = starttime
@@ -330,14 +330,16 @@ class Heterodyne(object):
         )
 
         # set the name of any DAG configuration file
-        self.cwinpy_heterodyne_dag_config_file = cwinpy_heterodyne_dag_config_file
+        self.cwinpy_heterodyne_pipeline_config_file = (
+            cwinpy_heterodyne_pipeline_config_file
+        )
 
         # set signal in case of termination of job
         signal.signal(signal.SIGTERM, self._write_current_pulsars_and_exit)
         signal.signal(signal.SIGINT, self._write_current_pulsars_and_exit)
         signal.signal(signal.SIGALRM, self._write_current_pulsars_and_exit)
 
-        if self.cwinpy_heterodyne_dag_config_file is None:
+        if self.cwinpy_heterodyne_pipeline_config_file is None:
             self.exit_code = 130  # exit code expected by HTCondor from eviction
         else:
             # exit code that will automatically restart job after checkpoint eviction
@@ -2009,9 +2011,9 @@ class Heterodyne(object):
 
         # add DAG configuration file data if present
         cf = None
-        if self.cwinpy_heterodyne_dag_config_file is not None:
-            if os.path.isfile(self.cwinpy_heterodyne_dag_config_file):
-                with open(self.cwinpy_heterodyne_dag_config_file) as fp:
+        if self.cwinpy_heterodyne_pipeline_config_file is not None:
+            if os.path.isfile(self.cwinpy_heterodyne_pipeline_config_file):
+                with open(self.cwinpy_heterodyne_pipeline_config_file) as fp:
                     cf = fp.read()
 
         # output heterodyned data
@@ -2051,7 +2053,7 @@ class Heterodyne(object):
             het.heterodyne_arguments = hetargs
 
             if cf is not None:
-                het.cwinpy_heterodyne_dag_config = cf
+                het.cwinpy_heterodyne_pipeline_config = cf
 
             # save filter history from the forward pass
             history = []

@@ -209,7 +209,7 @@ class TestHeterodynedData(object):
         assert het.dt.value == 60.0
         assert het.sample_rate.value == 1.0 / 60.0
 
-        assert het.cwinpy_heterodyne_dag_config is None
+        assert het.cwinpy_heterodyne_pipeline_config is None
         assert het.heterodyne_arguments is None
 
         os.remove(datafile)  # clean up file

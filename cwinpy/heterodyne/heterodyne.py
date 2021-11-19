@@ -439,9 +439,9 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
 
     cfparser = parser.add_argument_group("Configuration inputs")
     cfparser.add(
-        "--cwinpy-heterodyne-dag-config-file",
+        "--cwinpy-heterodyne-pipeline-config-file",
         help=(
-            "A path to the cwinpy_heterodyne_dag configuration file can be "
+            "A path to the cwinpy_heterodyne_pipeline configuration file can be "
             "supplied if this was has been used to setup the heterodyne job."
         ),
     )
@@ -1563,9 +1563,9 @@ class HeterodyneDAGRunner(object):
         return newobj
 
 
-def heterodyne_dag(**kwargs):
+def heterodyne_pipeline(**kwargs):
     """
-    Run heterodyne_dag within Python. This will create a `HTCondor <https://htcondor.readthedocs.io/>`_
+    Run heterodyne_pipeline within Python. This will create a `HTCondor <https://htcondor.readthedocs.io/>`_
     DAG for running multiple ``cwinpy_heterodyne`` instances on a computer cluster. Optional
     parameters that can be used instead of a configuration file (for "quick setup") are given in
     the "Other parameters" section.
@@ -1874,10 +1874,10 @@ def heterodyne_dag(**kwargs):
     return HeterodyneDAGRunner(config, **kwargs)
 
 
-def heterodyne_dag_cli(**kwargs):  # pragma: no cover
+def heterodyne_pipeline_cli(**kwargs):  # pragma: no cover
     """
-    Entry point to the cwinpy_heterodyne_dag script. This just calls
-    :func:`cwinpy.heterodyne.heterodyne_dag`, but does not return any objects.
+    Entry point to the cwinpy_heterodyne_pipeline script. This just calls
+    :func:`cwinpy.heterodyne.heterodyne_pipeline`, but does not return any objects.
     """
 
-    _ = heterodyne_dag(**kwargs)
+    _ = heterodyne_pipeline(**kwargs)

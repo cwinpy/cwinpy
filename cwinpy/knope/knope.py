@@ -64,7 +64,7 @@ then be used to infer the unknown signal parameters.
 def knope(**kwargs):
     """
     Run the known pulsar pipeline within Python. It is highly recommended to
-    run the pipeline script ``cwinpy_knope_dag`` to create a HTCondor DAG,
+    run the pipeline script ``cwinpy_knope_pipeline`` to create a HTCondor DAG,
     particular if using data from a long observing run and/or for multiple
     pulsars. The main use of this function is for quick testing.
 
@@ -207,7 +207,7 @@ def knope_cli(**kwargs):  # pragma: no cover
     _ = knope(**kwargs)
 
 
-def knope_dag(**kwargs):
+def knope_pipeline(**kwargs):
     """
     Run knope within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
     DAG for consecutively running multiple ``cwinpy_heterodyne`` and ``cwinpy_pe`` instances on a
@@ -646,11 +646,11 @@ def knope_dag(**kwargs):
     return pedag
 
 
-def knope_dag_cli(**kwargs):  # pragma: no cover
+def knope_pipeline_cli(**kwargs):  # pragma: no cover
     """
-    Entry point to ``cwinpy_knope_dag`` script. This just calls
-    :func:`cwinpy.knope.knope_dag`, but does not return any objects.
+    Entry point to ``cwinpy_knope_pipeline`` script. This just calls
+    :func:`cwinpy.knope.knope_pipeline`, but does not return any objects.
     """
 
     kwargs["cli"] = True  # set to show use of CLI
-    _ = knope_dag(**kwargs)
+    _ = knope_pipeline(**kwargs)

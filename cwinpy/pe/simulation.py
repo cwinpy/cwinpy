@@ -13,7 +13,7 @@ from astropy.coordinates import ICRS, Galactic, Galactocentric
 from ..hierarchical import BaseDistribution
 from ..parfile import PulsarParameters
 from ..utils import ellipticity_to_q22, int_to_alpha, is_par_file
-from .pe import pe_dag
+from .pe import pe_pipeline
 
 
 class PEPulsarSimulationDAG(object):
@@ -234,7 +234,7 @@ class PEPulsarSimulationDAG(object):
         self.create_config()
 
         # create the DAG for cwinpy_knope jobs
-        self.runner = pe_dag(config=self.config)
+        self.runner = pe_pipeline(config=self.config)
         self.runner.dag.build()
 
     @property

@@ -18,7 +18,7 @@ from astropy.coordinates import SkyCoord
 from bilby_pipe.pp_test import read_in_result_list
 
 from ..utils import int_to_alpha
-from .pe import pe_dag
+from .pe import pe_pipeline
 
 
 def generate_pp_plots(**kwargs):  # pragma: no cover
@@ -292,7 +292,7 @@ class PEPPPlotsDAG(object):
         self.create_config()
 
         # create the DAG for cwinpy_pe jobs
-        self.runner = pe_dag(config=self.config, build=False)
+        self.runner = pe_pipeline(config=self.config, build=False)
 
         # add PP plot creation DAG
         self.ppplots()

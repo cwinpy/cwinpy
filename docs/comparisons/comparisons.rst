@@ -125,7 +125,7 @@ Pipeline comparison
 
 We can compare the results of the full pipeline produced by the `LALSuite
 <https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalapps_knope`` with that produced using the CWInPy
-code ``cwinpy_knope_dag``. We will do this comparison by analysing the set of :ref:`<Hardware
+code ``cwinpy_knope_pipeline``. We will do this comparison by analysing the set of :ref:`<Hardware
 injections>` and analysis of real pulsar data using open data from the two LIGO detectors during the
 `first advanced LIGO observing run <https://www.gw-openscience.org/O1/>`_ (O1). 
 
@@ -162,7 +162,7 @@ This has then been submitted (on the `UWM Nemo computing cluster
 
 To perform the analysis using CWInPy, the :ref:`<Quick setup>` has been used:
 
->>> cwinpy_knope_dag --run O1 --hwinj --incoherent --output /home/matthew/cwinpy_knope/O1injections --accounting-group-tag ligo.dev.o1.cw.targeted.bayesian
+>>> cwinpy_knope_pipeline --run O1 --hwinj --incoherent --output /home/matthew/cwinpy_knope/O1injections --accounting-group-tag ligo.dev.o1.cw.targeted.bayesian
 
 .. note::
 
@@ -171,10 +171,10 @@ To perform the analysis using CWInPy, the :ref:`<Quick setup>` has been used:
 
 In terms of `wall-clock time
 <https://en.wikipedia.org/wiki/Elapsed_real_time#:~:text=Elapsed%20real%20time%2C%20real%20time,at%20which%20the%20task%20started.>`_
-the ``lalapps_knope`` and ``cwinpy_knope_dag`` pipelines took 32 hours 8 mins and 13 hours 1 min,
-respectively (differences here could in part relate to availability of cluster nodes at the time of
-running). In terms of total CPU hours used by all the jobs for the ``lalapps_knope`` and
-``cwinpy_knope_dag`` pipelines these took approximately 43.4 days and 27.9 days, respectively.
+the ``lalapps_knope`` and ``cwinpy_knope_pipeline`` pipelines took 32 hours 8 mins and 13 hours 1
+min, respectively (differences here could in part relate to availability of cluster nodes at the
+time of running). In terms of total CPU hours used by all the jobs for the ``lalapps_knope`` and
+``cwinpy_knope_pipeline`` pipelines these took approximately 43.4 days and 27.9 days, respectively.
 
 .. note::
 
@@ -189,8 +189,8 @@ running). In terms of total CPU hours used by all the jobs for the ``lalapps_kno
 Heterodyned data comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To compare the heterodyned data we can look at the power spectra obtained using ``lalapps_knope`` and
-``cwinpy_knope_dag``. The following code has been used to produce these spectra:
+To compare the heterodyned data we can look at the power spectra obtained using ``lalapps_knope``
+and ``cwinpy_knope_pipeline``. The following code has been used to produce these spectra:
 
 .. code-block:: python
     
@@ -243,8 +243,8 @@ and L1:
 Injection parameter comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To compare the final parameter estimation between the ``lalapps_knope`` and ``cwinpy_knope_dag`` to
-following code has been used:
+To compare the final parameter estimation between the ``lalapps_knope`` and
+``cwinpy_knope_pipeline`` to following code has been used:
 
 .. code-block:: python
 
@@ -444,10 +444,10 @@ which produces the following plots:
 These show very consistent posteriors produced by both codes, which extract the parameters as
 expected. They would not be expected to be identical due to are range of differences including:
 ``lalapps_knope`` performed the heterodyne in two stages rather than the one used by
-``cwinpy_knope_dag``; ``lalapps_knope`` uses a low-pass filter with knee frequency of 0.25 Hz rather
-than the default 0.1 Hz used by ``cwinpy_knope_dag``; the outlier vetoing for the two codes is
-different; the default "chunking" of the heterodyned data into stationary segments used during
-parameter estimation is different between the codes.
+``cwinpy_knope_pipeline``; ``lalapps_knope`` uses a low-pass filter with knee frequency of 0.25 Hz
+rather than the default 0.1 Hz used by ``cwinpy_knope_pipeline``; the outlier vetoing for the two
+codes is different; the default "chunking" of the heterodyned data into stationary segments used
+during parameter estimation is different between the codes.
 
 Comparison References
 =====================
