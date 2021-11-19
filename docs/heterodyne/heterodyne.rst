@@ -67,10 +67,11 @@ for ``cwinpy_heterodyne`` are given :ref:`below<heterodyne Command line argument
 If running an analysis for multiple pulsars on a large stretch of data it is recommended that you
 split the analysis up to run as many separate jobs. If you have access to a computer cluster (such
 as those available to the LVK, or via the `Open Science Grid <https://opensciencegrid.org/>`_), or
-an individual machine (see below), running the `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_
-job scheduler system then the analysis can be split up using the ``cwinpy_heterodyne_dag`` pipeline
-script (see :ref:`Running using HTCondor`). In some cases you may need to generate a proxy
-certificate to allow the analysis script to access frame files, e.g.,:
+an individual machine (see below), running the `HTCondor
+<https://htcondor.readthedocs.io/en/latest/>`_ job scheduler system then the analysis can be split
+up using the ``cwinpy_heterodyne_pipeline`` pipeline script (see :ref:`Running using HTCondor`). In
+some cases you may need to generate a proxy certificate to allow the analysis script to access frame
+files, e.g.,:
 
 .. code:: bash
 
@@ -430,13 +431,13 @@ When heterodyning long stretches of data it is preferable to split the observati
 manageable chunks of time. The can be achieved by splitting up the analysis and running it as
 multiple independent jobs on a machine/cluster, or over the `Open Science Grid
 <https://opensciencegrid.org/>`_, using the `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_
-job scheduler system. This can be done using the ``cwinpy_heterodyne_dag`` executable (or the
-:func:`~cwinpy.heterodyne.heterodyne_dag` API).
+job scheduler system. This can be done using the ``cwinpy_heterodyne_pipeline`` executable (or the
+:func:`~cwinpy.heterodyne.heterodyne_pipeline` API).
 
 This can be run using a configuration script containing the information as described in the example
 below:
 
-.. literalinclude:: cwinpy_heterodyne_dag.ini
+.. literalinclude:: cwinpy_heterodyne_pipeline.ini
 
 where this contains information for heterodyning data from the O1 *and* O2 observing runs for the
 two LIGO detectors, H1 and L1. Comments about each input parameter, and different potential input
@@ -448,7 +449,7 @@ This configuration file could then be run to generate the HTCondor DAG using:
 
 .. code-block:: bash
 
-   cwinpy_heterodyne_dag cwinpy_heterodyne_dag.ini
+   cwinpy_heterodyne_pipeline cwinpy_heterodyne_pipeline.ini
 
 and the generated DAG then submitted (if the ``submitdag`` option is set to ``False`` in the
 configuration file) using:
@@ -460,7 +461,7 @@ configuration file) using:
 .. note::
 
    When running ``condor_submit_dag`` you need to make sure you call it from the same directory that
-   you ran ``cwinpy_heterodyne_dag`` from and make sure the path to the DAG file is relative to the
+   you ran ``cwinpy_heterodyne_pipeline`` from and make sure the path to the DAG file is relative to the
    current directory.
 
 This example will generate the following directory tree structure:
@@ -553,7 +554,7 @@ pointing to the heterodyned data path for that source.
 Quick setup
 ===========
 
-The ``cwinpy_heterodyne_dag`` script has some quick setup options that allow an analysis to be
+The ``cwinpy_heterodyne_pipeline`` script has some quick setup options that allow an analysis to be
 launched in one line without the need to define a configuration file. These options **require** that
 the machine/cluster that you are running HTCondor on has access to open data from GWOSC available
 via CVMFS. It is also recommended that you run CWInPy from within an `IGWN conda environment
@@ -565,7 +566,7 @@ you can simply run:
 
 .. code-block:: bash
 
-   cwinpy_heterodyne_dag --run O1 --pulsar J0740+6620.par --output /home/usr/heterodyneddata
+   cwinpy_heterodyne_pipeline --run O1 --pulsar J0740+6620.par --output /home/usr/heterodyneddata
 
 where ``/home/usr/heterodyneddata`` is the name of the directory where the run information and
 results will be stored (if you don't specify an ``--output`` then the current working directory will
@@ -578,7 +579,7 @@ pulsar `J0737-3039A <https://en.wikipedia.org/wiki/PSR_J0737%E2%88%923039>`_ you
 
 .. code-block:: bash
 
-   cwinpy_heterodyne_dag --run O2 --pulsar J0737-3039A --output /home/usr/heterodyneddata
+   cwinpy_heterodyne_pipeline --run O2 --pulsar J0737-3039A --output /home/usr/heterodyneddata
 
 Internally the ephemeris information is obtained using the :class:`~psrqpy.search.QueryATNF` class
 from `psrqpy <https://psrqpy.readthedocs.io/en/latest/>`_.
@@ -589,16 +590,16 @@ performed in each run, so if you wanted the analyse the these in, say, the LIGO 
 
 .. code-block:: bash
 
-   cwinpy_heterodyne_dag --run S6 --hwinj --output /home/usr/hwinjections
+   cwinpy_heterodyne_pipeline --run S6 --hwinj --output /home/usr/hwinjections
 
-Other command line arguments for ``cwinpy_heterodyne_dag``, e.g., for setting specific detectors,
+Other command line arguments for ``cwinpy_heterodyne_pipeline``, e.g., for setting specific detectors,
 can be found :ref:`below<heterodyne Command line arguments>`. If running on a LIGO Scientific
 Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid `accounting tag
 <https://accounting.ligo.org/user>`_, e.g.,:
 
 .. code-block:: bash
 
-   cwinpy_heterodyne_dag --run O1 --hwinj --output /home/user/O1injections --accounting-group-tag ligo.prod.o1.cw.targeted.bayesian
+   cwinpy_heterodyne_pipeline --run O1 --hwinj --output /home/user/O1injections --accounting-group-tag ligo.prod.o1.cw.targeted.bayesian
 
 .. note::
 
@@ -623,10 +624,10 @@ given below:
 .. literalinclude:: heterodyne_help.txt
    :language: none
 
-The command line arguments for ``cwinpy_heterodyne_dag`` (as extracted using
-``cwinpy_heterodyne_dag --help``) are:
+The command line arguments for ``cwinpy_heterodyne_pipeline`` (as extracted using
+``cwinpy_heterodyne_pipeline --help``) are:
 
-.. literalinclude:: heterodyne_dag_help.txt
+.. literalinclude:: heterodyne_pipeline_help.txt
    :language: none
 
 .. _heterodyne API:
@@ -635,7 +636,7 @@ Heterodyne API
 ==============
 
 .. automodule:: cwinpy.heterodyne
-   :members: Heterodyne, heterodyne, heterodyne_dag, heterodyne_merge
+   :members: Heterodyne, heterodyne, heterodyne_pipeline, heterodyne_merge
 
 References
 ==========

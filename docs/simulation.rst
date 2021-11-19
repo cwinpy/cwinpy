@@ -123,7 +123,7 @@ using
 
 .. code-block:: console
 
-    $ condor_submit_dag cwinpy_pe_dag_DATETAG_01.submit
+    $ condor_submit_dag cwinpy_pe_pipeline_DATETAG_01.submit
 
 where ``DATETAG`` is a date string in the DAG file name based on the date you created it on.
 

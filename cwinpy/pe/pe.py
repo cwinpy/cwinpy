@@ -2007,9 +2007,9 @@ class PEDAGRunner(object):
         return newobj
 
 
-def pe_dag(**kwargs):
+def pe_pipeline(**kwargs):
     """
-    Run pe_dag within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
+    Run pe_pipeline within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
     DAG for running multiple ``cwinpy_pe`` instances on a computer cluster.
 
     Parameters
@@ -2054,10 +2054,10 @@ def pe_dag(**kwargs):
     return PEDAGRunner(config, **kwargs)
 
 
-def pe_dag_cli(**kwargs):  # pragma: no cover
+def pe_pipeline_cli(**kwargs):  # pragma: no cover
     """
-    Entry point to the cwinpy_pe_dag script. This just calls
-    :func:`cwinpy.pe.pe_dag`, but does not return any objects.
+    Entry point to the cwinpy_pe_pipeline script. This just calls
+    :func:`cwinpy.pe.pe_pipeline`, but does not return any objects.
     """
 
-    _ = pe_dag(**kwargs)
+    _ = pe_pipeline(**kwargs)

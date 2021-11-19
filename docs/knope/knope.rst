@@ -22,19 +22,19 @@ Running the *knope* analysis
 ----------------------------
 
 CWInPy has two command line executables for running *knope*: ``cwinpy_knope`` and
-``cwinpy_knope_dag``. The former will run the pipeline on the machine on which it is called, while
-the latter will generate an `HTCondor <https://htcondor.readthedocs.io/en/latest/>`__ DAG to run the
-analysis across multiple machines. For example, users of CWInPy within the LVK can run the DAG on
-collaboration computer clusters. It is also possible to run the analysis via the `Open Science Grid
-<https://opensciencegrid.org/>`_ if you have access to an appropriate submit machine. In addition to
-the command line executables, the same results can be using the Python API with the
-:func:`cwinpy.knope.knope` and :func:`cwinpy.knope.knope_dag` functions, respectively.
+``cwinpy_knope_pipeline``. The former will run the pipeline on the machine on which it is called,
+while the latter will generate an `HTCondor <https://htcondor.readthedocs.io/en/latest/>`__ DAG to
+run the analysis across multiple machines. For example, users of CWInPy within the LVK can run the
+DAG on collaboration computer clusters. It is also possible to run the analysis via the `Open
+Science Grid <https://opensciencegrid.org/>`_ if you have access to an appropriate submit machine.
+In addition to the command line executables, the same results can be using the Python API with the
+:func:`cwinpy.knope.knope` and :func:`cwinpy.knope.knope_pipeline` functions, respectively.
 
-It is highly recommended to run this analysis using ``cwinpy_knope_dag`` (instructions for setting
-up `HTCondor <https://htcondor.readthedocs.io/en/latest/>`__ on your own *Linux* machine are provided
-:ref:`here<Local use of HTCondor>`) and the instructions here will focus on that method. A brief
-description of using ``cwinpy_knope`` will be provided, although this should primarily be used, if
-required, for quick testing.
+It is highly recommended to run this analysis using ``cwinpy_knope_pipeline`` (instructions for
+setting up `HTCondor <https://htcondor.readthedocs.io/en/latest/>`__ on your own *Linux* machine are
+provided :ref:`here<Local use of HTCondor>`) and the instructions here will focus on that method. A
+brief description of using ``cwinpy_knope`` will be provided, although this should primarily be
+used, if required, for quick testing.
 
 For LVK users, if running on proprietary data you may need to generate a proxy certificate to allow
 the analysis scripts to access frame files, e.g.,:
@@ -51,31 +51,31 @@ data available from the `GWOSC <https://www.gw-openscience.org/>`__ via `CVMFS
 Configuration file
 ------------------
 
-The primary way to run the pipeline is by supplying the ``cwinpy_knope_dag`` executable with a
+The primary way to run the pipeline is by supplying the ``cwinpy_knope_pipeline`` executable with a
 configuration file. This configuration file will be a concatenation of the configurations that are
 separately required for the :ref:`data processing<Heterodyning data>` using
-``cwinpy_heterodyne_dag`` and the :ref:`parameter estimation<Known pulsar parameter
-estimation>` using ``cwinpy_pe_dag``. You should consult those parts of the documentation for more
-detail on the input parameters in each case.
+``cwinpy_heterodyne_pipeline`` and the :ref:`parameter estimation<Known pulsar parameter
+estimation>` using ``cwinpy_pe_pipeline``. You should consult those parts of the documentation for
+more detail on the input parameters in each case.
 
 .. note::
 
-   In the case of the ``cwinpy_knope_dag`` configuration, the inputs to the parameter estimation
-   stage (pulsar parameter files and heterodyned data files) will be set automatically from the
-   outputs of the data processing stage.
+   In the case of the ``cwinpy_knope_pipeline`` configuration, the inputs to the parameter
+   estimation stage (pulsar parameter files and heterodyned data files) will be set automatically
+   from the outputs of the data processing stage.
 
    Any parameters used for simulated data in the parameter estimation ``[pe]`` part will also be ignored.
 
 An example configuration file, with inline comments describing the inputs, is given below:
 
-.. literalinclude:: cwinpy_knope_dag.ini
+.. literalinclude:: cwinpy_knope_pipeline.ini
 
 
 
 Quick setup
 ===========
 
-The ``cwinpy_knope_dag`` script has some quick setup options that allow an analysis to be
+The ``cwinpy_knope_pipeline`` script has some quick setup options that allow an analysis to be
 launched in one line without the need to define a configuration file. These options **require** that
 the machine/cluster that you are running HTCondor on has access to open data from GWOSC available
 via CVMFS. It is also recommended that you run CWInPy from within an `IGWN conda environment
@@ -87,7 +87,7 @@ you can simply run:
 
 .. code-block:: bash
 
-   cwinpy_knope_dag --run O1 --pulsar J0740+6620.par --output /home/usr/O1
+   cwinpy_knope_pipeline --run O1 --pulsar J0740+6620.par --output /home/usr/O1
 
 where ``/home/usr/O1`` is the name of the directory where the run information and
 results will be stored (if you don't specify an ``--output`` then the current working directory will
@@ -100,7 +100,7 @@ pulsar `J0737-3039A <https://en.wikipedia.org/wiki/PSR_J0737%E2%88%923039>`_ you
 
 .. code-block:: bash
 
-   cwinpy_knope_dag --run O2 --pulsar J0737-3039A --output /home/usr/O2
+   cwinpy_knope_pipeline --run O2 --pulsar J0737-3039A --output /home/usr/O2
 
 Internally the ephemeris information is obtained using the :class:`~psrqpy.search.QueryATNF` class
 from `psrqpy <https://psrqpy.readthedocs.io/en/latest/>`_.
@@ -111,16 +111,16 @@ performed in each run, so if you wanted the analyse the these in, say, the LIGO 
 
 .. code-block:: bash
 
-   cwinpy_knope_dag --run S6 --hwinj --output /home/usr/hwinjections
+   cwinpy_knope_pipeline --run S6 --hwinj --output /home/usr/hwinjections
 
-Other command line arguments for ``cwinpy_knope_dag``, e.g., for setting specific detectors,
+Other command line arguments for ``cwinpy_knope_pipeline``, e.g., for setting specific detectors,
 can be found :ref:`below<knope Command line arguments>`. If running on a LIGO Scientific
 Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid `accounting tag
 <https://accounting.ligo.org/user>`_, e.g.,:
 
 .. code-block:: bash
 
-   cwinpy_knope_dag --run O1 --hwinj --output /home/user/O1injections --accounting-group-tag ligo.prod.o1.cw.targeted.bayesian
+   cwinpy_knope_pipeline --run O1 --hwinj --output /home/user/O1injections --accounting-group-tag ligo.prod.o1.cw.targeted.bayesian
 
 .. note::
 
@@ -145,10 +145,10 @@ given below:
 .. literalinclude:: knope_help.txt
    :language: none
 
-The command line arguments for ``cwinpy_knope_dag`` (as extracted using
-``cwinpy_knope_dag --help``) are:
+The command line arguments for ``cwinpy_knope_pipeline`` (as extracted using
+``cwinpy_knope_pipeline --help``) are:
 
-.. literalinclude:: knope_dag_help.txt
+.. literalinclude:: knope_pipeline_help.txt
    :language: none
 
 .. _knope API:
@@ -157,4 +157,4 @@ Knope API
 ---------
 
 .. automodule:: cwinpy.knope
-   :members: knope, knope_dag
+   :members: knope, knope_pipeline

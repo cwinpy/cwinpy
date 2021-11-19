@@ -262,8 +262,8 @@ with open("heterodyne/heterodyne_help.txt", "w") as fp:
     fp.write(heterodyne_help)
 
 # generate cwinpy_heterodyne_dag help string for docs
-heterodyne_dag_help = subprocess.getoutput("cwinpy_heterodyne_dag --help")
-with open("heterodyne/heterodyne_dag_help.txt", "w") as fp:
+heterodyne_dag_help = subprocess.getoutput("cwinpy_heterodyne_pipeline --help")
+with open("heterodyne/heterodyne_pipeline_help.txt", "w") as fp:
     fp.write(heterodyne_dag_help)
 
 # generate cwinpy_knope help string for docs
@@ -272,6 +272,6 @@ with open("knope/knope_help.txt", "w") as fp:
     fp.write(knope_help)
 
 # generate cwinpy_knope_dag help string for docs
-knope_dag_help = subprocess.getoutput("cwinpy_knope_dag --help")
-with open("knope/knope_dag_help.txt", "w") as fp:
+knope_dag_help = subprocess.getoutput("cwinpy_knope_pipeline --help")
+with open("knope/knope_pipeline_help.txt", "w") as fp:
     fp.write(knope_dag_help)

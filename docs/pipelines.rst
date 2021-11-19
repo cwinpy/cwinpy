@@ -20,7 +20,7 @@ commands. For example, running an analysis on `PSR J0737-3039A
 <https://en.wikipedia.org/wiki/PSR_J0737%E2%88%923039>`_ using LIGO data from the first observing
 run in the advanced detector era, O1, can be performed with:
 
->>> cwinpy_knope_dag --run O1 --pulsar J0737-3039A
+>>> cwinpy_knope_pipeline --run O1 --pulsar J0737-3039A
 
 .. note::
 
