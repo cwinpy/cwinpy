@@ -429,7 +429,7 @@ def knope_dag(**kwargs):
                 if pulsar is None:
                     raise ValueError("No pulsar parameter files have be provided")
 
-                pulsars.extend(pulsar if isinstance(list) else [pulsar])
+                pulsars.extend(pulsar if isinstance(pulsar, list) else [pulsar])
 
                 # get sample rate
                 srate = (
@@ -458,7 +458,7 @@ def knope_dag(**kwargs):
             peconfigfile["pe_dag"]["submitdag"] = "True"  # submit automatically
             if kwargs.get("osg", args.osg):
                 hetconfigfile["heterodyne_dag"]["osg"] = "True"
-                hetconfigfile["pe_dag"]["osg"] = "True"
+                peconfigfile["pe_dag"]["osg"] = "True"
 
             hetconfigfile["heterodyne_job"] = {}
             hetconfigfile["heterodyne_job"]["getenv"] = "True"

@@ -364,7 +364,10 @@ class HeterodyneNode(Node):
 
                 # check if using GWOSC frames from CVMFS
                 if self.inputs.require_gwosc:
-                    _osg_reqs.append("HAS_CVMFS_gwosc_osgstorage_org =?= TRUE")
+                    if len(_osg_reqs) == 0:
+                        _osg_reqs = "HAS_CVMFS_gwosc_osgstorage_org =?= TRUE"
+                    else:
+                        _osg_reqs += " && HAS_CVMFS_gwosc_osgstorage_org =?= TRUE"
 
                 self.extra_lines.extend(_osg_lines)
                 self.requirements.append(_osg_reqs)
