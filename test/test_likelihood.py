@@ -10,7 +10,7 @@ from bilby.core.prior import PriorDict, Uniform
 from cwinpy import HeterodynedData, MultiHeterodynedData, TargetedPulsarLikelihood
 
 
-class TestTargetedPulsarLikelhood(object):
+class TestTargetedPulsarLikelihood(object):
     """
     Tests for the TargetedPulsarLikelihood class.
     """
@@ -153,3 +153,32 @@ PHI0     2.4
             assert np.allclose(
                 [like1.log_likelihood()], [like2.log_likelihood()], atol=1e-10, rtol=0.0
             )
+
+    def test_includephase_likelihood(self):
+        """
+        Test the likelihood when include phase is set to True.
+        """
+
+        het = HeterodynedData(
+            self.data, times=self.times, detector=self.detector, par=self.parfile
+        )
+
+        priors = dict()
+        priors["h0"] = Uniform(0.0, 1.0e-23, "h0")
+
+        # run with includephase as False
+        like1 = TargetedPulsarLikelihood(het, PriorDict(priors), likelihood="studentst")
+        like1.parameters = {"h0": 1e-24}
+
+        logl1 = like1.log_likelihood()
+
+        # set includephase to True
+        like2 = TargetedPulsarLikelihood(het, PriorDict(priors), likelihood="studentst")
+        like2.parameters = {"h0": 1e-24}
+        like2.include_phase = True
+
+        logl2 = like2.log_likelihood()
+
+        print(f"{logl1:.15f} {logl2:.15f}")
+
+        assert np.allclose([logl1], [logl2], atol=1e-10, rtol=0.0)
