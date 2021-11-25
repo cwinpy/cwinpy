@@ -248,10 +248,11 @@ def knope_pipeline(**kwargs):
     osg: bool
         Set this to True to run on the Open Science Grid rather than a local
         computer cluster.
-    output: str,
-        The location for outputting the heterodyned data. By default the
-        current directory will be used. Within this directory, subdirectories
-        for each detector will be created.
+    output: str
+        The base location for outputting the heterodyned data and parameter
+        estimation results. By default the current directory will be used.
+        Within this directory, subdirectories for each detector and for the
+        result swill be created.
     joblength: int
         The length of data (in seconds) into which to split the individual
         heterodyne jobs. By default this is set to 86400, i.e., one day. If this
@@ -377,7 +378,7 @@ def knope_pipeline(**kwargs):
             "--incoherent",
             action="store_true",
             help=(
-                "In running with multiple detectors, set this flag to analyse "
+                "If running with multiple detectors, set this flag to analyse "
                 "each of them independently rather than coherently combining "
                 "the data from all detectors. The coherent analysis is the "
                 "default."
@@ -429,7 +430,7 @@ def knope_pipeline(**kwargs):
                 if pulsar is None:
                     raise ValueError("No pulsar parameter files have be provided")
 
-                pulsars.extend(pulsar if isinstance(list) else [pulsar])
+                pulsars.extend(pulsar if isinstance(pulsar, list) else [pulsar])
 
                 # get sample rate
                 srate = (
@@ -576,11 +577,11 @@ def knope_pipeline(**kwargs):
     accgroup = hetconfig.get("knope_job", "accounting_group", fallback=None)
     accuser = hetconfig.get("knope_job", "accounting_group_user", fallback=None)
     if accgroup is not None:
-        hetconfigfile["heterodyne_job"]["accounting_group"] = accgroup
-        peconfigfile["pe_job"]["accounting_group"] = accgroup
+        hetconfig["heterodyne_job"]["accounting_group"] = accgroup
+        peconfig["pe_job"]["accounting_group"] = accgroup
     if accuser is not None:
-        hetconfigfile["heterodyne_job"]["accounting_group_user"] = accuser
-        peconfigfile["pe_job"]["accounting_group_user"] = accuser
+        hetconfig["heterodyne_job"]["accounting_group_user"] = accuser
+        peconfig["pe_job"]["accounting_group_user"] = accuser
 
     # set use of OSG
     osg = hetconfig.get("knope_dag", "osg", fallback=None)
