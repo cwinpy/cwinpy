@@ -2104,9 +2104,14 @@ class Heterodyne(object):
                 # return a reverse sorted list so, for example, J0000+0000AA comes
                 # before J0000+0000A
                 for pulsar in sorted(self.pulsars, reverse=True):
-                    # get any files for each pulsar (assuming they contain the pulsar name)
+                    # get any files for each pulsar (assuming they contain the pulsar name
+                    # and the detector in the format "_DET_")
                     pulsarfiles = [
-                        f for f in filelist if (pulsar in f) and (os.path.isfile(f))
+                        f
+                        for f in filelist
+                        if (pulsar in f)
+                        and (os.path.isfile(f))
+                        and f"_{self.detector}_" in f
                     ]
 
                     if len(pulsarfiles) > 0:
@@ -2121,9 +2126,14 @@ class Heterodyne(object):
                 filelist, isfile = self._heterodyned_data_file_check(hetdata[key])
 
                 if not isfile:
-                    # get files for specific pulsar (assuming they contain the pulsar name)
+                    # get files for specific pulsar (assuming they contain the pulsar name
+                    # and the detector in the format "_DET_")
                     pulsarfiles = [
-                        f for f in filelist if (key in f) and (os.path.isfile(f))
+                        f
+                        for f in filelist
+                        if (key in f)
+                        and (os.path.isfile(f))
+                        and f"_{self.detector}_" in f
                     ]
 
                     if len(pulsarfiles) == 0:

@@ -1125,12 +1125,18 @@ class HeterodyneDAGRunner(object):
         else:
             raise ValueError("Length of each job must be a positive integer")
 
-        # create Heterodyne object to get pulsar parameter file information
-        het = Heterodyne(
-            pulsarfiles=pulsarfiles,
-            pulsars=pulsars,
-            heterodyneddata=heterodyneddata,
-        )
+        # create Heterodyne objects (one for each detector) to get pulsar parameter
+        # file information and heterodyned data information
+        hets = {}
+        for det in detectors:
+            hets[det] = Heterodyne(
+                pulsarfiles=pulsarfiles,
+                pulsars=pulsars,
+                heterodyneddata=heterodyneddata,
+                detector=det,
+            )
+
+        het = list(hets.values())[0]
 
         # get number over which to split up pulsars
         npulsarjobs = config.getint("heterodyne", "npulsarjobs", fallback=1)
@@ -1353,7 +1359,7 @@ class HeterodyneDAGRunner(object):
                         configdict["heterodyneddata"] = (
                             heterodyneddata
                             if heterodyneddata is None
-                            else {psr: het.heterodyneddata[psr] for psr in pgroup}
+                            else {psr: hets[det].heterodyneddata[psr] for psr in pgroup}
                         )
 
                         # set segment data info

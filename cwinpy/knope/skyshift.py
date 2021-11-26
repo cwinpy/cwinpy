@@ -1,3 +1,4 @@
+import ast
 import configparser
 import os
 from argparse import ArgumentParser
@@ -16,7 +17,7 @@ from ..info import (
 )
 from ..parfile import PulsarParameters
 from ..pe.pe import PEDAGRunner
-from ..utils import draw_ra_dec
+from ..utils import draw_ra_dec, get_psr_name, int_to_alpha
 
 
 def skyshift_pipeline(**kwargs):
@@ -88,6 +89,7 @@ def skyshift_pipeline(**kwargs):
         peconfigfile = hetconfigfile
         nshifts = kwargs.pop("nshifts", 1000)
         exclusion = kwargs.pop("exclusion", 0.1)
+        pulsar = kwargs.pop("pulsar", None)
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
@@ -268,10 +270,6 @@ def skyshift_pipeline(**kwargs):
                     "accounting_group_tag", args.accgroup
                 )
 
-            # add ephemeris settings
-            hetconfigfile["ephemerides"] = {}
-            hetconfigfile["ephemerides"]["pulsarfiles"] = pulsar
-
             # add heterodyne settings
             hetconfigfile["heterodyne"] = {}
             hetconfigfile["heterodyne"]["detectors"] = str(detectors)
@@ -351,7 +349,8 @@ def skyshift_pipeline(**kwargs):
             raise IOError(f"Problem reading configuration file '{peconfigfile}'\n: {e}")
 
     # check for single pulsar
-    pulsar = hetconfig1.get("ephemerides", "pulsarfiles", fallback=None)
+    if pulsar is None:
+        pulsar = hetconfig1.get("ephemerides", "pulsarfiles", fallback=None)
     if not isinstance(pulsar, str):
         raise ValueError("A pulsar parameter file must be given")
 
@@ -370,13 +369,22 @@ def skyshift_pipeline(**kwargs):
     # generate new positions
     ra = psr["RA"]
     dec = psr["DEC"]
-    pos = SkyCoord(ra, dec, unit="rad")
+    pos = SkyCoord(ra, dec, unit="rad")  # current position
     antipode = SkyCoord(np.fmod(ra + np.pi, 2.0 * np.pi), -1.0 * dec, unit="rad")
 
     pulsardir = os.path.join(hetconfig1["run"]["basedir"], "pulsars")
-    os.makedirs(pulsardir)
+    if not os.path.exists(pulsardir):
+        os.makedirs(pulsardir)
 
-    for _ in range(nshifts):
+    # add ephemeris settings
+    if not hetconfig1.has_section("ephemerides"):
+        hetconfig1["ephemerides"] = {}
+        hetconfig2["ephemerides"] = {}
+
+    psrnames = []
+    parfiles = []
+
+    for i in range(nshifts):
         # generate points while checking angular distance from true position
         while True:
             ranew, decnew = draw_ra_dec()
@@ -393,7 +401,86 @@ def skyshift_pipeline(**kwargs):
         newpsr["RAJ"] = newpos.ra.rad
         newpsr["DECJ"] = newpos.dec.rad
 
-    print(nshifts, exclusion, psr)  # print statement to allow me to commit!
+        # make name unique with additional alphabetical values
+        anum = int_to_alpha(i)
+        newpsr["PSRJ"] = get_psr_name(newpsr) + anum
+        psrnames.append(newpsr["PSRJ"])
+
+        parfiles.append(os.path.join(pulsardir, newpsr["PSRJ"]))
+
+        # output parameter file
+        newpsr.pp_to_par(parfiles[-1])
+
+    parfiles.append(pulsar)  # add on original parameter file
+
+    # set up first and second stage heterodynes
+    hetconfig1["ephemerides"]["pulsarfiles"] = pulsar
+
+    # include all sky-shifted pulsars
+    hetconfig2["ephemerides"]["pulsarfiles"] = str(parfiles)
+
+    filterknee = hetconfig1.get("heterodyne", "filterknee", fallback=None)
+    dfmax = None
+    if filterknee is None:
+        # get estimate of required bandwidth
+        ve = (2.0 * np.pi * 150e9) / (86400 * 365.25)
+        dfmax = (ve / 3e8) * psr["F0"]  # maximum Doppler shift from Earth's orbit
+
+        if psr["BINARY"] is not None:
+            vsini = 2.0 * np.pi * psr["A1"] / psr["PB"]
+            dfmax += (vsini / 3e8) * psr["F0"]
+
+        dfmax *= 2  # multiply by two for some extra room
+        dfmax = max((0.1, dfmax))  # get max of 0.1 or df
+
+        hetconfig1["heterodyne"]["filterknee"] = f"{dfmax:.2f}"
+    hetconfig2.remove_option(
+        "heterodyne", "filterknee"
+    )  # no filter for second heterodyne
+
+    resamplerate = hetconfig1.get("heterodyne", "resamplerate", fallback=None)
+    if resamplerate is None:
+        if dfmax is None:
+            hetconfig1["heterodyne"]["resamplerate"] = "1"  # 1 Hz default
+        else:
+            rsrate = int(np.ceil(2 * dfmax))
+            hetconfig1["heterodyne"]["resamplerate"] = str(rsrate)
+    hetconfig2["heterodyne"]["resamplerate"] = "1/60"
+
+    # don't include barycentring for initial heterodyne
+    hetconfig1["heterodyne"]["includessb"] = "False"
+    hetconfig1["heterodyne"]["includebsb"] = "False"
+    hetconfig1["heterodyne"]["includeglitch"] = "False"
+    hetconfig1["heterodyne"]["includefitwaves"] = "False"
+
+    # include barycentring for second heterodyne
+    hetconfig2["heterodyne"]["includessb"] = "True"
+    hetconfig2["heterodyne"]["includebsb"] = "True"
+    hetconfig2["heterodyne"]["includeglitch"] = "True"
+    hetconfig2["heterodyne"]["includefitwaves"] = "True"
+
+    # output location for heterodyne (ignore config file location)
+    detectors = ast.literal_eval(hetconfig1.get("heterodyne", "detectors"))
+    hetconfig1["heterodyne"]["outputdir"] = str(
+        {
+            det: os.path.join(hetconfig1["run"]["basedir"], "stage1", det)
+            for det in detectors
+        }
+    )
+    hetconfig2["heterodyne"]["outputdir"] = str(
+        {
+            det: os.path.join(hetconfig1["run"]["basedir"], "stage2", det)
+            for det in detectors
+        }
+    )
+
+    # create heterodyned data dictionary pointing to directories
+    hetdata = {}
+    for name in psrnames:
+        hetdata[name] = os.path.join(hetconfig1["run"]["basedir"], "stage1")
+
+    hetconfig2["heterodyne"]["heterodyneddata"] = str(hetdata)
+    hetconfig2["crop"] = "0"  # no further cropping required
 
     # make sure "file transfer" is consistent with heterodyne value
     if hetconfig1.getboolean(
@@ -447,7 +534,7 @@ def skyshift_pipeline(**kwargs):
     if hetconfig1.has_section("merge"):
         hetconfig1.remove_section("merge")
 
-    # do merge for second heterodyned
+    # do merge for second heterodyne
     hetconfig2["merge"] = {}
     hetconfig2["merge"]["merge"] = "True"  # always merge files
 
