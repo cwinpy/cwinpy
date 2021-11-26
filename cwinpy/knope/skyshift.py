@@ -1,6 +1,10 @@
 import configparser
 import os
 from argparse import ArgumentParser
+from copy import deepcopy
+
+import numpy as np
+from astropy.coordinates import SkyCoord
 
 from ..heterodyne.heterodyne import HeterodyneDAGRunner
 from ..info import (
@@ -12,6 +16,7 @@ from ..info import (
 )
 from ..parfile import PulsarParameters
 from ..pe.pe import PEDAGRunner
+from ..utils import draw_ra_dec
 
 
 def skyshift_pipeline(**kwargs):
@@ -59,8 +64,8 @@ def skyshift_pipeline(**kwargs):
     output: str
         The base location for outputting the heterodyned data and parameter
         estimation results. By default the current directory will be used.
-        Within this directory, subdirectories for each detector and for the
-        result swill be created.
+        Within this directory, a subdirectory called "skyshift" will be created
+        with subdirectories for each detector and for the result also created.
     joblength: int
         The length of data (in seconds) into which to split the individual
         heterodyne jobs. By default this is set to 86400, i.e., one day. If
@@ -164,9 +169,12 @@ def skyshift_pipeline(**kwargs):
         optional.add_argument(
             "--output",
             help=(
-                "The location for outputting the heterodyned data. By default "
-                "the current directory will be used. Within this directory, "
-                "subdirectories for each detector will be created."
+                "The base location for outputting the heterodyned data and "
+                "parameter estimation results. By default the current "
+                "directory will be used. Within this directory, a "
+                'subdirectory called "skyshift" will be created with '
+                "subdirectories for each detector and for the results also "
+                "created."
             ),
             default=os.getcwd(),
         )
@@ -241,11 +249,6 @@ def skyshift_pipeline(**kwargs):
                     )
 
             # create required settings
-            hetconfigfile["run"] = {}
-            hetconfigfile["run"]["basedir"] = kwargs.get("output", args.output)
-            peconfigfile["run"] = {}
-            peconfigfile["run"]["basedir"] = kwargs.get("output", args.output)
-
             hetconfigfile["heterodyne_dag"] = {}
             peconfigfile["pe_dag"] = {}
             peconfigfile["pe_dag"]["submitdag"] = "True"  # submit automatically
@@ -320,6 +323,9 @@ def skyshift_pipeline(**kwargs):
             hetconfigfile["merge"]["remove"] = "True"
             hetconfigfile["merge"]["overwrite"] = "True"
 
+            nshifts = args.nshifts
+            exclusion = args.exclusion
+
     if isinstance(hetconfigfile, configparser.ConfigParser) and isinstance(
         peconfigfile, configparser.ConfigParser
     ):
@@ -350,13 +356,43 @@ def skyshift_pipeline(**kwargs):
         raise ValueError("A pulsar parameter file must be given")
 
     # set sky-shift output directory, e.g., append "skyshift" onto the base directory
+    basedir = os.path.join(
+        hetconfig1.get("run", "basedir", fallback=os.getcwd()), "skyshift"
+    )
+    for cf in [hetconfig1, hetconfig2, peconfig]:
+        if not cf.has_section("run"):
+            cf["run"] = {}
+        cf["run"]["basedir"] = basedir
 
     # read in the parameter file
     psr = PulsarParameters(pulsar)
 
     # generate new positions
+    ra = psr["RA"]
+    dec = psr["DEC"]
+    pos = SkyCoord(ra, dec, unit="rad")
+    antipode = SkyCoord(np.fmod(ra + np.pi, 2.0 * np.pi), -1.0 * dec, unit="rad")
 
-    # output par files for all new positions
+    pulsardir = os.path.join(hetconfig1["run"]["basedir"], "pulsars")
+    os.makedirs(pulsardir)
+
+    for _ in range(nshifts):
+        # generate points while checking angular distance from true position
+        while True:
+            ranew, decnew = draw_ra_dec()
+            newpos = SkyCoord(ranew, decnew, unit="rad")
+
+            if (
+                np.abs(pos.separation(newpos).rad) > exclusion
+                and np.abs(antipode.separation(newpos).rad) > exclusion
+            ):
+                break
+
+        # output par files for all new positions
+        newpsr = deepcopy(psr)
+        newpsr["RAJ"] = newpos.ra.rad
+        newpsr["DECJ"] = newpos.dec.rad
+
     print(nshifts, exclusion, psr)  # print statement to allow me to commit!
 
     # make sure "file transfer" is consistent with heterodyne value

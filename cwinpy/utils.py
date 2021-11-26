@@ -341,6 +341,29 @@ def lalinference_to_bilby_result(postfile):
     )
 
 
+def draw_ra_dec(n=1):
+    """
+    Draw right ascension and declination values uniformly on the sky.
+
+    Parameters
+    ----------
+    n: int
+        The number of points to draw on the sky.
+
+    Returns
+    -------
+    radec: tuple
+        A tuple containing the pair of values (ra then dec) or a pair of NumPy
+        arrays containing the values.
+    """
+
+    rng = np.random.default_rng()
+    ras = rng.uniform(0.0, 2.0 * np.pi, n)
+    decs = np.arcsin(2.0 * rng.uniform(0, 1, n) - 1.0)
+
+    return (ras[0], decs[0]) if n == 1 else (ras, decs)
+
+
 def initialise_ephemeris(
     ephem="DE405",
     units="TCB",
