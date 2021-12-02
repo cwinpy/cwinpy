@@ -17,6 +17,7 @@ from ..info import (
 )
 from ..parfile import PulsarParameters
 from ..pe.pe import PEDAGRunner
+from ..signal import HeterodynedCWSimulator
 from ..utils import draw_ra_dec, get_psr_name, int_to_alpha
 
 
@@ -595,3 +596,68 @@ def skyshift_pipeline_cli(**kwargs):  # pragma: no cover
 
     kwargs["cli"] = True  # set to show use of CLI
     _ = skyshift_pipeline(**kwargs)
+
+
+def overlap(pos1, pos2, f0, T, t0=1000000000, dt=60, det="H1"):
+    """
+    Calculate the overlap (normalised cross-correlation) between a heterodyned
+    signal at one position and a signal re-heterodyned assuming a different
+    position. This will assume a circularly polarised signal
+
+    Parameters
+    ----------
+    pos1: SkyCoord
+        The sky position, as an :class:`astropy.coordinates.SkyCoord` object,
+        of the heterodyned signal.
+    pos2: SkyCoord
+        Another position at which the signal has been re-heterodyned.
+    f0: int, float
+        The signal frequency
+    T: int, float
+        The signal duration (seconds)
+    t0: int, float
+        The GPS start time of the signal (default is 1000000000)
+    dt: int, float
+        The time steps over which to calculate the signal.
+    det: str
+        A detector name, e.g., "H1" (the default).
+
+    Returns
+    -------
+    overlap: float
+        The fractional overlap between the two models.
+    """
+
+    # set up a pulsar
+    p1 = PulsarParameters()
+    p1["H0"] = 1.0
+    p1["IOTA"] = 0.0
+    p1["PSI"] = 0.0
+    p1["PHI0"] = 0.0
+    p1["F"] = [float(f0)]
+    p1["RAJ"] = pos1.ra.rad
+    p1["DECJ"] = pos1.dec.rad
+
+    # set the times at which to calculate the model
+    times = np.arange(t0, t0 + T, dt)
+
+    het = HeterodynedCWSimulator(p1, det, times=times)
+
+    # calculate the model at pos1
+    hetmodel = het.model()
+
+    denom = np.abs(np.vdot(hetmodel, hetmodel))
+
+    p2 = deepcopy(p1)
+    p2["RAJ"] = pos2.ra.rad
+    p2["DECJ"] = pos2.dec.rad
+
+    # calculate the model at pos2
+    hetmodel2 = het.model(newpar=p2, updateSSB=True)
+
+    numer = np.abs(np.vot(hetmodel, hetmodel2).real)
+
+    # the fractional overlap
+    overlap = numer / denom
+
+    return overlap
