@@ -935,27 +935,30 @@ class HeterodyneDAGRunner(object):
             for det in detectors:
                 for i in range(len(fullstarttimes[det])):
                     frinfo = {}
-                    if frametypes is not None:
-                        # generate the frame caches now rather than relying on
-                        # each job doing it
-                        frcachedir = os.path.join(self.basedir, "cache")
-                        check_directory_exists_and_if_not_mkdir(frcachedir)
-                        frinfo["framecache"] = os.path.join(
-                            frcachedir,
-                            "frcache_{0:d}-{1:d}_{2}.txt".format(
-                                starttimes[det][i], endtimes[det][i], frametypes[det][i]
-                            ),
-                        )
-                        _ = remote_frame_cache(
-                            starttimes[det][i],
-                            endtimes[det][i],
-                            channels[det][i],
-                            frametype=frametypes[det][i],
-                            host=config.get("heterodyne", "host", fallback=None),
-                            write=frinfo["framecache"],
-                        )
-                    else:
-                        frinfo["framecache"] = framecaches[det][i]
+                    if heterodyneddata is None:
+                        if frametypes is not None:
+                            # generate the frame caches now rather than relying on
+                            # each job doing it
+                            frcachedir = os.path.join(self.basedir, "cache")
+                            check_directory_exists_and_if_not_mkdir(frcachedir)
+                            frinfo["framecache"] = os.path.join(
+                                frcachedir,
+                                "frcache_{0:d}-{1:d}_{2}.txt".format(
+                                    starttimes[det][i],
+                                    endtimes[det][i],
+                                    frametypes[det][i],
+                                ),
+                            )
+                            _ = remote_frame_cache(
+                                starttimes[det][i],
+                                endtimes[det][i],
+                                channels[det][i],
+                                frametype=frametypes[det][i],
+                                host=config.get("heterodyne", "host", fallback=None),
+                                write=frinfo["framecache"],
+                            )
+                        else:
+                            frinfo["framecache"] = framecaches[det][i]
                     frinfo["channel"] = channels[det][i]
                     framedata[det].append(frinfo.copy())
 
@@ -1065,27 +1068,28 @@ class HeterodyneDAGRunner(object):
                     segmentlist = [list(seg) for seg in segmentlist]
 
                     frinfo = {}
-                    if frametypes is not None:
-                        # generate the frame caches now rather than relying on
-                        # each job doing it
-                        frcachedir = os.path.join(self.basedir, "cache")
-                        check_directory_exists_and_if_not_mkdir(frcachedir)
-                        frinfo["framecache"] = os.path.join(
-                            frcachedir,
-                            "frcache_{0:d}-{1:d}_{2}.txt".format(
-                                starttime, endtime, frametypes[det][idx]
-                            ),
-                        )
-                        _ = remote_frame_cache(
-                            starttime,
-                            endtime,
-                            channels[det][i],
-                            frametype=frametypes[det][idx],
-                            host=config.get("heterodyne", "host", fallback=None),
-                            write=frinfo["framecache"],
-                        )
-                    else:
-                        frinfo["framecache"] = framecaches[det][idx]
+                    if heterodyneddata is None:
+                        if frametypes is not None:
+                            # generate the frame caches now rather than relying on
+                            # each job doing it
+                            frcachedir = os.path.join(self.basedir, "cache")
+                            check_directory_exists_and_if_not_mkdir(frcachedir)
+                            frinfo["framecache"] = os.path.join(
+                                frcachedir,
+                                "frcache_{0:d}-{1:d}_{2}.txt".format(
+                                    starttime, endtime, frametypes[det][idx]
+                                ),
+                            )
+                            _ = remote_frame_cache(
+                                starttime,
+                                endtime,
+                                channels[det][i],
+                                frametype=frametypes[det][idx],
+                                host=config.get("heterodyne", "host", fallback=None),
+                                write=frinfo["framecache"],
+                            )
+                        else:
+                            frinfo["framecache"] = framecaches[det][idx]
                     frinfo["channel"] = channels[det][idx]
 
                     segidx = 0
@@ -1129,11 +1133,20 @@ class HeterodyneDAGRunner(object):
         # file information and heterodyned data information
         hets = {}
         for det in detectors:
+            # check if heterodyneddata is a dictionary keyed by detectors
+            hetdata = heterodyneddata
+            if isinstance(heterodyneddata, dict):
+                if det in heterodyneddata:
+                    hetdata = heterodyneddata[det]
+
             hets[det] = Heterodyne(
                 pulsarfiles=pulsarfiles,
                 pulsars=pulsars,
-                heterodyneddata=heterodyneddata,
+                heterodyneddata=hetdata,
                 detector=det,
+                ignore_read_fail=config.getboolean(
+                    "heterodyne", "ignore_read_fail", fallback=False
+                ),
             )
 
         het = list(hets.values())[0]

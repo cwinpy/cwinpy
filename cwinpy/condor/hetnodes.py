@@ -268,15 +268,15 @@ class HeterodyneNode(Node):
 
             # transfer heterodyned data files
             if "heterodyneddata" in configdict:
-                for psr in configdict["heteroyneddata"].copy():
+                for psr in configdict["heterodyneddata"].copy():
                     psrfiles = []
-                    for psrfile in configdict["heteroyneddata"][psr]:
+                    for psrfile in configdict["heterodyneddata"][psr]:
                         input_files_to_transfer.append(
                             self._relative_topdir(psrfile, self.inputs.initialdir)
                         )
                         psrfiles.append(os.path.basename(psrfile))
 
-                    configdict["heteroyneddata"][psr] = psrfiles
+                    configdict["heterodyneddata"][psr] = psrfiles
 
             # transfer DAG config file
             input_files_to_transfer.append(

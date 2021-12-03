@@ -268,6 +268,7 @@ class Heterodyne(object):
         usetempo2=False,
         resume=False,
         cwinpy_heterodyne_pipeline_config_file=None,
+        ignore_read_fail=False,
     ):
         # set analysis times
         self.starttime = starttime
@@ -308,6 +309,7 @@ class Heterodyne(object):
         self.resume = resume
 
         # set previously heterodyned data
+        self._ignore_read_fail = ignore_read_fail
         self.heterodyneddata = heterodyneddata
 
         # set heterodyne parameters
@@ -2104,14 +2106,9 @@ class Heterodyne(object):
                 # return a reverse sorted list so, for example, J0000+0000AA comes
                 # before J0000+0000A
                 for pulsar in sorted(self.pulsars, reverse=True):
-                    # get any files for each pulsar (assuming they contain the pulsar name
-                    # and the detector in the format "_DET_")
+                    # get any files for each pulsar (assuming they contain the pulsar name)
                     pulsarfiles = [
-                        f
-                        for f in filelist
-                        if (pulsar in f)
-                        and (os.path.isfile(f))
-                        and f"_{self.detector}_" in f
+                        f for f in filelist if (pulsar in f) and (os.path.isfile(f))
                     ]
 
                     if len(pulsarfiles) > 0:
@@ -2126,14 +2123,9 @@ class Heterodyne(object):
                 filelist, isfile = self._heterodyned_data_file_check(hetdata[key])
 
                 if not isfile:
-                    # get files for specific pulsar (assuming they contain the pulsar name
-                    # and the detector in the format "_DET_")
+                    # get files for specific pulsar (assuming they contain the pulsar name)
                     pulsarfiles = [
-                        f
-                        for f in filelist
-                        if (key in f)
-                        and (os.path.isfile(f))
-                        and f"_{self.detector}_" in f
+                        f for f in filelist if (key in f) and (os.path.isfile(f))
                     ]
 
                     if len(pulsarfiles) == 0:
@@ -2186,17 +2178,21 @@ class Heterodyne(object):
         for hetfile in hetdata:
             if os.path.splitext(hetfile)[1] in self.extensions:
                 # try reading the data
-                try:
-                    het = HeterodynedData.read(hetfile)
-                except Exception as e:
-                    raise IOError(e.args[0])
+                if not self._ignore_read_fail:
+                    try:
+                        het = HeterodynedData.read(hetfile)
+                    except Exception as e:
+                        raise IOError(e.args[0])
 
-                if het.par is None:
-                    raise AttributeError(
-                        "Heterodyned data '{}' contains no pulsar parameter file".format(
-                            hetfile
+                    if het.par is None:
+                        raise AttributeError(
+                            "Heterodyned data '{}' contains no pulsar parameter file".format(
+                                hetfile
+                            )
                         )
-                    )
+                    else:
+                        hetfiles.append(hetfile)
+                        isfile = True
                 else:
                     hetfiles.append(hetfile)
                     isfile = True
@@ -2210,10 +2206,11 @@ class Heterodyne(object):
 
                 if len(curhetfiles) > 0:
                     # try reading first file
-                    try:
-                        het = HeterodynedData.read(curhetfiles[0])
-                    except Exception as e:
-                        raise IOError(e.args[0])
+                    if not self._ignore_read_fail:
+                        try:
+                            het = HeterodynedData.read(curhetfiles[0])
+                        except Exception as e:
+                            raise IOError(e.args[0])
 
                     hetfiles.extend(curhetfiles)
                     isfile = False

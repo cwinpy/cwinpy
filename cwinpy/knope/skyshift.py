@@ -3,6 +3,7 @@ import configparser
 import os
 from argparse import ArgumentParser
 from copy import deepcopy
+from pathlib import Path
 
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -389,8 +390,6 @@ def skyshift_pipeline(**kwargs):
         except Exception as e:
             raise IOError(f"Problem reading configuration file '{peconfigfile}'\n: {e}")
 
-    print(hetconfig1["heterodyne"]["detectors"])
-
     # check for single pulsar
     if pulsar is None:
         pulsar = hetconfig1.get("ephemerides", "pulsarfiles", fallback=None)
@@ -483,7 +482,7 @@ def skyshift_pipeline(**kwargs):
         newpsr["PSRJ"] = get_psr_name(newpsr) + anum
         psrnames.append(newpsr["PSRJ"])
 
-        parfiles.append(os.path.join(pulsardir, newpsr["PSRJ"]))
+        parfiles.append(os.path.join(pulsardir, "{}.par".format(newpsr["PSRJ"])))
 
         # output parameter file
         newpsr.pp_to_par(parfiles[-1])
@@ -538,6 +537,9 @@ def skyshift_pipeline(**kwargs):
 
     # output location for heterodyne (ignore config file location)
     detectors = ast.literal_eval(hetconfig1.get("heterodyne", "detectors"))
+    if not isinstance(detectors, list):
+        detectors = [detectors]
+
     hetconfig1["heterodyne"]["outputdir"] = str(
         {
             det: os.path.join(hetconfig1["run"]["basedir"], "stage1", det)
@@ -550,14 +552,6 @@ def skyshift_pipeline(**kwargs):
             for det in detectors
         }
     )
-
-    # create heterodyned data dictionary pointing to directories
-    hetdata = {}
-    for name in psrnames:
-        hetdata[name] = os.path.join(hetconfig1["run"]["basedir"], "stage1")
-
-    hetconfig2["heterodyne"]["heterodyneddata"] = str(hetdata)
-    hetconfig2["heterodyne"]["crop"] = "0"  # no further cropping required
 
     # make sure "file transfer" is consistent with heterodyne value
     if hetconfig1.getboolean(
@@ -616,6 +610,20 @@ def skyshift_pipeline(**kwargs):
     hetconfig2["merge"]["merge"] = "True"  # always merge files
 
     hetdag1 = HeterodyneDAGRunner(hetconfig1, **kwargs)
+
+    # create heterodyned data dictionary pointing to directories
+    hetdata = {det: {} for det in detectors}
+    hetdir = os.path.join(hetconfig1["run"]["basedir"], "stage1")
+    allhetfiles = [str(f.resolve()) for f in Path(hetdir).rglob("*.hdf5")]
+    for det in detectors:
+        dethetfiles = sorted([f for f in allhetfiles if f"_{det}_" in f])
+        for name in psrnames + [get_psr_name(psr)]:
+            # get files for the correct detector
+            hetdata[det][name] = deepcopy(dethetfiles)
+
+    hetconfig2["heterodyne"]["heterodyneddata"] = str(hetdata)
+    hetconfig2["heterodyne"]["ignore_read_fail"] = "True"
+    hetconfig2["heterodyne"]["crop"] = "0"  # no further cropping required
 
     kwargs["dag"] = hetdag1.dag  # add heterodyne DAG
     kwargs["generation_nodes"] = hetdag1.pulsar_nodes
