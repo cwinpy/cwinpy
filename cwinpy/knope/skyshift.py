@@ -17,8 +17,7 @@ from ..info import (
 )
 from ..parfile import PulsarParameters
 from ..pe.pe import PEDAGRunner
-from ..signal import HeterodynedCWSimulator
-from ..utils import draw_ra_dec, get_psr_name, int_to_alpha
+from ..utils import draw_ra_dec, get_psr_name, int_to_alpha, overlap
 
 
 def skyshift_pipeline(**kwargs):
@@ -35,9 +34,18 @@ def skyshift_pipeline(**kwargs):
         for the analysis.
     nshifts: int
         The number of random sky-shifts to perform. The default will be 1000.
+        These will be drawn from the same ecliptic hemisphere as the source.
     exclusion: float
         The exclusion region around the source's actual sky location and any
-        sky shift locations (including about a "antipode" point on the sky).
+        sky shift locations.
+    overlap: float
+        Provide a maximum allowed fractional overlap (e.g., 0.01 for a maximum
+        1% overlap) between the signal model at the true position and any of
+        the sky-shifted position. If not given, this check will not be
+        performed. If given, this check will be used in addition to the
+        exclusion region check. Note: this does not check the overlap between
+        each sky-shifted position, so some correlated sky-shifts may be
+        present.
 
     Other parameters
     ----------------
@@ -91,6 +99,7 @@ def skyshift_pipeline(**kwargs):
         nshifts = kwargs.pop("nshifts", 1000)
         exclusion = kwargs.pop("exclusion", 0.1)
         pulsar = kwargs.pop("pulsar", None)
+        overlapfrac = kwargs.pop("overlap", None)
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
@@ -118,9 +127,24 @@ def skyshift_pipeline(**kwargs):
             help=(
                 "The exclusion region around the source's actual sky location "
                 "and any sky shift locations (including about a 'antipode' "
-                "point on the sky)."
+                "point on the sky). The default is 0.01 radians."
             ),
             default=0.01,
+            type=float,
+        )
+        skyshift.add_argument(
+            "--check-overlap",
+            help=(
+                "Provide a maximum allowed fractional overlap (e.g., 0.01 for "
+                "a maximum 1% overlap) between the signal model at the true "
+                "position and any of the sky-shifted position. If not given, "
+                "this check will not be performed. If given, this check will "
+                "be used in addition to the exclusion region check. Note: "
+                "this does not check the overlap between each sky-shifted "
+                "position, so some correlated sky-shifts may be present."
+            ),
+            type=float,
+            dest="overlap",
         )
 
         optional = parser.add_argument_group(
@@ -218,6 +242,11 @@ def skyshift_pipeline(**kwargs):
 
         args = parser.parse_args()
         if args.config is not None:
+            pulsar = kwargs.get("pulsar", args.pulsar)
+
+            if pulsar is None:
+                raise ValueError("No pulsar parameter file has be provided")
+
             hetconfigfile = args.config
             peconfigfile = args.config
         else:
@@ -322,8 +351,9 @@ def skyshift_pipeline(**kwargs):
             hetconfigfile["merge"]["remove"] = "True"
             hetconfigfile["merge"]["overwrite"] = "True"
 
-            nshifts = args.nshifts
-            exclusion = args.exclusion
+        nshifts = kwargs.get("nshifts", args.nshifts)
+        exclusion = kwargs.get("exclusion", args.exclusion)
+        overlapfrac = kwargs.pop("overlap", args.overlap)
 
     if isinstance(hetconfigfile, configparser.ConfigParser) and isinstance(
         peconfigfile, configparser.ConfigParser
@@ -371,7 +401,7 @@ def skyshift_pipeline(**kwargs):
     ra = psr["RA"]
     dec = psr["DEC"]
     pos = SkyCoord(ra, dec, unit="rad")  # current position
-    antipode = SkyCoord(np.fmod(ra + np.pi, 2.0 * np.pi), -1.0 * dec, unit="rad")
+    hemisphere = "north" if pos.barycentrictrueecliptic.lat >= 0 else "south"
 
     pulsardir = os.path.join(hetconfig1["run"]["basedir"], "pulsars")
     if not os.path.exists(pulsardir):
@@ -382,20 +412,54 @@ def skyshift_pipeline(**kwargs):
         hetconfig1["ephemerides"] = {}
         hetconfig2["ephemerides"] = {}
 
+    # check whether calculating overlap
+    if overlapfrac is not None:
+        if overlapfrac <= 0.0 or overlapfrac >= 1.0:
+            raise ValueError("Overlap fraction must be between 0 and 1")
+
+        # get observing time
+        starttimes = ast.literal_eval(hetconfig1.get("heterodyne", "starttimes"))
+        endtimes = ast.literal_eval(hetconfig1.get("heterodyne", "endtimes"))
+
+        # get earliest start time
+        if isinstance(starttimes, (int, float)):
+            starttime = starttimes
+        elif isinstance(starttimes, dict):
+            starttime = min(starttimes.values())
+        else:
+            raise TypeError("Supplied start times must be number or dictionary")
+
+        # get latest end time
+        if isinstance(endtimes, (int, float)):
+            endtime = endtimes
+        elif isinstance(endtimes, dict):
+            endtime = max(endtimes.values())
+        else:
+            raise TypeError("Supplied end times must be number or dictionary")
+
+        Tobs = endtime - starttime
+
     psrnames = []
     parfiles = []
 
     for i in range(nshifts):
         # generate points while checking angular distance from true position
         while True:
-            ranew, decnew = draw_ra_dec()
+            # draw points from same ecliptic hemisphere as source
+            ranew, decnew = draw_ra_dec(eclhemi=hemisphere)
             newpos = SkyCoord(ranew, decnew, unit="rad")
 
-            if (
-                np.abs(pos.separation(newpos).rad) > exclusion
-                and np.abs(antipode.separation(newpos).rad) > exclusion
-            ):
-                break
+            # check new position is outside exclusion region
+            if np.abs(pos.separation(newpos).rad) > exclusion:
+                if overlapfrac is None:
+                    break
+                else:
+                    # check new position has small fractional overlap
+                    if (
+                        overlap(pos, newpos, psr["F0"], Tobs, starttime, dt=600)
+                        < overlapfrac
+                    ):
+                        break
 
         # output par files for all new positions
         newpsr = deepcopy(psr)
@@ -596,68 +660,3 @@ def skyshift_pipeline_cli(**kwargs):  # pragma: no cover
 
     kwargs["cli"] = True  # set to show use of CLI
     _ = skyshift_pipeline(**kwargs)
-
-
-def overlap(pos1, pos2, f0, T, t0=1000000000, dt=60, det="H1"):
-    """
-    Calculate the overlap (normalised cross-correlation) between a heterodyned
-    signal at one position and a signal re-heterodyned assuming a different
-    position. This will assume a circularly polarised signal
-
-    Parameters
-    ----------
-    pos1: SkyCoord
-        The sky position, as an :class:`astropy.coordinates.SkyCoord` object,
-        of the heterodyned signal.
-    pos2: SkyCoord
-        Another position at which the signal has been re-heterodyned.
-    f0: int, float
-        The signal frequency
-    T: int, float
-        The signal duration (seconds)
-    t0: int, float
-        The GPS start time of the signal (default is 1000000000)
-    dt: int, float
-        The time steps over which to calculate the signal.
-    det: str
-        A detector name, e.g., "H1" (the default).
-
-    Returns
-    -------
-    overlap: float
-        The fractional overlap between the two models.
-    """
-
-    # set up a pulsar
-    p1 = PulsarParameters()
-    p1["H0"] = 1.0
-    p1["IOTA"] = 0.0
-    p1["PSI"] = 0.0
-    p1["PHI0"] = 0.0
-    p1["F"] = [float(f0)]
-    p1["RAJ"] = pos1.ra.rad
-    p1["DECJ"] = pos1.dec.rad
-
-    # set the times at which to calculate the model
-    times = np.arange(t0, t0 + T, dt)
-
-    het = HeterodynedCWSimulator(p1, det, times=times)
-
-    # calculate the model at pos1
-    hetmodel = het.model()
-
-    denom = np.abs(np.vdot(hetmodel, hetmodel))
-
-    p2 = deepcopy(p1)
-    p2["RAJ"] = pos2.ra.rad
-    p2["DECJ"] = pos2.dec.rad
-
-    # calculate the model at pos2
-    hetmodel2 = het.model(newpar=p2, updateSSB=True)
-
-    numer = np.abs(np.vot(hetmodel, hetmodel2).real)
-
-    # the fractional overlap
-    overlap = numer / denom
-
-    return overlap

@@ -6,12 +6,14 @@ import ctypes
 import os
 import string
 import sys
+from copy import deepcopy
 from functools import reduce
 from math import gcd
 
 import lalpulsar
 import numpy as np
 from astropy import units as u
+from astropy.coordinates.sky_coordinate import SkyCoord
 from bilby_pipe.utils import CHECKPOINT_EXIT_CODE
 from numba import jit, njit
 from numba.extending import get_cython_function_address
@@ -37,7 +39,7 @@ LAL_BINARY_MODELS = [
     "T2",
 ]
 
-#: aliases between GW detector prefixes a TEMPO2 observatory names
+#: aliases between GW detector prefixes and TEMPO2 observatory names
 TEMPO2_GW_ALIASES = {
     "G1": "GEO600",
     "GEO_600": "GEO600",
@@ -341,14 +343,21 @@ def lalinference_to_bilby_result(postfile):
     )
 
 
-def draw_ra_dec(n=1):
+def draw_ra_dec(n=1, eqhemi=None, eclhemi=None):
     """
-    Draw right ascension and declination values uniformly on the sky.
+    Draw right ascension and declination values uniformly on the sky or
+    uniformly from a single equatorial or ecliptic hemisphere.
 
     Parameters
     ----------
     n: int
         The number of points to draw on the sky.
+    eqhemi: str
+        A string that this either "north" or "south" to restrict drawn points
+        to a single equatorial hemisphere.
+    eclhemi: str
+        A string that this either "north" or "south" to restrict drawn points
+        to a single ecliptic hemisphere.
 
     Returns
     -------
@@ -357,11 +366,100 @@ def draw_ra_dec(n=1):
         arrays containing the values.
     """
 
-    rng = np.random.default_rng()
-    ras = rng.uniform(0.0, 2.0 * np.pi, n)
-    decs = np.arcsin(2.0 * rng.uniform(0, 1, n) - 1.0)
+    # check hemisphere arguments are valid
+    for hemi in [eqhemi, eclhemi]:
+        if hemi is not None:
+            if not isinstance(hemi, str):
+                raise TypeError("hemisphere arguments must be a string")
+            elif hemi.lower() != "north" and hemi.lower() != "south":
+                raise ValueError("hemisphere argument must be 'north' or 'south'")
 
-    return (ras[0], decs[0]) if n == 1 else (ras, decs)
+    # draw points
+    rng = np.random.default_rng()
+    lon = rng.uniform(0.0, 2.0 * np.pi, n)
+    lat = np.arcsin(2.0 * rng.uniform(0, 1, n) - 1.0)
+
+    if eclhemi is None and eqhemi is not None:
+        # get points from one hemisphere if required
+        lat = np.abs(lat) if eqhemi.lower() == "north" else -np.abs(lat)
+    elif eclhemi is not None:
+        # get points from one hemisphere
+        lat = np.abs(lat) if eclhemi.lower() == "north" else -np.abs(lat)
+
+        # convert to right ascension and declination
+        pos = SkyCoord(lon, lat, unit="rad", frame="barycentrictrueecliptic")
+        lon = pos.icrs.ra.rad
+        lat = pos.icrs.dec.rad
+
+    return (lon[0], lat[0]) if n == 1 else (lon, lat)
+
+
+def overlap(pos1, pos2, f0, T, t0=1000000000, dt=60, det="H1"):
+    """
+    Calculate the overlap (normalised cross-correlation) between a heterodyned
+    signal at one position and a signal re-heterodyned assuming a different
+    position. This will assume a circularly polarised signal
+
+    Parameters
+    ----------
+    pos1: SkyCoord
+        The sky position, as an :class:`astropy.coordinates.SkyCoord` object,
+        of the heterodyned signal.
+    pos2: SkyCoord
+        Another position at which the signal has been re-heterodyned.
+    f0: int, float
+        The signal frequency
+    T: int, float
+        The signal duration (seconds)
+    t0: int, float
+        The GPS start time of the signal (default is 1000000000)
+    dt: int, float
+        The time steps over which to calculate the signal.
+    det: str
+        A detector name, e.g., "H1" (the default).
+
+    Returns
+    -------
+    overlap: float
+        The fractional overlap between the two models.
+    """
+
+    from .signal import HeterodynedCWSimulator
+
+    # set up a pulsar
+    p1 = PulsarParameters()
+    p1["H0"] = 1.0
+    p1["IOTA"] = 0.0
+    p1["PSI"] = 0.0
+    p1["PHI0"] = 0.0
+    p1["F"] = [float(f0)]
+    p1["RAJ"] = pos1.ra.rad
+    p1["DECJ"] = pos1.dec.rad
+
+    # set the times at which to calculate the model
+    times = np.arange(t0, t0 + T, dt)
+
+    het = HeterodynedCWSimulator(p1, det, times=times)
+
+    # calculate the model at pos1
+    hetmodel = het.model()
+
+    denom = abs(np.vdot(hetmodel, hetmodel).real)
+
+    p2 = deepcopy(p1)
+    p2["RAJ"] = pos2.ra.rad
+    p2["DECJ"] = pos2.dec.rad
+
+    # calculate the model re-heterodyned at pos2
+    hetmodel2 = het.model(newpar=p2, updateSSB=True)
+
+    # get the overlap
+    numer = abs(np.vdot(hetmodel, hetmodel2).real)
+
+    # the fractional overlap
+    overlap = numer / denom
+
+    return overlap
 
 
 def initialise_ephemeris(
