@@ -263,6 +263,15 @@ def knope_pipeline(**kwargs):
         Set this flag to use Tempo2 (if installed) for calculating the signal
         phase evolution for the heterodyne rather than the default LALSuite
         functions.
+    includeincoherent: bool
+        If using multiple detectors, as well as running an analysis that
+        coherently combines data from all given detectors, also analyse each
+        individual detector's data separately. The default is False, i.e., only
+        the coherent analysis is performed.
+    incoherentonly: bool
+        If using multiple detectors, only perform analyses on the individual
+        detector's data and do not analyse a coherent combination of the
+        detectors.
 
     Returns
     -------
@@ -298,7 +307,7 @@ def knope_pipeline(**kwargs):
             help=(
                 "Set an observing run name for which to heterodyne the data. "
                 "This can be one of {} for which open data exists".format(
-                    list(RUNTIMES.keys())
+                    ", ".join(list(RUNTIMES.keys()))
                 )
             ),
         )
@@ -326,7 +335,7 @@ def knope_pipeline(**kwargs):
             help=(
                 "Select the sample rate of the data to use. This can either "
                 "be 4k or 16k for data sampled at 4096 or 16384 Hz, "
-                "respectively. The default is 4k, except if running on "
+                "respectively. The default is %(default)s, except if running on "
                 "hardware injections for O1 or later, for which 16k will be "
                 "used due to being required for the highest frequency source. "
                 "For the S5 and S6 runs only 4k data is available from GWOSC, "
@@ -375,14 +384,26 @@ def knope_pipeline(**kwargs):
             ),
         )
         optional.add_argument(
-            "--incoherent",
+            "--include-incoherent",
+            action="store_true",
+            help=(
+                "If running with multiple detectors, set this flag to analyse "
+                "each of them independently and also include an analysis that "
+                "coherently combines the data from all detectors. Only "
+                "performing a coherent analysis is the default."
+            ),
+            dest="inclincoh",
+        )
+        optional.add_argument(
+            "--incoherent-only",
             action="store_true",
             help=(
                 "If running with multiple detectors, set this flag to analyse "
                 "each of them independently rather than coherently combining "
-                "the data from all detectors. The coherent analysis is the "
-                "default."
+                "the data from all detectors. Only performing a coherent "
+                "analysis is the default."
             ),
+            dest="incohonly",
         )
         optional.add_argument(
             "--accounting-group-tag",
@@ -525,10 +546,11 @@ def knope_pipeline(**kwargs):
             # set whether running a coherent or incoherent analysis
             peconfigfile["pe"] = {}
             peconfigfile["pe"]["incoherent"] = str(
-                kwargs.get("incoherent", args.incoherent)
+                kwargs.get("includeincoherent", args.inclincoh)
+                or kwargs.get("incoherentonly", args.incohonly)
             )
             peconfigfile["pe"]["coherent"] = str(
-                not kwargs.get("incoherent", args.incoherent)
+                not kwargs.get("incoherentonly", args.incohonly)
             )
 
             # merge the resulting files and remove individual files

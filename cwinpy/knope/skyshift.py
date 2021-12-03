@@ -86,6 +86,11 @@ def skyshift_pipeline(**kwargs):
         Set this flag to use Tempo2 (if installed) for calculating the signal
         phase evolution for the heterodyne rather than the default LALSuite
         functions.
+    incoherent: bool
+        If running with multiple detectors, set this flag to analyse each of
+        them independently rather than coherently combining the data from all
+        detectors. A coherent analysis and an incoherent analysis is run by
+        default.
 
     Returns
     -------
@@ -110,6 +115,12 @@ def skyshift_pipeline(**kwargs):
                 "each of those locations."
             )
         )
+        parser.add_argument(
+            "config",
+            nargs="?",
+            help=("The configuration file for the analysis"),
+            default=None,
+        )
 
         skyshift = parser.add_argument_group("Sky shift arguments")
         skyshift.add_argument(
@@ -118,16 +129,16 @@ def skyshift_pipeline(**kwargs):
             default=1000,
             required=True,
             help=(
-                "The number of random sky-shifts to perform. The default will be "
-                "1000."
+                "The number of random sky-shifts to perform. The default will "
+                "be %(default)s."
             ),
         )
         skyshift.add_argument(
             "--exclusion",
             help=(
                 "The exclusion region around the source's actual sky location "
-                "and any sky shift locations (including about a 'antipode' "
-                "point on the sky). The default is 0.01 radians."
+                "and any sky shift locations. The default is %(default)s "
+                "radians."
             ),
             default=0.01,
             type=float,
@@ -136,7 +147,7 @@ def skyshift_pipeline(**kwargs):
             "--check-overlap",
             help=(
                 "Provide a maximum allowed fractional overlap (e.g., 0.01 for "
-                "a maximum 1% overlap) between the signal model at the true "
+                "a maximum 1%% overlap) between the signal model at the true "
                 "position and any of the sky-shifted position. If not given, "
                 "this check will not be performed. If given, this check will "
                 "be used in addition to the exclusion region check. Note: "
@@ -155,7 +166,7 @@ def skyshift_pipeline(**kwargs):
             help=(
                 "Set an observing run name for which to heterodyne the data. "
                 "This can be one of {} for which open data exists".format(
-                    list(RUNTIMES.keys())
+                    ", ".join(list(RUNTIMES.keys()))
                 )
             ),
         )
@@ -163,19 +174,20 @@ def skyshift_pipeline(**kwargs):
             "--detector",
             action="append",
             help=(
-                "The detector for which the data will be heterodyned. This can "
-                "be used multiple times to specify multiple detectors. If not "
-                "set then all detectors available for a given run will be "
+                "The detector for which the data will be heterodyned. This "
+                "can be used multiple times to specify multiple detectors. If "
+                "not set then all detectors available for a given run will be "
                 "used."
             ),
         )
         optional.add_argument(
             "--samplerate",
             help=(
-                "Select the sample rate of the data to use. This can either be 4k "
-                "or 16k for data sampled at 4096 or 16384 Hz, respectively. The "
-                "default is 4k. For the S5 and S6 runs only 4k data is available "
-                "from GWOSC, so if 16k is chosen it will be ignored."
+                "Select the sample rate of the data to use. This can either "
+                "be 4k or 16k for data sampled at 4096 or 16384 Hz, "
+                "respectively. The default is %(default)s. For the S5 and S6 "
+                "runs only 4k data is available from GWOSC, so if 16k is "
+                "chosen it will be ignored."
             ),
             default="4k",
         )
@@ -221,8 +233,8 @@ def skyshift_pipeline(**kwargs):
             help=(
                 "If running with multiple detectors, set this flag to analyse "
                 "each of them independently rather than coherently combining "
-                "the data from all detectors. The coherent analysis is the "
-                "default."
+                "the data from all detectors. A coherent analysis and an "
+                "incoherent analysis is run by default."
             ),
         )
         optional.add_argument(
@@ -337,11 +349,9 @@ def skyshift_pipeline(**kwargs):
                     kwargs.get("joblength", args.joblength)
                 )
 
-            # set whether running a coherent or incoherent analysis
+            # set whether running a purely incoherent analysis or not
             peconfigfile["pe"] = {}
-            peconfigfile["pe"]["incoherent"] = str(
-                kwargs.get("incoherent", args.incoherent)
-            )
+            peconfigfile["pe"]["incoherent"] = "True"
             peconfigfile["pe"]["coherent"] = str(
                 not kwargs.get("incoherent", args.incoherent)
             )
@@ -359,7 +369,7 @@ def skyshift_pipeline(**kwargs):
         peconfigfile, configparser.ConfigParser
     ):
         hetconfig1 = hetconfigfile  # initial heterodyne
-        hetconfig2 = hetconfig1.copy()  # sky-shifted heterodyne
+        hetconfig2 = deepcopy(hetconfig1)  # sky-shifted heterodyne
         peconfig = peconfigfile
     else:
         hetconfig1 = configparser.ConfigParser()  # initial heterodyne
@@ -372,12 +382,14 @@ def skyshift_pipeline(**kwargs):
                 f"Problem reading configuration file '{hetconfigfile}'\n: {e}"
             )
 
-        hetconfig2 = hetconfig1.copy()  # sky-shifted heterodyne
+        hetconfig2 = deepcopy(hetconfig1)  # sky-shifted heterodyne
 
         try:
             peconfig.read_file(open(peconfigfile, "r"))
         except Exception as e:
             raise IOError(f"Problem reading configuration file '{peconfigfile}'\n: {e}")
+
+    print(hetconfig1["heterodyne"]["detectors"])
 
     # check for single pulsar
     if pulsar is None:
@@ -398,8 +410,8 @@ def skyshift_pipeline(**kwargs):
     psr = PulsarParameters(pulsar)
 
     # generate new positions
-    ra = psr["RA"]
-    dec = psr["DEC"]
+    ra = psr["RAJ"]
+    dec = psr["DECJ"]
     pos = SkyCoord(ra, dec, unit="rad")  # current position
     hemisphere = "north" if pos.barycentrictrueecliptic.lat >= 0 else "south"
 
@@ -467,7 +479,7 @@ def skyshift_pipeline(**kwargs):
         newpsr["DECJ"] = newpos.dec.rad
 
         # make name unique with additional alphabetical values
-        anum = int_to_alpha(i)
+        anum = int_to_alpha(i + 1)
         newpsr["PSRJ"] = get_psr_name(newpsr) + anum
         psrnames.append(newpsr["PSRJ"])
 
@@ -545,7 +557,7 @@ def skyshift_pipeline(**kwargs):
         hetdata[name] = os.path.join(hetconfig1["run"]["basedir"], "stage1")
 
     hetconfig2["heterodyne"]["heterodyneddata"] = str(hetdata)
-    hetconfig2["crop"] = "0"  # no further cropping required
+    hetconfig2["heterodyne"]["crop"] = "0"  # no further cropping required
 
     # make sure "file transfer" is consistent with heterodyne value
     if hetconfig1.getboolean(
