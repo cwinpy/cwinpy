@@ -390,6 +390,11 @@ def skyshift_pipeline(**kwargs):
         except Exception as e:
             raise IOError(f"Problem reading configuration file '{peconfigfile}'\n: {e}")
 
+    # check that heterodyne_job section exists
+    if not hetconfig1.has_section("heterodyne_job"):
+        hetconfig1["heterodyne_job"] = {}
+        hetconfig2["heterodyne_job"] = {}
+
     # check for single pulsar
     if pulsar is None:
         pulsar = hetconfig1.get("ephemerides", "pulsarfiles", fallback=None)
@@ -580,6 +585,17 @@ def skyshift_pipeline(**kwargs):
         hetconfig1["heterodyne_job"]["accounting_group_user"] = accuser
         hetconfig2["heterodyne_job"]["accounting_group_user"] = accuser
         peconfig["pe_job"]["accounting_group_user"] = accuser
+
+    # set job names (for sub files) to be different for the 2 stages
+    jobname = hetconfig1.get("heterodyne_job", "name", fallback="cwinpy_heterodyne")
+    if not hetconfig1.has_option("heterodyne_job", "name"):
+        hetconfig1["heterodyne_job"]["name"] = jobname + "_stage1"
+    hetconfig2["heterodyne_job"]["name"] = jobname + "_stage2"
+
+    # set the configuration file location
+    configloc = hetconfig1.get("heterodyne", "config", fallback="configs")
+    hetconfig1["heterodyne"]["config"] = os.path.join(configloc, "stage1")
+    hetconfig2["heterodyne"]["config"] = os.path.join(configloc, "stage2")
 
     # set use of OSG
     osg = hetconfig1.get("knope_dag", "osg", fallback=None)
