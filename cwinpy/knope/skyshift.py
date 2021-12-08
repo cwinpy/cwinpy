@@ -618,8 +618,9 @@ def skyshift_pipeline(**kwargs):
     peconfig["pe_dag"]["build"] = str(build)
 
     # don't merge in first heterodyne
-    if hetconfig1.has_section("merge"):
-        hetconfig1.remove_section("merge")
+    if not hetconfig1.has_section("merge"):
+        hetconfig1["merge"] = {}
+    hetconfig1["merge"]["merge"] = "False"
 
     # do merge for second heterodyne
     hetconfig2["merge"] = {}
