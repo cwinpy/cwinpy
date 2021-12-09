@@ -1788,7 +1788,7 @@ def heterodyne_pipeline(**kwargs):
                 if pulsar is None:
                     raise ValueError("No pulsar parameter files have be provided")
 
-                pulsars.extend(pulsar if isinstance(list) else [pulsar])
+                pulsars.extend(pulsar if isinstance(pulsar, list) else [pulsar])
 
                 # get sample rate
                 srate = (

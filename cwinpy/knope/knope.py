@@ -480,7 +480,7 @@ def knope_pipeline(**kwargs):
             peconfigfile["pe_dag"]["submitdag"] = "True"  # submit automatically
             if kwargs.get("osg", args.osg):
                 hetconfigfile["heterodyne_dag"]["osg"] = "True"
-                hetconfigfile["pe_dag"]["osg"] = "True"
+                peconfigfile["pe_dag"]["osg"] = "True"
 
             hetconfigfile["heterodyne_job"] = {}
             hetconfigfile["heterodyne_job"]["getenv"] = "True"

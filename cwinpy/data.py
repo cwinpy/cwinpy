@@ -2083,7 +2083,7 @@ class HeterodynedData(TimeSeriesBase):
         self.bayesian_blocks()
 
         # set noise based on provided value
-        self.stds = sigmaval
+        self.stds = np.full(len(self), sigmaval)
 
         # standard devaitions have been provided rather than calculated
         self.input_stds = True
