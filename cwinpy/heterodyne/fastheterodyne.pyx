@@ -1,6 +1,3 @@
-import cython
-cimport cython
-
 import numpy
 cimport numpy
 
