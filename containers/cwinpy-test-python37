@@ -27,7 +27,7 @@ RUN conda install -n ${conda_env} -c anaconda coverage configargparse future
 RUN conda install -n ${conda_env} -c numba numba
 
 # Install conda-forge-installable programs
-RUN conda install -n ${conda_env} -c conda-forge black gwpy lalsuite bilby bilby_pipe lintegrate">0.1.7" gwosc pycondor dynesty psrqpy libstempo">2.4.1"
+RUN conda install -n ${conda_env} -c conda-forge black gwpy lalsuite">=7.2" bilby bilby_pipe lintegrate">0.1.7" gwosc pycondor dynesty psrqpy libstempo">2.4.1"
 
 # Install pip-requirements
 RUN pip install --upgrade pip
