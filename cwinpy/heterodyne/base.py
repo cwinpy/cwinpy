@@ -2784,7 +2784,7 @@ def local_frame_cache(
                     if lalcache:
                         # output in lalcache format
                         site, frtype, frt0, frdur = frame_information(frfile)
-                        fp.write(f"{site} {frtype} {frt0} {frdur} {frfile}")                   
+                        fp.write(f"{site} {frtype} {frt0} {frdur} {frfile}")
                     else:
                         fp.write(frfile)
                     fp.write("\n")
