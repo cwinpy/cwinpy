@@ -635,7 +635,12 @@ transientTau = {tau}
 
         # test creating a lalcache file
         lalcachefile = os.path.join(self.fakedatadir, "lalcache.txt")
-        _ = local_frame_cache(self.fakedatadir, lalcache=True, write=lalcachefile)
+        _ = local_frame_cache(
+            self.fakedatadir,
+            site=self.fakedatadetectors[0][0],
+            lalcache=True,
+            write=lalcachefile,
+        )
 
         # read cache file and check it
         with open(lalcachefile, "r") as fp:
