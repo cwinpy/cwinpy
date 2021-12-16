@@ -644,9 +644,11 @@ transientTau = {tau}
 
         # read cache file and check it
         with open(lalcachefile, "r") as fp:
-            lalcacheddata = [fl.strip().split()[-1] for fl in fp.readlines()]
+            lalcacheddata = [
+                os.path.basename(fl.strip().split()[-1]) for fl in fp.readlines()
+            ]
 
-        for i in range(len(lalcacheddata)):
+        for i in range(len(cacheddata)):
             assert (
                 "{}-{}_{}-{}-{}.gwf".format(
                     self.fakedatadetectors[0][0],
@@ -655,7 +657,7 @@ transientTau = {tau}
                     self.fakedatastarts[i],
                     self.fakedataduration[i],
                 )
-                == os.path.basename(lalcacheddata[i])
+                in lalcacheddata
             )
 
         # test reading files from cache file
