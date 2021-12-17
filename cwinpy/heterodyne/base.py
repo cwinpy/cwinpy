@@ -2662,6 +2662,7 @@ def local_frame_cache(
     site=None,
     frametype=None,
     write=None,
+    lalcache=False,
     append=False,
 ):
     """
@@ -2699,6 +2700,9 @@ def local_frame_cache(
     write: str
         A file path to write out the list of frame files to. Default is to not
         write out the frame list.
+    lalcache: bool
+        If writing out the list of frame files to a file this flag sets whether
+        if should be in LALCache format or not. Default is False.
     append: bool
         If writing out to a file, this says to append to the file if it already
         exists. The default is False.
@@ -2777,7 +2781,12 @@ def local_frame_cache(
 
             with open(write, format) as fp:
                 for frfile in cache:
-                    fp.write(frfile)
+                    if lalcache:
+                        # output in lalcache format
+                        site, frtype, frt0, frdur = frame_information(frfile)
+                        fp.write(f"{site} {frtype} {frt0} {frdur} {frfile}")
+                    else:
+                        fp.write(frfile)
                     fp.write("\n")
         except Exception as e:
             raise IOError("Could not output cache file: {}".format(e))

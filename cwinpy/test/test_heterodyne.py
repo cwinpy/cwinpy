@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from astropy.utils.data import download_file
 from cwinpy import HeterodynedData, PulsarParameters
-from cwinpy.heterodyne import Heterodyne, heterodyne
+from cwinpy.heterodyne import Heterodyne, heterodyne, local_frame_cache
 from cwinpy.signal import HeterodynedCWSimulator
 from cwinpy.utils import LAL_EPHEMERIS_URL
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
@@ -631,6 +631,33 @@ transientTau = {tau}
                     self.fakedataduration[i],
                 )
                 == os.path.basename(cachedata[i])
+            )
+
+        # test creating a lalcache file
+        lalcachefile = os.path.join(self.fakedatadir, "lalcache.txt")
+        _ = local_frame_cache(
+            self.fakedatadir,
+            site=self.fakedatadetectors[0][0],
+            lalcache=True,
+            write=lalcachefile,
+        )
+
+        # read cache file and check it
+        with open(lalcachefile, "r") as fp:
+            lalcacheddata = [
+                os.path.basename(fl.strip().split()[-1]) for fl in fp.readlines()
+            ]
+
+        for i in range(len(cachedata)):
+            assert (
+                "{}-{}_{}-{}-{}.gwf".format(
+                    self.fakedatadetectors[0][0],
+                    self.fakedatadetectors[0],
+                    self.fakedataname,
+                    self.fakedatastarts[i],
+                    self.fakedataduration[i],
+                )
+                in lalcacheddata
             )
 
         # test reading files from cache file
