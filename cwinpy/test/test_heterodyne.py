@@ -648,7 +648,7 @@ transientTau = {tau}
                 os.path.basename(fl.strip().split()[-1]) for fl in fp.readlines()
             ]
 
-        for i in range(len(cacheddata)):
+        for i in range(len(cachedata)):
             assert (
                 "{}-{}_{}-{}-{}.gwf".format(
                     self.fakedatadetectors[0][0],
