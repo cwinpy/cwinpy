@@ -595,9 +595,7 @@ def create_heterodyne_merge_parser():
         help=("A path, or list of paths, to heterodyned data files to merge together."),
     )
     parser.add(
-        "--output",
-        type=str,
-        help=("The output file for the merged heterodyned data."),
+        "--output", type=str, help=("The output file for the merged heterodyned data.")
     )
     parser.add(
         "--overwrite",
@@ -1127,9 +1125,7 @@ class HeterodyneDAGRunner(object):
 
         # create Heterodyne object to get pulsar parameter file information
         het = Heterodyne(
-            pulsarfiles=pulsarfiles,
-            pulsars=pulsars,
-            heterodyneddata=heterodyneddata,
+            pulsarfiles=pulsarfiles, pulsars=pulsars, heterodyneddata=heterodyneddata
         )
 
         # get number over which to split up pulsars
@@ -1247,7 +1243,8 @@ class HeterodyneDAGRunner(object):
                 [earthephemeris, sunephemeris, timeephemeris], ["earth", "sun", "time"]
             ):
                 if (
-                    len(set([os.path.basename(edat[etype]) for etype in edat])) == 1
+                    len(set([os.path.basename(edat[etype]) for etype in edat]))
+                    != len(edat)
                     and len(edat) > 1
                 ):
                     for etype in edat:
@@ -1402,8 +1399,7 @@ class HeterodyneDAGRunner(object):
                                 tmphet.starttime = starttimes[det][0]
                                 tmphet.endtime = endtimes[det][-1]
                                 self.mergeoutputs[det][ff][psr] = os.path.join(
-                                    outputdirs[0][det],
-                                    tmphet.outputfiles[psr],
+                                    outputdirs[0][det], tmphet.outputfiles[psr]
                                 )
 
                         configdict["output"] = outputdirs[0][det]
