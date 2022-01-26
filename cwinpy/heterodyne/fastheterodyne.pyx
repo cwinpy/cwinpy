@@ -1,12 +1,11 @@
-import cython
-cimport cython
-
 import numpy
 cimport numpy
 
 from libc.math cimport M_PI
 
 from gwpy.timeseries import TimeSeries
+
+numpy.import_array()
 
 cdef extern from "complex.h":
     double complex cexp(double complex)

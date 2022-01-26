@@ -262,10 +262,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             newpar = deepcopy(het.par)
             self.basepars.append(newpar)
 
-        # if phase evolution is not in the model set the pre-summed products
-        # of the data and antenna patterns
-        if not self.include_phase:
-            self.dot_products()
+        # set the pre-summed products of the data and antenna patterns
+        self.dot_products()
 
     @property
     def likelihood(self):

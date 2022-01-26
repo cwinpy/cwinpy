@@ -595,9 +595,7 @@ def create_heterodyne_merge_parser():
         help=("A path, or list of paths, to heterodyned data files to merge together."),
     )
     parser.add(
-        "--output",
-        type=str,
-        help=("The output file for the merged heterodyned data."),
+        "--output", type=str, help=("The output file for the merged heterodyned data.")
     )
     parser.add(
         "--overwrite",
@@ -1266,7 +1264,8 @@ class HeterodyneDAGRunner(object):
                 [earthephemeris, sunephemeris, timeephemeris], ["earth", "sun", "time"]
             ):
                 if (
-                    len(set([os.path.basename(edat[etype]) for etype in edat])) == 1
+                    len(set([os.path.basename(edat[etype]) for etype in edat]))
+                    != len(edat)
                     and len(edat) > 1
                 ):
                     for etype in edat:
@@ -1421,8 +1420,7 @@ class HeterodyneDAGRunner(object):
                                 tmphet.starttime = starttimes[det][0]
                                 tmphet.endtime = endtimes[det][-1]
                                 self.mergeoutputs[det][ff][psr] = os.path.join(
-                                    outputdirs[0][det],
-                                    tmphet.outputfiles[psr],
+                                    outputdirs[0][det], tmphet.outputfiles[psr]
                                 )
 
                         configdict["output"] = outputdirs[0][det]
@@ -1788,7 +1786,7 @@ def heterodyne_pipeline(**kwargs):
                 if pulsar is None:
                     raise ValueError("No pulsar parameter files have be provided")
 
-                pulsars.extend(pulsar if isinstance(list) else [pulsar])
+                pulsars.extend(pulsar if isinstance(pulsar, list) else [pulsar])
 
                 # get sample rate
                 srate = (
