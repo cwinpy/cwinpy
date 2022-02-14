@@ -1,4 +1,3 @@
-import copy
 import logging
 
 import numpy as np
@@ -471,7 +470,7 @@ class Plot:
                     ]
 
         # store original keywords arguments
-        origkwargs = copy.deepcopy(kwargs)
+        origkwargs = kwargs.copy()
 
         # plot samples
         fig = None
@@ -581,7 +580,7 @@ class Plot:
 
         singlesamps = [self._samples[key][param].values for key in self._samples]
 
-        origkwargs = copy.deepcopy(kwargs)
+        origkwargs = kwargs.copy()
         colors = kwargs.pop("colors")
 
         with DisableLogger():
@@ -610,7 +609,7 @@ class Plot:
 
         from pesummary.core.plots.plot import _1d_analytic_plot
 
-        origkwargs = copy.deepcopy(kwargs)
+        origkwargs = kwargs.copy()
 
         if "fig" not in kwargs:
             from pesummary.core.plots.figure import figure
@@ -799,7 +798,7 @@ class Plot:
         Create 2D plot from posterior grids.
         """
 
-        origkwargs = copy.deepcopy(kwargs)
+        origkwargs = kwargs.copy()
         colors = kwargs.pop("colors")
 
         # add no grid by default
