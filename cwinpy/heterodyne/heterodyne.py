@@ -955,7 +955,7 @@ class HeterodyneDAGRunner(object):
                     else:
                         frinfo["framecache"] = framecaches[det][i]
                     frinfo["channel"] = channels[det][i]
-                    framedata[det].append(frinfo.copy())
+                    framedata[det].append(copy.deepcopy(frinfo))
 
                     seginfo = {}
                     if segmentlists is not None:
@@ -998,7 +998,7 @@ class HeterodyneDAGRunner(object):
                             server=segmentserver,
                         )
 
-                    segmentdata[det].append(seginfo.copy())
+                    segmentdata[det].append(copy.deepcopy(seginfo))
         elif joblength > 0:
             starttimes = {det: [] for det in detectors}
             endtimes = {det: [] for det in detectors}
@@ -1116,9 +1116,9 @@ class HeterodyneDAGRunner(object):
                         endtimes[det].append(int(curend))
 
                         # append frame data for jobs
-                        framedata[det].append(frinfo.copy())
+                        framedata[det].append(copy.deepcopy(frinfo))
 
-                        segmentdata[det].append(seginfo.copy())
+                        segmentdata[det].append(copy.deepcopy(seginfo))
                     idx += 1
         else:
             raise ValueError("Length of each job must be a positive integer")
@@ -1210,7 +1210,7 @@ class HeterodyneDAGRunner(object):
             etypes.append(par["EPHEM"] if par["EPHEM"] is not None else "DE405")
             if par["BINARY"] is not None:
                 binarymodels.append(par["BINARY"])
-        self.pulsar_files = het.pulsarfiles.copy()
+        self.pulsar_files = copy.deepcopy(het.pulsarfiles)
 
         # remove duplicates
         etypes = set(etypes)

@@ -2,6 +2,7 @@
 Classes for heterodyning strain data.
 """
 
+import copy
 import inspect
 import os
 import re
@@ -1699,7 +1700,7 @@ class Heterodyne(object):
                             break
 
                     # download/read data
-                    datakwargs = kwargs.copy()
+                    datakwargs = copy.deepcopy(kwargs)
                     datakwargs.update(
                         dict(starttime=int(curstarttime), endtime=int(curendtime))
                     )

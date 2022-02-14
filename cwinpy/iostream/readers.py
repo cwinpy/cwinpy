@@ -1,4 +1,5 @@
 import ast
+import copy
 import os
 
 import numpy as np
@@ -312,14 +313,14 @@ def register_ascii_series_io(array_type, format="txt", identify=True, **defaults
     """
 
     def _read(filepath, **kwargs):
-        kwgs = defaults.copy()
+        kwgs = copy.deepcopy(defaults)
         kwgs.update(kwargs)
         if "comments" not in kwgs:
             kwgs.update({"comments": ["%", "#"]})
         return read_ascii_series(filepath, array_type=array_type, **kwgs)
 
     def _write(series, output, **kwargs):
-        kwgs = defaults.copy()
+        kwgs = copy.deepcopy(defaults)
         kwgs.update(kwargs)
         return write_ascii_series(series, output, **kwgs)
 
@@ -335,14 +336,14 @@ def register_hdf_series_io(array_type, format="hdf5", identify=True, **defaults)
     """
 
     def _read(filepath, **kwargs):
-        kwgs = defaults.copy()
+        kwgs = copy.deepcopy(defaults)
         kwgs.update(kwargs)
         if "comments" not in kwgs:
             kwgs.update({"comments": ["%", "#"]})
         return read_hdf5_series(filepath, array_type=array_type, **kwgs)
 
     def _write(series, output, **kwargs):
-        kwgs = defaults.copy()
+        kwgs = copy.deepcopy(defaults)
         kwgs.update(kwargs)
         return write_hdf5_series(series, output, **kwgs)
 
