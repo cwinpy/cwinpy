@@ -63,7 +63,7 @@ class HeterodyneInput(Input):
         )
         requirements = cf.get(jobsection, "requirements", fallback=None)
         self.requirements = [requirements] if requirements else []
-        self.retry = cf.getint(jobsection, "retry", fallback=0)
+        self.retry = cf.getint(jobsection, "retry", fallback=1)
         self.notification = cf.get(jobsection, "notification", fallback="Never")
         self.email = cf.get(jobsection, "email", fallback=None)
         self.condor_job_priority = cf.getint(
