@@ -67,6 +67,7 @@ class PEInput(Input):
 
         # number of parallel runs for each job
         self.n_parallel = cf.getint("pe", "n_parallel", fallback=1)
+        self.sampler = cf.get("pe", "sampler", fallback="dynesty")
         self.sampler_kwargs = cf.get("pe", "sampler_kwargs", fallback=None)
 
         # needs to be set for the bilby_pipe Node initialisation, but is not a
