@@ -2001,6 +2001,11 @@ class Heterodyne(object):
             self._write_current_pulsars()
 
     def _write_current_pulsars(self):
+        if not hasattr(self, "_filters"):
+            # if no filters were set it is likely that there was no new data to
+            # heterodyne, so nothing needs to be written
+            return
+
         # get arguments passed to Heterodyne
         sig = inspect.signature(Heterodyne)
         hetargs = {}
