@@ -1628,7 +1628,7 @@ class Heterodyne(object):
 
                         if (
                             endtime
-                            >= self.endtime - (0.5 / self.resamplerate) - self.crop
+                            >= self.endtime - (1 / self.resamplerate) - self.crop
                         ):
                             # pulsar already completed, so can be skipped
                             pulsarlist.remove(pulsar)
