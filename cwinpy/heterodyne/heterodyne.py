@@ -862,7 +862,9 @@ class HeterodyneDAGRunner(object):
                     if isinstance(finfo, dict):
                         for key, value in finfo.copy().items():
                             if isinstance(value, str):
-                                finfo[key] = [value] * len(fullstarttimes[key])
+                                finfo[key] = [
+                                    value for _ in range(len(fullstarttimes[key]))
+                                ]
                             elif isinstance(value, list):
                                 if len(value) != len(fullstarttimes[key]):
                                     raise ValueError(
@@ -907,7 +909,9 @@ class HeterodyneDAGRunner(object):
                 if isinstance(sinfo, dict):
                     for key, value in sinfo.copy().items():
                         if isinstance(value, str):
-                            sinfo[key] = [value] * len(fullstarttimes[key])
+                            sinfo[key] = [
+                                value for _ in range(len(fullstarttimes[key]))
+                            ]
                         elif isinstance(value, list):
                             if len(value) != len(fullstarttimes[key]):
                                 raise ValueError(
@@ -1806,16 +1810,43 @@ def heterodyne_pipeline(**kwargs):
             # add heterodyne settings
             configfile["heterodyne"] = {}
             configfile["heterodyne"]["detectors"] = str(detectors)
-            configfile["heterodyne"]["starttimes"] = str(
-                {det: runtimes[run][det][0] for det in detectors}
-            )
-            configfile["heterodyne"]["endtimes"] = str(
-                {det: runtimes[run][det][1] for det in detectors}
-            )
 
-            configfile["heterodyne"]["frametypes"] = str(
-                {det: CVMFS_GWOSC_DATA_TYPES[run][srate][det] for det in detectors}
-            )
+            if run == "O3":
+                # for full O3 we need to set times for O3a and O3b separately
+                configfile["heterodyne"]["starttimes"] = str(
+                    {
+                        det: [runtimes[o3run][det][0] for o3run in ["O3a", "O3b"]]
+                        for det in detectors
+                    }
+                )
+                configfile["heterodyne"]["endtimes"] = str(
+                    {
+                        det: [runtimes[o3run][det][1] for o3run in ["O3a", "O3b"]]
+                        for det in detectors
+                    }
+                )
+
+                configfile["heterodyne"]["frametypes"] = str(
+                    {
+                        det: [
+                            CVMFS_GWOSC_DATA_TYPES[o3run][srate][det]
+                            for o3run in ["O3a", "O3b"]
+                        ]
+                        for det in detectors
+                    }
+                )
+            else:
+                configfile["heterodyne"]["starttimes"] = str(
+                    {det: runtimes[run][det][0] for det in detectors}
+                )
+                configfile["heterodyne"]["endtimes"] = str(
+                    {det: runtimes[run][det][1] for det in detectors}
+                )
+
+                configfile["heterodyne"]["frametypes"] = str(
+                    {det: CVMFS_GWOSC_DATA_TYPES[run][srate][det] for det in detectors}
+                )
+
             configfile["heterodyne"]["channels"] = str(
                 {det: CVMFS_GWOSC_FRAME_CHANNELS[run][srate][det] for det in detectors}
             )
