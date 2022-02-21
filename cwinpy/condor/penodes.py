@@ -300,7 +300,7 @@ class MergePENode(Node):
         self.setup_arguments(
             add_ini=False, add_unknown_args=False, add_command_line_args=False
         )
-        self.arguments.append("--result")
+        self.arguments.append("--results")
         for pn in parallel_node_list:
             self.arguments.append(pn.result_file)
         self.arguments.add("outdir", parallel_node_list[0].psrbase)
