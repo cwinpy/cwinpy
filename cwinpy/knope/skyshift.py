@@ -3,7 +3,6 @@ import configparser
 import os
 from argparse import ArgumentParser
 from copy import deepcopy
-from pathlib import Path
 
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -19,6 +18,8 @@ from ..info import (
 from ..parfile import PulsarParameters
 from ..pe.pe import PEDAGRunner
 from ..utils import draw_ra_dec, get_psr_name, int_to_alpha, overlap
+
+# from pathlib import Path
 
 
 def skyshift_pipeline(**kwargs):
@@ -369,21 +370,18 @@ def skyshift_pipeline(**kwargs):
     if isinstance(hetconfigfile, configparser.ConfigParser) and isinstance(
         peconfigfile, configparser.ConfigParser
     ):
-        hetconfig1 = hetconfigfile  # initial heterodyne
-        hetconfig2 = deepcopy(hetconfig1)  # sky-shifted heterodyne
+        hetconfig = hetconfigfile  # two-stage heterodyne
         peconfig = peconfigfile
     else:
-        hetconfig1 = configparser.ConfigParser()  # initial heterodyne
+        hetconfig = configparser.ConfigParser()  # two-stage
         peconfig = configparser.ConfigParser()
 
         try:
-            hetconfig1.read_file(open(hetconfigfile, "r"))
+            hetconfig.read_file(open(hetconfigfile, "r"))
         except Exception as e:
             raise IOError(
                 f"Problem reading configuration file '{hetconfigfile}'\n: {e}"
             )
-
-        hetconfig2 = deepcopy(hetconfig1)  # sky-shifted heterodyne
 
         try:
             peconfig.read_file(open(peconfigfile, "r"))
@@ -391,21 +389,20 @@ def skyshift_pipeline(**kwargs):
             raise IOError(f"Problem reading configuration file '{peconfigfile}'\n: {e}")
 
     # check that heterodyne_job section exists
-    if not hetconfig1.has_section("heterodyne_job"):
-        hetconfig1["heterodyne_job"] = {}
-        hetconfig2["heterodyne_job"] = {}
+    if not hetconfig.has_section("heterodyne_job"):
+        hetconfig["heterodyne_job"] = {}
 
     # check for single pulsar
     if pulsar is None:
-        pulsar = hetconfig1.get("ephemerides", "pulsarfiles", fallback=None)
+        pulsar = hetconfig.get("ephemerides", "pulsarfiles", fallback=None)
     if not isinstance(pulsar, str):
         raise ValueError("A pulsar parameter file must be given")
 
     # set sky-shift output directory, e.g., append "skyshift" onto the base directory
     basedir = os.path.join(
-        hetconfig1.get("run", "basedir", fallback=os.getcwd()), "skyshift"
+        hetconfig.get("run", "basedir", fallback=os.getcwd()), "skyshift"
     )
-    for cf in [hetconfig1, hetconfig2, peconfig]:
+    for cf in [hetconfig, peconfig]:
         if not cf.has_section("run"):
             cf["run"] = {}
         cf["run"]["basedir"] = basedir
@@ -419,14 +416,13 @@ def skyshift_pipeline(**kwargs):
     pos = SkyCoord(ra, dec, unit="rad")  # current position
     hemisphere = "north" if pos.barycentrictrueecliptic.lat >= 0 else "south"
 
-    pulsardir = os.path.join(hetconfig1["run"]["basedir"], "pulsars")
+    pulsardir = os.path.join(hetconfig["run"]["basedir"], "pulsars")
     if not os.path.exists(pulsardir):
         os.makedirs(pulsardir)
 
     # add ephemeris settings
-    if not hetconfig1.has_section("ephemerides"):
-        hetconfig1["ephemerides"] = {}
-        hetconfig2["ephemerides"] = {}
+    if not hetconfig.has_section("ephemerides"):
+        hetconfig["ephemerides"] = {}
 
     # check whether calculating overlap
     if overlapfrac is not None:
@@ -434,8 +430,8 @@ def skyshift_pipeline(**kwargs):
             raise ValueError("Overlap fraction must be between 0 and 1")
 
         # get observing time
-        starttimes = ast.literal_eval(hetconfig1.get("heterodyne", "starttimes"))
-        endtimes = ast.literal_eval(hetconfig1.get("heterodyne", "endtimes"))
+        starttimes = ast.literal_eval(hetconfig.get("heterodyne", "starttimes"))
+        endtimes = ast.literal_eval(hetconfig.get("heterodyne", "endtimes"))
 
         # get earliest start time
         if isinstance(starttimes, (int, float)):
@@ -495,12 +491,10 @@ def skyshift_pipeline(**kwargs):
     parfiles.append(pulsar)  # add on original parameter file
 
     # set up first and second stage heterodynes
-    hetconfig1["ephemerides"]["pulsarfiles"] = pulsar
+    hetconfig["ephemerides"]["pulsarfiles"] = pulsar
+    hetconfig["heterodyne"]["stages"] = "skyshift"
 
-    # include all sky-shifted pulsars
-    hetconfig2["ephemerides"]["pulsarfiles"] = str(parfiles)
-
-    filterknee = hetconfig1.get("heterodyne", "filterknee", fallback=None)
+    filterknee = hetconfig.get("heterodyne", "filterknee", fallback=None)
     dfmax = None
     if filterknee is None:
         # get estimate of required bandwidth
@@ -514,144 +508,108 @@ def skyshift_pipeline(**kwargs):
         dfmax *= 2  # multiply by two for some extra room
         dfmax = max((0.1, dfmax))  # get max of 0.1 or df
 
-        hetconfig1["heterodyne"]["filterknee"] = f"{dfmax:.2f}"
-    hetconfig2.remove_option(
-        "heterodyne", "filterknee"
-    )  # no filter for second heterodyne
+        hetconfig["heterodyne"]["filterknee"] = f"{dfmax:.2f}"
 
-    resamplerate = hetconfig1.get("heterodyne", "resamplerate", fallback=None)
+    resamplerate = hetconfig.get("heterodyne", "resamplerate", fallback=None)
     if resamplerate is None:
-        if dfmax is None:
-            hetconfig1["heterodyne"]["resamplerate"] = "1"  # 1 Hz default
-        else:
-            rsrate = int(np.ceil(2 * dfmax))
-            hetconfig1["heterodyne"]["resamplerate"] = str(rsrate)
-    hetconfig2["heterodyne"]["resamplerate"] = "1/60"
+        hetconfig["heterodyne"]["resamplerate"] = "[{}, 1/60]".format(
+            1 if dfmax is None else int(np.ceil(2 * dfmax)),
+        )
 
     # don't include barycentring for initial heterodyne
-    hetconfig1["heterodyne"]["includessb"] = "False"
-    hetconfig1["heterodyne"]["includebsb"] = "False"
-    hetconfig1["heterodyne"]["includeglitch"] = "False"
-    hetconfig1["heterodyne"]["includefitwaves"] = "False"
-
-    # include barycentring for second heterodyne
-    hetconfig2["heterodyne"]["includessb"] = "True"
-    hetconfig2["heterodyne"]["includebsb"] = "True"
-    hetconfig2["heterodyne"]["includeglitch"] = "True"
-    hetconfig2["heterodyne"]["includefitwaves"] = "True"
+    hetconfig["heterodyne"]["includessb"] = "[False, True]"
+    hetconfig["heterodyne"]["includebsb"] = "[False, True]"
+    hetconfig["heterodyne"]["includeglitch"] = "[False, True]"
+    hetconfig["heterodyne"]["includefitwaves"] = "[False, True]"
 
     # output location for heterodyne (ignore config file location)
-    detectors = ast.literal_eval(hetconfig1.get("heterodyne", "detectors"))
+    detectors = ast.literal_eval(hetconfig.get("heterodyne", "detectors"))
     if not isinstance(detectors, list):
         detectors = [detectors]
 
-    hetconfig1["heterodyne"]["outputdir"] = str(
+    hetconfig["heterodyne"]["outputdir"] = str(
         {
-            det: os.path.join(hetconfig1["run"]["basedir"], "stage1", det)
-            for det in detectors
-        }
-    )
-    hetconfig2["heterodyne"]["outputdir"] = str(
-        {
-            det: os.path.join(hetconfig1["run"]["basedir"], "stage2", det)
+            det: [
+                os.path.join(hetconfig["run"]["basedir"], f"stage{stage}", det)
+                for stage in [1, 2]
+            ]
             for det in detectors
         }
     )
 
     # make sure "file transfer" is consistent with heterodyne value
-    if hetconfig1.getboolean(
+    if hetconfig.getboolean(
         "heterodyne_dag", "transfer_files", fallback=True
-    ) != hetconfig1.getboolean("pe_dag", "transfer_files", fallback=True):
+    ) != hetconfig.getboolean("pe_dag", "transfer_files", fallback=True):
         if not peconfig.has_section("pe_dag"):
             peconfig["pe_dag"] = {}
-        peconfig["pe_dag"]["transfer_files"] = hetconfig1.get(
+        peconfig["pe_dag"]["transfer_files"] = hetconfig.get(
             "heterodyne_dag", "transfer_files", fallback="True"
         )
 
     # DAG name is taken from the "knope_dag" section, but falls-back to
     # "cwinpy_knope" if not given
-    hetconfig1["heterodyne_dag"]["name"] = hetconfig1.get(
+    hetconfig["heterodyne_dag"]["name"] = hetconfig.get(
         "knope_dag", "name", fallback="cwinpy_knope"
     )
 
     # set accounting group information
-    accgroup = hetconfig1.get("knope_job", "accounting_group", fallback=None)
-    accuser = hetconfig1.get("knope_job", "accounting_group_user", fallback=None)
+    accgroup = hetconfig.get("knope_job", "accounting_group", fallback=None)
+    accuser = hetconfig.get("knope_job", "accounting_group_user", fallback=None)
     if accgroup is not None:
-        hetconfig1["heterodyne_job"]["accounting_group"] = accgroup
-        hetconfig2["heterodyne_job"]["accounting_group"] = accgroup
+        hetconfig["heterodyne_job"]["accounting_group"] = accgroup
         peconfig["pe_job"]["accounting_group"] = accgroup
     if accuser is not None:
-        hetconfig1["heterodyne_job"]["accounting_group_user"] = accuser
-        hetconfig2["heterodyne_job"]["accounting_group_user"] = accuser
+        hetconfig["heterodyne_job"]["accounting_group_user"] = accuser
         peconfig["pe_job"]["accounting_group_user"] = accuser
 
     # set job names (for sub files) to be different for the 2 stages
-    jobname = hetconfig1.get("heterodyne_job", "name", fallback="cwinpy_heterodyne")
-    if not hetconfig1.has_option("heterodyne_job", "name"):
-        hetconfig1["heterodyne_job"]["name"] = jobname + "_stage1"
-    hetconfig2["heterodyne_job"]["name"] = jobname + "_stage2"
+    jobname = hetconfig.get("heterodyne_job", "name", fallback="cwinpy_heterodyne")
+    if not hetconfig.has_option("heterodyne_job", "name"):
+        hetconfig["heterodyne_job"]["name"] = jobname + "_skyshift"
 
     # set the configuration file location
-    configloc = hetconfig1.get("heterodyne", "config", fallback="configs")
-    hetconfig1["heterodyne"]["config"] = os.path.join(configloc, "stage1")
-    hetconfig2["heterodyne"]["config"] = os.path.join(configloc, "stage2")
+    configloc = hetconfig.get("heterodyne", "config", fallback="config")
+    hetconfig["heterodyne"]["config"] = configloc
 
     # set use of OSG
-    osg = hetconfig1.get("knope_dag", "osg", fallback=None)
+    osg = hetconfig.get("knope_dag", "osg", fallback=None)
     if osg is not None:
-        hetconfig1["heterodyne_dag"]["osg"] = osg
-        hetconfig2["heterodyne_dag"]["osg"] = osg
+        hetconfig["heterodyne_dag"]["osg"] = osg
         peconfig["pe_dag"]["osg"] = osg
 
     # set whether to submit or not (via the PE DAG generator)
-    submit = hetconfig1.get("knope_dag", "submitdag", fallback=None)
+    submit = hetconfig.get("knope_dag", "submitdag", fallback=None)
     if submit is not None:
-        hetconfig1["heterodyne_dag"]["submitdag"] = "False"
-        hetconfig2["heterodyne_dag"]["submitdag"] = "False"
+        hetconfig["heterodyne_dag"]["submitdag"] = "False"
         peconfig["pe_dag"]["submitdag"] = submit
 
     # create heterodyne DAG
-    build = hetconfig1.getboolean("knope_dag", "build", fallback=True)
-    hetconfig1["heterodyne_dag"]["build"] = "False"  # don't build the DAG yet
-    hetconfig2["heterodyne_dag"]["build"] = "False"
+    build = hetconfig.getboolean("knope_dag", "build", fallback=True)
+    hetconfig["heterodyne_dag"]["build"] = "False"  # don't build the DAG yet
     peconfig["pe_dag"]["build"] = str(build)
 
-    # don't merge in first heterodyne
-    if not hetconfig1.has_section("merge"):
-        hetconfig1["merge"] = {}
-    hetconfig1["merge"]["merge"] = "False"
+    # merge files
+    hetconfig["merge"]["merge"] = "True"
 
-    # do merge for second heterodyne
-    hetconfig2["merge"] = {}
-    hetconfig2["merge"]["merge"] = "True"  # always merge files
-
-    hetdag1 = HeterodyneDAGRunner(hetconfig1, **kwargs)
+    hetdag = HeterodyneDAGRunner(hetconfig, **kwargs)
 
     # create heterodyned data dictionary pointing to directories
-    hetdata = {det: {} for det in detectors}
-    hetdir = os.path.join(hetconfig1["run"]["basedir"], "stage1")
-    allhetfiles = [str(f.resolve()) for f in Path(hetdir).rglob("*.hdf5")]
-    for det in detectors:
-        dethetfiles = sorted([f for f in allhetfiles if f"_{det}_" in f])
-        for name in psrnames + [get_psr_name(psr)]:
-            # get files for the correct detector
-            hetdata[det][name] = deepcopy(dethetfiles)
-
-    hetconfig2["heterodyne"]["heterodyneddata"] = str(hetdata)
-    hetconfig2["heterodyne"]["ignore_read_fail"] = "True"
-    hetconfig2["heterodyne"]["crop"] = "0"  # no further cropping required
-
-    kwargs["dag"] = hetdag1.dag  # add heterodyne DAG
-    kwargs["generation_nodes"] = hetdag1.pulsar_nodes
-    hetdag2 = HeterodyneDAGRunner(hetconfig2, **kwargs)
+    # hetdata = {det: {} for det in detectors}
+    # hetdir = os.path.join(hetconfig1["run"]["basedir"], "stage1")
+    # allhetfiles = [str(f.resolve()) for f in Path(hetdir).rglob("*.hdf5")]
+    # for det in detectors:
+    #    dethetfiles = sorted([f for f in allhetfiles if f"_{det}_" in f])
+    #    for name in psrnames + [get_psr_name(psr)]:
+    #        # get files for the correct detector
+    #        hetdata[det][name] = deepcopy(dethetfiles)
 
     # add heterodyned files into PE configuration
     datadict = {1.0: {}, 2.0: {}}
-    for det in hetdag2.mergeoutputs:
-        for ff in hetdag2.mergeoutputs[det]:
+    for det in hetdag.mergeoutputs:
+        for ff in hetdag.mergeoutputs[det]:
             datadict[ff][det] = {
-                psr: hetfile for psr, hetfile in hetdag2.mergeoutputs[det][ff].items()
+                psr: hetfile for psr, hetfile in hetdag.mergeoutputs[det][ff].items()
             }
 
     if len(datadict[1.0]) == 0 and len(datadict[2.0]) == 0:
@@ -681,8 +639,8 @@ def skyshift_pipeline(**kwargs):
         peconfig.remove_option("pe", "data-file")
 
     # create PE DAG
-    kwargs["dag"] = hetdag2.dag  # add heterodyne DAG
-    kwargs["generation_nodes"] = hetdag2.pulsar_nodes  # add Heterodyne nodes
+    kwargs["dag"] = hetdag.dag  # add heterodyne DAG
+    kwargs["generation_nodes"] = hetdag.pulsar_nodes  # add Heterodyne nodes
     pedag = PEDAGRunner(peconfig, **kwargs)
 
     # return the full DAG

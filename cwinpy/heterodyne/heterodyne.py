@@ -1161,7 +1161,7 @@ class HeterodyneDAGRunner(object):
 
         # set whether to perform the heterodyne in 1 or two stages
         stages = config.getint("heterodyne", "stages", fallback=1)
-        if stages not in [1, 2]:
+        if stages not in [1, 2, "skyshift"]:
             raise ValueError("Stages must either be 1 or 2")
 
         # get the resample rate(s)
