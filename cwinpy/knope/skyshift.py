@@ -17,8 +17,6 @@ from ..info import (
 from ..parfile import PulsarParameters
 from ..pe.pe import PEDAGRunner
 
-# from pathlib import Path
-
 
 def skyshift_pipeline(**kwargs):
     """
