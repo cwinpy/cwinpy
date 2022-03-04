@@ -2,7 +2,6 @@ import ast
 import configparser
 import os
 from argparse import ArgumentParser
-from copy import deepcopy
 
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -17,7 +16,6 @@ from ..info import (
 )
 from ..parfile import PulsarParameters
 from ..pe.pe import PEDAGRunner
-from ..utils import draw_ra_dec, get_psr_name, int_to_alpha, overlap
 
 # from pathlib import Path
 
@@ -195,9 +193,7 @@ def skyshift_pipeline(**kwargs):
         )
         optional.add_argument(
             "--pulsar",
-            help=(
-                "The path to a TEMPO(2)-style pulsar parameter file to " "heterodyne."
-            ),
+            help=("The path to a TEMPO(2)-style pulsar parameter file to heterodyne."),
         )
         optional.add_argument(
             "--osg",
@@ -370,10 +366,10 @@ def skyshift_pipeline(**kwargs):
     if isinstance(hetconfigfile, configparser.ConfigParser) and isinstance(
         peconfigfile, configparser.ConfigParser
     ):
-        hetconfig = hetconfigfile  # two-stage heterodyne
+        hetconfig = hetconfigfile
         peconfig = peconfigfile
     else:
-        hetconfig = configparser.ConfigParser()  # two-stage
+        hetconfig = configparser.ConfigParser()
         peconfig = configparser.ConfigParser()
 
         try:
@@ -416,13 +412,12 @@ def skyshift_pipeline(**kwargs):
     pos = SkyCoord(ra, dec, unit="rad")  # current position
     hemisphere = "north" if pos.barycentrictrueecliptic.lat >= 0 else "south"
 
-    pulsardir = os.path.join(hetconfig["run"]["basedir"], "pulsars")
-    if not os.path.exists(pulsardir):
-        os.makedirs(pulsardir)
-
-    # add ephemeris settings
-    if not hetconfig.has_section("ephemerides"):
-        hetconfig["ephemerides"] = {}
+    # set skyshift section in hetconfig
+    hetconfig["skyshift"] = {}
+    hetconfig["skyshift"]["nshifts"] = str(nshifts)
+    hetconfig["skyshift"]["exclusion"] = str(exclusion)
+    hetconfig["skyshift"]["overlap"] = str(overlapfrac)
+    hetconfig["skyshift"]["hemisphere"] = hemisphere
 
     # check whether calculating overlap
     if overlapfrac is not None:
@@ -449,50 +444,17 @@ def skyshift_pipeline(**kwargs):
         else:
             raise TypeError("Supplied end times must be number or dictionary")
 
-        Tobs = endtime - starttime
+        tobs = endtime - starttime
 
-    psrnames = []
-    parfiles = []
+        hetconfig["skyshift"]["tobs"] = str(tobs)
 
-    for i in range(nshifts):
-        # generate points while checking angular distance from true position
-        while True:
-            # draw points from same ecliptic hemisphere as source
-            ranew, decnew = draw_ra_dec(eclhemi=hemisphere)
-            newpos = SkyCoord(ranew, decnew, unit="rad")
+    # add ephemeris settings
+    if not hetconfig.has_section("ephemerides"):
+        hetconfig["ephemerides"] = {}
 
-            # check new position is outside exclusion region
-            if np.abs(pos.separation(newpos).rad) > exclusion:
-                if overlapfrac is None:
-                    break
-                else:
-                    # check new position has small fractional overlap
-                    if (
-                        overlap(pos, newpos, psr["F0"], Tobs, starttime, dt=600)
-                        < overlapfrac
-                    ):
-                        break
-
-        # output par files for all new positions
-        newpsr = deepcopy(psr)
-        newpsr["RAJ"] = newpos.ra.rad
-        newpsr["DECJ"] = newpos.dec.rad
-
-        # make name unique with additional alphabetical values
-        anum = int_to_alpha(i + 1)
-        newpsr["PSRJ"] = get_psr_name(newpsr) + anum
-        psrnames.append(newpsr["PSRJ"])
-
-        parfiles.append(os.path.join(pulsardir, "{}.par".format(newpsr["PSRJ"])))
-
-        # output parameter file
-        newpsr.pp_to_par(parfiles[-1])
-
-    parfiles.append(pulsar)  # add on original parameter file
-
-    # set up first and second stage heterodynes
+    # set up two-stage heterodyne
     hetconfig["ephemerides"]["pulsarfiles"] = pulsar
-    hetconfig["heterodyne"]["stages"] = "skyshift"
+    hetconfig["heterodyne"]["stages"] = 2
 
     filterknee = hetconfig.get("heterodyne", "filterknee", fallback=None)
     dfmax = None
@@ -513,7 +475,7 @@ def skyshift_pipeline(**kwargs):
     resamplerate = hetconfig.get("heterodyne", "resamplerate", fallback=None)
     if resamplerate is None:
         hetconfig["heterodyne"]["resamplerate"] = "[{}, 1/60]".format(
-            1 if dfmax is None else int(np.ceil(2 * dfmax)),
+            1 if dfmax is None else int(np.ceil(2 * dfmax))
         )
 
     # don't include barycentring for initial heterodyne
@@ -590,19 +552,9 @@ def skyshift_pipeline(**kwargs):
     peconfig["pe_dag"]["build"] = str(build)
 
     # merge files
-    hetconfig["merge"]["merge"] = "True"
+    hetconfig["merge"]["merge"] = "False"
 
     hetdag = HeterodyneDAGRunner(hetconfig, **kwargs)
-
-    # create heterodyned data dictionary pointing to directories
-    # hetdata = {det: {} for det in detectors}
-    # hetdir = os.path.join(hetconfig1["run"]["basedir"], "stage1")
-    # allhetfiles = [str(f.resolve()) for f in Path(hetdir).rglob("*.hdf5")]
-    # for det in detectors:
-    #    dethetfiles = sorted([f for f in allhetfiles if f"_{det}_" in f])
-    #    for name in psrnames + [get_psr_name(psr)]:
-    #        # get files for the correct detector
-    #        hetdata[det][name] = deepcopy(dethetfiles)
 
     # add heterodyned files into PE configuration
     datadict = {1.0: {}, 2.0: {}}

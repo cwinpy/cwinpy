@@ -14,6 +14,7 @@ from argparse import ArgumentParser
 
 import cwinpy
 import numpy as np
+from astropy.coordinates import SkyCoord
 from bilby_pipe.bilbyargparser import BilbyArgParser
 from bilby_pipe.job_creation.dag import Dag
 from bilby_pipe.utils import (
@@ -40,7 +41,11 @@ from ..utils import (
     LAL_BINARY_MODELS,
     LAL_EPHEMERIS_TYPES,
     check_for_tempo2,
+    draw_ra_dec,
+    get_psr_name,
     initialise_ephemeris,
+    int_to_alpha,
+    overlap,
     sighandler,
 )
 from .base import Heterodyne, generate_segments, remote_frame_cache
@@ -1104,9 +1109,9 @@ class HeterodyneDAGRunner(object):
                                 break
 
                         if segidx < len(segmentlist):
-                            overlap = sumseg - joblength
+                            overlapamount = sumseg - joblength
                             segidx -= 1
-                            curend = segmentlist[segidx][1] - overlap
+                            curend = segmentlist[segidx][1] - overlapamount
                             segmentlist[segidx][0] = curend
                         else:
                             # ignore final segment if it's less than 30 mins
@@ -1161,7 +1166,7 @@ class HeterodyneDAGRunner(object):
 
         # set whether to perform the heterodyne in 1 or two stages
         stages = config.getint("heterodyne", "stages", fallback=1)
-        if stages not in [1, 2, "skyshift"]:
+        if stages not in [1, 2]:
             raise ValueError("Stages must either be 1 or 2")
 
         # get the resample rate(s)
@@ -1324,18 +1329,17 @@ class HeterodyneDAGRunner(object):
         # cwinpy_pe if required)
         self.pulsar_nodes = {psr: {det: [] for det in detectors} for psr in het.pulsars}
 
-        if merge:
-            # dictionary containing child nodes for each merge job
-            mergechildren = {
-                det: {ff: {psr: [] for psr in het.pulsars} for ff in freqfactors}
-                for det in detectors
-            }
+        # dictionary containing child nodes for each merge job
+        mergechildren = {
+            det: {ff: {psr: [] for psr in het.pulsars} for ff in freqfactors}
+            for det in detectors
+        }
 
-            # dictionary containing the output files for the merge results
-            self.mergeoutputs = {
-                det: {ff: {psr: None for psr in het.pulsars} for ff in freqfactors}
-                for det in detectors
-            }
+        # dictionary containing the output files for the merge results
+        self.mergeoutputs = {
+            det: {ff: {psr: None for psr in het.pulsars} for ff in freqfactors}
+            for det in detectors
+        }
 
         # dictionary to contain all the heterodyned data files for each pulsar
         self.heterodyned_files = {
@@ -1452,6 +1456,80 @@ class HeterodyneDAGRunner(object):
 
                         idx += 1
 
+        # if performing sky-shifting, generate the new shifted pulsar parameter files
+        skyshift = config.has_section("skyshift")
+        if skyshift:
+            pulsardir = os.path.join(config["run"]["basedir"], "pulsars")
+            if not os.path.exists(pulsardir):
+                os.makedirs(pulsardir)
+
+            origpsrname = pulsargroups[0][0]  # single pulsar name
+            pulsargroups = []  # overwrite pulsargroups with sky-shifted pulsar names
+            parfiles = []
+
+            nshifts = config.getint("skyshift", "nshifts", None)
+
+            if nshifts is None:
+                raise ValueError("Number of sky shifts must be specified")
+
+            hemisphere = config.get("skyshift", "hemisphere", None)
+
+            if hemisphere not in ["north", "south"]:
+                raise ValueError("Hemisphere must be set to 'north' or 'south'")
+
+            exclusion = config.getfloat("skyshift", "exclusion", fallback=0.01)
+            overlapfrac = config.getfloat("skyshift", "overlap", fallback=None)
+            tobs = config.getfloat("skyshift", "tobs", fallback=None)
+
+            if overlapfrac is not None and tobs is None:
+                raise ValueError(
+                    "Total observation time must be given to calculate allowed overlap when sky-shifting"
+                )
+
+            # get pulsar position
+            psr = PulsarParameters(pulsarfiles[0])
+
+            # generate new positions
+            ra = psr["RAJ"]
+            dec = psr["DECJ"]
+            pos = SkyCoord(ra, dec, unit="rad")  # current position
+
+            for i in range(nshifts):
+                # generate points while checking angular distance from true position
+                while True:
+                    # draw points from same ecliptic hemisphere as source
+                    ranew, decnew = draw_ra_dec(eclhemi=hemisphere)
+                    newpos = SkyCoord(ranew, decnew, unit="rad")
+
+                    # check new position is outside exclusion region
+                    if np.abs(pos.separation(newpos).rad) > exclusion:
+                        if overlapfrac is None:
+                            break
+
+                        # check new position has small fractional overlap
+                        if (
+                            overlap(pos, newpos, psr["F0"], tobs, starttime, dt=600)
+                            < overlapfrac
+                        ):
+                            break
+
+                # output par files for all new positions
+                newpsr = copy.deepcopy(psr)
+                newpsr["RAJ"] = newpos.ra.rad
+                newpsr["DECJ"] = newpos.dec.rad
+
+                # make name unique with additional alphabetical values
+                anum = int_to_alpha(i + 1)
+                newpsr["PSRJ"] = get_psr_name(newpsr) + anum
+                pulsargroups.append([newpsr["PSRJ"]])
+
+                parfiles.append(
+                    os.path.join(pulsardir, "{}.par".format(newpsr["PSRJ"]))
+                )
+
+                # output parameter file
+                newpsr.pp_to_par(parfiles[-1])
+
         # need to check whether doing fine heterodyne - in this case need to create new jobs on a per pulsar basis
         if stages == 2:
             for i, pgroup in enumerate(pulsargroups):
@@ -1464,7 +1542,9 @@ class HeterodyneDAGRunner(object):
                             configdict["detector"] = det
                             configdict["freqfactor"] = ff
                             configdict["pulsars"] = psr
-                            configdict["pulsarfiles"] = pulsarfiles
+                            configdict["pulsarfiles"] = (
+                                pulsarfiles if not skyshift else parfiles[i]
+                            )
                             configdict["resamplerate"] = resamplerate[-1]
 
                             # include all modulations
@@ -1480,13 +1560,31 @@ class HeterodyneDAGRunner(object):
 
                             # input the data
                             configdict["heterodyneddata"] = {
-                                psr: self.heterodyned_files[det][ff][psr]
+                                psr: self.heterodyned_files[det][ff][
+                                    psr if not skyshift else origpsrname
+                                ]
                             }
 
                             # output structure
                             configdict["output"] = outputdirs[1][det]
                             configdict["label"] = (
                                 label[1] if label is not None else None
+                            )
+
+                            # temporary Heterodyne object to get the output file names
+                            tmphet = Heterodyne(
+                                starttime=configdict["starttime"],
+                                endtime=configdict["endtime"],
+                                detector=det,
+                                freqfactor=ff,
+                                output=outputdirs[1][det],
+                                label=configdict["label"],
+                                pulsars=psr,
+                                pulsarfiles=copy.deepcopy(configdict["pulsarfiles"]),
+                            )
+
+                            self.mergeoutputs[det][ff][psr] = os.path.join(
+                                outputdirs[1][det], tmphet.outputfiles[psr]
                             )
 
                             self.pulsar_nodes[psr][det].append(
@@ -1498,7 +1596,9 @@ class HeterodyneDAGRunner(object):
                                         if value is not None
                                     },
                                     self.dag,
-                                    generation_node=self.hetnodes[i],
+                                    generation_node=self.hetnodes[i]
+                                    if not skyshift
+                                    else self.hetnodes[0],
                                 )
                             )
         elif merge:

@@ -29,10 +29,7 @@ data will be preprocessed based on the phase evolution of a pulsar which will \
 then be used to infer the unknown signal parameters.
 """
 
-    parser = ArgumentParser(
-        description=description,
-        allow_abbrev=False,
-    )
+    parser = ArgumentParser(description=description, allow_abbrev=False)
     parser.add(
         "--heterodyne-config",
         action="append",
@@ -623,7 +620,11 @@ def knope_pipeline(**kwargs):
     peconfig["pe_dag"]["build"] = str(build)
     if not hetconfig.has_section("merge"):
         hetconfig["merge"] = {}
-    hetconfig["merge"]["merge"] = "True"  # always merge files
+
+    # always merge files if doing a one stage heterodyne
+    hetconfig["merge"]["merge"] = (
+        "True" if hetconfig.getint("heterodyne", "stages", fallback=1) == 1 else "False"
+    )
     hetdag = HeterodyneDAGRunner(hetconfig, **kwargs)
 
     # add heterodyned files into PE configuration
