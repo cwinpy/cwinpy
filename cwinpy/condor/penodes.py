@@ -67,6 +67,7 @@ class PEInput(Input):
 
         # number of parallel runs for each job
         self.n_parallel = cf.getint("pe", "n_parallel", fallback=1)
+        self.sampler = cf.get("pe", "sampler", fallback="dynesty")
         self.sampler_kwargs = cf.get("pe", "sampler_kwargs", fallback=None)
 
         # needs to be set for the bilby_pipe Node initialisation, but is not a
@@ -123,9 +124,11 @@ class PulsarPENode(Node):
         resdir = inputs.config.get("pe", "results", fallback="results")
         self.psrbase = os.path.join(inputs.outdir, resdir, psrname)
         if self.inputs.n_parallel > 1:
-            self.resdir = os.path.join(self.psrbase, "par{}".format(parallel_idx))
+            self.resdir = os.path.abspath(
+                os.path.join(self.psrbase, "par{}".format(parallel_idx))
+            )
         else:
-            self.resdir = self.psrbase
+            self.resdir = os.path.abspath(self.psrbase)
 
         check_directory_exists_and_if_not_mkdir(self.resdir)
         configdict["outdir"] = self.resdir

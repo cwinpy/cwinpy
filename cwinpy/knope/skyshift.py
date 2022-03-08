@@ -329,7 +329,10 @@ def skyshift_pipeline(**kwargs):
                 {det: segments[run][det] for det in detectors}
             )
             hetconfigfile["heterodyne"]["outputdir"] = str(
-                {det: os.path.join(args.output, det) for det in detectors}
+                {
+                    det: os.path.join(os.path.abspath(args.output), det)
+                    for det in detectors
+                }
             )
             hetconfigfile["heterodyne"]["overwrite"] = "False"
 
@@ -529,7 +532,7 @@ def skyshift_pipeline(**kwargs):
         hetconfig["heterodyne_job"]["name"] = jobname + "_skyshift"
 
     # set the configuration file location
-    configloc = hetconfig.get("heterodyne", "config", fallback="config")
+    configloc = hetconfig.get("heterodyne", "config", fallback="configs")
     hetconfig["heterodyne"]["config"] = configloc
 
     # set use of OSG

@@ -1532,6 +1532,10 @@ class HeterodyneDAGRunner(object):
         if stages == 2:
             for i, pgroup in enumerate(pulsargroups):
                 for psr in pgroup:
+                    if skyshift and psr not in self.pulsar_nodes:
+                        # initialise pulsar_nodes for skyshifted pulsars
+                        self.pulsar_nodes[psr] = {det: [] for det in detectors}
+
                     for ff in freqfactors:
                         for det in detectors:
                             configdict = {}
@@ -1953,7 +1957,9 @@ def heterodyne_pipeline(**kwargs):
                 )
             configfile["heterodyne"]["outputdir"] = str(
                 {
-                    det: os.path.join(kwargs.get("output", args.output), det)
+                    det: os.path.join(
+                        kwargs.get("output", os.path.abspath(args.output)), det
+                    )
                     for det in detectors
                 }
             )

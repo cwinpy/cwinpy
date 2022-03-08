@@ -1027,7 +1027,9 @@ class PERunner(object):
 
         # output parameters
         if "outdir" in kwargs:
-            self.sampler_kwargs.setdefault("outdir", kwargs.get("outdir"))
+            self.sampler_kwargs.setdefault(
+                os.path.abspath("outdir"), os.path.abspath(kwargs.get("outdir"))
+            )
         if "label" in kwargs:
             self.sampler_kwargs.setdefault("label", kwargs.get("label"))
 
