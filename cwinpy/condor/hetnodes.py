@@ -199,7 +199,7 @@ class HeterodyneNode(Node):
 
             # if resume is set transfer any created files
             if not configdict["overwrite"]:
-                for psr in tmphet.outputfiles.copy():
+                for psr in copy.deepcopy(tmphet.outputfiles):
                     psrfile = tmphet.outputfiles[psr]
 
                     # create empty dummy files, so Condor doesn't complain about files not existing
@@ -215,30 +215,40 @@ class HeterodyneNode(Node):
             configdict.pop("output")
 
             # set output files to transfer back
-            for psr in tmphet.outputfiles.copy():
+            for psr in copy.deepcopy(tmphet.outputfiles):
                 psrfile = tmphet.outputfiles[psr]
                 output_files_to_transfer.append(os.path.basename(psrfile))
 
             # transfer pulsar parameter files
-            for psr in configdict["pulsarfiles"].copy():
+            if isinstance(configdict["pulsarfiles"], dict):
+                for psr in copy.deepcopy(configdict["pulsarfiles"]):
+                    input_files_to_transfer.append(
+                        self._relative_topdir(
+                            configdict["pulsarfiles"][psr], self.inputs.initialdir
+                        )
+                    )
+
+                    # set job to only use file (without further path) as the transfer directory is flat
+                    configdict["pulsarfiles"][psr] = os.path.basename(
+                        configdict["pulsarfiles"][psr]
+                    )
+            else:
+                # pulsarfiles points to a single file
                 input_files_to_transfer.append(
                     self._relative_topdir(
-                        configdict["pulsarfiles"][psr], self.inputs.initialdir
+                        configdict["pulsarfiles"], self.inputs.initialdir
                     )
                 )
 
-                # set job to only use file (without further path) as the transfer directory is flat
-                configdict["pulsarfiles"][psr] = os.path.basename(
-                    configdict["pulsarfiles"][psr]
-                )
+                configdict["pulsarfiles"] = os.path.basename(configdict["pulsarfiles"])
 
             # transfer ephemeris files
             for ephem in ["earthephemeris", "sunephemeris", "timeephemeris"]:
-                for etype in configdict[ephem].copy():
+                for etype in copy.deepcopy(configdict[ephem]):
                     input_files_to_transfer.append(
                         self._relative_topdir(
                             configdict[ephem][etype], self.inputs.initialdir
-                        ),
+                        )
                     )
 
                     configdict[ephem][etype] = os.path.basename(
@@ -268,7 +278,7 @@ class HeterodyneNode(Node):
 
             # transfer heterodyned data files
             if "heterodyneddata" in configdict:
-                for psr in configdict["heterodyneddata"].copy():
+                for psr in copy.deepcopy(configdict["heterodyneddata"]):
                     psrfiles = []
                     for psrfile in configdict["heterodyneddata"][psr]:
                         input_files_to_transfer.append(
@@ -467,9 +477,7 @@ class MergeHeterodyneNode(Node):
         self._universe = "local"
 
         self.setup_arguments(
-            add_command_line_args=False,
-            add_ini=False,
-            add_unknown_args=False,
+            add_command_line_args=False, add_ini=False, add_unknown_args=False
         )
 
         detector = configdict["detector"]
@@ -489,11 +497,7 @@ class MergeHeterodyneNode(Node):
         check_directory_exists_and_if_not_mkdir(configlocation)
         configfile = os.path.join(
             configlocation,
-            "{}{}_{}_merge.ini".format(
-                psrstring,
-                detector,
-                int(freqfactor),
-            ),
+            "{}{}_{}_merge.ini".format(psrstring, detector, int(freqfactor)),
         )
 
         self.arguments.add("config", configfile)

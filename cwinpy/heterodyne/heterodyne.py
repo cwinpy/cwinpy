@@ -1086,7 +1086,7 @@ class HeterodyneDAGRunner(object):
                             _ = remote_frame_cache(
                                 starttime,
                                 endtime,
-                                channels[det][i],
+                                channels[det][idx],
                                 frametype=frametypes[det][idx],
                                 host=config.get("heterodyne", "host", fallback=None),
                                 write=frinfo["framecache"],
@@ -1201,20 +1201,16 @@ class HeterodyneDAGRunner(object):
             filterknee = config.getfloat("heterodyne", "filterknee", fallback=0.1)
         else:
             includessb = self.eval(
-                config.getboolean("heterodyne", "includessb", fallback="[False, True]")
+                config.get("heterodyne", "includessb", fallback="[False, True]")
             )
             includebsb = self.eval(
-                config.getboolean("heterodyne", "includebsb", fallback="[False, True]")
+                config.get("heterodyne", "includebsb", fallback="[False, True]")
             )
             includeglitch = self.eval(
-                config.getboolean(
-                    "heterodyne", "includeglitch", fallback="[False, True]"
-                )
+                config.get("heterodyne", "includeglitch", fallback="[False, True]")
             )
             includefitwaves = self.eval(
-                config.getboolean(
-                    "heterodyne", "includefitwaves", fallback="[False, True]"
-                )
+                config.get("heterodyne", "includefitwaves", fallback="[False, True]")
             )
 
             # filter knee frequency (default to 0.5 Hz for two stage heterodyne)
@@ -1465,33 +1461,35 @@ class HeterodyneDAGRunner(object):
 
             origpsrname = pulsargroups[0][0]  # single pulsar name
             pulsargroups = []  # overwrite pulsargroups with sky-shifted pulsar names
-            parfiles = []
 
-            nshifts = config.getint("skyshift", "nshifts", None)
+            parfiles = [pulsarfiles]  # add original (non-sky-shifted) parameters
 
-            if nshifts is None:
+            nshifts = config.getint("skyshift", "nshifts", fallback=0)
+
+            if nshifts == 0:
                 raise ValueError("Number of sky shifts must be specified")
 
-            hemisphere = config.get("skyshift", "hemisphere", None)
+            hemisphere = config.get("skyshift", "hemisphere", fallback=None)
 
             if hemisphere not in ["north", "south"]:
                 raise ValueError("Hemisphere must be set to 'north' or 'south'")
 
             exclusion = config.getfloat("skyshift", "exclusion", fallback=0.01)
-            overlapfrac = config.getfloat("skyshift", "overlap", fallback=None)
-            tobs = config.getfloat("skyshift", "tobs", fallback=None)
+            overlapfrac = config.getfloat("skyshift", "overlap", fallback=0.0)
+            tobs = config.getfloat("skyshift", "tobs", fallback=0.0)
 
-            if overlapfrac is not None and tobs is None:
+            if overlapfrac > 0.0 and tobs == 0.0:
                 raise ValueError(
                     "Total observation time must be given to calculate allowed overlap when sky-shifting"
                 )
 
             # get pulsar position
-            psr = PulsarParameters(pulsarfiles[0])
+            psr = PulsarParameters(pulsarfiles)
 
             # generate new positions
             ra = psr["RAJ"]
             dec = psr["DECJ"]
+            pulsargroups.append([get_psr_name(psr)])
             pos = SkyCoord(ra, dec, unit="rad")  # current position
 
             for i in range(nshifts):
@@ -1503,7 +1501,7 @@ class HeterodyneDAGRunner(object):
 
                     # check new position is outside exclusion region
                     if np.abs(pos.separation(newpos).rad) > exclusion:
-                        if overlapfrac is None:
+                        if overlapfrac == 0.0:
                             break
 
                         # check new position has small fractional overlap
@@ -1566,6 +1564,7 @@ class HeterodyneDAGRunner(object):
                             }
 
                             # output structure
+                            configdict["overwrite"] = overwrite
                             configdict["output"] = outputdirs[1][det]
                             configdict["label"] = (
                                 label[1] if label is not None else None

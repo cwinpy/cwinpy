@@ -414,11 +414,11 @@ def skyshift_pipeline(**kwargs):
     hetconfig["skyshift"] = {}
     hetconfig["skyshift"]["nshifts"] = str(nshifts)
     hetconfig["skyshift"]["exclusion"] = str(exclusion)
-    hetconfig["skyshift"]["overlap"] = str(overlapfrac)
     hetconfig["skyshift"]["hemisphere"] = hemisphere
 
     # check whether calculating overlap
     if overlapfrac is not None:
+        hetconfig["skyshift"]["overlap"] = str(overlapfrac)
         if overlapfrac <= 0.0 or overlapfrac >= 1.0:
             raise ValueError("Overlap fraction must be between 0 and 1")
 
@@ -452,7 +452,7 @@ def skyshift_pipeline(**kwargs):
 
     # set up two-stage heterodyne
     hetconfig["ephemerides"]["pulsarfiles"] = pulsar
-    hetconfig["heterodyne"]["stages"] = 2
+    hetconfig["heterodyne"]["stages"] = "2"
 
     filterknee = hetconfig.get("heterodyne", "filterknee", fallback=None)
     dfmax = None
@@ -488,13 +488,13 @@ def skyshift_pipeline(**kwargs):
         detectors = [detectors]
 
     hetconfig["heterodyne"]["outputdir"] = str(
-        {
-            det: [
-                os.path.join(hetconfig["run"]["basedir"], f"stage{stage}", det)
-                for stage in [1, 2]
-            ]
-            for det in detectors
-        }
+        [
+            {
+                det: os.path.join(hetconfig["run"]["basedir"], f"stage{stage}", det)
+                for det in detectors
+            }
+            for stage in [1, 2]
+        ]
     )
 
     # make sure "file transfer" is consistent with heterodyne value
@@ -587,6 +587,10 @@ def skyshift_pipeline(**kwargs):
     ):
         # make sure only "data-file-2f" is set rather than "data-file" in case of conflict
         peconfig.remove_option("pe", "data-file")
+
+    # default to doing incoherent (single detector) and coherent (multi-detector) analysis
+    peconfig["pe"]["incoherent"] = peconfig.get("pe", "incoherent", fallback="True")
+    peconfig["pe"]["coherent"] = peconfig.get("pe", "coherent", fallback="True")
 
     # create PE DAG
     kwargs["dag"] = hetdag.dag  # add heterodyne DAG

@@ -77,3 +77,7 @@ def results_odds(results, oddstype="svn", scale="log10"):
             log10odds = coherentZ - denom
 
     return log10odds if scale == "log10" else log10odds / np.log10(np.exp(1))
+
+
+def skyshift_results():
+    pass
