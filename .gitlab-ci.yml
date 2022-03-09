@@ -19,7 +19,7 @@ python-3.7:
   stage: test
   image: quay.io/mattpitkin/cwinpy-testing-python37
   script:
-    - pip install .
+    - pip install .[test]
 
     # run tests (have to use this form due to Cython code - see https://stackoverflow.com/a/48331262/1862861)
     - python setup.py pytest
@@ -38,7 +38,7 @@ python-3.8:
   stage: test
   image: quay.io/mattpitkin/cwinpy-testing-python38
   script:
-    - pip install .
+    - pip install .[test]
 
     # run tests (have to use this form due to Cython code)
     - python setup.py pytest

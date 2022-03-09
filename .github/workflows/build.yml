@@ -32,7 +32,7 @@ jobs:
     - name: Install CWInPy
       run: |
         # install in editable mode due to Cython files https://stackoverflow.com/a/48331262/1862861
-        pip install -e .
+        pip install -e .[test]
     - name: Run test suite
       run: |
         # disable numba jit for code coverage (see https://stackoverflow.com/a/26894553/1862861)
