@@ -2471,8 +2471,7 @@ class Heterodyne(object):
 
             for timetype in timeephemeris:
                 self._timecorr[timetype] = initialise_ephemeris(
-                    timefile=timeephemeris[timetype],
-                    timeonly=True,
+                    timefile=timeephemeris[timetype], timeonly=True
                 )
 
     @property
@@ -2920,7 +2919,9 @@ def generate_segments(
 
     if isinstance(segmentfile, str):
         try:
-            segmentsarray = np.loadtxt(segmentfile, comments=["#", "%"], dtype=float)
+            segmentsarray = np.atleast_2d(
+                np.loadtxt(segmentfile, comments=["#", "%"], dtype=float)
+            )
             segments = []
             for segment in segmentsarray:
                 if segment[1] < starttime or segment[0] > endtime:

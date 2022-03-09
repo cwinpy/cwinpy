@@ -210,11 +210,8 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
     segmentparser.add(
         "--segmentlist",
         help=(
-            "Provide a list of data segment start and end times, as "
-            "list/tuple pairs in the list, or an ASCII text file containing "
-            "the segment start and end times in two columns. If a list, this "
-            "should be in the form of a Python list, surrounded by quotation "
-            'marks, e.g., "[(900000000,900086400),(900100000,900186400)]".'
+            "Provide an ASCII text file containing a list of science segment "
+            "start and end times in two columns."
         ),
     )
     segmentparser.add(
@@ -507,25 +504,23 @@ def heterodyne(**kwargs):
         "timeephemeris",
     ]
     for attr in nsattrs:
-        value = hetkwargs.pop(attr, None)
+        value = str(hetkwargs.pop(attr, None))
 
+        # check whether the value can be evaluated as a Python object
+        try:
+            value = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            pass
+
+        # if the value was a string within a string, e.g., '"[2.3]"',
+        # evaluate again just in case it contains a Python object!
         if isinstance(value, str):
-            # check whether the value can be evaluated as a Python object
             try:
                 value = ast.literal_eval(value)
             except (ValueError, SyntaxError):
                 pass
 
-            # if the value was a string within a string, e.g., '"[2.3]"',
-            # evaluate again just in case it contains a Python object!
-            if isinstance(value, str):
-                try:
-                    value = ast.literal_eval(value)
-                except (ValueError, SyntaxError):
-                    pass
-
-            hetkwargs[attr] = value
-        elif value is not None:
+        if value is not None:
             hetkwargs[attr] = value
 
     # check if pulsarfiles is a single entry list containing a dictionary

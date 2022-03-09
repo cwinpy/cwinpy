@@ -213,7 +213,7 @@ phi0 = {phi0}
             "pulsarfiles = {}\n"
             "framecache = {}\n"
             "channel = {}\n"
-            'segmentlist = "{}"\n'
+            "segmentlist = {}\n"
             "output = {}\n"
             "stride = {}\n"
             "freqfactor = {}\n"
@@ -221,6 +221,12 @@ phi0 = {phi0}
             "includessb = {}\n"
             "label = heterodyne_config_{{psr}}_{{det}}_{{freqfactor}}.hdf5\n"
         )
+
+        # create segment list file
+        seglistfile = "segments.txt"
+        with open(seglistfile, "w") as fp:
+            for segment in segments:
+                fp.write(f"{segment[0]} {segment[1]}\n")
 
         hetconfigfile = "hetconfig.ini"
         with open(hetconfigfile, "w") as fp:
@@ -232,7 +238,7 @@ phi0 = {phi0}
                     hetkwargs["pulsarfiles"][0],
                     hetkwargs["framecache"],
                     hetkwargs["channel"],
-                    hetkwargs["segmentlist"],
+                    seglistfile,
                     hetkwargs["output"],
                     hetkwargs["stride"],
                     hetkwargs["freqfactor"],
@@ -252,12 +258,7 @@ phi0 = {phi0}
         peconfigfile = "peconfig.ini"
         pekwargs["grid_kwargs"]["label"] = "pe_config"
         with open(peconfigfile, "w") as fp:
-            fp.write(
-                peconfigstr.format(
-                    pekwargs["grid"],
-                    pekwargs["grid_kwargs"],
-                )
-            )
+            fp.write(peconfigstr.format(pekwargs["grid"], pekwargs["grid_kwargs"]))
 
         # run knope
         hetcon, peruncon = knope(
@@ -290,5 +291,6 @@ phi0 = {phi0}
         )
 
         os.remove("knope_test.prior")
+        os.remove(seglistfile)
         os.remove(hetconfigfile)
         os.remove(peconfigfile)
