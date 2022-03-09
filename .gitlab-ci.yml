@@ -14,12 +14,13 @@ stages:
   - comparisons
   #- deploy
 
-# test on python 3.7
-python-3.7:
+# test on python 3.8 (use bilby containers)
+python-3.8:
   stage: test
-  image: quay.io/mattpitkin/cwinpy-testing-python37
+  image: containers.ligo.org/lscsoft/bilby/v2-bilby-python38
   script:
-    - pip install .[test]
+    - conda install -c conda-forge libstempo
+    - pip install .[test,docs]
 
     # run tests (have to use this form due to Cython code - see https://stackoverflow.com/a/48331262/1862861)
     - python setup.py pytest
@@ -33,11 +34,12 @@ python-3.7:
     #paths:
     #  - docs/_build/html/
 
-# test on python 3.8
-python-3.8:
+# test on python 3.9
+python-3.9:
   stage: test
-  image: quay.io/mattpitkin/cwinpy-testing-python38
+  image: containers.ligo.org/lscsoft/bilby/v2-bilby-python39
   script:
+    - conda install -c conda-forge libstempo
     - pip install .[test]
 
     # run tests (have to use this form due to Cython code)
@@ -45,9 +47,9 @@ python-3.8:
 
 
 # test example on python 3
-pre-commit-python-3.7:
+pre-commit-python-3.8:
   stage: test
-  image: quay.io/mattpitkin/cwinpy-testing-python37
+  image: containers.ligo.org/lscsoft/bilby/v2-bilby-python38
   script:
     - pip install .[dev]
 
@@ -57,7 +59,7 @@ pre-commit-python-3.7:
 # run comparisons when a new tag is made
 run-comparisons:
   stage: comparisons
-  image: quay.io/mattpitkin/cwinpy-testing-python37
+  image: containers.ligo.org/lscsoft/bilby/v2-bilby-python38
   only:
     # only run on tags (I'm assuming I'll only tag new versions!)
     - tags

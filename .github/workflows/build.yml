@@ -1,4 +1,4 @@
-# This workflow to run the test suite for CWInPy - uses Docker images on Quay.io
+# This workflow to run the test suite for CWInPy - uses Docker images for bilby
 
 name: build
 
@@ -15,12 +15,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: 3.7
-            container: quay.io/mattpitkin/cwinpy-testing-python37
           - python-version: 3.8
-            container: quay.io/mattpitkin/cwinpy-testing-python38
+            container: containers.ligo.org/lscsoft/bilby/v2-bilby-python38
           - python-version: 3.9
-            container: quay.io/mattpitkin/cwinpy-testing-python39
+            container: containers.ligo.org/lscsoft/bilby/v2-bilby-python39
 
     container: ${{ matrix.container }}
     steps:
@@ -31,6 +29,8 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install CWInPy
       run: |
+        # install libstempo
+        conda install -c conda-forge libstempo
         # install in editable mode due to Cython files https://stackoverflow.com/a/48331262/1862861
         pip install -e .[test]
     - name: Run test suite
