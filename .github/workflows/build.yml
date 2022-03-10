@@ -15,8 +15,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: 3.7
-            container: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python37
           - python-version: 3.8
             container: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python38
           - python-version: 3.9
