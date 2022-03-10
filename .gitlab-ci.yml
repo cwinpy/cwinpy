@@ -43,7 +43,7 @@ python-3.8:
 
 
 # test on python 3.9
-python-3.9
+python-3.9:
   stage: test
   image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python39
   script:
