@@ -17,9 +17,9 @@ stages:
 # test on python 3.7
 python-3.7:
   stage: test
-  image: quay.io/mattpitkin/cwinpy-testing-python37
+  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python37
   script:
-    - pip install .
+    - python -m pip install .
 
     # run tests (have to use this form due to Cython code - see https://stackoverflow.com/a/48331262/1862861)
     - python setup.py pytest
@@ -36,20 +36,27 @@ python-3.7:
 # test on python 3.8
 python-3.8:
   stage: test
-  image: quay.io/mattpitkin/cwinpy-testing-python38
+  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python38
   script:
-    - pip install .
-
-    # run tests (have to use this form due to Cython code)
+    - python -m pip install .
     - python setup.py pytest
 
 
-# test example on python 3
-pre-commit-python-3.7:
+# test on python 3.9
+python-3.9:
   stage: test
-  image: quay.io/mattpitkin/cwinpy-testing-python37
+  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python39
   script:
-    - pip install .[dev]
+    - python -m pip install .
+    - python setup.py pytest
+
+
+# test pre-commit has picked up black/flake8 requirements
+pre-commit-python-3.8:
+  stage: test
+  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python38
+  script:
+    - python -m pip install .[dev]
 
     # run pre-commit checks
     - pre-commit run --all-files --verbose --show-diff-on-failure
@@ -57,7 +64,7 @@ pre-commit-python-3.7:
 # run comparisons when a new tag is made
 run-comparisons:
   stage: comparisons
-  image: quay.io/mattpitkin/cwinpy-testing-python37
+  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python38
   only:
     # only run on tags (I'm assuming I'll only tag new versions!)
     - tags
@@ -66,7 +73,6 @@ run-comparisons:
     - branches
   allow_failure: true
   before_script:
-    - apt-get -qq update && apt-get install -y --no-install-recommends texlive texlive-latex-extra dvipng libgsl2 libgsl-dev
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
     - eval $(ssh-agent -s)
     - echo "$GIT_SSH_PRIV_KEY" | tr -d '\r' | ssh-add -

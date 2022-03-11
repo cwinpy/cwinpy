@@ -363,7 +363,7 @@ API
 ------------------------
 
 .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
-       <https:arxiv.org/abs/1705.08978v1>`_, 2017.
+       <https://arxiv.org/abs/1705.08978v1>`_, 2017.
 .. [2] `G. B. Hobbs, R. T. Edwards & R. N. Manchester
    <https://ui.adsabs.harvard.edu/?#abs/2006MNRAS.369..655H>`_,
    *MNRAS*, **369**, 655-672 (2006)

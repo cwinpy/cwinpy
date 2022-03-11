@@ -48,7 +48,7 @@ class PEInput(Input):
             "log",
             fallback=os.path.join(os.path.abspath(self._outdir), "log"),
         )
-        self.request_memory = cf.get(jobsection, "request_memory", fallback="4 GB")
+        self.request_memory = cf.get(jobsection, "request_memory", fallback="8 GB")
         self.request_cpus = cf.getint(jobsection, "request_cpus", fallback=1)
         self.accounting = cf.get(
             jobsection, "accounting_group", fallback="cwinpy"
@@ -58,7 +58,7 @@ class PEInput(Input):
         )
         requirements = cf.get(jobsection, "requirements", fallback=None)
         self.requirements = [requirements] if requirements else []
-        self.retry = cf.getint(jobsection, "retry", fallback=0)
+        self.retry = cf.getint(jobsection, "retry", fallback=1)
         self.notification = cf.get(jobsection, "notification", fallback="Never")
         self.email = cf.get(jobsection, "email", fallback=None)
         self.condor_job_priority = cf.getint(
@@ -302,7 +302,7 @@ class MergePENode(Node):
         self.setup_arguments(
             add_ini=False, add_unknown_args=False, add_command_line_args=False
         )
-        self.arguments.append("--result")
+        self.arguments.append("--results")
         for pn in parallel_node_list:
             self.arguments.append(pn.result_file)
         self.arguments.add("outdir", parallel_node_list[0].psrbase)

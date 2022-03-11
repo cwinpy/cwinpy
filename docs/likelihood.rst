@@ -14,4 +14,4 @@ Likelihood references
 =====================
 
 .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
-   <https:arxiv.org/abs/1705.08978v1>`_, 2017.
+   <https://arxiv.org/abs/1705.08978v1>`_, 2017.

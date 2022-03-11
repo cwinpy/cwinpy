@@ -2,6 +2,7 @@
 Classes for heterodyning strain data.
 """
 
+import copy
 import inspect
 import os
 import re
@@ -1629,7 +1630,7 @@ class Heterodyne(object):
 
                         if (
                             endtime
-                            >= self.endtime - (0.5 / self.resamplerate) - self.crop
+                            >= self.endtime - (1 / self.resamplerate) - self.crop
                         ):
                             # pulsar already completed, so can be skipped
                             pulsarlist.remove(pulsar)
@@ -1701,7 +1702,7 @@ class Heterodyne(object):
                             break
 
                     # download/read data
-                    datakwargs = kwargs.copy()
+                    datakwargs = copy.deepcopy(kwargs)
                     datakwargs.update(
                         dict(starttime=int(curstarttime), endtime=int(curendtime))
                     )
@@ -2002,6 +2003,11 @@ class Heterodyne(object):
             self._write_current_pulsars()
 
     def _write_current_pulsars(self):
+        if not hasattr(self, "_filters"):
+            # if no filters were set it is likely that there was no new data to
+            # heterodyne, so nothing needs to be written
+            return
+
         # get arguments passed to Heterodyne
         sig = inspect.signature(Heterodyne)
         hetargs = {}

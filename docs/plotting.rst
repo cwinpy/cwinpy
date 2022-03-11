@@ -243,4 +243,4 @@ Plotting references
 .. [2] `D. Foreman-Mackey <https://doi.org/10.21105/joss.00024>`_, *JOSS*, **1**, 2, 24, (2016)
 
 .. [3]  M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
-   <https:arxiv.org/abs/1705.08978v1>`_ (2017)
+   <https://arxiv.org/abs/1705.08978v1>`_ (2017)
