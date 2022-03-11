@@ -1512,8 +1512,14 @@ class HeterodyneDAGRunner(object):
 
                 # output par files for all new positions
                 newpsr = copy.deepcopy(psr)
-                newpsr["RAJ"] = newpos.ra.rad
-                newpsr["DECJ"] = newpos.dec.rad
+                if newpsr["RAJ"] is not None:
+                    newpsr["RAJ"] = newpos.ra.rad
+                else:
+                    newpsr["RA"] = newpos.ra.rad
+                if newpsr["DECJ"] is not None:
+                    newpsr["DECJ"] = newpos.dec.rad
+                else:
+                    newpsr["DEC"] = newpos.dec.rad
 
                 # make name unique with additional alphabetical values
                 anum = int_to_alpha(i + 1)
