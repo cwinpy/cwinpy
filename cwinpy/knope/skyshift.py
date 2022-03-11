@@ -408,8 +408,8 @@ def skyshift_pipeline(**kwargs):
     psr = PulsarParameters(pulsar)
 
     # generate new positions
-    ra = psr["RAJ"]
-    dec = psr["DECJ"]
+    ra = psr["RAJ"] if psr["RAJ"] is not None else psr["RA"]
+    dec = psr["DECJ"] if psr["DECJ"] is not None else psr["DEC"]
     pos = SkyCoord(ra, dec, unit="rad")  # current position
     hemisphere = "north" if pos.barycentrictrueecliptic.lat >= 0 else "south"
 

@@ -1486,8 +1486,8 @@ class HeterodyneDAGRunner(object):
             psr = PulsarParameters(pulsarfiles)
 
             # generate new positions
-            ra = psr["RAJ"]
-            dec = psr["DECJ"]
+            ra = psr["RAJ"] if psr["RAJ"] is not None else psr["RA"]
+            dec = psr["DECJ"] if psr["DECJ"] is not None else psr["DEC"]
             pulsargroups.append([get_psr_name(psr)])
             pos = SkyCoord(ra, dec, unit="rad")  # current position
 
