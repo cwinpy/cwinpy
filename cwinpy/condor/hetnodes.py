@@ -79,7 +79,7 @@ class HeterodyneInput(Input):
             dagsection, "submit", fallback=os.path.join(self._outdir, "submit")
         )
         check_directory_exists_and_if_not_mkdir(subdir)
-        return subdir
+        return os.path.abspath(subdir)
 
     @property
     def initialdir(self):
