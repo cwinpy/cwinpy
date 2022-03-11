@@ -285,7 +285,7 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
     if series.heterodyne_arguments is not None:
         # output into a string
         write_metadata(
-            [str(series.heterodyne_arguments)],
+            [str(series.heterodyne_arguments).encode("utf8")],
             output,
             path=path + "HeterodyneArguments",
             append=True,
