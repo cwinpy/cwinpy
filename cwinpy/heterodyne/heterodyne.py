@@ -1344,7 +1344,10 @@ class HeterodyneDAGRunner(object):
 
         # loop over sets of pulsars
         for pgroup in pulsargroups:
-            self.hetnodes.append([])
+            self.hetnodes.append(
+                {ff: {det: [] for det in detectors} for ff in freqfactors}
+            )
+
             # loop over frequency factors
             for ff in freqfactors:
                 # loop over each detector
@@ -1425,7 +1428,7 @@ class HeterodyneDAGRunner(object):
                         configdict["output"] = outputdirs[0][det]
                         configdict["label"] = label[0] if label is not None else None
 
-                        self.hetnodes[-1].append(
+                        self.hetnodes[-1][ff][det].append(
                             HeterodyneNode(
                                 inputs,
                                 {
@@ -1441,12 +1444,12 @@ class HeterodyneDAGRunner(object):
                         if stages == 1:
                             for psr in pgroup:
                                 self.pulsar_nodes[psr][det].append(
-                                    self.hetnodes[-1][-1]
+                                    self.hetnodes[-1][ff][det][-1]
                                 )
                             if merge:
                                 for psr in pgroup:
                                     mergechildren[det][ff][psr].append(
-                                        self.hetnodes[-1][-1]
+                                        self.hetnodes[-1][ff][det][-1]
                                     )
 
                         idx += 1
@@ -1604,9 +1607,9 @@ class HeterodyneDAGRunner(object):
                                         if value is not None
                                     },
                                     self.dag,
-                                    generation_node=self.hetnodes[i]
+                                    generation_node=self.hetnodes[i][ff][det]
                                     if not skyshift
-                                    else self.hetnodes[0],
+                                    else self.hetnodes[0][ff][det],
                                 )
                             )
         elif merge:
