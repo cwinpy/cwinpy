@@ -138,7 +138,6 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
     )
     dataparser.add(
         "--channel",
-        required=True,
         type=str,
         help=(
             'The "channel" within the gravitational-wave data file(s) '
