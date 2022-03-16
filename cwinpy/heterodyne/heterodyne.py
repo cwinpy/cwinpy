@@ -531,7 +531,7 @@ def heterodyne(**kwargs):
                 if isinstance(value, dict):
                     # switch to passing the dictionary
                     hetkwargs["pulsarfiles"] = value
-            except SyntaxError:
+            except (SyntaxError, ValueError):
                 pass
 
     signal.signal(signal.SIGALRM, handler=sighandler)
