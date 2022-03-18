@@ -1574,8 +1574,8 @@ class HeterodyneDAGRunner(object):
                                 ]
                             }
 
-                            # output structure
-                            configdict["overwrite"] = overwrite
+                            # output structure (always overwrite for 2nd stage)
+                            configdict["overwrite"] = True
                             configdict["output"] = outputdirs[1][det]
                             configdict["label"] = (
                                 label[1] if label is not None else None
