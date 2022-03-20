@@ -3,6 +3,7 @@ import os
 import pathlib
 import tempfile
 
+import htcondor
 import pycondor
 from bilby_pipe.input import Input
 from bilby_pipe.job_creation.node import Node, _log_output_error_submit_lines
@@ -10,6 +11,46 @@ from bilby_pipe.utils import check_directory_exists_and_if_not_mkdir, logger
 from configargparse import DefaultConfigFileParser
 
 from ..heterodyne.base import Heterodyne
+
+
+class HeterodyneSubmit:
+    def __init__(self, cf, **kwargs):
+        """
+        Class to create submit file for heterodyne jobs.
+
+        Parameters
+        ----------
+        cf: :class:`configparser.ConfigParser`
+            The configuration file for the DAG set up.
+        """
+
+        self.config = cf  # store config file
+
+        # get the "section" from the config file containing the Condor info
+        dagsection = "heterodyne_dag" if cf.has_section("heterodyne_dag") else "dag"
+
+        # check for use of OSG
+
+        # dictionary to contain all generic submit options
+        self.generic_submit = {}
+
+        self.osg = cf.getboolean(dagsection, "osg", fallback=False)
+
+        self.generic_submit["transfer_files"] = cf.getboolean(
+            dagsection, "transfer_files", fallback=True
+        )
+
+    def generate_submit_job(self, **kwargs):
+        """
+        Generate a submit object.
+        """
+
+        # dictionary to contain specific submit options
+        submit = {}
+
+        submit.update(copy.deepcopy(self.generic_submit))
+
+        return htcondor.Submit(submit)
 
 
 class HeterodyneInput(Input):
