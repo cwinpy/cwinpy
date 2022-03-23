@@ -4,6 +4,7 @@ A selection of general utility functions.
 
 import ctypes
 import os
+import pathlib
 import string
 import sys
 from copy import deepcopy
@@ -593,6 +594,20 @@ def check_for_tempo2():
         hastempo2 = False
 
     return hastempo2
+
+
+def relative_topdir(path, reference):
+    """
+    Returns the top-level directory name of a path relative to a reference.
+    """
+
+    try:
+        return os.path.relpath(
+            pathlib.Path(path).resolve(), pathlib.Path(reference).resolve()
+        )
+    except ValueError as exc:
+        exc.args = (f"cannot format {path} relative to {reference}",)
+        raise
 
 
 def sighandler(signum, frame):

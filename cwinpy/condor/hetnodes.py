@@ -1,16 +1,14 @@
 import copy
 import os
-import pathlib
 import re
 import tempfile
 
-import pycondor
-from bilby_pipe.input import Input
-from bilby_pipe.job_creation.node import Node, _log_output_error_submit_lines
-from bilby_pipe.utils import check_directory_exists_and_if_not_mkdir, logger
+from bilby_pipe.job_creation.node import Node
+from bilby_pipe.utils import check_directory_exists_and_if_not_mkdir
 from configargparse import DefaultConfigFileParser
 
 from ..heterodyne.base import Heterodyne
+from ..utils import relative_topdir
 from . import CondorLayer
 
 # from htcondor import dags
@@ -36,19 +34,21 @@ class HeterodyneLayer(CondorLayer):
             cf,
             section_prefix="heterodyne",
             default_executable="cwinpy_heterodyne",
-            layer_name="cwinpy_heterodyne",
+            layer_name=kwargs.pop("layer_name", "cwinpy_heterodyne"),
             **kwargs,
         )
 
-        # check for use of OSG
         self.submit = self.get_option("submitdag", default=False)
 
+        # check for use of OSG
         self.osg = self.get_option("osg", default=False)
         self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
 
         self.log_directory = self.get_option(
             "log", default=os.path.join(os.path.abspath(self.outdir), "log")
         )
+        if not os.path.exists(self.log_directory):
+            os.makedirs(self.log_directory)
 
         requirements = self.get_option("requirements", default=None)
         if requirements is not None:
@@ -63,7 +63,13 @@ class HeterodyneLayer(CondorLayer):
         )
         self.set_option("email", optionname="notify_user")
 
-        self.set_option("transfer_files", default="YES")
+        if self.osg:
+            # make sure files are transferred if using the OSG
+            self.submit_options["should_transfer_files"] = "YES"
+        else:
+            self.set_option(
+                "transfer_files", optionname="should_transfer_files", default="YES"
+            )
 
         # check whether GWOSC is required
         self.require_gwosc = kwargs.get("require_gwosc", False)
@@ -94,7 +100,7 @@ class HeterodyneLayer(CondorLayer):
 
         if self.osg:
             if self.submit_options.get("accounting_group", "").startswith("ligo."):
-                # set to check that proprietory LIGO frames are available
+                # set to check that proprietary LIGO frames are available
                 self.requirements.append("(HAS_LIGO_FRAMES=?=True)")
 
             # NOTE: the next two statements are currently only require for OSG running,
@@ -110,12 +116,12 @@ class HeterodyneLayer(CondorLayer):
                 self.requirements.append("(HAS_CVMFS_gwosc_osgstorage_org =?= TRUE)")
 
         # generate the node variables
-        vars = self.generate_node_vars(configurations)
+        self.generate_node_vars(configurations)
 
         # generate layer
         self.generate_layer(
-            vars,
-            **additional_options,
+            self.vars,
+            parentname=kwargs.get("parentname", None) ** additional_options,
             **macro_options,
         )
 
@@ -124,128 +130,232 @@ class HeterodyneLayer(CondorLayer):
         Generate the node variables for this layer.
         """
 
+        self.vars = []
+
+        # get location to output individual configuration files to
+        configdir = self.get_option("config", section="heterodyne", default="configs")
+        configlocation = os.path.join(self.outdir, configdir)
+        if not os.path.exists(configlocation):
+            os.makedirs(configlocation)
+
+        transfer_files = self.submit_options.get("should_transfer_files", "NO")
+
         for config in configurations:
-            pass
+            vardict = {}
+
+            # get the results directory
+            resultsdir = config["output"]
+            if not os.path.exists(resultsdir):
+                os.makedirs(resultsdir)
+
+            starttime = config["starttime"]
+            endtime = config["endtime"]
+            detector = config["detector"]
+            freqfactor = config["freqfactor"]
+            pulsar = config.get("pulsars", None)
+
+            psrstring = (
+                ""
+                if not isinstance(pulsar, str)
+                else "{}_".format(pulsar.replace("+", "plus"))
+            )
+
+            # configuration file
+            configfile = os.path.join(
+                configlocation,
+                "{}{}_{}_{}-{}.ini".format(
+                    psrstring, detector, int(freqfactor), starttime, endtime
+                ),
+            )
+
+            # output the DAG configuration file to a temporary file, which will
+            # later be read and stored in the HeterodynedData objects
+            _, dagconfigpath = tempfile.mkstemp(
+                prefix="pipeline_config", suffix=".ini", text=True
+            )
+            with open(dagconfigpath, "w") as cfp:
+                self.cf.write(cfp)
+            config["cwinpy_heterodyne_pipeline_config_file"] = dagconfigpath
+
+            if transfer_files == "YES":
+                transfer_input = []
+                transfer_output = []
+
+                # add files for transfer
+                transfer_input.append(relative_topdir(configfile, resultsdir))
+
+                # create temporary Heterodyne object to get output files
+                tmphet = Heterodyne(
+                    output=config["output"],
+                    label=config.get("label", None),
+                    pulsarfiles=copy.deepcopy(config["pulsarfiles"]),
+                    pulsars=copy.deepcopy(config["pulsars"]),
+                    starttime=starttime,
+                    endtime=endtime,
+                    detector=detector,
+                    freqfactor=freqfactor,
+                )
+
+                # if resume is set transfer any created files
+                if not config["overwrite"]:
+                    for psr in copy.deepcopy(tmphet.outputfiles):
+                        psrfile = tmphet.outputfiles[psr]
+
+                        # create empty dummy files, so Condor doesn't complain about files not existing
+                        # see https://stackoverflow.com/a/12654798/1862861
+                        with open(psrfile, "a"):
+                            pass
+
+                        transfer_input.append(relative_topdir(psrfile, resultsdir))
+
+                # remove "output" so result files get written to the cwd
+                config.pop("output")
+
+                # set output files to transfer back
+                for psr in copy.deepcopy(tmphet.outputfiles):
+                    psrfile = tmphet.outputfiles[psr]
+                    transfer_output.append(os.path.basename(psrfile))
+
+                # transfer pulsar parameter files
+                if isinstance(config["pulsarfiles"], dict):
+                    for psr in copy.deepcopy(config["pulsarfiles"]):
+                        transfer_input.append(
+                            relative_topdir(config["pulsarfiles"][psr], resultsdir)
+                        )
+
+                        # set job to only use file (without further path) as the transfer directory is flat
+                        config["pulsarfiles"][psr] = os.path.basename(
+                            config["pulsarfiles"][psr]
+                        )
+                else:
+                    # pulsarfiles points to a single file
+                    transfer_input.append(
+                        relative_topdir(config["pulsarfiles"], resultsdir)
+                    )
+
+                    config["pulsarfiles"] = os.path.basename(config["pulsarfiles"])
+
+                # transfer ephemeris files
+                for ephem in ["earthephemeris", "sunephemeris", "timeephemeris"]:
+                    for etype in copy.deepcopy(config[ephem]):
+                        transfer_input.append(
+                            relative_topdir(config[ephem][etype], resultsdir)
+                        )
+
+                        config[ephem][etype] = os.path.basename(config[ephem][etype])
+
+                # transfer frame cache files
+                if "framecache" in config:
+                    if os.path.isfile(config["framecache"]):
+                        transfer_input.append(
+                            relative_topdir(config["framecache"], resultsdir)
+                        )
+                        config["framecache"] = os.path.basename(config["framecache"])
+
+                # transfer segment list files
+                if "segmentlist" in config:
+                    transfer_input.append(
+                        relative_topdir(config["segmentlist"], resultsdir)
+                    )
+                    config["segmentlist"] = os.path.basename(config["segmentlist"])
+
+                # transfer heterodyned data files
+                if "heterodyneddata" in config:
+                    for psr in copy.deepcopy(config["heterodyneddata"]):
+                        psrfiles = []
+                        for psrfile in config["heterodyneddata"][psr]:
+                            transfer_input.append(relative_topdir(psrfile, resultsdir))
+                            psrfiles.append(os.path.basename(psrfile))
+
+                        config["heterodyneddata"][psr] = psrfiles
+
+                # transfer DAG config file
+                transfer_input.append(
+                    relative_topdir(
+                        config["cwinpy_heterodyne_pipeline_config_file"],
+                        resultsdir,
+                    )
+                )
+                config["cwinpy_heterodyne_pipeline_config_file"] = os.path.basename(
+                    config["cwinpy_heterodyne_pipeline_config_file"]
+                )
+
+                vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
+                vardict["INITIALDIR"] = resultsdir
+                vardict["TRANSFERINPUT"] = ",".join(transfer_input)
+                vardict["TRANSFEROUTPUT"] = ",".join(transfer_output)
+            else:
+                vardict["ARGS"] = f"--config {configfile}"
+
+            # set log files
+            logstr = f"{self.layer_name}_{int(starttime)}-{int(endtime)}"
+            vardict["LOGFILE"] = os.path.join(self.log_directory, logstr + ".log")
+            vardict["OUTPUTFILE"] = os.path.join(self.log_directory, logstr + ".out")
+            vardict["ERRORFILE"] = os.path.join(self.log_directory, logstr + ".err")
+
+            # write out the configuration files for each job
+            parseobj = DefaultConfigFileParser()
+            with open(configfile, "w") as fp:
+                fp.write(parseobj.serialize(config))
+
+            self.vars.append(vardict)
 
 
-class HeterodyneInput(Input):
-    def __init__(self, cf):
+class MergeLayer(CondorLayer):
+    def __init__(self, dag, cf, configurations, **kwargs):
         """
-        Class that sets inputs for the DAG and analysis node generation.
+        Class to create submit file for heterodyne jobs.
 
         Parameters
         ----------
+        dag: :class:`hcondor.dags.DAG`
+            The HTCondor DAG associated with this layer.
         cf: :class:`configparser.ConfigParser`
             The configuration file for the DAG set up.
+        configurations: list
+            A list of configuration dictionaries for each node in the layer.
         """
 
-        self.config = cf
-
-        dagsection = "heterodyne_dag" if cf.has_section("heterodyne_dag") else "dag"
-
-        self.submit = cf.getboolean(dagsection, "submitdag", fallback=False)
-        self.transfer_files = cf.getboolean(dagsection, "transfer_files", fallback=True)
-        self.osg = cf.getboolean(dagsection, "osg", fallback=False)
-        self.require_gwosc = False
-        self.label = cf.get(dagsection, "name", fallback="cwinpy_heterodyne")
-
-        # see bilby_pipe MainInput class
-        self.scheduler = cf.get(dagsection, "scheduler", fallback="condor")
-        self.scheduler_args = cf.get(dagsection, "scheduler_args", fallback=None)
-        self.scheduler_module = cf.get(dagsection, "scheduler_module", fallback=None)
-        self.scheduler_env = cf.get(dagsection, "scheduler_env", fallback=None)
-        self.scheduler_analysis_time = cf.get(
-            dagsection, "scheduler_analysis_time", fallback="7-00:00:00"
+        super().__init__(
+            dag,
+            cf,
+            default_executable="cwinpy_heterodyne_merge",
+            layer_name="cwinpy_heterodyne_merge",
+            **kwargs,
         )
 
-        self.outdir = cf.get("run", "basedir", fallback=os.getcwd())
+        self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
 
-        jobsection = "heterodyne_job" if cf.has_section("heterodyne_job") else "job"
+        self.submit_options["request_memory"] = "2 GB"
+        self.submit_options["request_cpus"] = 1
+        self.submit_options["universe"] = "local"
 
-        self.universe = cf.get(jobsection, "universe", fallback="vanilla")
-        self.getenv = cf.getboolean(jobsection, "getenv", fallback=True)
-        self.heterodyne_log_directory = cf.get(
-            jobsection,
-            "log",
-            fallback=os.path.join(os.path.abspath(self._outdir), "log"),
-        )
-        self.request_memory = cf.get(jobsection, "request_memory", fallback="8 GB")
-        self.request_cpus = cf.getint(jobsection, "request_cpus", fallback=1)
-        self.accounting = cf.get(
-            jobsection, "accounting_group", fallback="cwinpy"
-        )  # cwinpy is a dummy tag
-        self.accounting_user = cf.get(
-            jobsection, "accounting_group_user", fallback=None
-        )
-        requirements = cf.get(jobsection, "requirements", fallback=None)
-        self.requirements = [requirements] if requirements else []
-        self.retry = cf.getint(jobsection, "retry", fallback=1)
-        self.notification = cf.get(jobsection, "notification", fallback="Never")
-        self.email = cf.get(jobsection, "email", fallback=None)
-        self.condor_job_priority = cf.getint(
-            jobsection, "condor_job_priority", fallback=0
-        )
+        # generate the node variables
+        self.generate_node_vars(configurations)
 
-    @property
-    def submit_directory(self):
-        dagsection = (
-            "heterodyne_dag" if self.config.has_section("heterodyne_dag") else "dag"
-        )
-        subdir = self.config.get(
-            dagsection, "submit", fallback=os.path.join(self._outdir, "submit")
-        )
-        check_directory_exists_and_if_not_mkdir(subdir)
-        return os.path.abspath(subdir)
+        # generate layer
+        self.generate_layer(self.vars, parentname=kwargs.get("parentname", None))
 
-    @property
-    def initialdir(self):
-        if hasattr(self, "_initialdir"):
-            if self._initialdir is not None:
-                return self._initialdir
-            else:
-                return os.getcwd()
-        else:
-            return os.getcwd()
+    def generate_node_vars(self, configdict):
+        """
+        Generate the node variables for this layer.
 
-    @initialdir.setter
-    def initialdir(self, initialdir):
-        if isinstance(initialdir, str):
-            self._initialdir = initialdir
-        else:
-            self._initialdir = None
+        Parameters
+        ----------
+        configdict: dict
+            A dictionary of configuration information for
+            cwinpy_heterodyne_merge.
+        """
 
+        self.vars = []
 
-class HeterodyneNode(Node):
-    """
-    Create a HTCondor DAG node for running the cwinpy_heterodyne script.
-    """
+        vardict = {}
 
-    # If --osg, run analysis nodes on the OSG
-    run_node_on_osg = True
-
-    def __init__(self, inputs, configdict, dag, generation_node=None):
-        self.inputs = inputs
-        self.request_disk = None
-        self.notification = inputs.notification
-        self.verbose = 0
-        self.condor_job_priority = inputs.condor_job_priority
-        self.extra_lines = []
-        self.requirements = (
-            [self.inputs.requirements] if self.inputs.requirements else []
-        )
-
-        self.dag = dag
-
-        self.request_cpus = inputs.request_cpus
-        self.retry = inputs.retry
-        self.getenv = inputs.getenv
-        self._universe = inputs.universe
-
-        starttime = configdict["starttime"]
-        endtime = configdict["endtime"]
         detector = configdict["detector"]
         freqfactor = configdict["freqfactor"]
-        pulsar = configdict.get("pulsars", None)
+        pulsar = configdict["pulsar"]
+        output = configdict["output"]
+        heterodynedfiles = configdict["heterodynedfiles"]
 
         psrstring = (
             ""
@@ -253,318 +363,34 @@ class HeterodyneNode(Node):
             else "{}_".format(pulsar.replace("+", "plus"))
         )
 
-        self.resdir = configdict["output"]
-        check_directory_exists_and_if_not_mkdir(self.resdir)
-
-        # job name prefix
-        jobname = inputs.config.get(
-            "heterodyne_job", "name", fallback="cwinpy_heterodyne"
-        )
-        self.base_job_name = "{}_{}{}_{}_{}-{}".format(
-            jobname, psrstring, detector, int(freqfactor), starttime, endtime
-        )
-        self.job_name = self.base_job_name
-
-        # output the configuration file
-        configdir = inputs.config.get("heterodyne", "config", fallback="configs")
-        configlocation = os.path.join(inputs.outdir, configdir)
-        check_directory_exists_and_if_not_mkdir(configlocation)
+        # create merge job configuration file
+        configdir = self.get_option("config", section="heterodyne", default="configs")
+        configlocation = os.path.join(self.outdir, configdir)
+        if not os.path.exists(configlocation):
+            os.makedirs(configlocation)
         configfile = os.path.join(
             configlocation,
-            "{}{}_{}_{}-{}.ini".format(
-                psrstring, detector, int(freqfactor), starttime, endtime
-            ),
+            "{}{}_{}_merge.ini".format(psrstring, detector, int(freqfactor)),
         )
 
-        # output the DAG configuration file to a temporary file, which will
-        # later be read and stored in the HeterodynedData objects
-        _, dagconfigpath = tempfile.mkstemp(
-            prefix="pipeline_config", suffix=".ini", text=True
+        # output merge job configuration
+        configs = {}
+        configs["remove"] = self.get_option(
+            "remove", section="merge", otype=bool, default=False
         )
-        with open(dagconfigpath, "w") as cfp:
-            inputs.config.write(cfp)
-        configdict["cwinpy_heterodyne_pipeline_config_file"] = dagconfigpath
-
-        self.setup_arguments(
-            add_ini=False, add_unknown_args=False, add_command_line_args=False
+        configs["heterodynedfiles"] = heterodynedfiles
+        configs["output"] = output
+        configs["overwrite"] = self.get_options(
+            "overwrite", section="merge", otype=bool, default=True
         )
-
-        # add files for transfer
-        if self.inputs.transfer_files or self.inputs.osg:
-            tmpinitialdir = self.inputs.initialdir
-
-            self.inputs.initialdir = self.resdir
-
-            input_files_to_transfer = [
-                self._relative_topdir(configfile, self.inputs.initialdir)
-            ]
-
-            output_files_to_transfer = []
-
-            # create temporary Heterodyne object to get output files
-            tmphet = Heterodyne(
-                output=configdict["output"],
-                label=configdict.get("label", None),
-                pulsarfiles=copy.deepcopy(configdict["pulsarfiles"]),
-                pulsars=copy.deepcopy(configdict["pulsars"]),
-                starttime=starttime,
-                endtime=endtime,
-                detector=detector,
-                freqfactor=freqfactor,
-            )
-
-            # if resume is set transfer any created files
-            if not configdict["overwrite"]:
-                for psr in copy.deepcopy(tmphet.outputfiles):
-                    psrfile = tmphet.outputfiles[psr]
-
-                    # create empty dummy files, so Condor doesn't complain about files not existing
-                    # see https://stackoverflow.com/a/12654798/1862861
-                    with open(psrfile, "a"):
-                        pass
-
-                    input_files_to_transfer.append(
-                        self._relative_topdir(psrfile, self.inputs.initialdir)
-                    )
-
-            # remove "output" so result files get written to the cwd
-            configdict.pop("output")
-
-            # set output files to transfer back
-            for psr in copy.deepcopy(tmphet.outputfiles):
-                psrfile = tmphet.outputfiles[psr]
-                output_files_to_transfer.append(os.path.basename(psrfile))
-
-            # transfer pulsar parameter files
-            if isinstance(configdict["pulsarfiles"], dict):
-                for psr in copy.deepcopy(configdict["pulsarfiles"]):
-                    input_files_to_transfer.append(
-                        self._relative_topdir(
-                            configdict["pulsarfiles"][psr], self.inputs.initialdir
-                        )
-                    )
-
-                    # set job to only use file (without further path) as the transfer directory is flat
-                    configdict["pulsarfiles"][psr] = os.path.basename(
-                        configdict["pulsarfiles"][psr]
-                    )
-            else:
-                # pulsarfiles points to a single file
-                input_files_to_transfer.append(
-                    self._relative_topdir(
-                        configdict["pulsarfiles"], self.inputs.initialdir
-                    )
-                )
-
-                configdict["pulsarfiles"] = os.path.basename(configdict["pulsarfiles"])
-
-            # transfer ephemeris files
-            for ephem in ["earthephemeris", "sunephemeris", "timeephemeris"]:
-                for etype in copy.deepcopy(configdict[ephem]):
-                    input_files_to_transfer.append(
-                        self._relative_topdir(
-                            configdict[ephem][etype], self.inputs.initialdir
-                        )
-                    )
-
-                    configdict[ephem][etype] = os.path.basename(
-                        configdict[ephem][etype]
-                    )
-
-            # transfer frame cache files
-            if "framecache" in configdict:
-                if os.path.isfile(configdict["framecache"]):
-                    input_files_to_transfer.append(
-                        self._relative_topdir(
-                            configdict["framecache"], self.inputs.initialdir
-                        )
-                    )
-                    configdict["framecache"] = os.path.basename(
-                        configdict["framecache"]
-                    )
-
-            # transfer segment list files
-            if "segmentlist" in configdict:
-                input_files_to_transfer.append(
-                    self._relative_topdir(
-                        configdict["segmentlist"], self.inputs.initialdir
-                    )
-                )
-                configdict["segmentlist"] = os.path.basename(configdict["segmentlist"])
-
-            # transfer heterodyned data files
-            if "heterodyneddata" in configdict:
-                for psr in copy.deepcopy(configdict["heterodyneddata"]):
-                    psrfiles = []
-                    for psrfile in configdict["heterodyneddata"][psr]:
-                        input_files_to_transfer.append(
-                            self._relative_topdir(psrfile, self.inputs.initialdir)
-                        )
-                        psrfiles.append(os.path.basename(psrfile))
-
-                    configdict["heterodyneddata"][psr] = psrfiles
-
-            # transfer DAG config file
-            input_files_to_transfer.append(
-                self._relative_topdir(
-                    configdict["cwinpy_heterodyne_pipeline_config_file"],
-                    self.inputs.initialdir,
-                )
-            )
-            configdict["cwinpy_heterodyne_pipeline_config_file"] = os.path.basename(
-                configdict["cwinpy_heterodyne_pipeline_config_file"]
-            )
-
-            self.extra_lines.extend(
-                self._condor_file_transfer_lines(
-                    list(set(input_files_to_transfer)), output_files_to_transfer
-                )
-            )
-
-            self.arguments.add("config", os.path.basename(configfile))
-        else:
-            tmpinitialdir = None
-            self.arguments.add("config", configfile)
-
-        self.extra_lines.extend(self._checkpoint_submit_lines())
-
-        # add accounting user
-        if self.inputs.accounting_user is not None:
-            self.extra_lines.append(
-                "accounting_group_user = {}".format(self.inputs.accounting_user)
-            )
-
-        # add use_x509userproxy = True to pass on proxy certificate to jobs if
-        # needing access to proprietary data
-        if not self.inputs.require_gwosc:
-            self.extra_lines.append("use_x509userproxy = True")
 
         parseobj = DefaultConfigFileParser()
         with open(configfile, "w") as fp:
-            fp.write(parseobj.serialize(configdict))
+            fp.write(parseobj.serialize(configs))
 
-        self.create_pycondor_job()
+        vardict["ARGS"] = f"--config {configfile}"
 
-        # reset initial directory
-        if tmpinitialdir is not None:
-            self.inputs.initialdir = tmpinitialdir
-
-        if generation_node is not None:
-            # for fine heterodyne, add previous jobs as parent
-            if isinstance(generation_node, Node):
-                self.job.add_parent(generation_node.job)
-            elif isinstance(generation_node, list):
-                self.job.add_parents(
-                    [gnode.job for gnode in generation_node if isinstance(gnode, Node)]
-                )
-
-    def create_pycondor_job(self):
-        """
-        Overwritten version of create_pycondor_job from the bilby_pipe Node
-        class to allow for proprietary LIGO frames to be used over the OSG.
-        """
-
-        job_name = self.job_name
-        self.extra_lines.extend(
-            _log_output_error_submit_lines(self.log_directory, job_name)
-        )
-
-        if self.inputs.scheduler.lower() == "condor":
-            self.add_accounting()
-
-        self.extra_lines.append(f"priority = {self.condor_job_priority}")
-        if self.inputs.email is not None:
-            self.extra_lines.append(f"notify_user = {self.inputs.email}")
-
-        if self.universe != "local" and self.inputs.osg:
-            if self.run_node_on_osg:
-                # if using LIGO accounting tag use proprietary frames on CVMFS
-                has_ligo_frames = False
-                if not self.inputs.require_gwosc and self.inputs.accounting:
-                    if self.inputs.accounting[0:5] == "ligo.":
-                        has_ligo_frames = True
-
-                _osg_lines, _osg_reqs = self._osg_submit_options(
-                    self.executable, has_ligo_frames=has_ligo_frames
-                )
-
-                # check if using GWOSC frames from CVMFS
-                if self.inputs.require_gwosc:
-                    if len(_osg_reqs) == 0:
-                        _osg_reqs = "HAS_CVMFS_gwosc_osgstorage_org =?= TRUE"
-                    else:
-                        _osg_reqs += " && HAS_CVMFS_gwosc_osgstorage_org =?= TRUE"
-
-                self.extra_lines.extend(_osg_lines)
-                self.requirements.append(_osg_reqs)
-            else:
-                osg_local_node_lines = [
-                    "+flock_local = True",
-                    '+DESIRED_Sites = "nogrid"',
-                    "+should_transfer_files = NO",
-                ]
-                self.extra_lines.extend(osg_local_node_lines)
-
-        self.job = pycondor.Job(
-            name=job_name,
-            executable=self.executable,
-            submit=self.inputs.submit_directory,
-            request_memory=self.request_memory,
-            request_disk=self.request_disk,
-            request_cpus=self.request_cpus,
-            getenv=self.getenv,
-            universe=self.universe,
-            initialdir=self.inputs.initialdir,
-            notification=self.notification,
-            requirements=" && ".join(self.requirements),
-            extra_lines=self.extra_lines,
-            dag=self.dag.pycondor_dag,
-            arguments=self.arguments.print(),
-            retry=self.retry,
-            verbose=self.verbose,
-        )
-
-        # Hack to allow passing walltime down to slurm
-        setattr(self.job, "slurm_walltime", self.slurm_walltime)
-
-        logger.debug(f"Adding job: {job_name}")
-
-    @property
-    def executable(self):
-        jobexec = self.inputs.config.get(
-            "heterodyne_job", "executable", fallback="cwinpy_heterodyne"
-        )
-        return self._get_executable_path(jobexec)
-
-    @property
-    def request_memory(self):
-        return self.inputs.request_memory
-
-    @property
-    def log_directory(self):
-        check_directory_exists_and_if_not_mkdir(self.inputs.heterodyne_log_directory)
-        return self.inputs.heterodyne_log_directory
-
-    @property
-    def result_directory(self):
-        """
-        The path to the directory where result output will be stored.
-        """
-        check_directory_exists_and_if_not_mkdir(self.resdir)
-        return self.resdir
-
-    @staticmethod
-    def _relative_topdir(path, reference):
-        """
-        Returns the top-level directory name of a path relative to a reference.
-        """
-        try:
-            return os.path.relpath(
-                pathlib.Path(path).resolve(), pathlib.Path(reference).resolve()
-            )
-        except ValueError as exc:
-            exc.args = (f"cannot format {path} relative to {reference}",)
-            raise
+        self.vars.append(vardict)
 
 
 class MergeHeterodyneNode(Node):

@@ -1,4 +1,5 @@
 import copy
+import fnmatch
 import os
 import shutil
 
@@ -126,6 +127,8 @@ class CondorLayer:
             getfunc = self.cf.getint
         elif otype is bool or otype in ["bool", "boolean"]:
             getfunc = self.cf.getboolean
+        elif otype is float or otype == "float":
+            getfunc = self.cf.getfloat
         else:
             raise TypeError(f"Attempting to get unknown type {otype} section value")
 
@@ -173,14 +176,28 @@ class CondorLayer:
 
         return Submit(submit)
 
-    def generate_layer(self, vars, **kwargs):
+    def generate_layer(self, vars, parentname=None, **kwargs):
         """
         Generate a new layer in the DAG.
+
+        Parameters
+        ----------
+        vars: list
+            A list of dictionaries containing the variables for each job in the
+            layer.
+        parentname: str
+            A string containing the name that any parent jobs have, which can
+            have the "*" wildcard.
         """
 
-        self.dag.layer(
+        layer = self.dag.layer(
             name=self.layer_name,
             submit_description=self.generate_submit_job(**kwargs),
             retries=self.get_option("retry", default=2),
             vars=vars,
         )
+
+        if parentname is not None:
+            # find parent nodes and add them
+            selector = lambda x: fnmatch.fnmatch(x.name, parentname)
+            layer.add_parents(self.dag.select(selector))
