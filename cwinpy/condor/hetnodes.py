@@ -1,9 +1,9 @@
 import copy
 import os
 import pathlib
+import re
 import tempfile
 
-import htcondor
 import pycondor
 from bilby_pipe.input import Input
 from bilby_pipe.job_creation.node import Node, _log_output_error_submit_lines
@@ -11,46 +11,121 @@ from bilby_pipe.utils import check_directory_exists_and_if_not_mkdir, logger
 from configargparse import DefaultConfigFileParser
 
 from ..heterodyne.base import Heterodyne
+from . import CondorLayer
+
+# from htcondor import dags
 
 
-class HeterodyneSubmit:
-    def __init__(self, cf, **kwargs):
+class HeterodyneLayer(CondorLayer):
+    def __init__(self, dag, cf, configurations, **kwargs):
         """
         Class to create submit file for heterodyne jobs.
 
         Parameters
         ----------
+        dag: :class:`hcondor.dags.DAG`
+            The HTCondor DAG associated with this layer.
         cf: :class:`configparser.ConfigParser`
             The configuration file for the DAG set up.
+        configurations: list
+            A list of configuration dictionaries for each node in the layer.
         """
 
-        self.config = cf  # store config file
-
-        # get the "section" from the config file containing the Condor info
-        dagsection = "heterodyne_dag" if cf.has_section("heterodyne_dag") else "dag"
-
-        # check for use of OSG
-
-        # dictionary to contain all generic submit options
-        self.generic_submit = {}
-
-        self.osg = cf.getboolean(dagsection, "osg", fallback=False)
-
-        self.generic_submit["transfer_files"] = cf.getboolean(
-            dagsection, "transfer_files", fallback=True
+        super().__init__(
+            dag,
+            cf,
+            section_prefix="heterodyne",
+            default_executable="cwinpy_heterodyne",
+            layer_name="cwinpy_heterodyne",
+            **kwargs,
         )
 
-    def generate_submit_job(self, **kwargs):
+        # check for use of OSG
+        self.submit = self.get_option("submitdag", default=False)
+
+        self.osg = self.get_option("osg", default=False)
+        self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
+
+        self.log_directory = self.get_option(
+            "log", default=os.path.join(os.path.abspath(self.outdir), "log")
+        )
+
+        requirements = self.get_option("requirements", default=None)
+        if requirements is not None:
+            self.requirements = [requirements]
+
+        # set memory
+        self.set_option("request_memory", default="8 GB")
+        self.set_option("request_cpus", otype=int, default=1)
+
+        self.set_option(
+            "condor_job_priority", optionname="priority", otype=int, default=0
+        )
+        self.set_option("email", optionname="notify_user")
+
+        self.set_option("transfer_files", default="YES")
+
+        # check whether GWOSC is required
+        self.require_gwosc = kwargs.get("require_gwosc", False)
+
+        # add use_x509userproxy = True to pass on proxy certificate to jobs if
+        # needing access to proprietary data
+        if not self.require_gwosc:
+            self.submit_options["use_x509userproxy"] = True
+
+        # additional options
+        additional_options = {}
+        macro_options = {}
+        if self.submit_options["transfer_files"]:
+            macro_options["initialdir"] = "$(INITIALDIR)"
+            macro_options["transfer_input_files"] = "$(TRANSFERINPUT)"
+            macro_options["transfer_output_files"] = "$(TRANSFEROUTPUT)"
+
+            additional_options["when_to_transfer_output"] = "ON_EXIT_OR_EVICT"
+            additional_options["stream_error"] = True
+            additional_options["stream_output"] = True
+
+        macro_options["log"] = "$(LOGFILE)"
+        macro_options["output"] = "$(OUTPUTFILE)"
+        macro_options["error"] = "$(ERRORFILE)"
+
+        additional_options["+SuccessCheckpointExitCode"] = "77"
+        additional_options["+WantFTOnCheckpoint"] = True
+
+        if self.osg:
+            if self.submit_options.get("accounting_group", "").startswith("ligo."):
+                # set to check that proprietory LIGO frames are available
+                self.requirements.append("(HAS_LIGO_FRAMES=?=True)")
+
+            # NOTE: the next two statements are currently only require for OSG running,
+            # but at the moment not all local pools advertise the CVMFS repo flags
+            if self.submit_options["executable"].startswith("/cvmfs"):
+                repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
+                self.requirements.append(
+                    f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
+                )
+
+            # check if using GWOSC frames from CVMFS
+            if self.require_gwosc:
+                self.requirements.append("(HAS_CVMFS_gwosc_osgstorage_org =?= TRUE)")
+
+        # generate the node variables
+        vars = self.generate_node_vars(configurations)
+
+        # generate layer
+        self.generate_layer(
+            vars,
+            **additional_options,
+            **macro_options,
+        )
+
+    def generate_node_vars(self, configurations):
         """
-        Generate a submit object.
+        Generate the node variables for this layer.
         """
 
-        # dictionary to contain specific submit options
-        submit = {}
-
-        submit.update(copy.deepcopy(self.generic_submit))
-
-        return htcondor.Submit(submit)
+        for config in configurations:
+            pass
 
 
 class HeterodyneInput(Input):
