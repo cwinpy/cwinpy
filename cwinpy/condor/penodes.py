@@ -1,340 +1,292 @@
+import ast
 import os
-import pathlib
 
 import bilby
-from bilby_pipe.input import Input
-from bilby_pipe.job_creation.node import Node
-from bilby_pipe.utils import check_directory_exists_and_if_not_mkdir
 from configargparse import DefaultConfigFileParser
 
+from ..utils import relative_topdir
+from . import CondorLayer
 
-class PEInput(Input):
-    def __init__(self, cf):
+
+class PulsarPELayer(CondorLayer):
+    def __init__(self, dag, cf, config, **kwargs):
         """
-        Class that sets inputs for the DAG and analysis node generation.
+        Class to create submit file for parameter estimation jobs.
 
         Parameters
         ----------
+        dag: :class:`hcondor.dags.DAG`
+            The HTCondor DAG associated with this layer.
         cf: :class:`configparser.ConfigParser`
             The configuration file for the DAG set up.
+        config: dict
+            A configuration dictionary for each pulsar node in the layer.
         """
 
-        self.config = cf
+        self.psrname = kwargs.pop("psrname")
+        self.dets = kwargs.pop("dets")
 
-        dagsection = "pe_dag" if cf.has_section("pe_dag") else "dag"
-
-        self.submit = cf.getboolean(dagsection, "submitdag", fallback=False)
-        self.transfer_files = cf.getboolean(dagsection, "transfer_files", fallback=True)
-        self.osg = cf.getboolean(dagsection, "osg", fallback=False)
-        self.label = cf.get(dagsection, "name", fallback="cwinpy_pe")
-
-        # see bilby_pipe MainInput class
-        self.scheduler = cf.get(dagsection, "scheduler", fallback="condor")
-        self.scheduler_args = cf.get(dagsection, "scheduler_args", fallback=None)
-        self.scheduler_module = cf.get(dagsection, "scheduler_module", fallback=None)
-        self.scheduler_env = cf.get(dagsection, "scheduler_env", fallback=None)
-        self.scheduler_analysis_time = cf.get(
-            dagsection, "scheduler_analysis_time", fallback="7-00:00:00"
+        super().__init__(
+            dag,
+            cf,
+            section_prefix="pe",
+            default_executable="cwinpy_pe",
+            layer_name=kwargs.pop("layer_name", "cwinpy_pe"),
+            **kwargs,
         )
 
-        self.outdir = cf.get("run", "basedir", fallback=os.getcwd())
+        # check for use of OSG
+        self.osg = self.get_option("osg", default=False)
+        self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
 
-        jobsection = "pe_job" if cf.has_section("pe_job") else "job"
+        # check number of parallel runs
+        self.n_parallel = self.get_option("n_parallel", otype=int, default=1)
 
-        self.universe = cf.get(jobsection, "universe", fallback="vanilla")
-        self.getenv = cf.getboolean(jobsection, "getenv", fallback=False)
-        self.pe_log_directory = cf.get(
-            jobsection,
-            "log",
-            fallback=os.path.join(os.path.abspath(self._outdir), "log"),
-        )
-        self.request_memory = cf.get(jobsection, "request_memory", fallback="8 GB")
-        self.request_cpus = cf.getint(jobsection, "request_cpus", fallback=1)
-        self.accounting = cf.get(
-            jobsection, "accounting_group", fallback="cwinpy"
-        )  # cwinpy is a dummy tag
-        self.accounting_user = cf.get(
-            jobsection, "accounting_group_user", fallback=None
-        )
-        requirements = cf.get(jobsection, "requirements", fallback=None)
-        self.requirements = [requirements] if requirements else []
-        self.retry = cf.getint(jobsection, "retry", fallback=1)
-        self.notification = cf.get(jobsection, "notification", fallback="Never")
-        self.email = cf.get(jobsection, "email", fallback=None)
-        self.condor_job_priority = cf.getint(
-            jobsection, "condor_job_priority", fallback=0
+        # store sampler kwargs
+        self.sampler_kwargs = ast.literal_eval(
+            self.get_option("sampler_kwargs", default="{}")
         )
 
-        # number of parallel runs for each job
-        self.n_parallel = cf.getint("pe", "n_parallel", fallback=1)
-        self.sampler = cf.get("pe", "sampler", fallback="dynesty")
-        self.sampler_kwargs = cf.get("pe", "sampler_kwargs", fallback=None)
-
-        # needs to be set for the bilby_pipe Node initialisation, but is not a
-        # requirement for cwinpy_pe
-        self.online_pe = False
-        self.extra_lines = []
-        self.run_local = False
-
-    @property
-    def submit_directory(self):
-        dagsection = "pe_dag" if self.config.has_section("pe_dag") else "dag"
-        subdir = self.config.get(
-            dagsection, "submit", fallback=os.path.join(self._outdir, "submit")
+        self.log_directory = self.get_option(
+            "log", default=os.path.join(os.path.abspath(self.outdir), "log")
         )
-        check_directory_exists_and_if_not_mkdir(subdir)
-        return os.path.abspath(subdir)
+        if not os.path.exists(self.log_directory):
+            os.makedirs(self.log_directory)
 
-    @property
-    def initialdir(self):
-        if hasattr(self, "_initialdir"):
-            if self._initialdir is not None:
-                return self._initialdir
+        requirements = self.get_option("requirements", default=None)
+        if requirements is not None:
+            self.requirements = [requirements]
+
+        # set memory
+        self.set_option("request_memory", default="8 GB")
+        self.set_option("request_cpus", otype=int, default=1)
+
+        self.set_option(
+            "condor_job_priority", optionname="priority", otype=int, default=0
+        )
+        self.set_option("email", optionname="notify_user")
+
+        if self.osg:
+            # make sure files are transferred if using the OSG
+            self.submit_options["should_transfer_files"] = "YES"
+        else:
+            self.set_option(
+                "transfer_files", optionname="should_transfer_files", default="YES"
+            )
+
+        # additional options
+        additional_options = {}
+        if self.submit_options["should_transfer_files"] == "YES":
+            additional_options["initialdir"] = "$(INITIALDIR)"
+            additional_options["transfer_input_files"] = "$(TRANSFERINPUT)"
+            additional_options["transfer_output_files"] = "$(TRANSFEROUTPUT)"
+
+            additional_options["when_to_transfer_output"] = "ON_EXIT_OR_EVICT"
+            additional_options["stream_error"] = True
+            additional_options["stream_output"] = True
+
+        additional_options["MY.SuccessCheckpointExitCode"] = "77"
+        additional_options["MY.WantFTOnCheckpoint"] = True
+
+        additional_options["log"] = "$(LOGFILE)"
+        additional_options["output"] = "$(OUTPUTFILE)"
+        additional_options["error"] = "$(ERRORFILE)"
+
+        # generate the node variables
+        self.generate_node_vars(config)
+
+        # generate layer
+        self.generate_layer(
+            self.vars,
+            parentname=kwargs.get("parentname", None),
+            submitoptions=additional_options,
+        )
+
+    def generate_node_vars(self, config):
+        """
+        Generate the node variables for this layer.
+        """
+
+        self.vars = []
+
+        # get location to output individual configuration files to
+        configdir = self.get_option("config", section="pe", default="configs")
+        configlocation = os.path.join(self.outdir, configdir)
+        if not os.path.exists(configlocation):
+            os.makedirs(configlocation)
+
+        # get results directory
+        self.resdir = os.path.join(
+            self.outdir, self.get_option("results", default="results"), self.psrname
+        )
+        if not os.path.exists(self.resdir):
+            os.makedirs(self.resdir)
+
+        transfer_files = self.submit_options.get("should_transfer_files", "NO")
+
+        # store expected results file names
+        extension = self.sampler_kwargs.get("save", "hdf5")
+        gzip = self.sampler_kwargs("gzip", False)
+        self.resultsfiles = []
+
+        for i in range(self.n_parallel):
+            vardict = {}
+
+            label = f"{self.submit_options.get('name', 'cwinpy_pe')}_{''.join(self.dets)}_{self.psrname}"
+
+            if self.n_parallel > 1:
+                configfile = os.path.join(
+                    configlocation,
+                    "{}_{}_{}.ini".format("".join(self.dets), self.psrname, i),
+                )
+
+                label += f"_{i}"
             else:
-                return os.getcwd()
-        else:
-            return os.getcwd()
+                configfile = os.path.join(
+                    configlocation, "{}_{}.ini".format("".join(self.dets), self.psrname)
+                )
 
-    @initialdir.setter
-    def initialdir(self, initialdir):
-        if isinstance(initialdir, str):
-            self._initialdir = initialdir
-        else:
-            self._initialdir = None
-
-
-class PulsarPENode(Node):
-    # If --osg, run analysis nodes on the OSG
-    run_node_on_osg = True
-
-    def __init__(
-        self, inputs, configdict, psrname, dets, parallel_idx, dag, generation_node=None
-    ):
-        super().__init__(inputs)
-        self.dag = dag
-
-        self.parallel_idx = parallel_idx
-        self.request_cpus = inputs.request_cpus
-        self.retry = inputs.retry
-        self.getenv = inputs.getenv
-        self._universe = inputs.universe
-
-        self.psrname = psrname
-
-        resdir = inputs.config.get("pe", "results", fallback="results")
-        self.psrbase = os.path.join(inputs.outdir, resdir, psrname)
-        if self.inputs.n_parallel > 1:
-            self.resdir = os.path.abspath(
-                os.path.join(self.psrbase, "par{}".format(parallel_idx))
-            )
-        else:
-            self.resdir = os.path.abspath(self.psrbase)
-
-        check_directory_exists_and_if_not_mkdir(self.resdir)
-        configdict["outdir"] = self.resdir
-
-        # job name prefix
-        jobname = inputs.config.get("pe_job", "name", fallback="cwinpy_pe")
-
-        # replace any "+" in the pulsar name for the job name as Condor does
-        # not allow "+"s in the name
-        self.label = "{}_{}_{}".format(jobname, "".join(dets), psrname)
-        self.base_job_name = "{}_{}_{}".format(
-            jobname, "".join(dets), psrname.replace("+", "plus")
-        )
-        if inputs.n_parallel > 1:
-            self.job_name = "{}_{}".format(self.base_job_name, parallel_idx)
-            self.label = "{}_{}".format(self.label, parallel_idx)
-        else:
-            self.job_name = self.base_job_name
-
-        configdict["label"] = self.label
-
-        # output the configuration file
-        configdir = inputs.config.get("pe", "config", fallback="configs")
-        configlocation = os.path.join(inputs.outdir, configdir)
-        check_directory_exists_and_if_not_mkdir(configlocation)
-        if inputs.n_parallel > 1:
-            configfile = os.path.join(
-                configlocation,
-                "{}_{}_{}.ini".format("".join(dets), psrname, parallel_idx),
-            )
-        else:
-            configfile = os.path.join(
-                configlocation, "{}_{}.ini".format("".join(dets), psrname)
+            self.resultsfiles.append(
+                bilby.core.result.result_file_name(
+                    self.resdir, label, extension=extension, gzip=gzip
+                )
             )
 
-        self.setup_arguments(
-            add_ini=False, add_unknown_args=False, add_command_line_args=False
-        )
+            config["label"] = label
 
-        # add files for transfer
-        if self.inputs.transfer_files or self.inputs.osg:
-            tmpinitialdir = self.inputs.initialdir
+            # add files for transfer
+            if transfer_files == "YES":
+                transfer_input = []
 
-            self.inputs.initialdir = self.resdir
+                transfer_input.append(relative_topdir(configfile, self.resdir))
 
-            input_files_to_transfer = [
-                self._relative_topdir(configfile, self.inputs.initialdir)
-            ]
-
-            # make paths relative
-            for key in ["par_file", "inj_par", "data_file_1f", "data_file_2f", "prior"]:
-                if key in list(configdict.keys()):
-                    if key in ["data_file_1f", "data_file_2f"]:
-                        for detkey in configdict[key]:
-                            input_files_to_transfer.append(
-                                self._relative_topdir(
-                                    configdict[key][detkey], self.inputs.initialdir
+                for key in [
+                    "par_file",
+                    "inj_par",
+                    "data_file_1f",
+                    "data_file_2f",
+                    "prior",
+                ]:
+                    if key in list(config.keys()):
+                        if key in ["data_file_1f", "data_file_2f"]:
+                            for detkey in config[key]:
+                                transfer_input.append(
+                                    relative_topdir(config[key][detkey], self.resdir)
                                 )
+
+                                # exclude full path as the transfer directory is flat
+                                config[key][detkey] = os.path.basename(
+                                    config[key][detkey]
+                                )
+                        else:
+                            transfer_input.append(
+                                relative_topdir(config[key], self.resdir)
                             )
 
                             # exclude full path as the transfer directory is flat
-                            configdict[key][detkey] = os.path.basename(
-                                configdict[key][detkey]
-                            )
-                    else:
-                        input_files_to_transfer.append(
-                            self._relative_topdir(
-                                configdict[key], self.inputs.initialdir
-                            )
-                        )
+                            config[key] = os.path.basename(config[key])
 
-                        # exclude full path as the transfer directory is flat
-                        configdict[key] = os.path.basename(configdict[key])
+                config["outdir"] = "results/"
 
-            configdict["outdir"] = "results/"
+                # add output directory to inputs in case resume file exists
+                transfer_input.append(".")
 
-            # add output directory to inputs in case resume file exists
-            input_files_to_transfer.append(".")
+                vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
+                vardict["INITIALDIR"] = self.resdir
+                vardict["TRANSFERINPUT"] = ",".join(transfer_input)
+                vardict["TRANSFEROUTPUT"] = config["outdir"]
+            else:
+                vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
 
-            self.extra_lines.extend(
-                self._condor_file_transfer_lines(
-                    list(set(input_files_to_transfer)), [configdict["outdir"]]
-                )
-            )
+            # set log files
+            vardict["LOGFILE"] = os.path.join(self.log_directory, f"{label}.log")
+            vardict["OUTPUTFILE"] = os.path.join(self.log_directory, f"{label}.out")
+            vardict["ERRORFILE"] = os.path.join(self.log_directory, f"{label}.err")
 
-            self.arguments.add("config", os.path.basename(configfile))
-        else:
-            tmpinitialdir = None
-            self.arguments.add("config", configfile)
+            # write out configuration file
+            parseobj = DefaultConfigFileParser()
+            with open(configfile, "w") as fp:
+                fp.write(parseobj.serialize(config))
 
-        self.extra_lines.extend(self._checkpoint_submit_lines())
+            self.vars.append(vardict)
 
-        # add accounting user
-        if self.inputs.accounting_user is not None:
-            self.extra_lines.append(
-                "accounting_group_user = {}".format(self.inputs.accounting_user)
-            )
 
-        parseobj = DefaultConfigFileParser()
-        with open(configfile, "w") as fp:
-            fp.write(parseobj.serialize(configdict))
+class MergePELayer(CondorLayer):
+    def __init__(self, pelayer, **kwargs):
+        """
+        Class to create submit file for merging parameter estimation outputs.
 
-        self.process_node()
+        Parameters
+        ----------
+        dag: :class:`PulsarPELayer`
+            The parent PulsarPELayer.
+        """
 
-        # reset initial directory
-        if tmpinitialdir is not None:
-            self.inputs.initialdir = tmpinitialdir
-
-        if generation_node is not None:
-            # This is for the future when implementing a full pipeline
-            # the generation node will be, for example, a heterodyning job
-            if isinstance(generation_node, Node):
-                self.job.add_parent(generation_node.job)
-            elif isinstance(generation_node, list):
-                self.job.add_parents(
-                    [gnode.job for gnode in generation_node if isinstance(gnode, Node)]
-                )
-
-    @property
-    def executable(self):
-        jobexec = self.inputs.config.get("pe_job", "executable", fallback="cwinpy_pe")
-        return self._get_executable_path(jobexec)
-
-    @property
-    def request_memory(self):
-        return self.inputs.request_memory
-
-    @property
-    def log_directory(self):
-        check_directory_exists_and_if_not_mkdir(self.inputs.pe_log_directory)
-        return self.inputs.pe_log_directory
-
-    @property
-    def result_directory(self):
-        """The path to the directory where result output will be stored"""
-        check_directory_exists_and_if_not_mkdir(self.resdir)
-        return self.resdir
-
-    @property
-    def result_file(self):
-        extension = self.inputs.sampler_kwargs.get("save", "hdf5")
-        gzip = self.inputs.sampler_kwargs.get("gzip", False)
-        return bilby.core.result.result_file_name(
-            self.result_directory, self.label, extension=extension, gzip=gzip
+        super().__init__(
+            pelayer.dag,
+            pelayer.cf,
+            default_executable="bilby_result",
+            layer_name=kwargs.pop("layer_name", "cwinpy_pe_merge"),
+            **kwargs,
         )
 
-    @staticmethod
-    def _relative_topdir(path, reference):
+        self.parent_layer_class = pelayer
+
+        # set parent layer
+        self.parent_layer = pelayer.layer
+
+        self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
+
+        self.submit_options["request_memory"] = "8 GB"
+        self.submit_options["request_cpus"] = 1
+        self.submit_options["universe"] = "local"
+
+        # generate the node variables
+        self.generate_node_vars({})
+
+        # generate layer
+        self.generate_layer(self.vars)
+
+    def generate_node_vars(self):
         """
-        Returns the top-level directory name of a path relative to a reference.
+        Generate the node variables for this layer.
         """
-        try:
-            return os.path.relpath(
-                pathlib.Path(path).resolve(), pathlib.Path(reference).resolve()
-            )
-        except ValueError as exc:
-            exc.args = (f"cannot format {path} relative to {reference}",)
-            raise
 
+        arglist = []
 
-class MergePENode(Node):
-    def __init__(self, inputs, parallel_node_list, dag):
-        super().__init__(inputs)
-        self.dag = dag
+        arglist.append("--results")
+        arglist.append(self.parent_layer_class.resultsfiles)
 
-        self.job_name = "{}_merge".format(parallel_node_list[0].base_job_name)
+        # set results directory
+        arglist.append(f"--outdir {self.parent_layer_class.resdir}")
 
-        jobname = inputs.config.get("pe_job", "name", fallback="cwinpy_pe")
-        self.label = "{}_{}".format(jobname, parallel_node_list[0].psrname)
-        self.request_cpus = 1
-        self.setup_arguments(
-            add_ini=False, add_unknown_args=False, add_command_line_args=False
+        label = (
+            f"{self.submit_options.get('name', 'cwinpy_pe')}_"
+            f"{''.join(self.parent_layer_class.dets)}_"
+            f"{self.parent_layer_class.psrname}"
         )
-        self.arguments.append("--results")
-        for pn in parallel_node_list:
-            self.arguments.append(pn.result_file)
-        self.arguments.add("outdir", parallel_node_list[0].psrbase)
-        self.arguments.add("label", self.label)
-        self.arguments.add_flag("merge")
+        arglist.append(f"--label {label}")
 
-        extension = self.inputs.sampler_kwargs.get("save", "hdf5")
-        gzip = self.inputs.sampler_kwargs.get("gzip", False)
-        self.arguments.add("extension", extension)
+        # set merge flag
+        arglist.append("--merge")
+
+        extension = self.parent_layer_class.sampler_kwargs.get("save", "hdf5")
+        gzip = self.parent_layer_class.sampler_kwargs.get("gzip", False)
+        arglist.append(f"--extension {extension}")
         if gzip and extension == "json":
-            self.arguments.add_flag("gzip")
+            arglist.append("--gzip")
 
-        self.process_node()
-        for pn in parallel_node_list:
-            self.job.add_parent(pn.job)
+        vardict = {"ARGS": " ".join(arglist)}
 
-    @property
-    def executable(self):
-        return self._get_executable_path("bilby_result")
-
-    @property
-    def request_memory(self):
-        return "16 GB"
-
-    @property
-    def log_directory(self):
-        return self.inputs.pe_log_directory
-
-    @property
-    def result_file(self):
-        extension = self.inputs.sampler_kwargs.get("save", "hdf5")
-        gzip = self.inputs.sampler_kwargs.get("gzip", False)
-        return bilby.core.result.result_file_name(
-            self.inputs.result_directory, self.label, extension=extension, gzip=gzip
+        # set log files
+        vardict["LOGFILE"] = os.path.join(
+            self.parent_layer_class.log_directory, f"{label}.log"
         )
+        vardict["OUTPUTFILE"] = os.path.join(
+            self.parent_layer_class.log_directory, f"{label}.out"
+        )
+        vardict["ERRORFILE"] = os.path.join(
+            self.parent_layer_class.log_directory, f"{label}.err"
+        )
+
+        self.vars = [vardict]

@@ -241,24 +241,42 @@ class CondorLayer:
         vars: list
             A list of dictionaries containing the variables for each job in the
             layer.
-        parentname: str
+        parentname: str, callable
             A string containing the name that any parent jobs have, which can
-            have the "*" wildcard.
+            have the "*" wildcard, or a callable that returns True or False for
+            matching layer names.
         submitoptions: dict
             A dictionary containing any additional options for the submit file.
         """
 
-        layer = self.dag.layer(
-            name=self.layer_name,
-            submit_description=self.generate_submit_job(submitoptions),
-            retries=self.get_option("retry", default=2),
-            vars=vars,
-        )
+        if hasattr(self, "parent_layer"):
+            # add child layer if parent layer is available
+            self.layer = self.parent_layer.child_layer(
+                name=self.layer_name,
+                submit_description=self.generate_submit_job(submitoptions),
+                retries=self.get_option("retry", default=2),
+                vars=vars,
+            )
+        else:
+            # create new layer and add parents
+            self.layer = self.dag.layer(
+                name=self.layer_name,
+                submit_description=self.generate_submit_job(submitoptions),
+                retries=self.get_option("retry", default=2),
+                vars=vars,
+            )
 
-        if parentname is not None:
-            # find parent nodes and add them
-            selector = lambda x: fnmatch.fnmatch(x.name, parentname)
-            layer.add_parents(self.dag.select(selector))
+            if parentname is not None:
+                # find parent nodes and add them
+                if isinstance(parentname, str):
+                    selector = lambda x: fnmatch.fnmatch(x.name, parentname)
+                elif callable(parentname):
+                    selector = callable
+                else:
+                    raise TypeError(
+                        "Must pass string or callable for selecting DAG layers as parents"
+                    )
+                self.layer.add_parents(self.dag.select(selector))
 
 
 def submit_dag(dag_file):

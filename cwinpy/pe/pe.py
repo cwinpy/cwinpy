@@ -5,6 +5,7 @@ Run known pulsar parameter estimation using bilby.
 import ast
 import configparser
 import copy
+import fnmatch
 import glob
 import json
 import os
@@ -17,15 +18,16 @@ import bilby
 import cwinpy
 import numpy as np
 from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.job_creation.dag import Dag
 from bilby_pipe.utils import (
     CHECKPOINT_EXIT_CODE,
     BilbyPipeError,
     convert_string_to_dict,
     parse_args,
 )
+from htcondor.dags import DAG, write_dag
 
-from ..condor.penodes import MergePENode, PEInput, PulsarPENode
+from ..condor import submit_dag
+from ..condor.penodes import MergePELayer, PulsarPELayer
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..likelihood import TargetedPulsarLikelihood
 from ..parfile import PulsarParameters
@@ -1404,24 +1406,14 @@ class PEDAGRunner(object):
         if not isinstance(config, configparser.ConfigParser):
             raise TypeError("'config' must be a ConfigParser object")
 
-        inputs = PEInput(config)
-
         dagsection = "pe_dag" if config.has_section("pe_dag") else "dag"
 
         if "dag" in kwargs:
             # get a previously created DAG if given (for example for a full
             # analysis pipeline)
             self.dag = kwargs["dag"]
-
-            # get whether to automatically submit the dag
-            self.dag.inputs.submit = config.getboolean(
-                dagsection, "submitdag", fallback=False
-            )
         else:
-            self.dag = Dag(inputs)
-
-        # get previous nodes that are parents to PE jobs
-        generation_nodes = kwargs.get("generation_nodes", None)
+            self.dag = DAG()
 
         # get whether to build the dag
         self.build = config.getboolean(dagsection, "build", fallback=True)
@@ -1777,7 +1769,8 @@ class PEDAGRunner(object):
                     raise TypeError("Prior type is no recognised")
         else:
             # use default priors
-            priorfile = os.path.join(inputs.outdir, "prior.txt")
+            outdir = config.get("run", "basedir", fallback=os.getcwd())
+            priorfile = os.path.join(outdir, "prior.txt")
 
             with open(priorfile, "w") as fp:
                 if datafiles1f is not None and datafiles2f is not None:
@@ -1888,7 +1881,11 @@ class PEDAGRunner(object):
                         )
 
             seeddict = None
-            if simdata and inputs.n_parallel > 1 and fakeseed is None:
+            if (
+                simdata
+                and config.getint("pe", "n_parallel", fallback=1) > 1
+                and fakeseed is None
+            ):
                 # set a fake seed, so all parallel runs produce the same data
                 seeddict = {det: np.random.randint(1, 2 ** 32 - 1) for det in detectors}
             elif simdata and fakeseed is not None:
@@ -1955,34 +1952,59 @@ class PEDAGRunner(object):
                         except KeyError:
                             pass
 
-                parallel_node_list = []
-                for idx in range(inputs.n_parallel):
-                    gnode = None
-                    if isinstance(generation_nodes, dict):
-                        # get generation nodes for all required detectors
-                        gnode = []
-                        if pname in generation_nodes:
-                            for det in dets:
-                                gnode.extend(generation_nodes[pname][det])
-                        else:
-                            gnode = None
+                if len(self.dag.nodes) == 0:
+                    # no parents (i.e. a new dag)
+                    parentname = None
+                else:
 
-                    penode = PulsarPENode(
-                        inputs,
-                        copy.deepcopy(configdict),
-                        pname,
-                        dets,
-                        idx,
-                        self.dag,
-                        generation_node=gnode,
+                    def selector(node):
+                        """
+                        Selector function for parent nodes.
+                        """
+
+                        for det in dets:
+                            if fnmatch.fnmatch(
+                                node.name,
+                                f"cwinpy_heterodyne_*_{det}_{pname.replace('+', 'plus')}",
+                            ):
+                                return True
+
+                        return False
+
+                    parentname = selector
+
+                nparallel = config.getint("pe", "n_parallel", fallback=1)
+                nparastr = "" if nparallel > 1 else f"_{nparallel}"
+
+                # create DAG layer
+                pelayer = PulsarPELayer(
+                    self.dag,
+                    config,
+                    copy.deepcopy(configdict),
+                    layer_name=f"cwinpy_pe_{''.join(dets)}_{psr.replace('+', 'plus')}{nparastr}",
+                    psrname=pname,
+                    dets=dets,
+                    parentname=parentname,
+                )
+
+                if nparallel > 1:
+                    MergePELayer(
+                        pelayer,
+                        layer_name=f"cwinpy_pe_{''.join(dets)}_{psr.replace('+', 'plus')}",
                     )
-                    parallel_node_list.append(penode)
-
-                if inputs.n_parallel > 1:
-                    _ = MergePENode(inputs, parallel_node_list, self.dag)
 
         if self.build:
-            self.dag.build()
+            # write out the DAG and submit files
+            submitdir = config.get(
+                dagsection, "submit", fallback=os.path.join(self.basedir, "submit")
+            )
+            if not os.path.exists(submitdir):
+                os.makedirs(submitdir)
+            dag_file = write_dag(self.dag, submitdir, dag_file_name=f"cwinpy_pe.dag")
+
+            # submit the DAG if requested
+            if config.getboolean(dagsection, "submitdag", fallback=False):
+                submit_dag(dag_file)
 
     def eval(self, arg):
         """
