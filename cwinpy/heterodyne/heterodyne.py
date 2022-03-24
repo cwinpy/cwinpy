@@ -24,6 +24,7 @@ from bilby_pipe.utils import (
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
 
+from ..condor import submit_dag
 from ..condor.hetnodes import HeterodyneLayer, MergeLayer
 from ..data import HeterodynedData
 from ..info import (
@@ -1612,7 +1613,13 @@ class HeterodyneDAGRunner(object):
             )
             if not os.path.exists(submitdir):
                 os.makedirs(submitdir)
-            write_dag(self.dag, submitdir, dag_file_name=f"cwinpy_heterodyne.dag")
+            dag_file = write_dag(
+                self.dag, submitdir, dag_file_name=f"cwinpy_heterodyne.dag"
+            )
+
+            # submit the DAG if requested
+            if config.getboolean(dagsection, "submitdag", default=False):
+                submit_dag(dag_file)
 
     def eval(self, arg):
         """

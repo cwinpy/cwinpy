@@ -3,7 +3,7 @@ import fnmatch
 import os
 import shutil
 
-from htcondor import Submit
+from htcondor import Submit, Schedd
 
 
 class CondorLayer:
@@ -259,3 +259,34 @@ class CondorLayer:
             # find parent nodes and add them
             selector = lambda x: fnmatch.fnmatch(x.name, parentname)
             layer.add_parents(self.dag.select(selector))
+
+
+def submit_dag(dag_file):
+    """
+    Function to submit a HTCondor DAG (see
+    https://htcondor.readthedocs.io/en/latest/apis/python-bindings/tutorials/DAG-Creation-And-Submission.html#Submit-the-DAG-via-the-Python-bindings)
+
+    Parameters
+    ----------
+    dag_file: str, Path
+        Path to the DAG file.
+    """
+
+    # create submit file for DAG
+    dag_submit = Submit.from_dag(str(dag_file), {"force": 1})
+
+    dagdir = os.path.split(str(dag_file))[0]
+
+    # get current directory
+    cwd = os.getcwd()
+
+    # move into DAG directory
+    os.chdir(dagdir)
+
+    # start scheddular
+    schedd = Schedd()
+    with schedd.transaction() as txn:
+        _ = dag_submit.queue(txn)
+
+    # switch back to current directory
+    os.chdir(cwd)

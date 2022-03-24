@@ -34,8 +34,6 @@ class HeterodyneLayer(CondorLayer):
             **kwargs,
         )
 
-        self.submit = self.get_option("submitdag", default=False)
-
         # check for use of OSG
         self.osg = self.get_option("osg", default=False)
         self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
@@ -86,8 +84,8 @@ class HeterodyneLayer(CondorLayer):
             additional_options["stream_error"] = True
             additional_options["stream_output"] = True
 
-        additional_options["+SuccessCheckpointExitCode"] = "77"
-        additional_options["+WantFTOnCheckpoint"] = True
+        additional_options["MY.SuccessCheckpointExitCode"] = "77"
+        additional_options["MY.WantFTOnCheckpoint"] = True
 
         additional_options["log"] = "$(LOGFILE)"
         additional_options["output"] = "$(OUTPUTFILE)"
