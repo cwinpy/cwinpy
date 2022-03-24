@@ -3,15 +3,11 @@ import os
 import re
 import tempfile
 
-from bilby_pipe.job_creation.node import Node
-from bilby_pipe.utils import check_directory_exists_and_if_not_mkdir
 from configargparse import DefaultConfigFileParser
 
 from ..heterodyne.base import Heterodyne
 from ..utils import relative_topdir
 from . import CondorLayer
-
-# from htcondor import dags
 
 
 class HeterodyneLayer(CondorLayer):
@@ -81,22 +77,21 @@ class HeterodyneLayer(CondorLayer):
 
         # additional options
         additional_options = {}
-        macro_options = {}
-        if self.submit_options["transfer_files"]:
-            macro_options["initialdir"] = "$(INITIALDIR)"
-            macro_options["transfer_input_files"] = "$(TRANSFERINPUT)"
-            macro_options["transfer_output_files"] = "$(TRANSFEROUTPUT)"
+        if self.submit_options["should_transfer_files"] == "YES":
+            additional_options["initialdir"] = "$(INITIALDIR)"
+            additional_options["transfer_input_files"] = "$(TRANSFERINPUT)"
+            additional_options["transfer_output_files"] = "$(TRANSFEROUTPUT)"
 
             additional_options["when_to_transfer_output"] = "ON_EXIT_OR_EVICT"
             additional_options["stream_error"] = True
             additional_options["stream_output"] = True
 
-        macro_options["log"] = "$(LOGFILE)"
-        macro_options["output"] = "$(OUTPUTFILE)"
-        macro_options["error"] = "$(ERRORFILE)"
-
         additional_options["+SuccessCheckpointExitCode"] = "77"
         additional_options["+WantFTOnCheckpoint"] = True
+
+        additional_options["log"] = "$(LOGFILE)"
+        additional_options["output"] = "$(OUTPUTFILE)"
+        additional_options["error"] = "$(ERRORFILE)"
 
         if self.osg:
             if self.submit_options.get("accounting_group", "").startswith("ligo."):
@@ -121,8 +116,8 @@ class HeterodyneLayer(CondorLayer):
         # generate layer
         self.generate_layer(
             self.vars,
-            parentname=kwargs.get("parentname", None) ** additional_options,
-            **macro_options,
+            parentname=kwargs.get("parentname", None),
+            submitoptions=additional_options,
         )
 
     def generate_node_vars(self, configurations):
@@ -320,7 +315,7 @@ class MergeLayer(CondorLayer):
             dag,
             cf,
             default_executable="cwinpy_heterodyne_merge",
-            layer_name="cwinpy_heterodyne_merge",
+            layer_name=kwargs.pop("layer_name", "cwinpy_heterodyne_merge"),
             **kwargs,
         )
 
@@ -368,9 +363,11 @@ class MergeLayer(CondorLayer):
         configlocation = os.path.join(self.outdir, configdir)
         if not os.path.exists(configlocation):
             os.makedirs(configlocation)
-        configfile = os.path.join(
-            configlocation,
-            "{}{}_{}_merge.ini".format(psrstring, detector, int(freqfactor)),
+        configfile = os.path.abspath(
+            os.path.join(
+                configlocation,
+                "{}{}_{}_merge.ini".format(psrstring, detector, int(freqfactor)),
+            )
         )
 
         # output merge job configuration
@@ -380,7 +377,7 @@ class MergeLayer(CondorLayer):
         )
         configs["heterodynedfiles"] = heterodynedfiles
         configs["output"] = output
-        configs["overwrite"] = self.get_options(
+        configs["overwrite"] = self.get_option(
             "overwrite", section="merge", otype=bool, default=True
         )
 
@@ -391,105 +388,3 @@ class MergeLayer(CondorLayer):
         vardict["ARGS"] = f"--config {configfile}"
 
         self.vars.append(vardict)
-
-
-class MergeHeterodyneNode(Node):
-    """
-    Create a HTCondor DAG node for running the cwinpy_heterodyne_merge script.
-    """
-
-    def __init__(self, inputs, configdict, dag, generation_node=None):
-        self.inputs = inputs
-        self.request_disk = None
-        self.notification = inputs.notification
-        self.verbose = 0
-        self.condor_job_priority = inputs.condor_job_priority
-        self.extra_lines = []
-        self.requirements = (
-            [self.inputs.requirements] if self.inputs.requirements else []
-        )
-
-        self.dag = dag
-
-        self.retry = inputs.retry
-        self.getenv = inputs.getenv
-        self.request_cpus = 1
-
-        # run merge jobs locally
-        self._universe = "local"
-
-        self.setup_arguments(
-            add_command_line_args=False, add_ini=False, add_unknown_args=False
-        )
-
-        detector = configdict["detector"]
-        freqfactor = configdict["freqfactor"]
-        pulsar = configdict["pulsar"]
-        output = configdict["output"]
-        heterodynedfiles = configdict["heterodynedfiles"]
-
-        psrstring = (
-            ""
-            if not isinstance(pulsar, str)
-            else "{}_".format(pulsar.replace("+", "plus"))
-        )
-
-        configdir = self.inputs.config.get("heterodyne", "config", fallback="configs")
-        configlocation = os.path.join(self.inputs.outdir, configdir)
-        check_directory_exists_and_if_not_mkdir(configlocation)
-        configfile = os.path.join(
-            configlocation,
-            "{}{}_{}_merge.ini".format(psrstring, detector, int(freqfactor)),
-        )
-
-        self.arguments.add("config", configfile)
-
-        # add accounting user
-        if self.inputs.accounting_user is not None:
-            self.extra_lines.append(
-                "accounting_group_user = {}".format(self.inputs.accounting_user)
-            )
-
-        # output merge job configuration
-        configs = {}
-        configs["remove"] = self.inputs.config.getboolean(
-            "merge", "remove", fallback=False
-        )
-        configs["heterodynedfiles"] = heterodynedfiles
-        configs["output"] = output
-        configs["overwrite"] = self.inputs.config.getboolean(
-            "merge", "overwrite", fallback=True
-        )
-
-        parseobj = DefaultConfigFileParser()
-        with open(configfile, "w") as fp:
-            fp.write(parseobj.serialize(configs))
-
-        # job name prefix
-        jobname = "cwinpy_heterodyne_merge"
-        self.base_job_name = "{}_{}{}_{}".format(
-            jobname, psrstring, detector, int(freqfactor)
-        )
-        self.job_name = self.base_job_name
-
-        self.online_pe = False  # required for create_pycondor_job()
-        self.create_pycondor_job()
-
-        if generation_node is not None:
-            self.job.add_parents(
-                [gnode.job for gnode in generation_node if isinstance(gnode, Node)]
-            )
-
-    @property
-    def executable(self):
-        jobexec = "cwinpy_heterodyne_merge"
-        return self._get_executable_path(jobexec)
-
-    @property
-    def request_memory(self):
-        return self.inputs.request_memory
-
-    @property
-    def log_directory(self):
-        check_directory_exists_and_if_not_mkdir(self.inputs.heterodyne_log_directory)
-        return self.inputs.heterodyne_log_directory

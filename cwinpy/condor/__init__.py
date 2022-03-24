@@ -38,6 +38,13 @@ class CondorLayer:
         self.dag = dag
         self.cf = cf
 
+        # get configuration sections and section values
+        self.sections = list(self.cf.sections())
+        self.section_keys = {
+            section: list(dict(self.cf.items(section)).keys())
+            for section in self.sections
+        }
+
         # check for a section prefix to use for the configuration file
         self.section_prefix = kwargs.get("section_prefix", "")
 
@@ -100,6 +107,25 @@ class CondorLayer:
             raise OSError(f"{exec} not installed on this system, unable to proceed")
 
     def get_option(self, valuename, section=None, otype=None, default=None):
+        """
+        Get a value from within the configuration.
+
+        Parameters
+        ----------
+        valuename: str
+            The name of the value to extract the the configuration.
+        section: str
+            The section within the configuration that contains ``valuename``.
+            If not set an attempt will be made to find the value from within
+            all sections in the configuration.
+        otype: str
+            Give the type of value that is being extracted from the
+            configuration. By default the value will be extracted as a string.
+        default:
+            Give a default value that will be returned if no ``valuename`` can
+            be found within the configuration.
+        """
+
         # first try adding section prefix on to section name
         sectionname = None
         if section is not None:
@@ -107,19 +133,15 @@ class CondorLayer:
             if not self.cf.has_section(sectionname):
                 sectionname = section
         else:
-            for section in self.cf.sections():
+            for section in self.sections:
                 if self.section_prefix:
                     # check section starts with the section prefix
                     if not section.startswith(self.section_prefix):
                         continue
 
-                if valuename in self.cf.items(section):
+                if valuename in self.section_keys[section]:
                     sectionname = section
                     break
-            else:
-                raise IOError(
-                    f"Configfile does not contain a section with option {valuename}"
-                )
 
         if otype is None or otype is str or otype == "str":
             getfunc = self.cf.get
@@ -137,7 +159,36 @@ class CondorLayer:
     def set_option(
         self, valuename, section=None, optionname=None, otype=None, default=None
     ):
-        value = self.get_option(section, valuename, otype=otype, default=default)
+        """
+        Set an option based on the configuration values. If the value is not
+        found and the default is ``None`` then nothing will be added.
+
+        Parameters
+        ----------
+        valuename: str
+            The name of the value to extract the the configuration. This will
+            also be the key with which it is stored in the class's
+            ``submit_options`` dictionary.
+        section: str
+            The section within the configuration that contains ``valuename``.
+            If not set an attempt will be made to find the value from within
+            all sections in the configuration.
+        optionname: str
+            If the value should be stored in the class's ``submit_options``
+            dictionary with a key that differs from ``valuename`` then this
+            argument will give the key.
+        otype: str
+            Give the type of value that is being extracted from the
+            configuration. By default the value will be extracted as a string.
+        default:
+            Give a default value that will be placed into the class's
+            ``submit_options`` dictionary if no ``valuename`` can be found
+            within the configuration.
+        """
+
+        value = self.get_option(
+            valuename, section=section, otype=otype, default=default
+        )
 
         if optionname is None:
             optionname = valuename
@@ -153,16 +204,21 @@ class CondorLayer:
         for option, td in self.OPTIONS.items():
             self.set_option(option, otype=td[0], default=td[1])
 
-    def generate_submit_job(self, **kwargs):
+    def generate_submit_job(self, submitoptions={}):
         """
         Generate a submit object.
+
+        Parameters
+        ----------
+        submitoptions: dict
+            A dictionary containing any additional options for the submit file.
         """
 
         # dictionary to contain specific submit options
         submit = {}
 
         submit.update(copy.deepcopy(self.submit_options))
-        submit.update(copy.deepcopy(kwargs))
+        submit.update(copy.deepcopy(submitoptions))
 
         # add arguments
         submit["arguments"] = "$(ARGS)"
@@ -176,7 +232,7 @@ class CondorLayer:
 
         return Submit(submit)
 
-    def generate_layer(self, vars, parentname=None, **kwargs):
+    def generate_layer(self, vars, parentname=None, submitoptions={}):
         """
         Generate a new layer in the DAG.
 
@@ -188,11 +244,13 @@ class CondorLayer:
         parentname: str
             A string containing the name that any parent jobs have, which can
             have the "*" wildcard.
+        submitoptions: dict
+            A dictionary containing any additional options for the submit file.
         """
 
         layer = self.dag.layer(
             name=self.layer_name,
-            submit_description=self.generate_submit_job(**kwargs),
+            submit_description=self.generate_submit_job(submitoptions),
             retries=self.get_option("retry", default=2),
             vars=vars,
         )

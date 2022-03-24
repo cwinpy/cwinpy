@@ -1899,6 +1899,7 @@ def heterodyne_pipeline(**kwargs):
 
             configfile["heterodyne_job"] = {}
             configfile["heterodyne_job"]["getenv"] = "True"
+
             if args.accgroup is not None:
                 configfile["heterodyne_job"]["accounting_group"] = kwargs.get(
                     "accounting_group_tag", args.accgroup
