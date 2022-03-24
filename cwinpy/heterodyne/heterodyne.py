@@ -1575,7 +1575,7 @@ class HeterodyneDAGRunner(object):
                                     for key, value in configdict.items()
                                     if value is not None
                                 },
-                                layer_name=f"cwinpy_heterodyne_{ff}_{det}_{psr}",
+                                layer_name=f"cwinpy_heterodyne_{ff}_{det}_{psr.replace('+', 'plus')}",
                                 parentname=f"cwinpy_heterodyne_*_{ff}_{det}"
                                 if not skyshift
                                 else f"cwinpy_heterodyne_0_{ff}_{det}",
@@ -1600,7 +1600,7 @@ class HeterodyneDAGRunner(object):
                                         self.mergeoutputs[det][ff][psr]
                                     ),
                                 },
-                                layer_name=f"cwinpy_heterodyne_{ff}_{det}_{psr}",
+                                layer_name=f"cwinpy_heterodyne_{ff}_{det}_{psr.replace('+', 'plus')}",
                                 parentname=f"cwinpy_heterodyne_{i}_{ff}_{det}"
                                 if not skyshift
                                 else f"cwinpy_heterodyne_0_{ff}_{det}",
@@ -1618,7 +1618,7 @@ class HeterodyneDAGRunner(object):
             )
 
             # submit the DAG if requested
-            if config.getboolean(dagsection, "submitdag", default=False):
+            if config.getboolean(dagsection, "submitdag", fallback=False):
                 submit_dag(dag_file)
 
     def eval(self, arg):
