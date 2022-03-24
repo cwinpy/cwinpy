@@ -28,7 +28,6 @@ ext_modules = [
             "-m64",
             "-ffast-math",
             "-fno-finite-math-only",
-            "-march=native",
             "-funroll-loops",
         ],
     )
