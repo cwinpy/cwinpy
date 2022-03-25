@@ -16,11 +16,7 @@ import cwinpy
 import numpy as np
 from astropy.coordinates import SkyCoord
 from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.utils import (
-    BilbyPipeError,
-    check_directory_exists_and_if_not_mkdir,
-    parse_args,
-)
+from bilby_pipe.utils import BilbyPipeError, parse_args
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
 
@@ -932,7 +928,8 @@ class HeterodyneDAGRunner(object):
                             # generate the frame caches now rather than relying on
                             # each job doing it
                             frcachedir = os.path.join(self.basedir, "cache")
-                            check_directory_exists_and_if_not_mkdir(frcachedir)
+                            if not os.path.exists(frcachedir):
+                                os.makedirs(frcachedir)
                             frinfo["framecache"] = os.path.join(
                                 frcachedir,
                                 "frcache_{0:d}-{1:d}_{2}.txt".format(
@@ -972,7 +969,8 @@ class HeterodyneDAGRunner(object):
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
                         segdir = os.path.join(self.basedir, "segments")
-                        check_directory_exists_and_if_not_mkdir(segdir)
+                        if not os.path.exists(segdir):
+                            os.makedirs(segdir)
                         seginfo["segmentlist"] = os.path.join(
                             segdir,
                             "segments_{0:d}-{1:d}_{2}.txt".format(
@@ -1028,7 +1026,8 @@ class HeterodyneDAGRunner(object):
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
                         segdir = os.path.join(self.basedir, "segments")
-                        check_directory_exists_and_if_not_mkdir(segdir)
+                        if not os.path.exists(segdir):
+                            os.makedirs(segdir)
                         seginfo["segmentlist"] = os.path.join(
                             segdir,
                             "segments_{0:d}-{1:d}_{2}.txt".format(
@@ -1065,7 +1064,8 @@ class HeterodyneDAGRunner(object):
                             # generate the frame caches now rather than relying on
                             # each job doing it
                             frcachedir = os.path.join(self.basedir, "cache")
-                            check_directory_exists_and_if_not_mkdir(frcachedir)
+                            if not os.path.exists(frcachedir):
+                                os.makedirs(frcachedir)
                             frinfo["framecache"] = os.path.join(
                                 frcachedir,
                                 "frcache_{0:d}-{1:d}_{2}.txt".format(
