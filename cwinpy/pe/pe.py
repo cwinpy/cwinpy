@@ -17,11 +17,11 @@ from argparse import ArgumentParser
 import bilby
 import cwinpy
 import numpy as np
-from bilby_pipe.bilbyargparser import BilbyArgParser
 from htcondor.dags import DAG, write_dag
 
 from ..condor import submit_dag
 from ..condor.penodes import MergePELayer, PulsarPELayer
+from ..cwinpyargparser import CWInPyArgParser
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..likelihood import TargetedPulsarLikelihood
 from ..parfile import PulsarParameters
@@ -43,7 +43,7 @@ def create_pe_parser():
 A script to use Bayesian inference to estimate the parameters of a \
 continuous gravitational-wave signal from a known pulsar."""
 
-    parser = BilbyArgParser(
+    parser = CWInPyArgParser(
         prog=sys.argv[0],
         description=description,
         ignore_unknown_config_file_keys=False,

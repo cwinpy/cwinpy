@@ -17,22 +17,6 @@ class HyphenStr(str):
         return super(HyphenStr, cls).__new__(cls, content.replace("_", "-"))
 
 
-class tcolors:
-    WARNING = "\u001b[31m"
-    KEY = "\033[93m"
-    VALUE = "\033[91m"
-    HIGHLIGHT = "\033[95m"
-    END = "\033[0m"
-
-
-def get_colored_string(msg_list, color="WARNING"):
-    if isinstance(msg_list, str):
-        msg_list = [msg_list]
-    colstr = getattr(tcolors, color)
-    msg = [colstr] + msg_list + [tcolors.END]
-    return " ".join(msg)
-
-
 class DuplicateErrorDict(dict):
     """
     A dictionary with immutable key-value pairs
@@ -47,15 +31,12 @@ class DuplicateErrorDict(dict):
         When a user attempts to update an existing key.
     """
 
-    def __init__(self, color=True, *args):
+    def __init__(self, *args):
         dict.__init__(self, args)
-        self.color = color
 
     def __setitem__(self, key, val):
         if key in self:
             msg = f"Your ini file contains duplicate '{key}' keys"
-            if self.color:
-                msg = get_colored_string(msg)
             raise KeyError(msg)
         dict.__setitem__(self, key, val)
 

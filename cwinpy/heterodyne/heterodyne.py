@@ -15,12 +15,12 @@ from argparse import ArgumentParser
 import cwinpy
 import numpy as np
 from astropy.coordinates import SkyCoord
-from bilby_pipe.bilbyargparser import BilbyArgParser
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
 
 from ..condor import submit_dag
 from ..condor.hetnodes import HeterodyneLayer, MergeLayer
+from ..cwinpyargparser import CWInPyArgParser
 from ..data import HeterodynedData
 from ..info import (
     ANALYSIS_SEGMENTS,
@@ -57,7 +57,7 @@ def create_heterodyne_parser():
 A script to heterodyne raw gravitational-wave strain data based on the \
 expected evolution of the gravitational-wave signal from a set of pulsars."""
 
-    parser = BilbyArgParser(
+    parser = CWInPyArgParser(
         prog=sys.argv[0],
         description=description,
         ignore_unknown_config_file_keys=False,
@@ -569,7 +569,7 @@ def create_heterodyne_merge_parser():
 
     description = "A script to merge multiple heterodyned data files."
 
-    parser = BilbyArgParser(
+    parser = CWInPyArgParser(
         prog=sys.argv[0],
         description=description,
         ignore_unknown_config_file_keys=False,
