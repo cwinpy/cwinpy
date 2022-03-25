@@ -16,15 +16,16 @@ import cwinpy
 import numpy as np
 from astropy.coordinates import SkyCoord
 from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.job_creation.dag import Dag
 from bilby_pipe.utils import (
     BilbyPipeError,
     check_directory_exists_and_if_not_mkdir,
     parse_args,
 )
 from configargparse import ArgumentError
+from htcondor.dags import DAG, write_dag
 
-from ..condor.hetnodes import HeterodyneInput, HeterodyneNode, MergeHeterodyneNode
+from ..condor import submit_dag
+from ..condor.hetnodes import HeterodyneLayer, MergeLayer
 from ..data import HeterodynedData
 from ..info import (
     ANALYSIS_SEGMENTS,
@@ -669,7 +670,7 @@ def heterodyne_merge(**kwargs):
         het.write(mergekwargs["output"], overwrite=mergekwargs.get("overwrite", False))
 
     if mergekwargs.get("remove", False):
-        # remove the inidividual files
+        # remove the individual files
         for hf in filelist:
             os.remove(hf)
 
@@ -716,27 +717,17 @@ class HeterodyneDAGRunner(object):
         if not isinstance(config, configparser.ConfigParser):
             raise TypeError("'config' must be a ConfigParser object")
 
-        inputs = HeterodyneInput(config)
-
         dagsection = "heterodyne_dag" if config.has_section("heterodyne_dag") else "dag"
 
         if "dag" in kwargs:
             # get a previously created DAG if given (for example for a full
             # analysis pipeline)
             self.dag = kwargs["dag"]
-
-            # get whether to automatically submit the dag
-            self.dag.inputs.submit = config.getboolean(
-                dagsection, "submitdag", fallback=False
-            )
         else:
-            self.dag = Dag(inputs)
+            self.dag = DAG()
 
         # get whether to build the dag
         self.build = config.getboolean(dagsection, "build", fallback=True)
-
-        # get any additional submission options
-        self.submit_options = config.get(dagsection, "submit_options", fallback=None)
 
         # get the base directory
         self.basedir = config.get("run", "basedir", fallback=os.getcwd())
@@ -976,7 +967,7 @@ class HeterodyneDAGRunner(object):
                             or "BURST_CAT" in includeflags[det][i]
                         ):
                             usegwosc = True
-                            inputs.require_gwosc = True
+                            require_gwosc = True
 
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
@@ -1032,7 +1023,7 @@ class HeterodyneDAGRunner(object):
                             or "BURST_CAT" in includeflags[det][idx]
                         ):
                             usegwosc = True
-                            inputs.require_gwosc = True
+                            require_gwosc = True
 
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
@@ -1258,7 +1249,9 @@ class HeterodyneDAGRunner(object):
         # create copy of each file to a unique name in case of identical filenames
         # from astropy cache, which causes problems if requiring files be
         # transferred
-        if inputs.transfer_files or inputs.osg:
+        transfer_files = config.get(dagsection, "transfer_files", fallback="YES")
+        osg = config.getboolean(dagsection, "osg", fallback=False)
+        if transfer_files == "YES" or osg:
             for edat, ename in zip(
                 [earthephemeris, sunephemeris, timeephemeris], ["earth", "sun", "time"]
             ):
@@ -1316,19 +1309,6 @@ class HeterodyneDAGRunner(object):
 
         merge = config.getboolean("merge", "merge", fallback=True) and joblength > 0
 
-        # create jobs
-        self.hetnodes = []
-
-        # dictionary to contain all nodes for a given pulsar (for passing on to
-        # cwinpy_pe if required)
-        self.pulsar_nodes = {psr: {det: [] for det in detectors} for psr in het.pulsars}
-
-        # dictionary containing child nodes for each merge job
-        mergechildren = {
-            det: {ff: {psr: [] for psr in het.pulsars} for ff in freqfactors}
-            for det in detectors
-        }
-
         # dictionary containing the output files for the merge results
         self.mergeoutputs = {
             det: {ff: {psr: None for psr in het.pulsars} for ff in freqfactors}
@@ -1341,16 +1321,14 @@ class HeterodyneDAGRunner(object):
             for det in detectors
         }
 
-        # loop over sets of pulsars
-        for pgroup in pulsargroups:
-            self.hetnodes.append(
-                {ff: {det: [] for det in detectors} for ff in freqfactors}
-            )
-
+        # loop over sets of pulsars to create heterodyne jobs
+        for pidx, pgroup in enumerate(pulsargroups):
             # loop over frequency factors
             for ff in freqfactors:
                 # loop over each detector
                 for det in detectors:
+                    configurations = []  # config files for each time
+
                     # loop over times
                     idx = 0
                     for starttime, endtime in zip(starttimes[det], endtimes[det]):
@@ -1427,31 +1405,24 @@ class HeterodyneDAGRunner(object):
                         configdict["output"] = outputdirs[0][det]
                         configdict["label"] = label[0] if label is not None else None
 
-                        self.hetnodes[-1][ff][det].append(
-                            HeterodyneNode(
-                                inputs,
-                                {
-                                    key: copy.deepcopy(value)
-                                    for key, value in configdict.items()
-                                    if value is not None
-                                },
-                                self.dag,
-                            )
+                        # store configurations
+                        configurations.append(
+                            {
+                                key: copy.deepcopy(value)
+                                for key, value in configdict.items()
+                                if value is not None
+                            }
                         )
 
-                        # put nodes into dictionary for each pulsar
-                        if stages == 1:
-                            for psr in pgroup:
-                                self.pulsar_nodes[psr][det].append(
-                                    self.hetnodes[-1][ff][det][-1]
-                                )
-                            if merge:
-                                for psr in pgroup:
-                                    mergechildren[det][ff][psr].append(
-                                        self.hetnodes[-1][ff][det][-1]
-                                    )
-
                         idx += 1
+
+                    _ = HeterodyneLayer(
+                        self.dag,
+                        config,
+                        configurations,
+                        layer_name=f"cwinpy_heterodyne_{pidx}_{ff}_{det}",
+                        require_gwosc=require_gwosc,
+                    )
 
         # if performing sky-shifting, generate the new shifted pulsar parameter files
         skyshift = config.has_section("skyshift")
@@ -1539,10 +1510,6 @@ class HeterodyneDAGRunner(object):
         if stages == 2:
             for i, pgroup in enumerate(pulsargroups):
                 for psr in pgroup:
-                    if skyshift and psr not in self.pulsar_nodes:
-                        # initialise pulsar_nodes for skyshifted pulsars
-                        self.pulsar_nodes[psr] = {det: [] for det in detectors}
-
                     for ff in freqfactors:
                         for det in detectors:
                             configdict = {}
@@ -1597,19 +1564,18 @@ class HeterodyneDAGRunner(object):
                                 outputdirs[1][det], tmphet.outputfiles[psr]
                             )
 
-                            self.pulsar_nodes[psr][det].append(
-                                HeterodyneNode(
-                                    inputs,
-                                    {
-                                        key: copy.deepcopy(value)
-                                        for key, value in configdict.items()
-                                        if value is not None
-                                    },
-                                    self.dag,
-                                    generation_node=self.hetnodes[i][ff][det]
-                                    if not skyshift
-                                    else self.hetnodes[0][ff][det],
-                                )
+                            HeterodyneLayer(
+                                self.dag,
+                                config,
+                                {
+                                    key: copy.deepcopy(value)
+                                    for key, value in configdict.items()
+                                    if value is not None
+                                },
+                                layer_name=f"cwinpy_heterodyne_{ff}_{det}_{psr.replace('+', 'plus')}",
+                                parentname=f"cwinpy_heterodyne_*_{ff}_{det}"
+                                if not skyshift
+                                else f"cwinpy_heterodyne_0_{ff}_{det}",
                             )
         elif merge:
             # set output merge jobs
@@ -1617,28 +1583,40 @@ class HeterodyneDAGRunner(object):
                 for psr in pgroup:
                     for ff in freqfactors:
                         for det in detectors:
-                            if len(self.heterodyned_files[det][ff][psr]) > 1:
-                                self.pulsar_nodes[psr][det].append(
-                                    MergeHeterodyneNode(
-                                        inputs,
-                                        {
-                                            "heterodynedfiles": copy.deepcopy(
-                                                self.heterodyned_files[det][ff][psr]
-                                            ),
-                                            "freqfactor": ff,
-                                            "detector": det,
-                                            "pulsar": psr,
-                                            "output": copy.deepcopy(
-                                                self.mergeoutputs[det][ff][psr]
-                                            ),
-                                        },
-                                        self.dag,
-                                        generation_node=mergechildren[det][ff][psr],
-                                    )
-                                )
+                            MergeLayer(
+                                self.dag,
+                                config,
+                                {
+                                    "heterodynedfiles": copy.deepcopy(
+                                        self.heterodyned_files[det][ff][psr]
+                                    ),
+                                    "freqfactor": ff,
+                                    "detector": det,
+                                    "pulsar": psr,
+                                    "output": copy.deepcopy(
+                                        self.mergeoutputs[det][ff][psr]
+                                    ),
+                                },
+                                layer_name=f"cwinpy_heterodyne_{ff}_{det}_{psr.replace('+', 'plus')}",
+                                parentname=f"cwinpy_heterodyne_{i}_{ff}_{det}"
+                                if not skyshift
+                                else f"cwinpy_heterodyne_0_{ff}_{det}",
+                            )
 
         if self.build:
-            self.dag.build()
+            # write out the DAG and submit files
+            submitdir = config.get(
+                dagsection, "submit", fallback=os.path.join(self.basedir, "submit")
+            )
+            if not os.path.exists(submitdir):
+                os.makedirs(submitdir)
+            self.dag_file = write_dag(
+                self.dag, submitdir, dag_file_name="cwinpy_heterodyne.dag"
+            )
+
+            # submit the DAG if requested
+            if config.getboolean(dagsection, "submitdag", fallback=False):
+                submit_dag(self.dag_file)
 
     def eval(self, arg):
         """
@@ -1925,6 +1903,7 @@ def heterodyne_pipeline(**kwargs):
 
             configfile["heterodyne_job"] = {}
             configfile["heterodyne_job"]["getenv"] = "True"
+
             if args.accgroup is not None:
                 configfile["heterodyne_job"]["accounting_group"] = kwargs.get(
                     "accounting_group_tag", args.accgroup

@@ -206,10 +206,12 @@ def knope_cli(**kwargs):  # pragma: no cover
 
 def knope_pipeline(**kwargs):
     """
-    Run knope within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
-    DAG for consecutively running multiple ``cwinpy_heterodyne`` and ``cwinpy_pe`` instances on a
-    computer cluster. Optional parameters that can be used instead of a configuration file (for
-    "quick setup") are given in the "Other parameters" section.
+    Run knope within Python. This will create a
+    `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ DAG for consecutively
+    running multiple ``cwinpy_heterodyne`` and ``cwinpy_pe`` instances on a
+    computer cluster. Optional parameters that can be used instead of a
+    configuration file (for "quick setup") are given in the "Other parameters"
+    section.
 
     Parameters
     ----------
@@ -586,11 +588,8 @@ def knope_pipeline(**kwargs):
             "heterodyne_dag", "transfer_files", fallback="True"
         )
 
-    # DAG name is taken from the "knope_dag" section, but falls-back to
-    # "cwinpy_knope" if not given
-    hetconfig["heterodyne_dag"]["name"] = hetconfig.get(
-        "knope_dag", "name", fallback="cwinpy_knope"
-    )
+    # set name for output DAG
+    peconfig["pe_dag"]["name"] = "cwinpy_knope"
 
     # set accounting group information
     accgroup = hetconfig.get("knope_job", "accounting_group", fallback=None)
@@ -663,7 +662,6 @@ def knope_pipeline(**kwargs):
 
     # create PE DAG
     kwargs["dag"] = hetdag.dag  # add heterodyne DAG
-    kwargs["generation_nodes"] = hetdag.pulsar_nodes  # add Heterodyne nodes
     pedag = PEDAGRunner(peconfig, **kwargs)
 
     # return the full DAG

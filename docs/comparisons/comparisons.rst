@@ -49,11 +49,10 @@ gravitational-wave community colloquially as a "PP plot" (see, e.g., Section VC 
 also more generally known as "Simulated-based calibration" [4]_.
 
 These tests have been performed in the output of ``cwinpy_knope`` by generating a set of simulated
-signals (using the :class:`cwinpy.knope.testing.KnopePPPlotsDAG`) to be analysed. After all the
-individual simulations have been analysed a PP plot is generated using :meth:`cwinpy.knope.testing.
+signals (using the :class:`cwinpy.pe.testing.PEPPPlotsDAG`) to be analysed. After all the
+individual simulations have been analysed a PP plot is generated using :meth:`cwinpy.pe.testing.
 generate_pp_plots` (which itself uses functions from `bilby
-<https://lscsoft.docs.ligo.org/bilby/index.html>`_ and `bilby_pipe
-<https://lscsoft.docs.ligo.org/bilby_pipe/index.html>`_).
+<https://lscsoft.docs.ligo.org/bilby/index.html>`_).
 
 Single harmonic signal
 ----------------------
@@ -61,7 +60,7 @@ Single harmonic signal
 We produce PP plots for the case of a signal from the :math:`l=m=2` mass quadrupole of a pulsar,
 where emission would be at twice the rotation frequency and defined by the parameters :math:`h_0`,
 :math:`\phi_0`, :math:`\iota` and :math:`\psi`. A Python file to run such an analysis for 250
-simulated signals using :class:`~cwinpy.knope.testing.KnopePPPlotsDAG` is shown below_. This also
+simulated signals using :class:`~cwinpy.pe.testing.PEPPPlotsDAG` is shown below_. This also
 shows the priors used for the generation of signal parameters and their recovery.
 
 .. note::
@@ -114,11 +113,11 @@ The distributions of signal-to-noise ratios for these simulations is:
 
 .. literalinclude:: scripts/pptest_one_harmonic.py
    :language: python
-   :lines: 1-29,33-42,45-48,50-51
+   :lines: 1-29,33-42,45-48,50-52
 
 .. literalinclude:: scripts/pptest_two_harmonics.py
    :language: python
-   :lines: 1-45,49-58,61-64,66-67
+   :lines: 1-45,49-58,61-64,66-68
 
 Pipeline comparison
 ===================
