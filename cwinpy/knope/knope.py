@@ -586,11 +586,8 @@ def knope_pipeline(**kwargs):
             "heterodyne_dag", "transfer_files", fallback="True"
         )
 
-    # DAG name is taken from the "knope_dag" section, but falls-back to
-    # "cwinpy_knope" if not given
-    hetconfig["heterodyne_dag"]["name"] = hetconfig.get(
-        "knope_dag", "name", fallback="cwinpy_knope"
-    )
+    # set name for output DAG
+    peconfig["pe_dag"]["name"] = "cwinpy_knope"
 
     # set accounting group information
     accgroup = hetconfig.get("knope_job", "accounting_group", fallback=None)
@@ -663,7 +660,6 @@ def knope_pipeline(**kwargs):
 
     # create PE DAG
     kwargs["dag"] = hetdag.dag  # add heterodyne DAG
-    kwargs["generation_nodes"] = hetdag.pulsar_nodes  # add Heterodyne nodes
     pedag = PEDAGRunner(peconfig, **kwargs)
 
     # return the full DAG

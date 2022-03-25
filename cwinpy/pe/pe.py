@@ -1981,7 +1981,7 @@ class PEDAGRunner(object):
                     self.dag,
                     config,
                     copy.deepcopy(configdict),
-                    layer_name=f"cwinpy_pe_{''.join(dets)}_{psr.replace('+', 'plus')}{nparastr}",
+                    layer_name=f"cwinpy_pe_{''.join(dets)}_{pname.replace('+', 'plus')}{nparastr}",
                     psrname=pname,
                     dets=dets,
                     parentname=parentname,
@@ -1990,17 +1990,23 @@ class PEDAGRunner(object):
                 if nparallel > 1:
                     MergePELayer(
                         pelayer,
-                        layer_name=f"cwinpy_pe_{''.join(dets)}_{psr.replace('+', 'plus')}",
+                        layer_name=f"cwinpy_pe_{''.join(dets)}_{pname.replace('+', 'plus')}",
                     )
 
         if self.build:
             # write out the DAG and submit files
             submitdir = config.get(
-                dagsection, "submit", fallback=os.path.join(self.basedir, "submit")
+                dagsection,
+                "submit",
+                fallback=os.path.join(
+                    config.get("run", "basedir", fallback=os.getcwd()), "submit"
+                ),
             )
             if not os.path.exists(submitdir):
                 os.makedirs(submitdir)
-            dag_file = write_dag(self.dag, submitdir, dag_file_name=f"cwinpy_pe.dag")
+
+            dagname = config.get(dagsection, "name", fallback="cwinpy_pe")
+            dag_file = write_dag(self.dag, submitdir, dag_file_name=f"{dagname}.dag")
 
             # submit the DAG if requested
             if config.getboolean(dagsection, "submitdag", fallback=False):

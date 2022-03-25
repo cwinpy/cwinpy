@@ -38,11 +38,13 @@ class HeterodyneLayer(CondorLayer):
         self.osg = self.get_option("osg", default=False)
         self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
 
-        self.log_directory = self.get_option(
-            "log", default=os.path.join(os.path.abspath(self.outdir), "log")
-        )
-        if not os.path.exists(self.log_directory):
-            os.makedirs(self.log_directory)
+        self.log_directories = {}
+        for logtype in ["log", "error", "out"]:
+            self.log_directories[logtype] = self.get_option(
+                logtype, default=os.path.join(os.path.abspath(self.outdir), "log")
+            )
+            if not os.path.exists(self.log_directories[logtype]):
+                os.makedirs(self.log_directories[logtype])
 
         requirements = self.get_option("requirements", default=None)
         if requirements is not None:
@@ -194,8 +196,8 @@ class HeterodyneLayer(CondorLayer):
                     for psr in copy.deepcopy(tmphet.outputfiles):
                         psrfile = tmphet.outputfiles[psr]
 
-                        # create empty dummy files, so Condor doesn't complain about files not existing
-                        # see https://stackoverflow.com/a/12654798/1862861
+                        # create empty dummy files, so Condor doesn't complain about
+                        # files not existing see https://stackoverflow.com/a/12654798/1862861
                         with open(psrfile, "a"):
                             pass
 
@@ -282,9 +284,15 @@ class HeterodyneLayer(CondorLayer):
 
             # set log files
             logstr = f"{self.layer_name}_{int(starttime)}-{int(endtime)}"
-            vardict["LOGFILE"] = os.path.join(self.log_directory, logstr + ".log")
-            vardict["OUTPUTFILE"] = os.path.join(self.log_directory, logstr + ".out")
-            vardict["ERRORFILE"] = os.path.join(self.log_directory, logstr + ".err")
+            vardict["LOGFILE"] = os.path.join(
+                self.log_directories["log"], f"{logstr}.log"
+            )
+            vardict["OUTPUTFILE"] = os.path.join(
+                self.log_directories["out"], f"{logstr}.out"
+            )
+            vardict["ERRORFILE"] = os.path.join(
+                self.log_directories["error"], f"{logstr}.err"
+            )
 
             # write out the configuration files for each job
             parseobj = DefaultConfigFileParser()
@@ -319,15 +327,32 @@ class MergeLayer(CondorLayer):
 
         self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
 
+        self.log_directories = {}
+        for logtype in ["log", "error", "out"]:
+            self.log_directories[logtype] = self.get_option(
+                logtype, default=os.path.join(os.path.abspath(self.outdir), "log")
+            )
+            if not os.path.exists(self.log_directories[logtype]):
+                os.makedirs(self.log_directories[logtype])
+
         self.submit_options["request_memory"] = "2 GB"
         self.submit_options["request_cpus"] = 1
         self.submit_options["universe"] = "local"
+
+        additional_options = {}
+        additional_options["log"] = "$(LOGFILE)"
+        additional_options["output"] = "$(OUTPUTFILE)"
+        additional_options["error"] = "$(ERRORFILE)"
 
         # generate the node variables
         self.generate_node_vars(configurations)
 
         # generate layer
-        self.generate_layer(self.vars, parentname=kwargs.get("parentname", None))
+        self.generate_layer(
+            self.vars,
+            parentname=kwargs.get("parentname", None),
+            submitoptions=additional_options,
+        )
 
     def generate_node_vars(self, configdict):
         """
@@ -384,5 +409,15 @@ class MergeLayer(CondorLayer):
             fp.write(parseobj.serialize(configs))
 
         vardict["ARGS"] = f"--config {configfile}"
+
+        # set log files
+        logstr = f"{self.layer_name}"
+        vardict["LOGFILE"] = os.path.join(self.log_directories["log"], f"{logstr}.log")
+        vardict["OUTPUTFILE"] = os.path.join(
+            self.log_directories["out"], f"{logstr}.out"
+        )
+        vardict["ERRORFILE"] = os.path.join(
+            self.log_directories["error"], f"{logstr}.err"
+        )
 
         self.vars.append(vardict)

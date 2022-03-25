@@ -47,11 +47,13 @@ class PulsarPELayer(CondorLayer):
             self.get_option("sampler_kwargs", default="{}")
         )
 
-        self.log_directory = self.get_option(
-            "log", default=os.path.join(os.path.abspath(self.outdir), "log")
-        )
-        if not os.path.exists(self.log_directory):
-            os.makedirs(self.log_directory)
+        self.log_directories = {}
+        for logtype in ["log", "error", "out"]:
+            self.log_directories[logtype] = self.get_option(
+                logtype, default=os.path.join(os.path.abspath(self.outdir), "log")
+            )
+            if not os.path.exists(self.log_directories[logtype]):
+                os.makedirs(self.log_directories[logtype])
 
         requirements = self.get_option("requirements", default=None)
         if requirements is not None:
@@ -126,7 +128,7 @@ class PulsarPELayer(CondorLayer):
 
         # store expected results file names
         extension = self.sampler_kwargs.get("save", "hdf5")
-        gzip = self.sampler_kwargs("gzip", False)
+        gzip = self.sampler_kwargs.get("gzip", False)
         self.resultsfiles = []
 
         for i in range(self.n_parallel):
@@ -199,9 +201,15 @@ class PulsarPELayer(CondorLayer):
                 vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
 
             # set log files
-            vardict["LOGFILE"] = os.path.join(self.log_directory, f"{label}.log")
-            vardict["OUTPUTFILE"] = os.path.join(self.log_directory, f"{label}.out")
-            vardict["ERRORFILE"] = os.path.join(self.log_directory, f"{label}.err")
+            vardict["LOGFILE"] = os.path.join(
+                self.log_directories["log"], f"{label}.log"
+            )
+            vardict["OUTPUTFILE"] = os.path.join(
+                self.log_directories["out"], f"{label}.out"
+            )
+            vardict["ERRORFILE"] = os.path.join(
+                self.log_directories["error"], f"{label}.err"
+            )
 
             # write out configuration file
             parseobj = DefaultConfigFileParser()
@@ -280,13 +288,13 @@ class MergePELayer(CondorLayer):
 
         # set log files
         vardict["LOGFILE"] = os.path.join(
-            self.parent_layer_class.log_directory, f"{label}.log"
+            self.parent_layer_class.log_directories["log"], f"{label}.log"
         )
         vardict["OUTPUTFILE"] = os.path.join(
-            self.parent_layer_class.log_directory, f"{label}.out"
+            self.parent_layer_class.log_directories["out"], f"{label}.out"
         )
         vardict["ERRORFILE"] = os.path.join(
-            self.parent_layer_class.log_directory, f"{label}.err"
+            self.parent_layer_class.log_directories["error"], f"{label}.err"
         )
 
         self.vars = [vardict]

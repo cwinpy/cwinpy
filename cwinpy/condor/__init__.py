@@ -2,6 +2,7 @@ import copy
 import fnmatch
 import os
 import shutil
+from subprocess import call
 
 from htcondor import Submit, Schedd
 
@@ -55,9 +56,7 @@ class CondorLayer:
         self.executable = kwargs.get("default_executable", None)
 
         # set layer name
-        self.layer_name = self.get_option(
-            "name", default=kwargs.get("layer_name", None)
-        )
+        self.layer_name = kwargs.get("layer_name")
 
         # set general options
         self.set_general_options()
@@ -271,11 +270,12 @@ class CondorLayer:
                 if isinstance(parentname, str):
                     selector = lambda x: fnmatch.fnmatch(x.name, parentname)
                 elif callable(parentname):
-                    selector = callable
+                    selector = parentname
                 else:
                     raise TypeError(
                         "Must pass string or callable for selecting DAG layers as parents"
                     )
+
                 self.layer.add_parents(self.dag.select(selector))
 
 

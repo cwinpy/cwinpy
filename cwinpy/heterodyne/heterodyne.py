@@ -1614,7 +1614,7 @@ class HeterodyneDAGRunner(object):
             if not os.path.exists(submitdir):
                 os.makedirs(submitdir)
             dag_file = write_dag(
-                self.dag, submitdir, dag_file_name=f"cwinpy_heterodyne.dag"
+                self.dag, submitdir, dag_file_name="cwinpy_heterodyne.dag"
             )
 
             # submit the DAG if requested
