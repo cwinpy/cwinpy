@@ -15,7 +15,6 @@ import astropy.units as u
 import bilby
 import numpy as np
 from astropy.coordinates import SkyCoord
-from bilby_pipe.pp_test import read_in_result_list
 from htcondor.dags import write_dag
 
 from ..condor import submit_dag
@@ -113,12 +112,7 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
     if len(resfiles) == 0:
         raise IOError("Problem finding results files. Probably an invalid path!")
 
-    # read in results (need to create dummy class for args)
-    class DummyClass(object):
-        directory = path
-        print = False
-
-    results = read_in_result_list(DummyClass(), resfiles)
+    results = bilby.core.result.ResultList(resfiles)
 
     if parameters is None:
         # get parameters to use from results file prior

@@ -15,17 +15,12 @@ from argparse import ArgumentParser
 import cwinpy
 import numpy as np
 from astropy.coordinates import SkyCoord
-from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.utils import (
-    BilbyPipeError,
-    check_directory_exists_and_if_not_mkdir,
-    parse_args,
-)
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
 
 from ..condor import submit_dag
 from ..condor.hetnodes import HeterodyneLayer, MergeLayer
+from ..cwinpyargparser import CWInPyArgParser
 from ..data import HeterodynedData
 from ..info import (
     ANALYSIS_SEGMENTS,
@@ -47,6 +42,7 @@ from ..utils import (
     initialise_ephemeris,
     int_to_alpha,
     overlap,
+    parse_args,
     sighandler,
 )
 from .base import Heterodyne, generate_segments, remote_frame_cache
@@ -61,7 +57,7 @@ def create_heterodyne_parser():
 A script to heterodyne raw gravitational-wave strain data based on the \
 expected evolution of the gravitational-wave signal from a set of pulsars."""
 
-    parser = BilbyArgParser(
+    parser = CWInPyArgParser(
         prog=sys.argv[0],
         description=description,
         ignore_unknown_config_file_keys=False,
@@ -475,10 +471,7 @@ def heterodyne(**kwargs):
         else:
             cliargs = sys.argv[1:]
 
-        try:
-            args, _ = parse_args(cliargs, parser)
-        except BilbyPipeError as e:
-            raise IOError("{}".format(e))
+        args, _ = parse_args(cliargs, parser)
 
         # convert args to a dictionary
         hetkwargs = vars(args)
@@ -576,7 +569,7 @@ def create_heterodyne_merge_parser():
 
     description = "A script to merge multiple heterodyned data files."
 
-    parser = BilbyArgParser(
+    parser = CWInPyArgParser(
         prog=sys.argv[0],
         description=description,
         ignore_unknown_config_file_keys=False,
@@ -640,10 +633,7 @@ def heterodyne_merge(**kwargs):
         parser = create_heterodyne_merge_parser()
         cliargs = sys.argv[1:]
 
-        try:
-            args, _ = parse_args(cliargs, parser)
-        except BilbyPipeError as e:
-            raise IOError("{}".format(e))
+        args, _ = parse_args(cliargs, parser)
 
         # convert args to a dictionary
         mergekwargs = vars(args)
@@ -932,7 +922,8 @@ class HeterodyneDAGRunner(object):
                             # generate the frame caches now rather than relying on
                             # each job doing it
                             frcachedir = os.path.join(self.basedir, "cache")
-                            check_directory_exists_and_if_not_mkdir(frcachedir)
+                            if not os.path.exists(frcachedir):
+                                os.makedirs(frcachedir)
                             frinfo["framecache"] = os.path.join(
                                 frcachedir,
                                 "frcache_{0:d}-{1:d}_{2}.txt".format(
@@ -972,7 +963,8 @@ class HeterodyneDAGRunner(object):
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
                         segdir = os.path.join(self.basedir, "segments")
-                        check_directory_exists_and_if_not_mkdir(segdir)
+                        if not os.path.exists(segdir):
+                            os.makedirs(segdir)
                         seginfo["segmentlist"] = os.path.join(
                             segdir,
                             "segments_{0:d}-{1:d}_{2}.txt".format(
@@ -1028,7 +1020,8 @@ class HeterodyneDAGRunner(object):
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
                         segdir = os.path.join(self.basedir, "segments")
-                        check_directory_exists_and_if_not_mkdir(segdir)
+                        if not os.path.exists(segdir):
+                            os.makedirs(segdir)
                         seginfo["segmentlist"] = os.path.join(
                             segdir,
                             "segments_{0:d}-{1:d}_{2}.txt".format(
@@ -1065,7 +1058,8 @@ class HeterodyneDAGRunner(object):
                             # generate the frame caches now rather than relying on
                             # each job doing it
                             frcachedir = os.path.join(self.basedir, "cache")
-                            check_directory_exists_and_if_not_mkdir(frcachedir)
+                            if not os.path.exists(frcachedir):
+                                os.makedirs(frcachedir)
                             frinfo["framecache"] = os.path.join(
                                 frcachedir,
                                 "frcache_{0:d}-{1:d}_{2}.txt".format(
