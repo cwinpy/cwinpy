@@ -61,20 +61,6 @@ class CondorLayer:
         # set general options
         self.set_general_options()
 
-    @staticmethod
-    def conda_prefix():
-        """
-        Detector whether in a conda environment or not and return the path
-        prefix if within a conda environment otherwise return None.
-
-        Returns
-        -------
-        prefix: str
-            The conda environment path prefix.
-        """
-
-        return os.environ.get("CONDA_PREFIX", None)
-
     @property
     def executable(self):
         return self.submit_options["executable"]
@@ -93,12 +79,9 @@ class CondorLayer:
         # set the executable
         exec = self.get_option("executable", default=exec)
 
-        # make sure we get the full path (check whether in a conda environment)
-        if self.conda_prefix() is not None:
-            # set executable in conda path
-            exec = os.path.join(self.conda_prefix(), "bin", f"{exec}")
-
+        # get executable
         exe = shutil.which(exec)
+
         if exe is not None:
             # reset executable to have the full path
             self.submit_options["executable"] = exe
