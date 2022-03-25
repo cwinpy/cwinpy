@@ -729,9 +729,6 @@ class HeterodyneDAGRunner(object):
         # get whether to build the dag
         self.build = config.getboolean(dagsection, "build", fallback=True)
 
-        # get any additional submission options
-        self.submit_options = config.get(dagsection, "submit_options", fallback=None)
-
         # get the base directory
         self.basedir = config.get("run", "basedir", fallback=os.getcwd())
 
@@ -1613,13 +1610,13 @@ class HeterodyneDAGRunner(object):
             )
             if not os.path.exists(submitdir):
                 os.makedirs(submitdir)
-            dag_file = write_dag(
+            self.dag_file = write_dag(
                 self.dag, submitdir, dag_file_name="cwinpy_heterodyne.dag"
             )
 
             # submit the DAG if requested
             if config.getboolean(dagsection, "submitdag", fallback=False):
-                submit_dag(dag_file)
+                submit_dag(self.dag_file)
 
     def eval(self, arg):
         """

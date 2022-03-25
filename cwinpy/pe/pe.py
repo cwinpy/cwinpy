@@ -1418,9 +1418,6 @@ class PEDAGRunner(object):
         # get whether to build the dag
         self.build = config.getboolean(dagsection, "build", fallback=True)
 
-        # get any additional submission options
-        self.submit_options = config.get(dagsection, "submit_options", fallback=None)
-
         # check for required configuration file section
         if not config.has_section("pe"):
             raise IOError("Configuration file must have a [pe] section.")
@@ -2006,11 +2003,13 @@ class PEDAGRunner(object):
                 os.makedirs(submitdir)
 
             dagname = config.get(dagsection, "name", fallback="cwinpy_pe")
-            dag_file = write_dag(self.dag, submitdir, dag_file_name=f"{dagname}.dag")
+            self.dag_file = write_dag(
+                self.dag, submitdir, dag_file_name=f"{dagname}.dag"
+            )
 
             # submit the DAG if requested
             if config.getboolean(dagsection, "submitdag", fallback=False):
-                submit_dag(dag_file)
+                submit_dag(self.dag_file)
 
     def eval(self, arg):
         """
