@@ -15,11 +15,13 @@ import lalpulsar
 import numpy as np
 from astropy import units as u
 from astropy.coordinates.sky_coordinate import SkyCoord
-from bilby_pipe.utils import CHECKPOINT_EXIT_CODE
 from numba import jit, njit
 from numba.extending import get_cython_function_address
 
 from .parfile import PulsarParameters
+
+#: exit code to return when checkpointing
+CHECKPOINT_EXIT_CODE = 77
 
 #: URL for LALSuite solar system ephemeris files
 LAL_EPHEMERIS_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
