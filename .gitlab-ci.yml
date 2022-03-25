@@ -19,10 +19,11 @@ python-3.7:
   stage: test
   image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python37
   script:
-    - python -m pip install .
+    # install in "editable" mode, so pytest runs with Cython code - see https://stackoverflow.com/a/48331262/1862861
+    - python -m pip install -e .
 
-    # run tests (have to use this form due to Cython code - see https://stackoverflow.com/a/48331262/1862861)
-    - python setup.py pytest
+    # run tests
+    - pytest
 
     # Make the documentation
     - cd docs
@@ -38,8 +39,8 @@ python-3.8:
   stage: test
   image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python38
   script:
-    - python -m pip install .
-    - python setup.py pytest
+    - python -m pip install -e .
+    - pytest
 
 
 # test on python 3.9
@@ -47,8 +48,8 @@ python-3.9:
   stage: test
   image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python39
   script:
-    - python -m pip install .
-    - python setup.py pytest
+    - python -m pip install -e .
+    - pytest
 
 
 # test pre-commit has picked up black/flake8 requirements
