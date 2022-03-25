@@ -38,12 +38,14 @@ The pipelines described in the links above can be used to generate `HTCondor
 <https://htcondor.readthedocs.io/>`__ DAGs to run analyses on a pool of machines across a computer
 cluster. However, if you do not have access to a computer cluster and still want to run the
 HTCondor-DAG-producing pipelines on a single Linux machine (preferably one with multiple cores and a
-reasonable amount of memory), you can install HTCondor on your machine. It is recommended to install
-``mini[ht]condor``, which configures HTCondor to run on a single node as documented
-`here <https://research.cs.wisc.edu/htcondor/instructions/>`__.
+reasonable amount of memory), you can install HTCondor on your machine. Instructions on installing
+HTCondor, which by default configures HTCondor to run on a single node, are documented
+`here <https://htcondor.readthedocs.io/en/latest/getting-htcondor/index.html>`__. It is also
+available to install in a conda environment through
+`conda-forge <https://anaconda.org/conda-forge/htcondor>`__.
     
 To allow the Condor jobs to start running immediately rather than waiting for your computer to be idle
-you can create a ``/etc/condor/condor_config.local`` file containing (see the "Test-job
+you can create a ``/etc/condor/condor_config`` file containing (see the "Test-job
 Policy Example" section below `here
 <https://htcondor.readthedocs.io/en/latest/admin-manual/policy-configuration.html#examples-of-policy-configuration>`__):
 
@@ -55,6 +57,6 @@ Policy Example" section below `here
    PREEMPT    = ($(PREEMPT)) && Owner != "username"
    KILL       = $(KILL)
 
-where ``username`` is your username, or that of the user who's jobs will be run. Then run:
+where ``username`` is your username, or that of the user whos jobs will be run. Then run:
 
 >>> sudo condor_restart
