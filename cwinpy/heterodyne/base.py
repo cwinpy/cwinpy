@@ -1438,7 +1438,8 @@ class Heterodyne(object):
                         # skip this pulsar as heterodyne has already been performed
                         continue
 
-                hetdata = TimeSeriesList()
+                hetdata = np.array([], dtype=complex)
+                hettimes = np.array([], dtype=float)
 
                 for hetfile in self.heterodyneddata[pulsar]:
                     # read in data
@@ -1577,18 +1578,14 @@ class Heterodyne(object):
                     )
 
                     if hetts is not None:
-                        hetdata.append(hetts.as_timeseries())
-
-                # output the data
-                times = np.array(
-                    [v for d in hetdata for v in d.times.value], dtype=float
-                )
-                data = hetdata.join(gap="ignore")
-                data.times = times  # preserve uneven time stamps
+                        # store and concatenate data and times
+                        hetdata = np.concatenate((hetdata, hetts.data))
+                        hettimes = np.concatenate((hettimes, hetts.times.value))
 
                 # convert to HeterodynedData
                 het = HeterodynedData(
-                    data=data,
+                    data=hetdata,
+                    times=hettimes,
                     detector=self.detector,
                     par=self._pulsars[pulsar],
                     freqfactor=self.freqfactor,
