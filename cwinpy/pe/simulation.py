@@ -235,7 +235,6 @@ class PEPulsarSimulationDAG(object):
 
         # create the DAG for cwinpy_knope jobs
         self.runner = pe_pipeline(config=self.config)
-        self.runner.dag.build()
 
     @property
     def ampdist(self):
@@ -630,7 +629,7 @@ class PEPulsarSimulationDAG(object):
 
         self.config["run"] = {"basedir": self.basedir}
 
-        self.config["pe_dag"] = {"build": False}
+        self.config["pe_dag"] = {"build": "True"}
         self.config["pe_dag"] = {"submitdag": self.submit}
 
         self.config["pe_job"] = {}
