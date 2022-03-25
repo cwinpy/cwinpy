@@ -16,7 +16,6 @@ import lal
 import lalpulsar
 import numpy as np
 from astropy.time import Time
-from bilby_pipe.utils import CHECKPOINT_EXIT_CODE
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from gwosc.timeline import get_segments
 from gwpy.io.cache import is_cache, read_cache
@@ -27,6 +26,7 @@ from scipy.interpolate import splev, splrep
 from ..data import HeterodynedData
 from ..parfile import PulsarParameters
 from ..utils import (
+    CHECKPOINT_EXIT_CODE,
     TEMPO2_GW_ALIASES,
     MuteStream,
     check_for_tempo2,
