@@ -16,7 +16,6 @@ import cwinpy
 import numpy as np
 from astropy.coordinates import SkyCoord
 from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.utils import BilbyPipeError, parse_args
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
 
@@ -43,6 +42,7 @@ from ..utils import (
     initialise_ephemeris,
     int_to_alpha,
     overlap,
+    parse_args,
     sighandler,
 )
 from .base import Heterodyne, generate_segments, remote_frame_cache
@@ -471,10 +471,7 @@ def heterodyne(**kwargs):
         else:
             cliargs = sys.argv[1:]
 
-        try:
-            args, _ = parse_args(cliargs, parser)
-        except BilbyPipeError as e:
-            raise IOError("{}".format(e))
+        args, _ = parse_args(cliargs, parser)
 
         # convert args to a dictionary
         hetkwargs = vars(args)
@@ -636,10 +633,7 @@ def heterodyne_merge(**kwargs):
         parser = create_heterodyne_merge_parser()
         cliargs = sys.argv[1:]
 
-        try:
-            args, _ = parse_args(cliargs, parser)
-        except BilbyPipeError as e:
-            raise IOError("{}".format(e))
+        args, _ = parse_args(cliargs, parser)
 
         # convert args to a dictionary
         mergekwargs = vars(args)

@@ -18,12 +18,6 @@ import bilby
 import cwinpy
 import numpy as np
 from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.utils import (
-    CHECKPOINT_EXIT_CODE,
-    BilbyPipeError,
-    convert_string_to_dict,
-    parse_args,
-)
 from htcondor.dags import DAG, write_dag
 
 from ..condor import submit_dag
@@ -31,7 +25,13 @@ from ..condor.penodes import MergePELayer, PulsarPELayer
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..likelihood import TargetedPulsarLikelihood
 from ..parfile import PulsarParameters
-from ..utils import is_par_file, sighandler
+from ..utils import (
+    CHECKPOINT_EXIT_CODE,
+    convert_string_to_dict,
+    is_par_file,
+    parse_args,
+    sighandler,
+)
 
 
 def create_pe_parser():
@@ -497,7 +497,6 @@ class PERunner(object):
                     except (
                         ValueError,
                         SyntaxError,
-                        BilbyPipeError,
                         TypeError,
                         IndexError,
                         KeyError,
@@ -514,7 +513,6 @@ class PERunner(object):
                 except (
                     ValueError,
                     SyntaxError,
-                    BilbyPipeError,
                     TypeError,
                     IndexError,
                     KeyError,
@@ -619,7 +617,6 @@ class PERunner(object):
                     except (
                         ValueError,
                         SyntaxError,
-                        BilbyPipeError,
                         TypeError,
                         IndexError,
                         KeyError,
@@ -638,7 +635,6 @@ class PERunner(object):
                     except (
                         ValueError,
                         SyntaxError,
-                        BilbyPipeError,
                         TypeError,
                         IndexError,
                         KeyError,
@@ -654,7 +650,6 @@ class PERunner(object):
                 except (
                     ValueError,
                     SyntaxError,
-                    BilbyPipeError,
                     TypeError,
                     IndexError,
                     KeyError,
@@ -667,7 +662,6 @@ class PERunner(object):
                 except (
                     ValueError,
                     SyntaxError,
-                    BilbyPipeError,
                     TypeError,
                     IndexError,
                     KeyError,
@@ -680,7 +674,6 @@ class PERunner(object):
                 except (
                     ValueError,
                     SyntaxError,
-                    BilbyPipeError,
                     TypeError,
                     IndexError,
                     KeyError,
@@ -693,7 +686,6 @@ class PERunner(object):
                 except (
                     ValueError,
                     SyntaxError,
-                    BilbyPipeError,
                     TypeError,
                     IndexError,
                     KeyError,
@@ -1341,10 +1333,7 @@ def pe(**kwargs):
         else:
             cliargs = sys.argv[1:]
 
-        try:
-            args, _ = parse_args(cliargs, parser)
-        except BilbyPipeError as e:
-            raise IOError("{}".format(e))
+        args, _ = parse_args(cliargs, parser)
 
         # convert args to a dictionary
         dargs = vars(args)

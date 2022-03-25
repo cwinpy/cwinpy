@@ -120,10 +120,10 @@ pulsars with mass quadrupoles drawn from an `exponential distribution
 exponential distribution can be estimated.
 
 The code below will generate a HTCondor DAG that will simulate 100 pulsars with :math:`Q_{22}`
-values drawn from an exponential distribution with a mean of :math:`\mu = 10^{30}\,{\textrm
-kg}\,{\textrm m}^2`. The pulsars' sky locations will be drawn uniformly over the sky and from the
-default uniform distance distribution. The orientations of the pulsars will also be drawn from the
-default uniform distributions, which are described in the
+values drawn from an exponential distribution with a mean of :math:`\mu = 10^{30}\,
+{\textrm{kg}}\,{\textrm m}^2`. The pulsars' sky locations will be drawn uniformly over the sky and
+from the default uniform distance distribution. The orientations of the pulsars will also be drawn
+from the default uniform distributions, which are described in the
 :class:`~cwinpy.pe.simulation.PEPulsarSimulationDAG` documentation. The simulation will only
 generate observations from a single gravitational-wave detector, the LIGO Hanford detector ("H1"),
 in this case.
@@ -210,7 +210,7 @@ hyperparameters, the method of :ref:`evaluating the integrals<Evaluating the int
 arguments required for the stochastic or grid-based sampling method. In this case the distribution
 is an exponential, and we will use a :class:`~bilby.core.prior.analytical.HalfNormal` prior (a
 Gaussian distribution with a mode a zero, but excluding negative values) for the hyperparameter
-:math:`\mu`, with a scale parameter :math:`\sigma = 10^{34}\,{\textrm kg}\,{\textrm m}^2` roughly
+:math:`\mu`, with a scale parameter :math:`\sigma = 10^{34}\,{\textrm{kg}}\,{\textrm m}^2` roughly
 based on the largest sustainable quadrupole deformations as described in [1]_.
 
 The first example below uses the integral evaluation method that performs the integrals over
@@ -474,7 +474,7 @@ Below, we use chose to try and fit another simple distribution with a single hyp
 used to fit a mixture model of Gaussians to the data (bounded at zero, so that only positive values
 are allowed), but here we will just assume a single mode. The peak of the mode will be fixed at zero
 and the width, :math:`\sigma`, will be given a :class:`~bilby.core.prior.analytical.HalfNormal`
-prior with the same scale of :math:`\sigma = 10^{34}\,{\textrm kg}\,{\textrm m}^2` as used for
+prior with the same scale of :math:`\sigma = 10^{34}\,{\textrm{kg}}\,{\textrm m}^2` as used for
 :math:`\mu` previously.
 
 .. note::
