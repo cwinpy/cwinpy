@@ -58,7 +58,8 @@ class CWInPyArgParser(configargparse.ArgParser):
         env_vars=os.environ,
         **kwargs,
     ):
-        """Supports all the same args as the ArgumentParser.parse_args(..),
+        """
+        Supports all the same args as the ArgumentParser.parse_args(..),
         as well as the following additional args.
 
         Parameters
@@ -95,7 +96,8 @@ class CWInPyArgParser(configargparse.ArgParser):
         return namespace, unknown_args
 
     def _preprocess_config_file_contents(self, args):
-        """Reads config file into string and formats it for ArgParser
+        """
+        Reads config file into string and formats it for ArgParser
 
         Parameters
         ----------
@@ -131,7 +133,8 @@ class CWInPyArgParser(configargparse.ArgParser):
         return file_contents
 
     def _preprocess_args(self, args):
-        """Processes args into correct format for ArgParser
+        """
+        Processes args into correct format for ArgParser
 
         Parameters
         ----------
