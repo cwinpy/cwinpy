@@ -2,14 +2,15 @@
 Test script for testing class.
 """
 
+import glob
 import os
 import shutil
 
 import bilby
 import numpy as np
-import pycondor
 import pytest
 from cwinpy.pe.testing import PEPPPlotsDAG
+from htcondor import dags
 
 
 class TestPEPP(object):
@@ -95,22 +96,11 @@ class TestPEPP(object):
         assert len(os.listdir(run.pulsardir)) == self.ninj
 
         # check output is a DAG
-        assert isinstance(run.runner.dag.pycondor_dag, pycondor.Dagman)
+        assert isinstance(run.runner.dag, dags.DAG)
 
         # checkout correct number of DAG jobs
-        assert len(run.runner.dag.pycondor_dag.nodes) == (self.ninj + 1)
+        assert len(run.runner.dag.nodes) == (self.ninj + 1)
 
         # check config files are present
-        configexists = 0
-        for psr in run.pulsars:
-            for job in run.runner.dag.pycondor_dag.nodes[:-1]:
-                if psr in str(job.args):
-                    if os.path.isfile(
-                        os.path.join(
-                            self.basedir, "configs", job.args[0].arg.split()[-1]
-                        )
-                    ):
-                        configexists += 1
-                        break
-
-        assert configexists == self.ninj
+        configfiles = list(glob.glob(os.path.join(self.basedir, "configs", "*.ini")))
+        assert len(configfiles) == self.ninj
