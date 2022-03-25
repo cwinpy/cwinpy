@@ -510,12 +510,6 @@ def skyshift_pipeline(**kwargs):
             "heterodyne_dag", "transfer_files", fallback="True"
         )
 
-    # DAG name is taken from the "knope_dag" section, but falls-back to
-    # "cwinpy_knope" if not given
-    hetconfig["heterodyne_dag"]["name"] = hetconfig.get(
-        "knope_dag", "name", fallback="cwinpy_knope"
-    )
-
     # set accounting group information
     accgroup = hetconfig.get("knope_job", "accounting_group", fallback=None)
     accuser = hetconfig.get("knope_job", "accounting_group_user", fallback=None)
@@ -526,10 +520,8 @@ def skyshift_pipeline(**kwargs):
         hetconfig["heterodyne_job"]["accounting_group_user"] = accuser
         peconfig["pe_job"]["accounting_group_user"] = accuser
 
-    # set job names (for sub files) to be different for the 2 stages
-    jobname = hetconfig.get("heterodyne_job", "name", fallback="cwinpy_heterodyne")
-    if not hetconfig.has_option("heterodyne_job", "name"):
-        hetconfig["heterodyne_job"]["name"] = jobname + "_skyshift"
+    # set dag name
+    peconfig["pe_dag"]["name"] = "cwinpy_skyshift"
 
     # set the configuration file location
     configloc = hetconfig.get("heterodyne", "config", fallback="configs")
@@ -597,7 +589,6 @@ def skyshift_pipeline(**kwargs):
 
     # create PE DAG
     kwargs["dag"] = hetdag.dag  # add heterodyne DAG
-    kwargs["generation_nodes"] = hetdag.pulsar_nodes  # add Heterodyne nodes
     pedag = PEDAGRunner(peconfig, **kwargs)
 
     # return the full DAG

@@ -1561,11 +1561,13 @@ class HeterodyneDAGRunner(object):
                             HeterodyneLayer(
                                 self.dag,
                                 config,
-                                {
-                                    key: copy.deepcopy(value)
-                                    for key, value in configdict.items()
-                                    if value is not None
-                                },
+                                [
+                                    {
+                                        key: copy.deepcopy(value)
+                                        for key, value in configdict.items()
+                                        if value is not None
+                                    }
+                                ],
                                 layer_name=f"cwinpy_heterodyne_{ff}_{det}_{psr.replace('+', 'plus')}",
                                 parentname=f"cwinpy_heterodyne_*_{ff}_{det}"
                                 if not skyshift
