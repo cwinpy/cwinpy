@@ -170,7 +170,7 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
             raise IOError("Problem saving figure: {}".format(e))
 
 
-class PEPPPlotsDAG(object):
+class PEPPPlotsDAG:
     """
     This class will generate a HTCondor Dagman job to create a number of
     simulated gravitational-wave signals from pulsars in Gaussian noise. These

@@ -1974,7 +1974,7 @@ class PEDAGRunner(object):
                     parentname = selector
 
                 nparallel = config.getint("pe", "n_parallel", fallback=1)
-                nparastr = "" if nparallel > 1 else f"_{nparallel}"
+                nparastr = "" if nparallel == 1 else f"_{nparallel}"
 
                 # create DAG layer
                 pelayer = PulsarPELayer(

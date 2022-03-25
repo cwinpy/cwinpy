@@ -206,10 +206,12 @@ def knope_cli(**kwargs):  # pragma: no cover
 
 def knope_pipeline(**kwargs):
     """
-    Run knope within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
-    DAG for consecutively running multiple ``cwinpy_heterodyne`` and ``cwinpy_pe`` instances on a
-    computer cluster. Optional parameters that can be used instead of a configuration file (for
-    "quick setup") are given in the "Other parameters" section.
+    Run knope within Python. This will create a
+    `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ DAG for consecutively
+    running multiple ``cwinpy_heterodyne`` and ``cwinpy_pe`` instances on a
+    computer cluster. Optional parameters that can be used instead of a
+    configuration file (for "quick setup") are given in the "Other parameters"
+    section.
 
     Parameters
     ----------

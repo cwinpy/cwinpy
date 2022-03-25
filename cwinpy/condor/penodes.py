@@ -150,7 +150,7 @@ class PulsarPELayer(CondorLayer):
 
             self.resultsfiles.append(
                 bilby.core.result.result_file_name(
-                    self.resdir, label, extension=extension, gzip=gzip
+                    os.path.abspath(self.resdir), label, extension=extension, gzip=gzip
                 )
             )
 
@@ -250,7 +250,7 @@ class MergePELayer(CondorLayer):
         self.submit_options["universe"] = "local"
 
         # generate the node variables
-        self.generate_node_vars({})
+        self.generate_node_vars()
 
         # generate layer
         self.generate_layer(self.vars)
@@ -263,10 +263,10 @@ class MergePELayer(CondorLayer):
         arglist = []
 
         arglist.append("--results")
-        arglist.append(self.parent_layer_class.resultsfiles)
+        arglist.extend(self.parent_layer_class.resultsfiles)
 
         # set results directory
-        arglist.append(f"--outdir {self.parent_layer_class.resdir}")
+        arglist.append(f"--outdir {os.path.abspath(self.parent_layer_class.resdir)}")
 
         label = (
             f"{self.submit_options.get('name', 'cwinpy_pe')}_"
