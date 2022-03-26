@@ -768,7 +768,7 @@ class PERunner(object):
                                 except ValueError:
                                     raise ValueError("Fake seed must be an integer")
                         elif len(detseed) == 1 and len(fseed) == 1:
-                            # just a single seed is given, not inidividual seeds for each detector
+                            # just a single seed is given, not individual seeds for each detector
                             try:
                                 rstate = np.random.default_rng(int(detseed[-1]))
                             except ValueError:
@@ -1023,7 +1023,7 @@ class PERunner(object):
         # output parameters
         if "outdir" in kwargs:
             self.sampler_kwargs.setdefault(
-                os.path.abspath("outdir"), os.path.abspath(kwargs.get("outdir"))
+                "outdir", os.path.abspath(kwargs.get("outdir"))
             )
         if "label" in kwargs:
             self.sampler_kwargs.setdefault("label", kwargs.get("label"))
