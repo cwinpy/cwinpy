@@ -298,6 +298,13 @@ def skyshift_pipeline(**kwargs):
                         f"Provided detectors '{detector}' are not valid for the given run"
                     )
 
+            # get run directory
+            output = os.path.abspath(
+                os.path.join(kwargs.get("output", args.output)), "skyshift"
+            )
+            hetconfigfile["run"] = {}
+            hetconfigfile["run"]["basedir"] = output
+
             # create required settings
             hetconfigfile["heterodyne_dag"] = {}
             peconfigfile["pe_dag"] = {}

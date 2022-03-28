@@ -487,7 +487,6 @@ def knope_pipeline(**kwargs):
                 # appropriate segments
                 for pf in pulsars:
                     if is_hwinj(pf):
-                        print("This is a hardware injection")
                         runtimes = HW_INJ_RUNTIMES
                         segments = HW_INJ_SEGMENTS
                         srate = "16k" if run[0] == "O" else "4k"
