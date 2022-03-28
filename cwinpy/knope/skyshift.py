@@ -421,9 +421,10 @@ def skyshift_pipeline(**kwargs):
         raise ValueError("A pulsar parameter file must be given")
 
     # set sky-shift output directory, e.g., append "skyshift" onto the base directory
-    basedir = os.path.join(
-        hetconfig.get("run", "basedir", fallback=os.getcwd()), "skyshift"
-    )
+    if hetconfig.get("run", "basedir", fallback=None) is None:
+        basedir = os.path.join(os.getcwd(), "skyshift")
+    else:
+        basedir = hetconfig.get("run", "basedir")
     for cf in [hetconfig, peconfig]:
         if not cf.has_section("run"):
             cf["run"] = {}
