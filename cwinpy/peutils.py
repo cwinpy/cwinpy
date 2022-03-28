@@ -74,9 +74,9 @@ def results_odds(results, oddstype="svn", scale="log10"):
             # get the denominator of the coherent vs incoherent odds
             denom = 0.0
             for rkey in results:
-                result = read_in_result_wrapper(results[rkey])
-
                 if rkey != key:
+                    result = read_in_result_wrapper(results[rkey])
+
                     denom += np.logaddexp(
                         result.log_10_evidence,
                         result.log_10_noise_evidence,
