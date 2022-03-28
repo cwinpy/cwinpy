@@ -1,3 +1,4 @@
+import filecmp
 import glob
 import os
 
@@ -5,6 +6,7 @@ import pkg_resources
 from astropy.time import Time
 
 from .parfile import PulsarParameters
+from .utils import get_psr_name
 
 
 class Runtimes(dict):
@@ -382,3 +384,46 @@ CVMFS_GWOSC_FRAME_CHANNELS = {
 
 #: Base CVMFS directory for proprietory LVK frame data
 CVMFS_LVK_BASE = "/cvmfs/oasis.opensciencegrid.org/ligo/frames"
+
+
+def is_hwinj(psr, return_file=False):
+    """
+    Check if a given pulsar is a hardware injection either by being: a file or
+    :class:`~cwinpy.parfile.PulsarParameters` object that is the same as one of
+    the internal stored hardware injection files; it is a string with the same
+    name as the pulsar name in one of the hardware injection file; it is the
+    same name as one of the internal hardware injection files (striped of path
+    and extension).
+
+    Parameters
+    ----------
+    psr: str, PulsarParameters
+        The string or object to check whether it is a hardware injection.
+    return_file: bool
+        Set to True to return the path to the internally stored hardware
+        injection that is equivalent to the ``psr`` rather than a boolean.
+    """
+
+    for run in HW_INJ_RUNS:
+        for i in range(len(HW_INJ[run]["hw_inj_parameters"])):
+            hwfile = HW_INJ[run]["hw_inj_files"][i]
+            hwpar = HW_INJ[run]["hw_inj_parameters"][i]
+            if isinstance(psr, PulsarParameters):
+                if psr == hwpar:
+                    return True if not return_file else hwfile
+            elif isinstance(psr, str):
+                if os.path.isfile(psr):
+                    if filecmp.cmp(psr, hwfile):
+                        return True if not return_file else hwfile
+                elif psr == get_psr_name(hwpar):
+                    return True if not return_file else hwfile
+                else:
+                    namepart = os.path.splitext(os.path.split(hwfile)[1])[0]
+                    if psr == namepart:
+                        return True if not return_file else hwfile
+            else:
+                raise TypeError(
+                    "Argument must be a PulsarParameters object or a string"
+                )
+
+    return False
