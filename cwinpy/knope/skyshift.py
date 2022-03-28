@@ -300,7 +300,7 @@ def skyshift_pipeline(**kwargs):
 
             # get run directory
             output = os.path.abspath(
-                os.path.join(kwargs.get("output", args.output)), "skyshift"
+                os.path.join(kwargs.get("output", args.output), "skyshift")
             )
             hetconfigfile["run"] = {}
             hetconfigfile["run"]["basedir"] = output
@@ -357,10 +357,7 @@ def skyshift_pipeline(**kwargs):
                     {det: segments[run][det] for det in detectors}
                 )
             hetconfigfile["heterodyne"]["outputdir"] = str(
-                {
-                    det: os.path.join(os.path.abspath(args.output), det)
-                    for det in detectors
-                }
+                {det: os.path.join(output, det) for det in detectors}
             )
             hetconfigfile["heterodyne"]["overwrite"] = "False"
 
