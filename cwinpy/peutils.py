@@ -1,7 +1,8 @@
 from itertools import permutations
+from pathlib import Path
 
 import numpy as np
-from bilby.core.result import Result
+from bilby.core.result import Result, read_in_result
 
 
 def results_odds(results, oddstype="svn", scale="log10"):
@@ -19,11 +20,12 @@ def results_odds(results, oddstype="svn", scale="log10"):
 
     Parameters
     ----------
-    results: Result, dict
-        A :class:`bilby.core.result.Result` or dictionary of
-        :class:`bilby.core.result.Result` objects containing the output of
-        parameter estimation of a signal for one or multiple detectors. These
-        should each contain the attributes ``log_10_evidence`` and
+    results: Result, dict, str
+        A :class:`~bilby.core.result.Result` or dictionary of
+        :class:`~bilby.core.result.Result` objects (or file path to a file
+        containing such an object) containing the output of parameter
+        estimation of a signal for one or multiple detectors. These should each
+        contain the attributes ``log_10_evidence`` and
         ``log_10_noise_evidence`` with the former providing the base-10
         logarithm for the signal model and the latter the base-10 logarithm of
         the data being consistent with noise. In inputting a dictionary, it
@@ -38,11 +40,13 @@ def results_odds(results, oddstype="svn", scale="log10"):
         ``"log10"`` (the default), or the natural logarithm ``"ln"``.
     """
 
-    if not isinstance(results, (Result, dict)):
+    if not isinstance(results, (str, Path, Result, dict)):
         raise TypeError("result must be a Result object or list of Result objects")
 
-    if isinstance(results, Result):
-        log10odds = results.log_10_evidence - results.log_10_noise_evidence
+    if isinstance(results, (str, Path, Result)):
+        result = read_in_result_wrapper(results)
+
+        log10odds = result.log_10_evidence - result.log_10_noise_evidence
     else:
         # list of detectors
         dets = [det for det in results if len(det) == 2]
@@ -60,23 +64,57 @@ def results_odds(results, oddstype="svn", scale="log10"):
         else:
             raise KeyError("No 'coherent' multi-detector result is given")
 
-        coherentZ = results[key].log_10_evidence
+        result = read_in_result_wrapper(results[key])
+
+        coherentZ = result.log_10_evidence
 
         if oddstype == "svn":
-            log10odds = coherentZ - results[key].log_10_noise_evidence
+            log10odds = coherentZ - result.log_10_noise_evidence
         else:
             # get the denominator of the coherent vs incoherent odds
             denom = 0.0
             for rkey in results:
+                result = read_in_result_wrapper(results[rkey])
+
                 if rkey != key:
                     denom += np.logaddexp(
-                        results[rkey].log_10_evidence,
-                        results[rkey].log_10_noise_evidence,
+                        result.log_10_evidence,
+                        result.log_10_noise_evidence,
                     )
 
             log10odds = coherentZ - denom
 
     return log10odds if scale == "log10" else log10odds / np.log10(np.exp(1))
+
+
+def read_in_result_wrapper(res):
+    """
+    Check if argument is a :class:`~bilby.core.result.Result` object or a path
+    to a file containing a :class:`~bilby.core.result.Result` object. If the
+    former, just return the result, otherwise try reading in the file and
+    return the loaded object.
+
+    Parameters
+    ----------
+    res: str, Result
+        A string with a path to a :class:`~bilby.core.result.Result` object.
+
+    Returns
+    -------
+    result: Result
+        The read in :class:`~bilby.core.result.Result` object or the original
+        :class:`~bilby.core.result.Result` object.
+    """
+
+    if isinstance(res, Result):
+        return res
+
+    try:
+        result = read_in_result(res)
+    except (ValueError, TypeError, OSError):
+        raise IOError(f"Could not read in results file '{res}'")
+
+    return result
 
 
 def skyshift_results():
