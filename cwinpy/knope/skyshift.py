@@ -12,7 +12,10 @@ from ..info import (
     CVMFS_GWOSC_DATA_SERVER,
     CVMFS_GWOSC_DATA_TYPES,
     CVMFS_GWOSC_FRAME_CHANNELS,
+    HW_INJ_RUNTIMES,
+    HW_INJ_SEGMENTS,
     RUNTIMES,
+    is_hwinj,
 )
 from ..parfile import PulsarParameters
 from ..pe.pe import PEDAGRunner
@@ -270,12 +273,17 @@ def skyshift_pipeline(**kwargs):
             runtimes = RUNTIMES
             segments = ANALYSIS_SEGMENTS
 
+            # get sample rate
+            srate = "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
+
             pulsar = kwargs.get("pulsar", args.pulsar)
             if pulsar is None:
                 raise ValueError("No pulsar parameter file has be provided")
-
-            # get sample rate
-            srate = "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
+            elif is_hwinj(pulsar):
+                # using hardware injection
+                runtimes = HW_INJ_RUNTIMES
+                segments = HW_INJ_SEGMENTS
+                srate = "16k" if run[0] == "O" else "4k"
 
             detector = kwargs.get("detector", args.detector)
             if detector is None:

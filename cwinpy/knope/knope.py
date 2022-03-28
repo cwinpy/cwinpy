@@ -14,6 +14,7 @@ from ..info import (
     HW_INJ_RUNTIMES,
     HW_INJ_SEGMENTS,
     RUNTIMES,
+    is_hwinj,
 )
 from ..pe.pe import PEDAGRunner, pe
 
@@ -437,7 +438,27 @@ def knope_pipeline(**kwargs):
                 # use hardware injections for the run
                 runtimes = HW_INJ_RUNTIMES
                 segments = HW_INJ_SEGMENTS
-                pulsars.extend(HW_INJ[run]["hw_inj_files"])
+
+                pulsar = kwargs.get("pulsar", args.pulsar)
+                if pulsar is None:
+                    pulsars.extend(HW_INJ[run]["hw_inj_files"])
+                else:
+                    pulsars.extend(pulsar if isinstance(pulsar, list) else [pulsar])
+
+                # check if requesting any particular hardware injections
+                argpulsars = kwargs.get("pulsar", args.pulsar)
+                if argpulsars is not None:
+                    argpulsars = (
+                        argpulsars if isinstance(argpulsars, list) else [argpulsars]
+                    )
+
+                    for pf in argpulsars:
+                        hwinjf = is_hwinj(pf, return_file=True)
+                        if hwinjf:
+                            pulsars.append(hwinjf)
+                else:
+                    # use all HW injections
+                    pulsars.extend(HW_INJ[run]["hw_inj_files"])
 
                 # set sample rate to 16k, expect for S runs
                 srate = "16k" if run[0] == "O" else "4k"
@@ -456,6 +477,15 @@ def knope_pipeline(**kwargs):
                 srate = (
                     "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
                 )
+
+                # check if any pulsar par files are hardware injection and if so use
+                # appropriate segments
+                for pf in pulsars:
+                    if is_hwinj(pf):
+                        runtimes = HW_INJ_RUNTIMES
+                        segments = HW_INJ_SEGMENTS
+                        srate = "16k" if run[0] == "O" else "4k"
+                        break
 
             detector = kwargs.get("detector", args.detector)
             if detector is None:

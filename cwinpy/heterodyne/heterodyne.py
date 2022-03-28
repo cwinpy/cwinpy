@@ -5,7 +5,6 @@ Run heterodyne pre-processing of gravitational-wave data.
 import ast
 import configparser
 import copy
-import filecmp
 import os
 import shutil
 import signal
@@ -32,6 +31,7 @@ from ..info import (
     HW_INJ_RUNTIMES,
     HW_INJ_SEGMENTS,
     RUNTIMES,
+    is_hwinj,
 )
 from ..parfile import PulsarParameters
 from ..utils import (
@@ -1689,7 +1689,9 @@ def heterodyne_pipeline(**kwargs):
         will be used.
     hwinj: bool
         Set this to True to analyse the continuous hardware injections for a
-        given run. No ``pulsar`` argument is required in this case.
+        given run. If no ``pulsar`` argument is given then all hardware
+        injections will be analysed. To specify particular hardware injections
+        the names can be given using the ``pulsar`` argument.
     samplerate: str:
         Select the sample rate of the data to use. This can either be 4k or
         16k for data sampled at 4096 or 16384 Hz, respectively. The default
@@ -1771,7 +1773,9 @@ def heterodyne_pipeline(**kwargs):
             help=(
                 "Set this flag to analyse the continuous hardware injections "
                 "for a given run. No '--pulsar' arguments are required in "
-                "this case."
+                "this case, in which case all hardware injections will be "
+                "used. To specific particular hardware injections, the "
+                "required names can be set with the '--pulsar' flag."
             ),
         )
         optional.add_argument(
@@ -1865,11 +1869,14 @@ def heterodyne_pipeline(**kwargs):
                     argpulsars = (
                         argpulsars if isinstance(argpulsars, list) else [argpulsars]
                     )
-                    for pf in argpulsars:
-                        if not os.path.isfile(pf):
-                            pass
 
-                pulsars.extend(HW_INJ[run]["hw_inj_files"])
+                    for pf in argpulsars:
+                        hwinjf = is_hwinj(pf, return_file=True)
+                        if hwinjf:
+                            pulsars.append(hwinjf)
+                else:
+                    # use all HW injections
+                    pulsars.extend(HW_INJ[run]["hw_inj_files"])
 
                 # set sample rate to 16k, expect for S runs
                 srate = "16k" if run[0] == "O" else "4k"
@@ -1889,18 +1896,13 @@ def heterodyne_pipeline(**kwargs):
                     "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
                 )
 
-                # check if any pulsar par files are hardware injection
-                hwinj = False
+                # check if any pulsar par files are hardware injection and if so use
+                # appropriate segments
                 for pf in pulsars:
-                    if os.path.isfile(pf):
-                        for hwpf in HW_INJ[run]["hw_inj_files"]:
-                            hwinj = filecmp.cmp(pf, hwpf)
-                            if hwinj:
-                                runtimes = HW_INJ_RUNTIMES
-                                segments = HW_INJ_SEGMENTS
-                                srate = "16k" if run[0] == "O" else "4k"
-                                break
-                    if hwinj:
+                    if is_hwinj(pf):
+                        runtimes = HW_INJ_RUNTIMES
+                        segments = HW_INJ_SEGMENTS
+                        srate = "16k" if run[0] == "O" else "4k"
                         break
 
             detector = kwargs.get("detector", args.detector)
