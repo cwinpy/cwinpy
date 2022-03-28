@@ -231,7 +231,9 @@ def knope_pipeline(**kwargs):
         will be used.
     hwinj: bool
         Set this to True to analyse the continuous hardware injections for a
-        given run. No ``pulsar`` argument is required in this case.
+        given run. If no ``pulsar`` argument is given then all hardware
+        injections will be analysed. To specify particular hardware injections
+        the names can be given using the ``pulsar`` argument.
     samplerate: str:
         Select the sample rate of the data to use. This can either be 4k or
         16k for data sampled at 4096 or 16384 Hz, respectively. The default
@@ -327,7 +329,9 @@ def knope_pipeline(**kwargs):
             help=(
                 "Set this flag to analyse the continuous hardware injections "
                 "for a given run. No '--pulsar' arguments are required in "
-                "this case."
+                "this case, in which case all hardware injections will be "
+                "used. To specific particular hardware injections, the "
+                "required names can be set with the '--pulsar' flag."
             ),
         )
         optional.add_argument(
@@ -434,7 +438,8 @@ def knope_pipeline(**kwargs):
                 raise ValueError(f"Requested run '{run}' is not available")
 
             pulsars = []
-            if args.hwinj:
+            hwinj = args.hwinj
+            if hwinj:
                 # use hardware injections for the run
                 runtimes = HW_INJ_RUNTIMES
                 segments = HW_INJ_SEGMENTS
@@ -482,9 +487,11 @@ def knope_pipeline(**kwargs):
                 # appropriate segments
                 for pf in pulsars:
                     if is_hwinj(pf):
+                        print("This is a hardware injection")
                         runtimes = HW_INJ_RUNTIMES
                         segments = HW_INJ_SEGMENTS
                         srate = "16k" if run[0] == "O" else "4k"
+                        hwinj = True
                         break
 
             detector = kwargs.get("detector", args.detector)

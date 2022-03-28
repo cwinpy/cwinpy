@@ -277,6 +277,7 @@ def skyshift_pipeline(**kwargs):
             srate = "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
 
             pulsar = kwargs.get("pulsar", args.pulsar)
+            hwinj = False
             if pulsar is None:
                 raise ValueError("No pulsar parameter file has be provided")
             elif is_hwinj(pulsar):
@@ -284,6 +285,7 @@ def skyshift_pipeline(**kwargs):
                 runtimes = HW_INJ_RUNTIMES
                 segments = HW_INJ_SEGMENTS
                 srate = "16k" if run[0] == "O" else "4k"
+                hwinj = True  # this is a hardware injection
 
             detector = kwargs.get("detector", args.detector)
             if detector is None:
@@ -336,6 +338,17 @@ def skyshift_pipeline(**kwargs):
             hetconfigfile["heterodyne"]["includeflags"] = str(
                 {det: segments[run][det] for det in detectors}
             )
+            if hwinj:
+                hetconfigfile["heterodyne"]["includeflags"] = str(
+                    {det: segments[run][det]["includesegments"] for det in detectors}
+                )
+                hetconfigfile["heterodyne"]["excludeflags"] = str(
+                    {det: segments[run][det]["excludesegments"] for det in detectors}
+                )
+            else:
+                hetconfigfile["heterodyne"]["includeflags"] = str(
+                    {det: segments[run][det] for det in detectors}
+                )
             hetconfigfile["heterodyne"]["outputdir"] = str(
                 {
                     det: os.path.join(os.path.abspath(args.output), det)

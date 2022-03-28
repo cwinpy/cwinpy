@@ -896,14 +896,12 @@ class HeterodyneDAGRunner(object):
                         elif isinstance(value, list):
                             if len(value) != len(fullstarttimes[key]):
                                 raise ValueError(
-                                    "{} lists must be consistent with the number of start and end times".format(
-                                        sname
-                                    )
+                                    f"{sname} lists must be consistent with the number of start and end times"
                                 )
                         else:
-                            raise TypeError("Must have a list of {}".format(sname))
+                            raise TypeError(f"Must have a list of {sname}")
                 else:
-                    raise TypeError("{} should be a dictionary".format(sname))
+                    raise TypeError(f"{sname} should be a dictionary")
 
         # get ephemeris information
         earthephemeris = self.eval(config.get("ephemerides", "earth", fallback=None))
@@ -1858,7 +1856,8 @@ def heterodyne_pipeline(**kwargs):
                 raise ValueError(f"Requested run '{run}' is not available")
 
             pulsars = []
-            if kwargs.get("hwinj", args.hwinj):
+            hwinj = kwargs.get("hwinj", args.hwinj)
+            if hwinj:
                 # use hardware injections for the run
                 runtimes = HW_INJ_RUNTIMES
                 segments = HW_INJ_SEGMENTS
@@ -1903,6 +1902,7 @@ def heterodyne_pipeline(**kwargs):
                         runtimes = HW_INJ_RUNTIMES
                         segments = HW_INJ_SEGMENTS
                         srate = "16k" if run[0] == "O" else "4k"
+                        hwinj = True
                         break
 
             detector = kwargs.get("detector", args.detector)
@@ -1981,7 +1981,7 @@ def heterodyne_pipeline(**kwargs):
                 {det: CVMFS_GWOSC_FRAME_CHANNELS[run][srate][det] for det in detectors}
             )
             configfile["heterodyne"]["host"] = CVMFS_GWOSC_DATA_SERVER
-            if args.hwinj:
+            if hwinj:
                 configfile["heterodyne"]["includeflags"] = str(
                     {det: segments[run][det]["includesegments"] for det in detectors}
                 )
