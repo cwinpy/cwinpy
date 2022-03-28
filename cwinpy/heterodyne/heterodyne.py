@@ -5,6 +5,7 @@ Run heterodyne pre-processing of gravitational-wave data.
 import ast
 import configparser
 import copy
+import filecmp
 import os
 import shutil
 import signal
@@ -1857,6 +1858,17 @@ def heterodyne_pipeline(**kwargs):
                 # use hardware injections for the run
                 runtimes = HW_INJ_RUNTIMES
                 segments = HW_INJ_SEGMENTS
+
+                # check if requesting any particular hardware injections
+                argpulsars = kwargs.get("pulsar", args.pulsar)
+                if argpulsars is not None:
+                    argpulsars = (
+                        argpulsars if isinstance(argpulsars, list) else [argpulsars]
+                    )
+                    for pf in argpulsars:
+                        if not os.path.isfile(pf):
+                            pass
+
                 pulsars.extend(HW_INJ[run]["hw_inj_files"])
 
                 # set sample rate to 16k, expect for S runs
@@ -1876,6 +1888,20 @@ def heterodyne_pipeline(**kwargs):
                 srate = (
                     "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
                 )
+
+                # check if any pulsar par files are hardware injection
+                hwinj = False
+                for pf in pulsars:
+                    if os.path.isfile(pf):
+                        for hwpf in HW_INJ[run]["hw_inj_files"]:
+                            hwinj = filecmp.cmp(pf, hwpf)
+                            if hwinj:
+                                runtimes = HW_INJ_RUNTIMES
+                                segments = HW_INJ_SEGMENTS
+                                srate = "16k" if run[0] == "O" else "4k"
+                                break
+                    if hwinj:
+                        break
 
             detector = kwargs.get("detector", args.detector)
             if args.detector is None:
