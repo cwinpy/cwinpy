@@ -4,18 +4,12 @@ from argparse import ArgumentParser
 
 import cwinpy
 
-from ..heterodyne.heterodyne import HeterodyneDAGRunner, heterodyne
-from ..info import (
-    ANALYSIS_SEGMENTS,
-    CVMFS_GWOSC_DATA_SERVER,
-    CVMFS_GWOSC_DATA_TYPES,
-    CVMFS_GWOSC_FRAME_CHANNELS,
-    HW_INJ,
-    HW_INJ_RUNTIMES,
-    HW_INJ_SEGMENTS,
-    RUNTIMES,
-    is_hwinj,
+from ..heterodyne.heterodyne import (
+    HeterodyneDAGRunner,
+    heterodyne,
+    heterodyne_quick_setup,
 )
+from ..info import RUNTIMES
 from ..pe.pe import PEDAGRunner, pe
 
 
@@ -430,153 +424,27 @@ def knope_pipeline(**kwargs):
             peconfigfile = args.config
         else:
             # use the "Quick setup" arguments
-            hetconfigfile = configparser.ConfigParser()
+            hetconfigfile = heterodyne_quick_setup(args, **kwargs)
             peconfigfile = configparser.ConfigParser()
 
-            run = kwargs.get("run", args.run)
-            if run not in RUNTIMES:
-                raise ValueError(f"Requested run '{run}' is not available")
-
-            pulsars = []
-            hwinj = args.hwinj
-            if hwinj:
-                # use hardware injections for the run
-                runtimes = HW_INJ_RUNTIMES
-                segments = HW_INJ_SEGMENTS
-
-                pulsar = kwargs.get("pulsar", args.pulsar)
-                if pulsar is None:
-                    pulsars.extend(HW_INJ[run]["hw_inj_files"])
-                else:
-                    pulsars.extend(pulsar if isinstance(pulsar, list) else [pulsar])
-
-                # check if requesting any particular hardware injections
-                argpulsars = kwargs.get("pulsar", args.pulsar)
-                if argpulsars is not None:
-                    argpulsars = (
-                        argpulsars if isinstance(argpulsars, list) else [argpulsars]
-                    )
-
-                    for pf in argpulsars:
-                        hwinjf = is_hwinj(pf, return_file=True)
-                        if hwinjf:
-                            pulsars.append(hwinjf)
-                else:
-                    # use all HW injections
-                    pulsars.extend(HW_INJ[run]["hw_inj_files"])
-
-                # set sample rate to 16k, expect for S runs
-                srate = "16k" if run[0] == "O" else "4k"
-            else:
-                # use pulsars provided
-                runtimes = RUNTIMES
-                segments = ANALYSIS_SEGMENTS
-
-                pulsar = kwargs.get("pulsar", args.pulsar)
-                if pulsar is None:
-                    raise ValueError("No pulsar parameter files have be provided")
-
-                pulsars.extend(pulsar if isinstance(pulsar, list) else [pulsar])
-
-                # get sample rate
-                srate = (
-                    "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
-                )
-
-                # check if any pulsar par files are hardware injection and if so use
-                # appropriate segments
-                for pf in pulsars:
-                    if is_hwinj(pf):
-                        runtimes = HW_INJ_RUNTIMES
-                        segments = HW_INJ_SEGMENTS
-                        srate = "16k" if run[0] == "O" else "4k"
-                        hwinj = True
-                        break
-
-            detector = kwargs.get("detector", args.detector)
-            if detector is None:
-                detectors = list(runtimes[run].keys())
-            else:
-                detector = detector if isinstance(detector, list) else [detector]
-                detectors = [det for det in args.detector if det in runtimes[run]]
-                if len(detectors) == 0:
-                    raise ValueError(
-                        f"Provided detectors '{detector}' are not valid for the given run"
-                    )
-
             # create required settings
-            hetconfigfile["run"] = {}
-            hetconfigfile["run"]["basedir"] = kwargs.get("output", args.output)
             peconfigfile["run"] = {}
             peconfigfile["run"]["basedir"] = kwargs.get("output", args.output)
 
-            hetconfigfile["heterodyne_dag"] = {}
             peconfigfile["pe_dag"] = {}
             peconfigfile["pe_dag"]["submitdag"] = "True"  # submit automatically
             if kwargs.get("osg", args.osg):
-                hetconfigfile["heterodyne_dag"]["osg"] = "True"
                 peconfigfile["pe_dag"]["osg"] = "True"
 
-            hetconfigfile["heterodyne_job"] = {}
-            hetconfigfile["heterodyne_job"]["getenv"] = "True"
             peconfigfile["pe_job"] = {}
             peconfigfile["pe_job"]["getenv"] = "True"
             if args.accgroup is not None:
-                hetconfigfile["heterodyne_job"]["accounting_group"] = kwargs.get(
-                    "accounting_group_tag", args.accgroup
-                )
                 peconfigfile["pe_job"]["accounting_group"] = kwargs.get(
                     "accounting_group_tag", args.accgroup
                 )
 
-            # add ephemeris settings
-            hetconfigfile["ephemerides"] = {}
-            hetconfigfile["ephemerides"]["pulsarfiles"] = str(pulsars)
-
             # add heterodyne settings
             hetconfigfile["heterodyne"] = {}
-            hetconfigfile["heterodyne"]["detectors"] = str(detectors)
-            hetconfigfile["heterodyne"]["starttimes"] = str(
-                {det: runtimes[run][det][0] for det in detectors}
-            )
-            hetconfigfile["heterodyne"]["endtimes"] = str(
-                {det: runtimes[run][det][1] for det in detectors}
-            )
-
-            hetconfigfile["heterodyne"]["frametypes"] = str(
-                {det: CVMFS_GWOSC_DATA_TYPES[run][srate][det] for det in detectors}
-            )
-            hetconfigfile["heterodyne"]["host"] = CVMFS_GWOSC_DATA_SERVER
-            hetconfigfile["heterodyne"]["channels"] = str(
-                {det: CVMFS_GWOSC_FRAME_CHANNELS[run][srate][det] for det in detectors}
-            )
-            if args.hwinj:
-                hetconfigfile["heterodyne"]["includeflags"] = str(
-                    {det: segments[run][det]["includesegments"] for det in detectors}
-                )
-                hetconfigfile["heterodyne"]["excludeflags"] = str(
-                    {det: segments[run][det]["excludesegments"] for det in detectors}
-                )
-            else:
-                hetconfigfile["heterodyne"]["includeflags"] = str(
-                    {det: segments[run][det] for det in detectors}
-                )
-            hetconfigfile["heterodyne"]["outputdir"] = str(
-                {det: os.path.join(args.output, det) for det in detectors}
-            )
-            hetconfigfile["heterodyne"]["overwrite"] = "False"
-
-            # set whether to use Tempo2 for phase evolution
-            if kwargs.get("usetempo2", args.usetempo2):
-                hetconfigfile["heterodyne"]["usetempo2"] = "True"
-
-            # split the analysis into on average day long chunks
-            if kwargs.get("joblength", args.joblength) is None:
-                hetconfigfile["heterodyne"]["joblength"] = "86400"
-            else:
-                hetconfigfile["heterodyne"]["joblength"] = str(
-                    kwargs.get("joblength", args.joblength)
-                )
 
             # set whether running a coherent or incoherent analysis
             peconfigfile["pe"] = {}
@@ -587,11 +455,6 @@ def knope_pipeline(**kwargs):
             peconfigfile["pe"]["coherent"] = str(
                 not kwargs.get("incoherentonly", args.incohonly)
             )
-
-            # merge the resulting files and remove individual files
-            hetconfigfile["merge"] = {}
-            hetconfigfile["merge"]["remove"] = "True"
-            hetconfigfile["merge"]["overwrite"] = "True"
 
     if isinstance(hetconfigfile, configparser.ConfigParser) and isinstance(
         peconfigfile, configparser.ConfigParser
