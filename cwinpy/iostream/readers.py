@@ -160,10 +160,11 @@ def read_hdf5_series(
         hetargs = None
 
     if hetargs is not None:
-        argstr = (
-            hetargs[()][0].decode if type(hetargs[()][0]) == bytes else hetargs[()][0]
+        array.heterodyne_arguments = ast.literal_eval(
+            hetargs[()][0].decode()
+            if isinstance(hetargs[()][0], bytes)
+            else hetargs[()][0]
         )
-        array.heterodyne_arguments = ast.literal_eval(argstr)
 
     # set any configuration file information
     if "cwinpy_heterodyne_pipeline_config" in kwargs:
