@@ -312,7 +312,7 @@ class TestPlotting(object):
 
     def test_plot_nd(self):
         """
-        Test mulitple dimension plots.
+        Test multiple dimension plots.
         """
 
         # corner

@@ -202,7 +202,7 @@ class Plot:
 
     @staticmethod
     def _parse_result(result):
-        # try reading in a results file by iterating over it being a bibly
+        # try reading in a results file by iterating over it being a bilby
         # Result object, a bilby Grid object, or a LALInference produced file.
         if isinstance(result, (Grid, Result)):
             # no parsing required
@@ -235,7 +235,7 @@ class Plot:
     def parameters(self, parameters):
         # if None the plot all parameters in the results files
         if parameters is None:
-            # check for consistent parameters amoung results
+            # check for consistent parameters among results
             checkparams = list(self._results_parameters.values())[0]
             for params in self._results_parameters.values():
                 if params != checkparams:
