@@ -1071,6 +1071,10 @@ class PERunner(object):
             self.sampler_kwargs["use_ratio"] = False
 
         if self.sampler == "dynesty":
+            # set the default sampling method to "rslice"
+            if "sample" not in self.sampler_kwargs:
+                self.sampler_kwargs["sample"] = "rslice"
+
             # turn off check_point_plot for dynesty by default
             if "check_point_plot" not in self.sampler_kwargs:
                 self.sampler_kwargs["check_point_plot"] = False

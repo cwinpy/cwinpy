@@ -84,16 +84,10 @@ comments describing the parameters given inline:
 .. note::
 
    When using the `dynesty <https://dynesty.readthedocs.io/en/latest/>`_ sampler (as wrapped through
-   `bilby <https://lscsoft.docs.ligo.org/bilby/>`_) it will default to use the ``rwalk`` sampling
-   method. In this example, in the ``sampler-kwargs`` argument the ``'sample'`` method value is
-   instead set to ``'rslice'`` as this is found to be quicker than ``rwalk`` when the other
-   arguments are left at their default values. If using ``rwalk`` it is worthwhile exploring
-   different values of the ``walks`` argument to find the most efficient settings. Further
-   information on dynesty settings can be found
-   `here <https://dynesty.readthedocs.io/en/latest/faq.html#sampling-questions>`__.
-
-   Note also that the ``unif`` sampling method of dynesty will often fail due to samples being drawn
-   from outside the prior range.
+   `bilby <https://lscsoft.docs.ligo.org/bilby/>`_) it will default to use the ``rslice`` sampling
+   method. This has been found to work well and be the quickest option for normal running. A
+   discussion of the different sampling options in dynesty can be found
+   `here <https://dynesty.readthedocs.io/en/latest/quickstart.html#sampling-options>`__.
 
 The analysis can then be run using:
 
@@ -161,7 +155,7 @@ look at the hardware injection signal named `PULSAR8
 parameter file as given above.
 
 The data we will use in this example is a short segment (between GPS times of 1132444817 and
-1136419217) from both the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to
+1)          from both the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to
 "H1") and the `LIGO Livingston <https://www.ligo.caltech.edu/LA>`_ detector (abbreviated to "L1").
 Both sets of data have been heterodyned using the known phase evolution of the simulated signal (see
 the description :ref:`here<Heterodyned Data>`), and low-pass filtered and down-sampled to a rate of
