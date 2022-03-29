@@ -286,6 +286,7 @@ def skyshift_pipeline(**kwargs):
                 segments = HW_INJ_SEGMENTS
                 srate = "16k" if run[0] == "O" else "4k"
                 hwinj = True  # this is a hardware injection
+                pulsar = is_hwinj(pulsar, return_file=True)
 
             detector = kwargs.get("detector", args.detector)
             if detector is None:
