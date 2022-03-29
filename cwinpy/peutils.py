@@ -1,8 +1,11 @@
+from copy import deepcopy
 from itertools import permutations
 from pathlib import Path
 
 import numpy as np
 from bilby.core.result import Result, read_in_result
+
+from .data import MultiHeterodynedData
 
 
 def results_odds(results, oddstype="svn", scale="log10"):
@@ -115,6 +118,71 @@ def read_in_result_wrapper(res):
         raise IOError(f"Could not read in results file '{res}'")
 
     return result
+
+
+def optimal_snr(res, het, par=None, which="posterior"):
+    """
+    Calculate the optimal matched filter signal-to-noise ratio for a signal in
+    given data based on the posterior samples. This can either be the
+    signal-to-noise ratio for the maximum a-posteriori sample or for the
+    maximum likelihood sample.
+
+    Parameters
+    ----------
+    res: str, Result
+        The path to a :class:`~bilby.core.result.Result` object file or a
+        :class:`~bilby.core.result.Result` object itself containing posterior
+        samples and priors.
+    het: str, dict, HeterodynedData, MultiHeterodynedData
+        The path to a :class:`~cwinpy.data.HeterodynedData` object file or a
+        :class:`~cwinpy.data.HeterodynedData` object itself containing the
+        heterodyned data that was used for parameter estimation. Or, a
+        dictionary (keyed to detector names) containing individual paths to or
+        :class:`~cwinpy.data.HeterodynedData` objects.
+    par: str, PulsarParameters
+        If the heterodyned data provided with ``het`` does not contain a pulsar
+        parameter (``.par``) file, then it can be specified here.
+    which: str
+        A string stating whether to calculate the SNR using the maximum
+        a-posteriori (``"posterior"``) or maximum likelihood (``"likelihood"``)
+        sample.
+
+    Returns
+    -------
+    snr: float
+        The matched filter signal-to-noise ratio.
+    """
+
+    # get results
+    resdata = read_in_result_wrapper(res)
+
+    post = resdata.posterior
+    prior = resdata.priors
+
+    hetdata = MultiHeterodynedData(het, par=par)
+
+    if hetdata.pars[0] is None:
+        raise ValueError("No pulsar parameter file is given")
+
+    # store copy of pulsar parameter file
+    par = deepcopy(hetdata.pars[0])
+
+    # get index of required sample
+    if which.lower() == "likelihood":
+        idx = post.log_likelihood.argmax()
+    elif which.lower() == "posterior":
+        idx = (post.log_likelihood + post.log_prior).argmax()
+    else:
+        raise ValueError("'which' must be 'posterior' or 'likelihood'")
+
+    # update parameter file with signal values
+    for key in prior:
+        par[key.upper()] = post[key].iloc[idx]
+
+    # get snr
+    snr = hetdata.signal_snr(par)
+
+    return snr
 
 
 def skyshift_results():
