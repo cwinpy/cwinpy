@@ -622,16 +622,13 @@ transientTau = {tau}
 
         assert len(cachedata) == 1
         for i in range(len(cachedata)):
-            assert (
-                "{}-{}_{}-{}-{}.gwf".format(
-                    self.fakedatadetectors[0][0],
-                    self.fakedatadetectors[0],
-                    self.fakedataname,
-                    self.fakedatastarts[i],
-                    self.fakedataduration[i],
-                )
-                == os.path.basename(cachedata[i])
-            )
+            assert "{}-{}_{}-{}-{}.gwf".format(
+                self.fakedatadetectors[0][0],
+                self.fakedatadetectors[0],
+                self.fakedataname,
+                self.fakedatastarts[i],
+                self.fakedataduration[i],
+            ) == os.path.basename(cachedata[i])
 
         # test creating a lalcache file
         lalcachefile = os.path.join(self.fakedatadir, "lalcache.txt")

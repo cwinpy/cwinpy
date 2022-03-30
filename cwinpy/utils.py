@@ -241,7 +241,7 @@ def ellipticity_to_q22(epsilon, units=False):
 
     if units:
         # add units
-        return q22 * u.kg * u.m ** 2
+        return q22 * u.kg * u.m**2
     else:
         return q22
 

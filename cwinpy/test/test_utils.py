@@ -163,7 +163,7 @@ def test_q22_to_ellipticity_to_q22():
     assert np.allclose(epsilon, expected_epsilon)
 
     # test no unit
-    epsilon = q22_to_ellipticity(q22[0] * u.kg * u.m ** 2)
+    epsilon = q22_to_ellipticity(q22[0] * u.kg * u.m**2)
 
     assert np.isclose(epsilon, expected_epsilon[0])
     assert not hasattr(epsilon, "unit")
