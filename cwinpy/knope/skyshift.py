@@ -777,6 +777,7 @@ def skyshift_results(
                 # use the largest value in a bin
                 plotkwargs["reduce_C_function"] = np.amax
             ax.hexbin(shiftout[:, 0], shiftout[:, 1], C=shiftout[:, 2], **plotkwargs)
+            ax.scatter([trueodds[:-1]], c=[trueodds[2]])
             ax.scatter(
                 [trueodds[:-1]], marker="o", edgecolor="m", s=300, facecolors="none"
             )
