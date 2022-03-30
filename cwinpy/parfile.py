@@ -1,4 +1,5 @@
 import os
+import pathlib
 import re
 
 import lal
@@ -219,7 +220,9 @@ class PulsarParameters:
             self._pulsarparameters = lalpulsar.PulsarParameters()
         else:
             # check if pp is a pulsar parameters type or a (par file)
-            if not isinstance(pp, lalpulsar.PulsarParameters) and isinstance(pp, str):
+            if not isinstance(pp, lalpulsar.PulsarParameters) and (
+                isinstance(pp, str) or isinstance(pp, pathlib.Path)
+            ):
                 if os.path.isfile(pp):
                     # try reading in file
                     self.read(pp)
@@ -669,7 +672,7 @@ class PulsarParameters:
         if self._pulsarparameters is not None:
             del self._pulsarparameters
 
-        pp = lalpulsar.ReadTEMPOParFile(filename)
+        pp = lalpulsar.ReadTEMPOParFile(str(filename))
 
         if pp is None:
             raise IOError(
