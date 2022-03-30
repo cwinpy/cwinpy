@@ -8,7 +8,6 @@ from argparse import ArgumentParser
 import numpy as np
 from astropy.coordinates import SkyCoord
 from matplotlib import pyplot as plt
-from scipy.stats import gaussian_kde
 
 from ..heterodyne.heterodyne import HeterodyneDAGRunner
 from ..info import (
@@ -676,7 +675,8 @@ def skyshift_results(
         ``"log10"``.
     plot: str, bool
         If ``plot`` is given as ``"hist"`` a histogram of the distribution of
-        sky-shifted odds values will be produced; if ``"sky"`` then a
+        sky-shifted odds values will be produced; if "invcdf", then it will
+        plot the distribution (1 - CDF); if ``"sky"``, then a
         :func:`matplotlib.pyplot.hexbin` plot will be produced. This defaults
         to ``False, i.e., no plot will be produced.
     plotkwargs: dict
@@ -685,8 +685,9 @@ def skyshift_results(
     kde: bool
         If plotting a histogram plot and this is ``True``, a KDE of the
         distribution will also be added using the
-        :func:`scipy.stats.gaussian_kde` function. The probability of the true
-        sky position's odds based on the KDE will be added to the plot.
+        :func:`scipy.stats.gaussian_kde` function. The probability of getting a
+        value greater than the true sky position's odds based on the KDE will
+        be added to the plot.
     kdekwargs: dict
         If plotting a KDE, any keyword arguments can be passed using this
         dictionary.
@@ -764,23 +765,78 @@ def skyshift_results(
     if plot:
         fig, ax = plt.subplots()
 
-        if plot.lower() in ["hist", "histogram"]:
+        if plot.lower() in ["hist", "histogram", "invcdf", "1-cdf"]:
+            plotkwargs.setdefault("bins", 25)
+            plotkwargs.setdefault("density", True)
+            plotkwargs.setdefault("histtype", "step")
+
+            if plot.lower() in ["invcdf", "1-cdf"]:
+                plotkwargs["cumulative"] = -1
+
             ax.hist(shiftout[:, 2], **plotkwargs)
-            ax.axvline(trueodds[2], ls="-", color="k")
+            ax.axvline(trueodds[2], ls="--", color="k")
+
+            if plot.lower() in ["hist", "histogram"]:
+                ax.set_ylabel(rf"$p(\mathcal{{O}}_{{\rm {oddstype}}})$")
+            else:
+                ax.set_ylabel("1 - CDF")
+
+            ax.set_xlabel(rf"$\mathcal{{O}}_{{\rm {oddstype}}}$")
 
             if kde:
+                from scipy.stats import gaussian_kde
+
                 # generation kde
                 kdefunc = gaussian_kde(shiftout[:, 2], **kdekwargs)
-                print(kdefunc)
+
+                # get range for kde evaluation for plotting
+                frange = shiftout[:, 2].max() - shiftout[:, 2].min()
+                xmin = shiftout[:, 2].min() - 0.25 * frange
+                xmax = shiftout[:, 2].max() + 0.25 * frange
+                xrange = np.linspace(xmin, xmax, 250)
+
+                if plot.lower() in ["hist", "histogram"]:
+                    ax.plot(xrange, kdefunc(xrange), "k-")
+                else:
+                    # get inverse cdf
+                    icdf = 1 - np.array(
+                        [kdefunc.integrate_box_1d(-np.inf, x) for x in xrange]
+                    )
+                    ax.plot(xrange, icdf, "k-")
+
+                    prob = kdefunc.integrate_box_1d(trueodds[2], np.inf)
+
+                    ax.text(
+                        0.55,
+                        0.95,
+                        (
+                            rf"$p(\mathcal{{O}}_{{\rm {oddstype}}}) \geq \mathcal{{O}}"
+                            rf"_{{\rm {oddstype}}}^{{\rm source}}$ = {prob}"
+                        ),
+                        transform=ax.transAxes,
+                        verticalalignment="top",
+                    )
+
+            ax.set_yscale("log")
+
         elif plot.lower() in ["sky", "hexbin"]:
-            if "reduce_C_function" not in plotkwargs:
-                # use the largest value in a bin
-                plotkwargs["reduce_C_function"] = np.amax
-            ax.hexbin(shiftout[:, 0], shiftout[:, 1], C=shiftout[:, 2], **plotkwargs)
-            ax.scatter([trueodds[:-1]], c=[trueodds[2]])
-            ax.scatter(
-                [trueodds[:-1]], marker="o", edgecolor="m", s=300, facecolors="none"
-            )
+            from astropy.coordinates import spherical_to_cartesian
+
+            # convert RA, DEC to cartesian coords
+            x, y, _ = spherical_to_cartesian(np.ones_like(shiftra), shiftdec, shiftra)
+
+            # use the largest value in a bin
+            plotkwargs.setdefault("reduce_C_function", np.amax)
+            plotkwargs.setdefault("gridsize", 20)
+
+            ax.hexbin(x, y, C=shiftodds, **plotkwargs)
+            cbar = ax.colorbar()
+            cbar.ax.set_ylabel(rf"$\mathcal{{O}}_{{\rm {oddstype}}}$", rotation=270)
+
+            # draw circle around True location
+            ax.plot(x[-1], y[-1], marker="o", ls="none", mfc="none", ms=30, c="m")
+
+            ax.set_aspect("equal", "box")
 
         return shiftout, trueodds, fig
     else:
