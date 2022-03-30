@@ -1300,12 +1300,12 @@ PHI0     2.4
         # check that using issigma returns data with the expected standard
         # deviation and mean
         sigma = 1e-25
-        svar = sigma ** 2
+        svar = sigma**2
 
         het1 = HeterodynedData(times=times, fakeasd=sigma, detector="H1", issigma=True)
 
         # standard error on the variance
-        sevar = np.sqrt(2.0 * sigma ** 4 / (len(het1.data) - 1.0))
+        sevar = np.sqrt(2.0 * sigma**4 / (len(het1.data) - 1.0))
 
         # check variance is within +/- 3.5 sigma
         assert (svar - 3.5 * sevar < np.var(het1.data.real) < svar + 3.5 * sevar) and (

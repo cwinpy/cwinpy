@@ -218,7 +218,7 @@ class MultiHeterodynedData(object):
         snr2 = 0.0
         for het in self:
             if het.injpar is not None:
-                snr2 += het.injection_snr ** 2
+                snr2 += het.injection_snr**2
 
         return np.sqrt(snr2)
 
@@ -1515,7 +1515,7 @@ class HeterodynedData(TimeSeriesBase):
     @stds.setter
     def stds(self, stds):
         if stds is not None:
-            self.vars = stds ** 2
+            self.vars = stds**2
         else:
             self.vars = None
 

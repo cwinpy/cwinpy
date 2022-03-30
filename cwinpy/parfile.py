@@ -13,7 +13,7 @@ PPUNITS = {
     "DIST": u.m,  # metres
     "PX": u.rad,  # radians
     "DM": u.pc / (u.cm) ** 3,  # cm^-3 pc
-    "DM1": u.pc / (u.cm ** 3 * u.yr),  # pc cm^-3 yr^-1
+    "DM1": u.pc / (u.cm**3 * u.yr),  # pc cm^-3 yr^-1
     "RA": u.rad,  # radians
     "RAJ": u.rad,  # radians
     "DEC": u.rad,  # radians
@@ -29,7 +29,7 @@ PPUNITS = {
     "GLPH": u.rad,  # rad
     "GLF0": u.Hz,  # Hz
     "GLF1": u.Hz / u.s,  # Hz/s
-    "GLF2": u.Hz / u.s ** 2,  # Hz s^-2
+    "GLF2": u.Hz / u.s**2,  # Hz s^-2
     "GLF0D": u.Hz,  # Hz
     "GLTD": u.s,  # sec
     "A1": u.s,  # light seconds
@@ -91,7 +91,7 @@ PPUNITS = {
     "THETA": u.rad,
     "I21": u.dimensionless_unscaled,
     "I31": u.dimensionless_unscaled,
-    "Q22": u.kg * u.m ** 2,  # kg m^2
+    "Q22": u.kg * u.m**2,  # kg m^2
     "H0_F": u.dimensionless_unscaled,
     "HPLUS": u.dimensionless_unscaled,
     "HCROSS": u.dimensionless_unscaled,
@@ -502,7 +502,7 @@ class PulsarParameters:
             else:
                 angle = Angle(pvalue)
                 cvalue = (
-                    angle.hms[0] * (60.0 ** 2) + angle.hms[1] * 60.0 + angle.hms[2]
+                    angle.hms[0] * (60.0**2) + angle.hms[1] * 60.0 + angle.hms[2]
                 ) * tempounit
         elif uname in ["DEC", "DECJ"] and not iserr:
             c = ICRS(0.0 * u.rad, pvalue)

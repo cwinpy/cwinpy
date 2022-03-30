@@ -157,11 +157,11 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
             low, high = credible_interval(samples, ci=cred)
             if p == "h0":
                 exponent = int(np.floor(np.log10(mean)))
-                values[idx] = mean / 10 ** exponent
-                values[idx + 1] = std / 10 ** exponent
+                values[idx] = mean / 10**exponent
+                values[idx + 1] = std / 10**exponent
                 values[idx + 2] = exponent
-                values[idx + 10] = low / 10 ** exponent
-                values[idx + 11] = high / 10 ** exponent
+                values[idx + 10] = low / 10**exponent
+                values[idx + 11] = high / 10**exponent
                 values[idx + 12] = exponent
                 idx += 3
             else:
@@ -186,7 +186,7 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
             )
             if p == "h0":
                 exponent = int(np.floor(np.log10(maxpval)))
-                values[idx] = maxpval / 10 ** exponent
+                values[idx] = maxpval / 10**exponent
                 values[idx + 1] = exponent
                 idx += 2
             else:
@@ -304,11 +304,11 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
             low, high = credible_interval(samples, ci=cred)
             if p in ["c21", "c22"]:
                 exponent = int(np.floor(np.log10(mean)))
-                values[idx] = mean / 10 ** exponent
-                values[idx + 1] = std / 10 ** exponent
+                values[idx] = mean / 10**exponent
+                values[idx + 1] = std / 10**exponent
                 values[idx + 2] = exponent
-                values[idx + 15] = low / 10 ** exponent
-                values[idx + 16] = high / 10 ** exponent
+                values[idx + 15] = low / 10**exponent
+                values[idx + 16] = high / 10**exponent
                 values[idx + 17] = exponent
                 idx += 3
             else:
@@ -333,7 +333,7 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
             )
             if p in ["c21", "c22"]:
                 exponent = int(np.floor(np.log10(maxpval)))
-                values[idx] = maxpval / 10 ** exponent
+                values[idx] = maxpval / 10**exponent
                 values[idx + 1] = exponent
                 idx += 2
             else:

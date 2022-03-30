@@ -528,8 +528,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                         mc = m[1]  # tensor cross model component
 
                         summodel = (
-                            prods["TpdotTp"][i] * (mp.real ** 2 + mp.imag ** 2)
-                            + prods["TcdotTc"][i] * (mc.real ** 2 + mc.imag ** 2)
+                            prods["TpdotTp"][i] * (mp.real**2 + mp.imag**2)
+                            + prods["TcdotTc"][i] * (mc.real**2 + mc.imag**2)
                             + 2.0
                             * prods["TpdotTc"][i]
                             * (mp.real * mc.real + mp.imag * mc.imag)
@@ -550,10 +550,10 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                             ml = m[5]
 
                             summodel += (
-                                prods["VxdotVx"][i] * (mx.real ** 2 + mx.imag ** 2)
-                                + prods["VydotVy"][i] * (my.real ** 2 + my.imag ** 2)
-                                + prods["SbdotSb"][i] * (mb.real ** 2 + mb.imag ** 2)
-                                + prods["SldotSl"][i] * (ml.real ** 2 + ml.imag ** 2)
+                                prods["VxdotVx"][i] * (mx.real**2 + mx.imag**2)
+                                + prods["VydotVy"][i] * (my.real**2 + my.imag**2)
+                                + prods["SbdotSb"][i] * (mb.real**2 + mb.imag**2)
+                                + prods["SldotSl"][i] * (ml.real**2 + ml.imag**2)
                                 + 2.0
                                 * (
                                     prods["TpdotVx"][i]
@@ -697,8 +697,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 mc = model[1]  # tensor cross model component
 
                 summodel = (
-                    productsreal["TpdotTp"][i] * (mp.real ** 2 + mp.imag ** 2)
-                    + productsreal["TcdotTc"][i] * (mc.real ** 2 + mc.imag ** 2)
+                    productsreal["TpdotTp"][i] * (mp.real**2 + mp.imag**2)
+                    + productsreal["TcdotTc"][i] * (mc.real**2 + mc.imag**2)
                     + 2.0
                     * productsreal["TpdotTc"][i]
                     * (mp.real * mc.real + mp.imag * mc.imag)
@@ -719,10 +719,10 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     ml = model[5]
 
                     summodel += (
-                        productsreal["VxdotVx"][i] * (mx.real ** 2 + mx.imag ** 2)
-                        + productsreal["VydotVy"][i] * (my.real ** 2 + my.imag ** 2)
-                        + productsreal["SbdotSb"][i] * (mb.real ** 2 + mb.imag ** 2)
-                        + productsreal["SldotSl"][i] * (ml.real ** 2 + ml.imag ** 2)
+                        productsreal["VxdotVx"][i] * (mx.real**2 + mx.imag**2)
+                        + productsreal["VydotVy"][i] * (my.real**2 + my.imag**2)
+                        + productsreal["SbdotSb"][i] * (mb.real**2 + mb.imag**2)
+                        + productsreal["SldotSl"][i] * (ml.real**2 + ml.imag**2)
                         + 2.0
                         * (
                             productsreal["TpdotVx"][i]

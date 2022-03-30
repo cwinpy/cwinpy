@@ -1877,7 +1877,7 @@ class PEDAGRunner(object):
                 and fakeseed is None
             ):
                 # set a fake seed, so all parallel runs produce the same data
-                seeddict = {det: np.random.randint(1, 2 ** 32 - 1) for det in detectors}
+                seeddict = {det: np.random.randint(1, 2**32 - 1) for det in detectors}
             elif simdata and fakeseed is not None:
                 configdict["fake_seed"] = str(fakeseed)
 
