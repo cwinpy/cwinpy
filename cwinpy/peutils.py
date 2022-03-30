@@ -13,9 +13,9 @@ def results_odds(results, oddstype="svn", scale="log10"):
     Calculate the logarithm of the Bayesian odds between models given a set o
     evidence values. The type of odds can be one of the following:
 
-    - "svn": signal vs. noise, i.e., the odds between a coherent signal in one,
+    * "svn": signal vs. noise, i.e., the odds between a coherent signal in one,
       or multiple detectors.
-    - "cvi": coherent vs. incoherent, i.e., for multiple detectors this is the
+    * "cvi": coherent vs. incoherent, i.e., for multiple detectors this is the
       odds between a coherent signal in add detectors and an incoherent signal
       between detectors _or_ noise.
 
@@ -183,7 +183,3 @@ def optimal_snr(res, het, par=None, which="posterior"):
     snr = hetdata.signal_snr(par)
 
     return snr
-
-
-def skyshift_results():
-    pass

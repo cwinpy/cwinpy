@@ -1,10 +1,14 @@
 import ast
 import configparser
 import os
+import pathlib
+import re
 from argparse import ArgumentParser
 
 import numpy as np
 from astropy.coordinates import SkyCoord
+from matplotlib import pyplot as plt
+from scipy.stats import gaussian_kde
 
 from ..heterodyne.heterodyne import HeterodyneDAGRunner
 from ..info import (
@@ -19,14 +23,18 @@ from ..info import (
 )
 from ..parfile import PulsarParameters
 from ..pe.pe import PEDAGRunner
+from ..peutils import results_odds
+from ..utils import get_psr_name, is_par_file
 
 
 def skyshift_pipeline(**kwargs):
     """
-    Run skyshift pipeline within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
-    DAG for consecutively running a ``cwinpy_heterodyne`` and multiple ``cwinpy_pe`` instances on a
-    computer cluster. Optional parameters that can be used instead of a configuration file (for
-    "quick setup") are given in the "Other parameters" section.
+    Run skyshift pipeline within Python. This will create a
+    `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ DAG for consecutively
+    running a ``cwinpy_heterodyne`` and multiple ``cwinpy_pe`` instances on a
+    computer cluster. Optional parameters that can be used instead of a
+    configuration file (for "quick setup") are given in the "Other parameters"
+    section.
 
     Parameters
     ----------
@@ -434,7 +442,7 @@ def skyshift_pipeline(**kwargs):
     # read in the parameter file
     psr = PulsarParameters(pulsar)
 
-    # generate new positions
+    # get the ecliptic hemisphere of the source
     ra = psr["RAJ"] if psr["RAJ"] is not None else psr["RA"]
     dec = psr["DECJ"] if psr["DECJ"] is not None else psr["DEC"]
     pos = SkyCoord(ra, dec, unit="rad")  # current position
@@ -630,3 +638,149 @@ def skyshift_pipeline_cli(**kwargs):  # pragma: no cover
 
     kwargs["cli"] = True  # set to show use of CLI
     _ = skyshift_pipeline(**kwargs)
+
+
+def skyshift_results(
+    resdir,
+    shiftsource,
+    origsource,
+    oddstype="cvi",
+    scale="log10",
+    plot=False,
+    plotkwargs={},
+    kde=False,
+    kdekwargs={},
+):
+    """
+    Using the output of the ``cwinpy_skyshift_pipeline``, generate the Bayesian
+    odds statistic for each shifted location and the original location. These
+    can also be plotted if requested, which will additionally return a
+    :class:`~matplotlib.figure.Figure` object containing the plot.
+
+    Parameters
+    ----------
+    resdir: str
+        The directory containing the parameter estimation outputs for each
+        sky-shifted location.
+    shiftsource: str
+        The directory containing the pulsar parameter (``.par``) files for all
+        the sky-shifted locations.
+    origsource: str
+        The pulsar parameter (``.par``) file containing the original un-shifted
+        location.
+    oddstype: str
+        The odds type used by :func:`cwinpy.peutils.results_odds`. Defaults to
+        ``"cvi"``.
+    scale: str
+        The odds scale used by :func:`cwinpy.peutils.results_odds`. Defaults to
+        ``"log10"``.
+    plot: str, bool
+        If ``plot`` is given as ``"hist"`` a histogram of the distribution of
+        sky-shifted odds values will be produced; if ``"sky"`` then a
+        :func:`matplotlib.pyplot.hexbin` plot will be produced. This defaults
+        to ``False, i.e., no plot will be produced.
+    plotkwargs: dict
+        If making a plot, and further keyword arguments required for the
+        plotting function can be passed using this dictionary.
+    kde: bool
+        If plotting a histogram plot and this is ``True``, a KDE of the
+        distribution will also be added using the
+        :func:`scipy.stats.gaussian_kde` function. The probability of the true
+        sky position's odds based on the KDE will be added to the plot.
+    kdekwargs: dict
+        If plotting a KDE, any keyword arguments can be passed using this
+        dictionary.
+
+    Returns
+    -------
+    shiftodds: array
+        A :func:`numpy.ndarray` containing the right ascension, declination and
+        odds value for all sky-shifted locations.
+    trueodds: tuple
+        A tuple containing the right ascension, declination and odds for the
+        original un-shifted location.
+    """
+
+    shiftra = []
+    shiftdec = []
+    shiftnames = []
+    shiftodds = []
+
+    shiftpaths = list(pathlib.Path(shiftsource).glob("*.par"))
+
+    # get sky-shift locations (add original on to the end)
+    for i, p in enumerate(shiftpaths + [origsource]):
+        if is_par_file(p):
+            psr = PulsarParameters(p)
+
+            shiftra.append(psr["RAJ"] if psr["RAJ"] is not None else psr["RA"])
+            shiftdec.append(psr["DECJ"] if psr["DECJ"] is not None else psr["DEC"])
+            shiftnames.append(get_psr_name(psr))
+            continue
+
+        if i == len(shiftpaths):
+            raise RuntimeError(
+                f"The un-shifted parameter file '{origsource}' could not be read in"
+            )
+
+    if len(shiftra) == 1:
+        raise IOError(
+            f"No valid sky-shifted pulsar parameter files were found in {shiftsource}"
+        )
+
+    # get odds for each sky-shifted source
+    for name in shiftnames:
+        psrresdir = pathlib.Path(os.path.join(resdir, name))
+        if not psrresdir.is_dir():
+            raise RuntimeError(f"{psrresdir} does not exist")
+
+        # get output files (check for HDF5 files first then try JSON file)
+        psrresfiles = list(psrresdir.glob("*.hdf5"))
+        if len(psrresfiles) == 0:
+            psrresfiles = list(psrresdir.glob("*.json"))
+
+        if len(psrresfiles) == 0:
+            raise RuntimeError(
+                f"No valid parameter estimation results files were found for {name}"
+            )
+
+        # get dictionary of results files keyed to detector
+        resfiledict = {}
+        for pf in psrresfiles:
+            detmatch = re.search(f"cwinpy_pe_(.*?)_{name}", str(pf))
+            if detmatch is None:
+                raise RuntimeError(
+                    f"{psrresdir} contains incorrectly named results file '{pf}'"
+                )
+
+            resfiledict[detmatch.group(1)] = pf
+
+        # get odds
+        shiftodds.append(results_odds(resfiledict, oddstype=oddstype, scale=scale))
+
+    shiftout = np.array(zip(shiftra[:-1], shiftdec[:-1], shiftodds[:-1]))
+    trueodds = (shiftra[-1], shiftdec[-1], shiftodds[-1])
+
+    if plot:
+        fig, ax = plt.subplots()
+
+        if plot.lower() in ["hist", "histogram"]:
+            ax.hist(shiftout[:, 2], **plotkwargs)
+            ax.axvline(trueodds[2], ls="-", color="k")
+
+            if kde:
+                # generation kde
+                kdefunc = gaussian_kde(shiftout[:, 2], **kdekwargs)
+                print(kdefunc)
+        elif plot.lower() in ["sky", "hexbin"]:
+            if "reduce_C_function" not in plotkwargs:
+                # use the largest value in a bin
+                plotkwargs["reduce_C_function"] = np.amax
+            ax.hexbin(shiftout[:, 0], shiftout[:, 1], C=shiftout[:, 2], **plotkwargs)
+            ax.scatter(
+                [trueodds[:-1]], marker="o", edgecolor="m", s=300, facecolors="none"
+            )
+
+        return shiftout, trueodds, fig
+    else:
+        return shiftout, trueodds
