@@ -758,7 +758,7 @@ def skyshift_results(
         # get odds
         shiftodds.append(results_odds(resfiledict, oddstype=oddstype, scale=scale))
 
-    shiftout = np.array(zip(shiftra[:-1], shiftdec[:-1], shiftodds[:-1]))
+    shiftout = np.array([shiftra[:-1], shiftdec[:-1], shiftodds[:-1]]).T
     trueodds = (shiftra[-1], shiftdec[-1], shiftodds[-1])
 
     if plot:
