@@ -781,9 +781,9 @@ def skyshift_results(
                 "Array of sky-shifted values must be an Nx3 array of floats"
             )
 
-        trueodds = np.atleast_1d(orig)
+        trueodds = np.atleast_2d(orig)
 
-        if len(trueodds) != 3 or trueodds.dtype != float:
+        if trueodds.shape == (1, 3) or trueodds.dtype != float:
             raise TypeError("True values must include RA, DEC and odds")
 
         fullarr = np.concatenate((shiftout, trueodds))
