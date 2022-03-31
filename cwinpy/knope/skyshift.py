@@ -646,11 +646,10 @@ def skyshift_results(
     oddstype="cvi",
     scale="log10",
     plot=False,
-    plotkwargs={},
     kde=False,
-    kdekwargs={},
     gamma=False,
     yscale="log",
+    **kwargs,
 ):
     """
     Using the output of the ``cwinpy_skyshift_pipeline``, generate the Bayesian
@@ -807,6 +806,8 @@ def skyshift_results(
         fig, ax = plt.subplots()
 
         if plot.lower() in ["hist", "histogram", "invcdf", "1-cdf"]:
+            plotkwargs = kwargs.get("plotkwargs", {})
+
             plotkwargs.setdefault("bins", 25)
             plotkwargs.setdefault("density", True)
             plotkwargs.setdefault("histtype", "step")
@@ -833,6 +834,8 @@ def skyshift_results(
 
             if kde and not gamma:
                 from scipy.stats import gaussian_kde
+
+                kdekwargs = kwargs.get("kdekwargs", {})
 
                 # generation kde
                 kdefunc = gaussian_kde(shiftout[:, 2], **kdekwargs)
