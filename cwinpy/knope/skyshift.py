@@ -871,7 +871,7 @@ def skyshift_results(
             if kde or gamma and plot.lower() in ["invcdf", "1-cdf"]:
                 # add text with probability
                 ax.text(
-                    0.45,
+                    0.35,
                     0.95,
                     (
                         rf"$p({scale_label}\mathcal{{O}}_{{\rm {oddstype}}}) \geq {scale_label}\mathcal{{O}}"
@@ -886,6 +886,8 @@ def skyshift_results(
 
         elif plot.lower() in ["sky", "hexbin"]:
             from astropy.coordinates import spherical_to_cartesian
+
+            plotkwargs = kwargs.get("plotkwargs", {})
 
             # convert RA, DEC to cartesian coords
             x, y, _ = spherical_to_cartesian(np.ones_like(shiftra), shiftdec, shiftra)
