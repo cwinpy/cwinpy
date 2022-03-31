@@ -707,7 +707,7 @@ def skyshift_results(
         If plotting the histogram and this is ``True``, a best fit gamma
         distribution (using :func:`scipy.stats.gamma`) will be plotted. The
         probability of getting a value from that distribution greater than the
-        true sky position's odds will be added to the plot. 
+        true sky position's odds will be added to the plot.
     yscale: str
         The scaling on the y-axis of a histogram or inverse CDF plot will
         default to a log scale. To set it to a linear scale set this argument
@@ -806,6 +806,8 @@ def skyshift_results(
     if plot:
         fig, ax = plt.subplots()
 
+        scale_label = r"\log{}_{10}" if scale == "log10" else r"\ln{}"
+
         if plot.lower() in ["hist", "histogram", "invcdf", "1-cdf"]:
             plotkwargs.setdefault("bins", 25)
             plotkwargs.setdefault("density", True)
@@ -818,11 +820,11 @@ def skyshift_results(
             ax.axvline(trueodds[2], ls="--", color="k")
 
             if plot.lower() in ["hist", "histogram"]:
-                ax.set_ylabel(rf"$p(\mathcal{{O}}_{{\rm {oddstype}}})$")
+                ax.set_ylabel(rf"$p({scale_label}\mathcal{{O}}_{{\rm {oddstype}}})$")
             else:
                 ax.set_ylabel("1 - CDF")
 
-            ax.set_xlabel(rf"$\mathcal{{O}}_{{\rm {oddstype}}}$")
+            ax.set_xlabel(rf"${scale_label}\mathcal{{O}}_{{\rm {oddstype}}}$")
 
             if kde or gamma:
                 # get range for kde/gamma evaluation for plotting
@@ -852,37 +854,37 @@ def skyshift_results(
                         0.55,
                         0.95,
                         (
-                            rf"$p(\mathcal{{O}}_{{\rm {oddstype}}}) \geq \mathcal{{O}}"
+                            rf"$p({scale_label}\mathcal{{O}}_{{\rm {oddstype}}}) \geq {scale_label}\mathcal{{O}}"
                             rf"_{{\rm {oddstype}}}^{{\rm source}}$ = {prob}"
                         ),
                         transform=ax.transAxes,
                         verticalalignment="top",
                     )
             elif gamma:
-               from scipy.stats import gamma
+                from scipy.stats import gamma
 
-               # fit gamma distribution (need to shift to be sure it is positive)
-               gammashift = 3 * np.abs(shiftout[:, 2].min())
-               fg = gamma.fit(shiftout[:, 2] + gammashift)
+                # fit gamma distribution (need to shift to be sure it is positive)
+                gammashift = 3 * np.abs(shiftout[:, 2].min())
+                fg = gamma.fit(shiftout[:, 2] + gammashift)
 
-               if plot.lower() in ["hist", "histogram"]:
-                   ax.plot(xrange, gamma.pdf(xrange + gammashift, *fg))
-               else:
-                   # inverse CDF 
-                   ax.plot(xrange, 1 - gamma.cdf(xrange + gammashift, *fg))
+                if plot.lower() in ["hist", "histogram"]:
+                    ax.plot(xrange, gamma.pdf(xrange + gammashift, *fg))
+                else:
+                    # inverse CDF
+                    ax.plot(xrange, 1 - gamma.cdf(xrange + gammashift, *fg))
 
-                   prob = 1 - gamma.cdf(trueodds[2] + gammashift, *fg)[0]
+                    prob = 1 - gamma.cdf(trueodds[2] + gammashift, *fg)[0]
 
-                   ax.text(
-                       0.55,
-                       0.95,
-                       (
-                           rf"$p(\mathcal{{O}}_{{\rm {oddstype}}}) \geq \mathcal{{O}}"
-                           rf"_{{\rm {oddstype}}}^{{\rm source}}$ = {prob}"
-                       ),
-                       transform=ax.transAxes,
-                       verticalalignment="top",
-                   )
+                    ax.text(
+                        0.55,
+                        0.95,
+                        (
+                            rf"$p({scale_label}\mathcal{{O}}_{{\rm {oddstype}}}) \geq {scale_label}\mathcal{{O}}"
+                            rf"_{{\rm {oddstype}}}^{{\rm source}}$ = {prob}"
+                        ),
+                        transform=ax.transAxes,
+                        verticalalignment="top",
+                    )
 
             ax.set_yscale(yscale)
 
@@ -898,7 +900,9 @@ def skyshift_results(
 
             ax.hexbin(x, y, C=shiftodds, **plotkwargs)
             cbar = ax.colorbar()
-            cbar.ax.set_ylabel(rf"$\mathcal{{O}}_{{\rm {oddstype}}}$", rotation=270)
+            cbar.ax.set_ylabel(
+                rf"${scale_label}\mathcal{{O}}_{{\rm {oddstype}}}$", rotation=270
+            )
 
             # draw circle around True location
             ax.plot(x[-1], y[-1], marker="o", ls="none", mfc="none", ms=30, c="m")
