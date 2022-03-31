@@ -853,16 +853,6 @@ def skyshift_results(
 
                     prob = kdefunc.integrate_box_1d(trueodds[2], np.inf)
 
-                    ax.text(
-                        0.55,
-                        0.95,
-                        (
-                            rf"$p({scale_label}\mathcal{{O}}_{{\rm {oddstype}}}) \geq {scale_label}\mathcal{{O}}"
-                            rf"_{{\rm {oddstype}}}^{{\rm source}}$ = {prob}"
-                        ),
-                        transform=ax.transAxes,
-                        verticalalignment="top",
-                    )
             elif gamma:
                 from scipy.stats import gamma
 
@@ -878,16 +868,19 @@ def skyshift_results(
 
                     prob = 1 - gamma.cdf(trueodds[2] + gammashift, *fg)[0]
 
-                    ax.text(
-                        0.55,
-                        0.95,
-                        (
-                            rf"$p({scale_label}\mathcal{{O}}_{{\rm {oddstype}}}) \geq {scale_label}\mathcal{{O}}"
-                            rf"_{{\rm {oddstype}}}^{{\rm source}}$ = {prob}"
-                        ),
-                        transform=ax.transAxes,
-                        verticalalignment="top",
-                    )
+            if kde or gamma and plot.lower() in ["invcdf", "1-cdf"]:
+                # add text with probability
+                ax.text(
+                    0.45,
+                    0.95,
+                    (
+                        rf"$p({scale_label}\mathcal{{O}}_{{\rm {oddstype}}}) \geq {scale_label}\mathcal{{O}}"
+                        rf"_{{\rm {oddstype}}}^{{\rm source}}$ = {prob}"
+                    ),
+                    transform=ax.transAxes,
+                    verticalalignment="top",
+                )
+                ax.set_xbound(lower=shiftout[:, 2].min())
 
             ax.set_yscale(yscale)
 
