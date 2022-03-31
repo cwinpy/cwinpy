@@ -891,6 +891,8 @@ def skyshift_results(
 
             ax.set_yscale(yscale)
 
+            fig.tight_layout()
+
         elif plot.lower() == "hexbin":
             from astropy.coordinates import spherical_to_cartesian
 
@@ -906,7 +908,9 @@ def skyshift_results(
             ax.hexbin(x, y, C=shiftodds, **plotkwargs)
             cbar = ax.colorbar()
             cbar.ax.set_ylabel(
-                rf"${scale_label}\mathcal{{O}}_{{\rm {oddstype}}}$", rotation=270
+                rf"${scale_label}\mathcal{{O}}_{{\rm {oddstype}}}$",
+                rotation=270,
+                labelpad=15,
             )
 
             # draw circle around True location
