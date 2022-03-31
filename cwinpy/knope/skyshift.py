@@ -640,9 +640,9 @@ def skyshift_pipeline_cli(**kwargs):  # pragma: no cover
 
 
 def skyshift_results(
-    resdir,
-    shiftsource,
-    origsource,
+    shift,
+    orig,
+    resdir=None,
     oddstype="cvi",
     scale="log10",
     plot=False,
@@ -652,21 +652,30 @@ def skyshift_results(
 ):
     """
     Using the output of the ``cwinpy_skyshift_pipeline``, generate the Bayesian
-    odds statistic for each shifted location and the original location. These
-    can also be plotted if requested, which will additionally return a
+    odds statistic for each shifted location and the original location.
+    These can also be plotted if requested, which will additionally return a
     :class:`~matplotlib.figure.Figure` object containing the plot.
+
+    If you already have the output of this function and just want to
+    (re)produce a plot, then you can instead pass in the results from the
+    previous call and use those.
 
     Parameters
     ----------
+    shift: str, array
+        If generating the results, this should be the directory containing the
+        pulsar parameter (``.par``) files for all the sky-shifted locations. If
+        using pre-generated results, i.e., to (re)produce a plot, then this
+        should be the Nx3 array containing the right ascension, declination and
+        odds for all the sky-shifted sources.
+    orig: str, tuple
+        If generating the results, this should be the pulsar parameter
+        (``.par``) file containing the original un-shifted location. If using
+        pre-generated results, then this should be a length 3 array containing
+        the right ascension, declination and odds to the true source.
     resdir: str
         The directory containing the parameter estimation outputs for each
         sky-shifted location.
-    shiftsource: str
-        The directory containing the pulsar parameter (``.par``) files for all
-        the sky-shifted locations.
-    origsource: str
-        The pulsar parameter (``.par``) file containing the original un-shifted
-        location.
     oddstype: str
         The odds type used by :func:`cwinpy.peutils.results_odds`. Defaults to
         ``"cvi"``.
@@ -702,65 +711,85 @@ def skyshift_results(
         original un-shifted location.
     """
 
-    shiftra = []
-    shiftdec = []
-    shiftnames = []
-    shiftodds = []
+    if all([isinstance(item, (str, pathlib.Path)) for item in [shift, orig, resdir]]):
+        # produce odds values from parameter estimation output
+        shiftra = []
+        shiftdec = []
+        shiftnames = []
+        shiftodds = []
 
-    shiftpaths = list(pathlib.Path(shiftsource).glob("*.par"))
+        shiftpaths = list(pathlib.Path(shift).glob("*.par"))
 
-    # get sky-shift locations (add original on to the end)
-    for i, p in enumerate(shiftpaths + [origsource]):
-        if is_par_file(p):
-            psr = PulsarParameters(p)
+        # get sky-shift locations (add original on to the end)
+        for i, p in enumerate(shiftpaths + [orig]):
+            if is_par_file(p):
+                psr = PulsarParameters(p)
 
-            shiftra.append(psr["RAJ"] if psr["RAJ"] is not None else psr["RA"])
-            shiftdec.append(psr["DECJ"] if psr["DECJ"] is not None else psr["DEC"])
-            shiftnames.append(get_psr_name(psr))
-            continue
+                shiftra.append(psr["RAJ"] if psr["RAJ"] is not None else psr["RA"])
+                shiftdec.append(psr["DECJ"] if psr["DECJ"] is not None else psr["DEC"])
+                shiftnames.append(get_psr_name(psr))
+                continue
 
-        if i == len(shiftpaths):
-            raise RuntimeError(
-                f"The un-shifted parameter file '{origsource}' could not be read in"
-            )
-
-    if len(shiftra) == 1:
-        raise IOError(
-            f"No valid sky-shifted pulsar parameter files were found in {shiftsource}"
-        )
-
-    # get odds for each sky-shifted source
-    for name in shiftnames:
-        psrresdir = pathlib.Path(os.path.join(resdir, name))
-        if not psrresdir.is_dir():
-            raise RuntimeError(f"{psrresdir} does not exist")
-
-        # get output files (check for HDF5 files first then try JSON file)
-        psrresfiles = list(psrresdir.glob("*.hdf5"))
-        if len(psrresfiles) == 0:
-            psrresfiles = list(psrresdir.glob("*.json"))
-
-        if len(psrresfiles) == 0:
-            raise RuntimeError(
-                f"No valid parameter estimation results files were found for {name}"
-            )
-
-        # get dictionary of results files keyed to detector
-        resfiledict = {}
-        for pf in psrresfiles:
-            detmatch = re.search(f"cwinpy_pe_(.*?)_{name}", str(pf))
-            if detmatch is None:
+            if i == len(shiftpaths):
                 raise RuntimeError(
-                    f"{psrresdir} contains incorrectly named results file '{pf}'"
+                    f"The un-shifted parameter file '{orig}' could not be read in"
                 )
 
-            resfiledict[detmatch.group(1)] = pf
+        if len(shiftra) == 1:
+            raise IOError(
+                f"No valid sky-shifted pulsar parameter files were found in {shift}"
+            )
 
-        # get odds
-        shiftodds.append(results_odds(resfiledict, oddstype=oddstype, scale=scale))
+        # get odds for each sky-shifted source
+        for name in shiftnames:
+            psrresdir = pathlib.Path(os.path.join(resdir, name))
+            if not psrresdir.is_dir():
+                raise RuntimeError(f"{psrresdir} does not exist")
 
-    shiftout = np.array([shiftra[:-1], shiftdec[:-1], shiftodds[:-1]]).T
-    trueodds = (shiftra[-1], shiftdec[-1], shiftodds[-1])
+            # get output files (check for HDF5 files first then try JSON file)
+            psrresfiles = list(psrresdir.glob("*.hdf5"))
+            if len(psrresfiles) == 0:
+                psrresfiles = list(psrresdir.glob("*.json"))
+
+            if len(psrresfiles) == 0:
+                raise RuntimeError(
+                    f"No valid parameter estimation results files were found for {name}"
+                )
+
+            # get dictionary of results files keyed to detector
+            resfiledict = {}
+            for pf in psrresfiles:
+                detmatch = re.search(f"cwinpy_pe_(.*?)_{name}", str(pf))
+                if detmatch is None:
+                    raise RuntimeError(
+                        f"{psrresdir} contains incorrectly named results file '{pf}'"
+                    )
+
+                resfiledict[detmatch.group(1)] = pf
+
+            # get odds
+            shiftodds.append(results_odds(resfiledict, oddstype=oddstype, scale=scale))
+
+        shiftout = np.array([shiftra[:-1], shiftdec[:-1], shiftodds[:-1]]).T
+        trueodds = (shiftra[-1], shiftdec[-1], shiftodds[-1])
+    else:
+        # use pre-generated odds
+        shiftout = np.atleast_2d(shift)
+
+        if shiftout.shape[1] != 3 or shiftout.dtype != float:
+            raise TypeError(
+                "Array of sky-shifted values must be an Nx3 array of floats"
+            )
+
+        trueodds = np.atleast_1d(orig)
+
+        if len(trueodds) != 3 or trueodds.dtype != float:
+            raise TypeError("True values must include RA, DEC and odds")
+
+        fullarr = np.concatenate((shiftout, trueodds))
+        shiftra = fullarr[:, 0]
+        shiftdec = fullarr[:, 1]
+        shiftodds = fullarr[:, 2]
 
     if plot:
         fig, ax = plt.subplots()
