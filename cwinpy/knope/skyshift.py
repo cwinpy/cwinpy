@@ -844,7 +844,7 @@ def skyshift_results(
                     icdf = 1 - np.array(
                         [kdefunc.integrate_box_1d(-np.inf, x) for x in xrange]
                     )
-                    ax.plot(xrange, icdf, "k-")
+                    ax.plot(xrange, icdf)
 
                     prob = kdefunc.integrate_box_1d(trueodds[2], np.inf)
 
@@ -871,7 +871,7 @@ def skyshift_results(
                    # inverse CDF 
                    ax.plot(xrange, 1 - gamma.cdf(xrange + gammashift, *fg))
 
-                   prob = 1 - gamma.cdf(trueodds[2] + gammashift, *fg)
+                   prob = 1 - gamma.cdf(trueodds[2] + gammashift, *fg)[0]
 
                    ax.text(
                        0.55,
