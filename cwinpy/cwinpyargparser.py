@@ -9,8 +9,6 @@ import sys
 
 import configargparse
 
-from . import __version__
-
 
 class HyphenStr(str):
     def __new__(cls, content):
@@ -182,11 +180,6 @@ class CWInPyArgParser(configargparse.ArgParser):
         if os.path.isfile(filename) and not overwrite:
             print(f"File {filename} already exists, not writing to file.")
         with open(filename, "w") as ff:
-            if include_description:
-                print(
-                    f"## This file was written with cwinpy version {__version__}\n",
-                    file=ff,
-                )
             if isinstance(comment, str):
                 print("#" + comment + "\n", file=ff)
             for group in self._action_groups[2:]:
