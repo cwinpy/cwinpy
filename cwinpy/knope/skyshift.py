@@ -649,6 +649,8 @@ def skyshift_results(
     plotkwargs={},
     kde=False,
     kdekwargs={},
+    gamma=False,
+    yscale="log",
 ):
     """
     Using the output of the ``cwinpy_skyshift_pipeline``, generate the Bayesian
@@ -696,10 +698,20 @@ def skyshift_results(
         distribution will also be added using the
         :func:`scipy.stats.gaussian_kde` function. The probability of getting a
         value greater than the true sky position's odds based on the KDE will
-        be added to the plot.
+        be added to the plot. If the ``gamma`` argument is ``True`` then the
+        KDE will be ignored and the gamma distribution plotted instead.
     kdekwargs: dict
         If plotting a KDE, any keyword arguments can be passed using this
         dictionary.
+    gamma: bool
+        If plotting the histogram and this is ``True``, a best fit gamma
+        distribution (using :func:`scipy.stats.gamma`) will be plotted. The
+        probability of getting a value from that distribution greater than the
+        true sky position's odds will be added to the plot. 
+    yscale: str
+        The scaling on the y-axis of a histogram or inverse CDF plot will
+        default to a log scale. To set it to a linear scale set this argument
+        to ``"linear"``.
 
     Returns
     -------
@@ -781,12 +793,12 @@ def skyshift_results(
                 "Array of sky-shifted values must be an Nx3 array of floats"
             )
 
-        trueodds = np.atleast_2d(orig)
+        trueodds = np.atleast_2d(orig).reshape((3, 1))
 
-        if trueodds.shape == (1, 3) or trueodds.dtype != float:
+        if trueodds.shape != (3, 1) or trueodds.dtype != float:
             raise TypeError("True values must include RA, DEC and odds")
 
-        fullarr = np.concatenate((shiftout, trueodds))
+        fullarr = np.concatenate((shiftout, trueodds.T))
         shiftra = fullarr[:, 0]
         shiftdec = fullarr[:, 1]
         shiftodds = fullarr[:, 2]
@@ -812,17 +824,18 @@ def skyshift_results(
 
             ax.set_xlabel(rf"$\mathcal{{O}}_{{\rm {oddstype}}}$")
 
-            if kde:
-                from scipy.stats import gaussian_kde
-
-                # generation kde
-                kdefunc = gaussian_kde(shiftout[:, 2], **kdekwargs)
-
-                # get range for kde evaluation for plotting
+            if kde or gamma:
+                # get range for kde/gamma evaluation for plotting
                 frange = shiftout[:, 2].max() - shiftout[:, 2].min()
                 xmin = shiftout[:, 2].min() - 0.25 * frange
                 xmax = shiftout[:, 2].max() + 0.25 * frange
                 xrange = np.linspace(xmin, xmax, 250)
+
+            if kde and not gamma:
+                from scipy.stats import gaussian_kde
+
+                # generation kde
+                kdefunc = gaussian_kde(shiftout[:, 2], **kdekwargs)
 
                 if plot.lower() in ["hist", "histogram"]:
                     ax.plot(xrange, kdefunc(xrange), "k-")
@@ -845,8 +858,33 @@ def skyshift_results(
                         transform=ax.transAxes,
                         verticalalignment="top",
                     )
+            elif gamma:
+               from scipy.stats import gamma
 
-            ax.set_yscale("log")
+               # fit gamma distribution (need to shift to be sure it is positive)
+               gammashift = 3 * np.abs(shiftout[:, 2].min())
+               fg = gamma.fit(shiftout[:, 2] + gammashift)
+
+               if plot.lower() in ["hist", "histogram"]:
+                   ax.plot(xrange, gamma.pdf(xrange + gammashift, *fg))
+               else:
+                   # inverse CDF 
+                   ax.plot(xrange, 1 - gamma.cdf(xrange + gammashift, *fg))
+
+                   prob = 1 - gamma.cdf(trueodds[2] + gammashift, *fg)
+
+                   ax.text(
+                       0.55,
+                       0.95,
+                       (
+                           rf"$p(\mathcal{{O}}_{{\rm {oddstype}}}) \geq \mathcal{{O}}"
+                           rf"_{{\rm {oddstype}}}^{{\rm source}}$ = {prob}"
+                       ),
+                       transform=ax.transAxes,
+                       verticalalignment="top",
+                   )
+
+            ax.set_yscale(yscale)
 
         elif plot.lower() in ["sky", "hexbin"]:
             from astropy.coordinates import spherical_to_cartesian
