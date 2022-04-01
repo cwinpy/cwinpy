@@ -1605,7 +1605,7 @@ class HeterodynedData(TimeSeriesBase):
 
         return self.vars
 
-    def inject_signal(self, injpar=None, injtimes=None, inject=True):
+    def inject_signal(self, injpar=None, injtimes=None, inject=True, **kwargs):
         """
         Inject a simulated signal into the data.
 
@@ -1622,13 +1622,17 @@ class HeterodynedData(TimeSeriesBase):
             not added into the data.
         """
 
+        # save any kwargs
+        if not hasattr(self, "_inj_kwargs") or len(kwargs) > 1:
+            self._inj_kwargs = kwargs.copy()
+
         # create the signal to inject
         if injpar is None:
             self.injpar = self.par
-            signal = self.make_signal()
+            signal = self.make_signal(**self._inj_kwargs)
         else:
             self.injpar = injpar
-            signal = self.make_signal(signalpar=self.injpar)
+            signal = self.make_signal(signalpar=self.injpar, **self._inj_kwargs)
 
         # set the times between which the injection will be added
         self.injtimes = injtimes
@@ -1765,7 +1769,7 @@ class HeterodynedData(TimeSeriesBase):
             + ((self.injection_data.imag / self.stds) ** 2).sum()
         )
 
-    def make_signal(self, signalpar=None):
+    def make_signal(self, signalpar=None, **kwargs):
         """
         Make a signal at the data time stamps given a parameter file.
 
@@ -1808,6 +1812,7 @@ class HeterodynedData(TimeSeriesBase):
             earth_ephem=self.ephemearth,
             sun_ephem=self.ephemsun,
             time_corr=self.ephemtime,
+            usetempo2=kwargs.get("usetempo2", False),
         )
 
         # get the injection
@@ -1817,10 +1822,10 @@ class HeterodynedData(TimeSeriesBase):
         else:
             signal = het.model(
                 signalpar,
-                updateSSB=True,
-                updateBSB=True,
-                updateglphase=True,
-                updatefitwaves=True,
+                updateSSB=kwargs.get("updateSSB", True),
+                updateBSB=kwargs.get("updateBSB", True),
+                updateglphase=kwargs.get("updateglphase", True),
+                updatefitwaves=kwargs.get("updatefitwaves", True),
                 freqfactor=self.freq_factor,
             )
 
