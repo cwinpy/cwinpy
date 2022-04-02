@@ -810,11 +810,10 @@ def skyshift_results(
         shiftodds = fullarr[:, 2]
 
     if plot:
-        fig, ax = plt.subplots()
-
         scale_label = r"\log{}_{10}" if scale == "log10" else r"\ln{}"
 
         if plot.lower() in ["hist", "histogram", "invcdf", "1-cdf"]:
+            fig, ax = plt.subplots()
             plotkwargs = kwargs.get("plotkwargs", {})
 
             plotkwargs.setdefault("bins", 25)
@@ -895,6 +894,8 @@ def skyshift_results(
 
         elif plot.lower() == "hexbin":
             from astropy.coordinates import spherical_to_cartesian
+
+            fig, ax = plt.subplots()
 
             plotkwargs = kwargs.get("plotkwargs", {})
 
@@ -982,6 +983,8 @@ def skyshift_results(
                 ms=30,
                 c="m",
             )
+        else:
+            ValueError(f"Unknown plot type {plot}")
 
         return shiftout, trueodds, fig
     else:
