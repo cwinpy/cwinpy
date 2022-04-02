@@ -970,7 +970,7 @@ def skyshift_results(
                 ax=ax,
                 extend="neither",
                 label=rf"${scale_label}\mathcal{{O}}_{{\rm {oddstype}}}$",
-                shrink=(0.85 if plot.lower() == "cart" else 0.55),
+                shrink=0.6,
                 pad=0.04,
             )
 
@@ -984,7 +984,7 @@ def skyshift_results(
                 c="m",
             )
         else:
-            ValueError(f"Unknown plot type {plot}")
+            raise ValueError(f"Unknown plot type {plot}")
 
         return shiftout, trueodds, fig
     else:
