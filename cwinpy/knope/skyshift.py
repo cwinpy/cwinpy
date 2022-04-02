@@ -5,6 +5,7 @@ import pathlib
 import re
 from argparse import ArgumentParser
 
+import matplotlib
 import numpy as np
 from astropy.coordinates import SkyCoord
 from matplotlib import pyplot as plt
@@ -686,9 +687,15 @@ def skyshift_results(
     plot: str, bool
         If ``plot`` is given as ``"hist"`` a histogram of the distribution of
         sky-shifted odds values will be produced; if "invcdf", then it will
-        plot the distribution (1 - CDF); if ``"sky"``, then a
-        :func:`matplotlib.pyplot.hexbin` plot will be produced. This defaults
-        to ``False, i.e., no plot will be produced.
+        plot the distribution (1 - CDF); if ``"hexbin"``, then a
+        :func:`matplotlib.pyplot.hexbin` plot will be produced using the sky
+        positions converted into a cartesian coordinate system and the maximum
+        odds in each bin; if healpy is installed then the
+        :func:`healpy.newvisufunc.projview`` function will be used if any of
+        the following arguments are given ``"hammer"``, ``"lambert"``,
+        ``"mollweide"``, ``"cart"``, or ``"aitoff"``, which will plot the
+        maximum odds in each HEALPix pixel. This defaults to ``False``, i.e.,
+        no plot will be produced.
     plotkwargs: dict
         If making a plot, and further keyword arguments required for the
         plotting function can be passed using this dictionary.
@@ -884,7 +891,7 @@ def skyshift_results(
 
             ax.set_yscale(yscale)
 
-        elif plot.lower() in ["sky", "hexbin"]:
+        elif plot.lower() == "hexbin":
             from astropy.coordinates import spherical_to_cartesian
 
             plotkwargs = kwargs.get("plotkwargs", {})
@@ -906,6 +913,71 @@ def skyshift_results(
             ax.plot(x[-1], y[-1], marker="o", ls="none", mfc="none", ms=30, c="m")
 
             ax.set_aspect("equal", "box")
+        elif plot.lower() in ["hammer", "lambert", "mollweide", "cart", "aitoff"]:
+            try:
+                import healpy as hp
+                from healpy.newvisufunc import projview, newprojplot
+            except (ModuleNotFoundError, ImportError):
+                raise ImportError(
+                    "You can only use 'hammer', 'lambert', 'mollweide', "
+                    "'cart', or 'aitoff' if you have healpy installed"
+                )
+
+            plotkwargs = kwargs.get("plotkwargs", {})
+
+            # set number of healpix pixels
+            nside = plotkwargs.pop("nside", 8)
+
+            pixel_indices = hp.ang2pix(
+                nside, np.abs(np.array(shiftdec) - (np.pi / 2)), shiftra
+            )
+
+            # create map using the maximim odds in a pixel
+            minodds = np.min(shiftodds)
+            m = np.full(hp.nside2npix(nside), minodds - 1)
+
+            for i in range(len(m)):
+                if i in pixel_indices:
+                    idxs = i == pixel_indices
+                    m[i] = np.max(shiftodds[idxs])
+
+            # set colormap
+            cmap = matplotlib.cm.get_cmap(plotkwargs.get("cmap", "viridis")).copy()
+            cmap.set_under((0.95, 0.95, 0.95, 1))
+
+            im = projview(
+                m,
+                min=minodds,
+                coord=plotkwargs.get("coord", ["G"]),
+                graticule=plotkwargs.get("graticule", True),
+                graticule_labels=plotkwargs.get("graticule_labels", True),
+                projection_type=plot.lower(),
+                cmap=cmap,
+                cbar=False,  # don't add color bar
+            )
+
+            fig = plt.gcf()
+            ax = plt.gca()
+
+            # add new color
+            fig.colorbar(
+                im,
+                ax=ax,
+                extend="neither",
+                label=rf"${scale_label}\mathcal{{O}}_{{\rm {oddstype}}}$",
+                shrink=(0.85 if plot.lower() == "cart" else 0.55),
+                pad=0.04,
+            )
+
+            # add circle around true sky position
+            newprojplot(
+                theta=np.abs(trueodds[1] - np.pi / 2),
+                phi=trueodds[0],
+                marker="o",
+                mfc="none",
+                ms=30,
+                c="m",
+            )
 
         return shiftout, trueodds, fig
     else:
