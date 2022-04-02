@@ -970,7 +970,7 @@ def skyshift_results(
                 ax=ax,
                 extend="neither",
                 label=rf"${scale_label}\mathcal{{O}}_{{\rm {oddstype}}}$",
-                shrink=0.6,
+                shrink=0.67,
                 pad=0.04,
             )
 
