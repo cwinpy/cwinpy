@@ -1,3 +1,4 @@
+import re
 from copy import deepcopy
 from itertools import permutations
 from pathlib import Path
@@ -8,9 +9,9 @@ from bilby.core.result import Result, read_in_result
 from .data import MultiHeterodynedData
 
 
-def results_odds(results, oddstype="svn", scale="log10"):
+def results_odds(results, oddstype="svn", scale="log10", **kwargs):
     """
-    Calculate the logarithm of the Bayesian odds between models given a set o
+    Calculate the logarithm of the Bayesian odds between models given a set of
     evidence values. The type of odds can be one of the following:
 
     * "svn": signal vs. noise, i.e., the odds between a coherent signal in one,
@@ -31,11 +32,18 @@ def results_odds(results, oddstype="svn", scale="log10"):
         contain the attributes ``log_10_evidence`` and
         ``log_10_noise_evidence`` with the former providing the base-10
         logarithm for the signal model and the latter the base-10 logarithm of
-        the data being consistent with noise. In inputting a dictionary, it
+        the data being consistent with noise. If inputting a dictionary, it
         should be keyed by two-character detector names, e.g., "H1", for the
         results from individual detectors, or the string "joint", "coherent" or
         a concatenation of all detector names for a coherent multi-detector
-        result.
+        result. Alternatively, ``results`` can be a directory, within which it
+        is assumed that each subdirectory is named after a pulsar and contains
+        results files with the format
+        ``{fnamestr}_{det}_{psrname}_result.[hdf5,json]``, where the default
+        ``fnamestr`` is ``cwinpy_pe``, ``det`` is the two-character detector
+        name, or concantenation of multiple detector names, and ``psrname`` is
+        the same as the directory name. In this case a dictionary of odds
+        values, keyed to the pulsar name, will be calculated and returned.
     oddstype: str
         The particular odds that should be calculated.
     scale: str:
@@ -46,48 +54,103 @@ def results_odds(results, oddstype="svn", scale="log10"):
     if not isinstance(results, (str, Path, Result, dict)):
         raise TypeError("result must be a Result object or list of Result objects")
 
-    if isinstance(results, (str, Path, Result)):
-        result = read_in_result_wrapper(results)
+    if isinstance(results, Result):
+        log10odds = results.log_10_evidence - results.log_10_noise_evidence
 
-        log10odds = result.log_10_evidence - result.log_10_noise_evidence
+        return log10odds if scale == "log10" else log10odds / np.log10(np.e)
     else:
-        # list of detectors
-        dets = [det for det in results if len(det) == 2]
+        if not isinstance(results, dict):
+            respath = Path(results)
 
-        if len(dets) == len(results) and len(results) > 1:
-            raise RuntimeError("No 'coherent' multi-detector result is given")
+            if respath.is_file():
+                result = read_in_result_wrapper(results)
+                log10odds = result.log_10_evidence - result.log_10_noise_evidence
+            elif respath.is_dir():
+                # iterate through directories
+                resfiles = {}
 
-        # get the key that contains the coherent multi-detector results
-        coherentname = [("".join(detperm)).lower() for detperm in permutations(dets)]
-        coherentname.extend(["joint", "coherent"])
+                for rd in respath.iterdir():
+                    if rd.is_dir():
+                        dname = rd.name
 
-        for key in results:
-            if key.lower() in coherentname:
-                break
+                        # check directory contains results objects
+                        for ext in ["hdf5", "json"]:
+                            fnamestr = kwargs.get("fnamestr", "cwinpy_pe")
+                            fnamematch = f"{fnamestr}_*_{dname}_result.{ext}"
+                            rfiles = list(rd.glob(fnamematch))
+                            if len(rfiles) > 0:
+                                break
+
+                        if len(rfiles) > 0:
+                            resfiles[dname] = {}
+
+                            for rf in rfiles:
+                                # extract detector name
+                                detmatch = re.search(
+                                    f"{fnamestr}_(.*?)_{dname}", str(rf)
+                                )
+                                if detmatch is None:
+                                    raise RuntimeError(
+                                        f"{rd} contains incorrectly named results file '{rf}'"
+                                    )
+
+                                # set files
+                                resfiles[dname][detmatch.group(1)] = rf
+
+                if len(resfiles) == 0:
+                    raise ValueError(f"{results} contains no valid results files")
         else:
-            raise KeyError("No 'coherent' multi-detector result is given")
+            resfiles = {"dummyname": results}
 
-        result = read_in_result_wrapper(results[key])
+        logodds = {}
 
-        coherentZ = result.log_10_evidence
+        for pname, resultd in resfiles.items():
+            # list of detectors
+            dets = [det for det in resultd if len(det) == 2]
 
-        if oddstype == "svn":
-            log10odds = coherentZ - result.log_10_noise_evidence
-        else:
-            # get the denominator of the coherent vs incoherent odds
-            denom = 0.0
-            for rkey in results:
-                if rkey != key:
-                    result = read_in_result_wrapper(results[rkey])
+            if len(dets) == len(resultd) and len(resultd) > 1:
+                raise RuntimeError("No 'coherent' multi-detector result is given")
 
-                    denom += np.logaddexp(
-                        result.log_10_evidence,
-                        result.log_10_noise_evidence,
-                    )
+            # get the key that contains the coherent multi-detector results
+            coherentname = [
+                ("".join(detperm)).lower() for detperm in permutations(dets)
+            ]
+            coherentname.extend(["joint", "coherent"])
 
-            log10odds = coherentZ - denom
+            for key in resultd:
+                if key.lower() in coherentname:
+                    break
+            else:
+                raise KeyError("No 'coherent' multi-detector result is given")
 
-    return log10odds if scale == "log10" else log10odds / np.log10(np.exp(1))
+            result = read_in_result_wrapper(resultd[key])
+
+            coherentZ = result.log_10_evidence
+
+            if oddstype == "svn":
+                log10odds = coherentZ - result.log_10_noise_evidence
+            else:
+                # get the denominator of the coherent vs incoherent odds
+                denom = 0.0
+                for rkey in resultd:
+                    if rkey != key:
+                        result = read_in_result_wrapper(resultd[rkey])
+
+                        denom += np.logaddexp(
+                            result.log_10_evidence,
+                            result.log_10_noise_evidence,
+                        )
+
+                log10odds = coherentZ - denom
+
+            if pname == "dummyname":
+                return log10odds if scale == "log10" else log10odds / np.log10(np.e)
+            else:
+                logodds[pname] = (
+                    log10odds if scale == "log10" else log10odds / np.log10(np.e)
+                )
+
+    return logodds
 
 
 def read_in_result_wrapper(res):

@@ -2,7 +2,6 @@ import ast
 import configparser
 import os
 import pathlib
-import re
 from argparse import ArgumentParser
 
 import matplotlib
@@ -763,34 +762,18 @@ def skyshift_results(
             )
 
         # get odds for each sky-shifted source
-        for name in shiftnames:
-            psrresdir = pathlib.Path(os.path.join(resdir, name))
-            if not psrresdir.is_dir():
-                raise RuntimeError(f"{psrresdir} does not exist")
+        logodds = results_odds(resdir, oddstype=oddstype, scale=scale)
 
-            # get output files (check for HDF5 files first then try JSON file)
-            psrresfiles = list(psrresdir.glob("*.hdf5"))
-            if len(psrresfiles) == 0:
-                psrresfiles = list(psrresdir.glob("*.json"))
+        if set(logodds.keys()) != set(shiftnames):
+            raise RuntimeError(
+                "Inconsistent parameter file and results file directories"
+            )
 
-            if len(psrresfiles) == 0:
-                raise RuntimeError(
-                    f"No valid parameter estimation results files were found for {name}"
-                )
-
-            # get dictionary of results files keyed to detector
-            resfiledict = {}
-            for pf in psrresfiles:
-                detmatch = re.search(f"cwinpy_pe_(.*?)_{name}", str(pf))
-                if detmatch is None:
-                    raise RuntimeError(
-                        f"{psrresdir} contains incorrectly named results file '{pf}'"
-                    )
-
-                resfiledict[detmatch.group(1)] = pf
-
-            # get odds
-            shiftodds.append(results_odds(resfiledict, oddstype=oddstype, scale=scale))
+        # get odds
+        shiftodds = [logodds[key] for key in logodds if key != shiftnames[-1]]
+        shiftodds.append(
+            logodds[shiftnames[-1]]
+        )  # make sure true position is added last
 
         shiftout = np.array([shiftra[:-1], shiftdec[:-1], shiftodds[:-1]]).T
         trueodds = (shiftra[-1], shiftdec[-1], shiftodds[-1])
