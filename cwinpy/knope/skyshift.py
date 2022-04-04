@@ -648,7 +648,7 @@ def skyshift_results(
     scale="log10",
     plot=False,
     kde=False,
-    gamma=False,
+    dist=None,
     yscale="log",
     **kwargs,
 ):
@@ -704,16 +704,20 @@ def skyshift_results(
         distribution will also be added using the
         :func:`scipy.stats.gaussian_kde` function. The probability of getting a
         value greater than the true sky position's odds based on the KDE will
-        be added to the plot. If the ``gamma`` argument is ``True`` then the
-        KDE will be ignored and the gamma distribution plotted instead.
+        be added to the plot. If the ``dist`` argument is given then the KDE
+        will be ignored and the gamma distribution plotted instead.
     kdekwargs: dict
         If plotting a KDE, any keyword arguments can be passed using this
         dictionary.
-    gamma: bool
-        If plotting the histogram and this is ``True``, a best fit gamma
-        distribution (using :func:`scipy.stats.gamma`) will be plotted. The
-        probability of getting a value from that distribution greater than the
-        true sky position's odds will be added to the plot.
+    dist: str
+        If plotting the histogram (and not plotting a KDE) then a fit to that
+        histogram can also be added based on the name of the distribution given
+        by this argument. Currently, the value here can either be ``"gamma"``
+        (using :func:`scipy.stats.gamma`) or ``"gumbel"`` (using
+        :func:`scipy.stats.gumbel_r`), for whi a best fit of the given
+        distribution  will be plotted. The probability of getting a value from
+        that distribution greater than the true sky position's odds will be
+        added to the plot.
     yscale: str
         The scaling on the y-axis of a histogram or inverse CDF plot will
         default to a log scale. To set it to a linear scale set this argument
@@ -833,14 +837,14 @@ def skyshift_results(
 
             ax.set_xlabel(rf"${scale_label}\mathcal{{O}}_{{\rm {oddstype}}}$")
 
-            if kde or gamma:
+            if kde or dist:
                 # get range for kde/gamma evaluation for plotting
                 frange = shiftout[:, 2].max() - shiftout[:, 2].min()
                 xmin = shiftout[:, 2].min() - 0.25 * frange
                 xmax = shiftout[:, 2].max() + 0.25 * frange
                 xrange = np.linspace(xmin, xmax, 250)
 
-            if kde and not gamma:
+            if kde and dist is None:
                 from scipy.stats import gaussian_kde
 
                 kdekwargs = kwargs.get("kdekwargs", {})
@@ -859,22 +863,33 @@ def skyshift_results(
 
                     prob = kdefunc.integrate_box_1d(trueodds[2], np.inf)
 
-            elif gamma:
-                from scipy.stats import gamma
+            elif dist is not None:
+                from scipy.stats import gamma, gumbel_r
+
+                dfuncdict = {"gamma": gamma, "gumbel": gumbel_r}
+
+                try:
+                    dfunc = dfuncdict[dist.lower()]
+                except (AttributeError, KeyError):
+                    raise ValueError(
+                        f"Distribution '{dist}' must be 'gamma' or 'gumbel'"
+                    )
 
                 # fit gamma distribution (need to shift to be sure it is positive)
-                gammashift = 3 * np.abs(shiftout[:, 2].min())
-                fg = gamma.fit(shiftout[:, 2] + gammashift)
+                gammashift = (
+                    3 * np.abs(shiftout[:, 2].min()) if dist.lower() == "gamma" else 0.0
+                )
+                fg = dfunc.fit(shiftout[:, 2] + gammashift)
 
                 if plot.lower() in ["hist", "histogram"]:
-                    ax.plot(xrange, gamma.pdf(xrange + gammashift, *fg))
+                    ax.plot(xrange, dfunc.pdf(xrange + gammashift, *fg))
                 else:
                     # inverse CDF
-                    ax.plot(xrange, 1 - gamma.cdf(xrange + gammashift, *fg))
+                    ax.plot(xrange, 1 - dfunc.cdf(xrange + gammashift, *fg))
 
-                    prob = 1 - gamma.cdf(trueodds[2] + gammashift, *fg)[0]
+                    prob = 1 - dfunc.cdf(trueodds[2] + gammashift, *fg)[0]
 
-            if kde or gamma and plot.lower() in ["invcdf", "1-cdf"]:
+            if (kde or dist) and plot.lower() in ["invcdf", "1-cdf"]:
                 # add text with probability
                 ax.text(
                     0.35,
