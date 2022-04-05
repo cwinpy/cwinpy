@@ -6,7 +6,9 @@ from pathlib import Path
 import numpy as np
 from bilby.core.result import Result, read_in_result
 
-from .data import MultiHeterodynedData
+from .data import HeterodynedData, MultiHeterodynedData
+from .parfile import PulsarParameters
+from .utils import get_psr_name
 
 
 def results_odds(results, oddstype="svn", scale="log10", **kwargs):
@@ -15,9 +17,9 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
     evidence values. The type of odds can be one of the following:
 
     * "svn": signal vs. noise, i.e., the odds between a coherent signal in one,
-      or multiple detectors.
+      or multiple detectors, and the data being consistent with noise.
     * "cvi": coherent vs. incoherent, i.e., for multiple detectors this is the
-      odds between a coherent signal in add detectors and an incoherent signal
+      odds between a coherent signal in all detectors and an incoherent signal
       between detectors _or_ noise.
 
     which are calculated from equations (30) and (32) of [1]_, respectively.
@@ -49,6 +51,15 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
     scale: str:
         A flag saying whether the output should be in the base-10 logarithm
         ``"log10"`` (the default), or the natural logarithm ``"ln"``.
+
+    Returns
+    -------
+    log10odds: float, dict
+        If using a single result this will be a float giving the requested
+        log-odds value. If a directory of results is used, then this this will
+        a dictionary of log-odds values for each source in the directory keyed
+        on the source's name (based on the sub-directory name containing the
+        result).
     """
 
     if not isinstance(results, (str, Path, Result, dict)):
@@ -66,36 +77,9 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
                 result = read_in_result_wrapper(results)
                 log10odds = result.log_10_evidence - result.log_10_noise_evidence
             elif respath.is_dir():
-                # iterate through directories
-                resfiles = {}
-
-                for rd in respath.iterdir():
-                    if rd.is_dir():
-                        dname = rd.name
-
-                        # check directory contains results objects
-                        for ext in ["hdf5", "json"]:
-                            fnamestr = kwargs.get("fnamestr", "cwinpy_pe")
-                            fnamematch = f"{fnamestr}_*_{dname}_result.{ext}"
-                            rfiles = list(rd.glob(fnamematch))
-                            if len(rfiles) > 0:
-                                break
-
-                        if len(rfiles) > 0:
-                            resfiles[dname] = {}
-
-                            for rf in rfiles:
-                                # extract detector name
-                                detmatch = re.search(
-                                    f"{fnamestr}_(.*?)_{dname}", str(rf)
-                                )
-                                if detmatch is None:
-                                    raise RuntimeError(
-                                        f"{rd} contains incorrectly named results file '{rf}'"
-                                    )
-
-                                # set files
-                                resfiles[dname][detmatch.group(1)] = rf
+                resfiles = find_results_files(
+                    respath, fnamestr=kwargs.get("fnamestr", "cwinpy_pe")
+                )
 
                 if len(resfiles) == 0:
                     raise ValueError(f"{results} contains no valid results files")
@@ -183,7 +167,7 @@ def read_in_result_wrapper(res):
     return result
 
 
-def optimal_snr(res, het, par=None, which="posterior"):
+def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers=False):
     """
     Calculate the optimal matched filter signal-to-noise ratio for a signal in
     given data based on the posterior samples. This can either be the
@@ -195,54 +179,354 @@ def optimal_snr(res, het, par=None, which="posterior"):
     res: str, Result
         The path to a :class:`~bilby.core.result.Result` object file or a
         :class:`~bilby.core.result.Result` object itself containing posterior
-        samples and priors.
+        samples and priors. Alternatively, this can be a directory containing
+        sub-directories, named by source name, that themselves contain results.
+        In this case the SNRs for all sources will be calculated.
     het: str, dict, HeterodynedData, MultiHeterodynedData
         The path to a :class:`~cwinpy.data.HeterodynedData` object file or a
         :class:`~cwinpy.data.HeterodynedData` object itself containing the
         heterodyned data that was used for parameter estimation. Or, a
         dictionary (keyed to detector names) containing individual paths to or
-        :class:`~cwinpy.data.HeterodynedData` objects.
+        :class:`~cwinpy.data.HeterodynedData` objects. Alternatively, this can
+        be a directory containing heterodyned data for all sources given in the
+        ``res`` argument.
     par: str, PulsarParameters
         If the heterodyned data provided with ``het`` does not contain a pulsar
-        parameter (``.par``) file, then it can be specified here.
+        parameter (``.par``) file, then the file or directory containing the
+        file(s) can be specified here.
+    det: str
+        If passing results containing multiple detectors and joint detector
+        analyses, but only requiring SNRs for an individual detector, then this
+        can be specified here. By default, SNR for all detectors will be
+        calculated.
     which: str
         A string stating whether to calculate the SNR using the maximum
         a-posteriori (``"posterior"``) or maximum likelihood (``"likelihood"``)
         sample.
+    remove_outliers: bool
+        Set when to remove outliers from data before calculating the SNR. This
+        defaults to False.
 
     Returns
     -------
-    snr: float
-        The matched filter signal-to-noise ratio.
+    snr: float, dict
+        The matched filter signal-to-noise ratio(s). This is a float if a
+        single source and single detector are requested. If a single source is
+        requested, but multiple detectors, then this will be a dictionary keyed
+        by detector prefix. If multiple sources are requested, then this will
+        be a dictionary keyed on source name.
     """
 
-    # get results
-    resdata = read_in_result_wrapper(res)
-
-    post = resdata.posterior
-    prior = resdata.priors
-
-    hetdata = MultiHeterodynedData(het, par=par)
-
-    if hetdata.pars[0] is None:
-        raise ValueError("No pulsar parameter file is given")
-
-    # store copy of pulsar parameter file
-    par = deepcopy(hetdata.pars[0])
-
-    # get index of required sample
-    if which.lower() == "likelihood":
-        idx = post.log_likelihood.argmax()
-    elif which.lower() == "posterior":
-        idx = (post.log_likelihood + post.log_prior).argmax()
+    # get posterior results files
+    if isinstance(res, (str, Path)):
+        if Path(res).is_dir():
+            resfiles = find_results_files(res)
+        else:
+            resfiles = {"dummyname": {"dummydet": res}}
+    elif isinstance(res, Result):
+        resfiles = {"dummyname": {"dummydet": res}}
     else:
-        raise ValueError("'which' must be 'posterior' or 'likelihood'")
+        raise TypeError("res should be a file/directory path or Result object")
 
-    # update parameter file with signal values
-    for key in prior:
-        par[key.upper()] = post[key].iloc[idx]
+    # get heterodyned data files
+    if isinstance(het, (str, Path)):
+        if Path(het).is_dir():
+            hetfiles = find_heterodyned_files(het)
 
-    # get snr
-    snr = hetdata.signal_snr(par)
+            if len(hetfiles) == 0:
+                raise ValueError(f"No heterodyned files could be found in {het}")
 
-    return snr
+            # check for consistent sources
+            if "dummyname" not in resfiles:
+                respsrs = set(resfiles.keys())
+                hetpsrs = (
+                    set(hetfiles[0].keys())
+                    if isinstance(hetfiles, tuple)
+                    else set(hetfiles.keys())
+                )
+
+                if not respsrs.issubset(hetpsrs):
+                    raise RuntimeError(
+                        "Heterodyned data files are not present for all required sources"
+                    )
+        else:
+            hetfiles = {"dummyname": {"dummydet": het}}
+    elif isinstance(het, (HeterodynedData, MultiHeterodynedData, dict)):
+        hetfiles = {"dummyname": {"dummydet": het}}
+    else:
+        raise TypeError("het should be a file/directory path or HeterodynedData object")
+
+    # get par files
+    if isinstance(par, (str, Path)):
+        if Path(par).is_dir():
+            parfiles = {
+                get_psr_name(PulsarParameters(pf)): pf for pf in Path(par).glob("*.par")
+            }
+            for pname in parfiles:
+                if pname not in resfiles:
+                    parfiles[pname] = None
+    else:
+        parfiles = {psr: par for psr in resfiles}
+
+    snrs = {}
+
+    for psr in resfiles:
+        # get results
+        if "dummydet" in resfiles[psr]:
+            resdata = {"dummydet": read_in_result_wrapper(resfiles[psr]["dummydet"])}
+            inddets = ["dummydet"]
+            muldets = []
+        else:
+            dets = list(resfiles[psr].keys()) if det is None else [det]
+            resdata = {d: read_in_result_wrapper(resfiles[psr][d]) for d in dets}
+
+            # get individual detectors and multi-detectors (assuming two-character detector strings)
+            inddets = [d for d in dets if len(d) == 2]
+            muldets = [
+                re.findall("..", d) for d in dets if len(d) > 3 and not len(d) % 2
+            ]
+
+            if len(muldets) > 0:
+                for d in set([d for dl in muldets for d in dl]):
+                    if d not in inddets:
+                        inddets.append(d)
+
+                mhd = MultiHeterodynedData(
+                    par=parfiles[psr],
+                    bbminlength=np.inf,
+                    remove_outliers=remove_outliers,
+                )
+
+        if which.lower() not in ["likelihood", "posterior"]:
+            raise ValueError("which must be 'likelihood' or 'posterior'")
+
+        snrs[psr] = {}
+
+        # get individual detector SNRs
+        for d in inddets:
+            # bbminlength is inf, so no Bayesian Blocks is performed
+            mhddet = MultiHeterodynedData(
+                par=parfiles[psr], bbminlength=np.inf, remove_outliers=remove_outliers
+            )
+
+            if isinstance(hetfiles, tuple):
+                if not all([d in hf[psr] for hf in hetfiles]):
+                    # no heterodyned data available so skip
+                    continue
+
+                for hf in hetfiles:
+                    mhddet.add_data(hf[psr][d])
+
+                    if len(muldets) > 0:
+                        mhd.add_data(hf[psr][d])
+            else:
+                if isinstance(hetfiles[psr][d], (MultiHeterodynedData, dict)):
+                    for hd in hetfiles[psr][d]:
+                        if isinstance(hd, HeterodynedData):
+                            mhddet.add_data(hd)
+                        else:
+                            mhddet.add_data(hetfiles[psr][d][hd])
+                else:
+                    mhddet.add_data(hetfiles[psr][d])
+
+                    if len(muldets) > 0:
+                        mhd.add_data(hetfiles[psr][d])
+
+            if mhddet.pars[0] is None:
+                raise ValueError("No pulsar parameter file is given")
+
+            if d in resdata:
+                # get snrs for individual detectors
+                post = resdata[d].posterior
+                prior = resdata[d].priors
+
+                # store copy of pulsar parameter file
+                parc = deepcopy(mhddet.pars[0])
+
+                # get index of required sample
+                idx = (
+                    post.log_likelihood.argmax()
+                    if which.lower() == "likelihood"
+                    else (post.log_likelihood + post.log_prior).argmax()
+                )
+
+                # update parameter file with signal values
+                for key in prior:
+                    parc[key.upper()] = post[key].iloc[idx]
+
+                # get snr
+                snrs[psr][d] = mhddet.signal_snr(parc)
+
+        # get multidetector SNRs
+        for ds in muldets:
+            mhdmulti = MultiHeterodynedData(
+                par=parfiles[pname], bbminlength=np.inf, remove_outliers=remove_outliers
+            )
+
+            for d in ds:
+                for hd in mhd[d]:
+                    mhdmulti.add_data(hd)
+
+            # get snrs for individual detectors
+            post = resdata["".join(ds)].posterior
+            prior = resdata["".join(ds)].priors
+
+            # store copy of pulsar parameter file
+            parc = deepcopy(mhddet.pars[0])
+
+            # get index of required sample
+            idx = (
+                post.log_likelihood.argmax()
+                if which.lower() == "likelihood"
+                else (post.log_likelihood + post.log_prior).argmax()
+            )
+
+            # update parameter file with signal values
+            for key in prior:
+                parc[key.upper()] = post[key].iloc[idx]
+
+            # get snr
+            snrs[psr]["".join(ds)] = mhdmulti.signal_snr(parc)
+
+    if len(snrs) == 1:
+        if len(list(snrs.keys())) == 1:
+            # dictionary contains a single value
+            return [item for p in snrs for item in snrs[p].values()][0]
+        else:
+            # dictionary for different detectors
+            return snrs[list(snrs.keys())[0]]
+    else:
+        if all([len(item) == 1 for item in snrs.values()]):
+            # only a single detector per source
+            return {p: list(snrs[p].values())[0] for p in snrs}
+        else:
+            return snrs
+
+
+def find_results_files(resdir, fnamestr="cwinpy_pe"):
+    """
+    Given a directory, go through all subdirectories and check if they contain
+    results from cwinpy_pe. If they do, add them to a dictionary, keyed on the
+    subdirectory name, with a subdictionary containing the path to the results
+    for each detector. It is assumed that the file names have the format:
+    ``{fnamestr}_{det}_{dname}_result.[hdf5,json]``, where ``fnamestr``
+    defaults to ``cwinpy_pe``, ``dname`` is the directory name (assumed to be
+    the name of the source, e.g., a pulsar J-name), and ``det`` is the
+    two-character detector alias (e.g., ``H1`` for the LIGO Hanford detector),
+    or concatenation of multiple detector names if the results are from a joint
+    analysis.
+
+    Parameters
+    ----------
+    resdir: str, Path
+        The directory containing the results sub-directories.
+    fnamestr: str
+        A prefix for the results file names.
+
+    Returns
+    -------
+    rfiles: dict
+        A dictionary containing subdictionaries with all the file paths.
+    """
+
+    if not isinstance(resdir, (str, Path)):
+        raise ValueError(f"'{resdir}' must be a string or a Path object")
+
+    respath = Path(resdir)
+    if not respath.is_dir():
+        raise ValueError(f"'{resdir}' is not a directory")
+
+    # iterate through directories
+    resfiles = {}
+
+    for rd in respath.iterdir():
+        if rd.is_dir():
+            dname = rd.name
+
+            # check directory contains results objects
+            for ext in ["hdf5", "json"]:
+                fnamematch = f"{fnamestr}_*_{dname}_result.{ext}"
+                rfiles = list(rd.glob(fnamematch))
+                if len(rfiles) > 0:
+                    break
+
+            if len(rfiles) > 0:
+                resfiles[dname] = {}
+
+                for rf in rfiles:
+                    # extract detector name
+                    detmatch = re.search(f"{fnamestr}_(.*?)_{dname}", str(rf))
+                    if detmatch is None:
+                        raise RuntimeError(
+                            f"{rd} contains incorrectly named results file '{rf}'"
+                        )
+
+                    # set files
+                    resfiles[dname][detmatch.group(1)] = rf.resolve()
+
+    return resfiles
+
+
+def find_heterodyned_files(hetdir, ext="hdf5"):
+    """
+    Given a directory, find the heterodyned data files and sort them into a
+    dictionary keyed on the source name with each value being a sub-dictionary
+    keyed by detector name and pointing to the heterodyned file. This assumes
+    that files are in a format where they start with:
+    ``heterodyne_{sourcename}_{det}_{freqfactor}``. If data for more than one
+    frequency factor exists then the output will be a tuple of dictionaries for
+    each frequency factor, starting with the lowest.
+
+    Parameters
+    ----------
+    hetdir: str, Path
+        The path to the directory within which heterodyned data files will be
+        searched for.
+    ext: str
+        The expected file extension of the heterodyned data files. This
+        defaults to ``hdf5``.
+    """
+
+    if not isinstance(hetdir, (str, Path)):
+        raise TypeError("hetdir must be a string or Path object")
+
+    hetpath = Path(hetdir)
+    if not hetpath.is_dir():
+        raise ValueError(f"{hetdir} is not a directory")
+
+    # get all files with correct extension
+    allfiles = list(hetpath.rglob(f"*.{ext}"))
+
+    if len(allfiles) == 0:
+        # no files found
+        return {}
+
+    # file name format to match
+    retext = r"heterodyne_(?P<psrname>\S+)_(?P<det>\S+)_(?P<freqfactor>\S+)_"
+
+    # loop through files
+    filedict = {}
+    for hetfile in allfiles:
+        try:
+            finfo = re.match(retext, hetfile.name).groupdict()
+        except AttributeError:
+            # did not match so skip file
+            continue
+
+        if finfo["freqfactor"] not in filedict:
+            filedict[finfo["freqfactor"]] = {}
+
+        if finfo["psrname"] not in filedict[finfo["freqfactor"]]:
+            filedict[finfo["freqfactor"]][finfo["psrname"]] = {}
+
+        filedict[finfo["freqfactor"]][finfo["psrname"]][
+            finfo["det"]
+        ] = hetfile.resolve()
+
+    if len(filedict) == 0:
+        # no files found
+        return {}
+    elif len(filedict) == 1:
+        return list(filedict.values())[0]
+    else:
+        return (filedict[key] for key in sorted(filedict.keys()))
