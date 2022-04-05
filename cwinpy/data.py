@@ -3,6 +3,7 @@ Classes for dealing with data products.
 """
 
 import os
+from pathlib import Path
 from warnings import warn
 
 import cwinpy
@@ -55,27 +56,24 @@ class MultiHeterodynedData(object):
         data=None,
         times=None,
         detector=None,
-        window=30,
-        inject=False,
-        par=None,
-        injpar=None,
-        freqfactor=2.0,
-        bbthreshold="default",
-        remove_outliers=False,
-        thresh=3.5,
         **kwargs,
     ):
 
         # set keyword argument
         self._heterodyned_data_kwargs = {}
-        self._heterodyned_data_kwargs["window"] = window
-        self._heterodyned_data_kwargs["par"] = par
-        self._heterodyned_data_kwargs["injpar"] = injpar
-        self._heterodyned_data_kwargs["inject"] = inject
-        self._heterodyned_data_kwargs["freqfactor"] = freqfactor
-        self._heterodyned_data_kwargs["bbthreshold"] = bbthreshold
-        self._heterodyned_data_kwargs["remove_outliers"] = remove_outliers
-        self._heterodyned_data_kwargs["thresh"] = thresh
+        self._heterodyned_data_kwargs["window"] = kwargs.pop("window", 30)
+        self._heterodyned_data_kwargs["par"] = kwargs.pop("par", None)
+        self._heterodyned_data_kwargs["injpar"] = kwargs.pop("injpar", None)
+        self._heterodyned_data_kwargs["inject"] = kwargs.pop("inject", False)
+        self._heterodyned_data_kwargs["freqfactor"] = kwargs.pop("freqfactor", 2.0)
+        self._heterodyned_data_kwargs["bbthreshold"] = kwargs.pop(
+            "bbthreshold", "default"
+        )
+        self._heterodyned_data_kwargs["remove_outliers"] = kwargs.pop(
+            "remove_outliers", False
+        )
+        self._heterodyned_data_kwargs["thresh"] = kwargs.pop("thresh", 3.5)
+        self._heterodyned_data_kwargs.update(kwargs)
 
         self._data = dict()  # initialise empty dict
         self._currentidx = 0  # index for iterator
@@ -147,8 +145,9 @@ class MultiHeterodynedData(object):
             self._data[detname].append(data)
 
     def _add_data(self, data, detector, times=None):
-        if detector is None or data is None:
-            raise ValueError("data and detector must be set")
+        if not isinstance(data, (str, Path)):
+            if detector is None or data is None:
+                raise ValueError("data and detector must be set")
 
         het = HeterodynedData(
             data, times, detector=detector, **self._heterodyned_data_kwargs
@@ -892,7 +891,9 @@ class HeterodynedData(TimeSeriesBase):
         stds = None  # initialise standard deviations
 
         # read/parse data
-        if isinstance(data, (str, list)) and np.array(data).dtype.type == np.str_:
+        if (
+            isinstance(data, (str, list)) and np.array(data).dtype.type == np.str_
+        ) or isinstance(data, Path):
             try:
                 new = cls.read(data)
             except Exception as e:
@@ -1077,7 +1078,7 @@ class HeterodynedData(TimeSeriesBase):
         See :meth:`gwpy.timeseries.TimeSeries.read` for more information.
         """
 
-        if isinstance(source, str):
+        if isinstance(source, (str, Path)):
             datafiles = [source]
         else:
             datafiles = list(source)
@@ -1829,7 +1830,13 @@ class HeterodynedData(TimeSeriesBase):
                 freqfactor=self.freq_factor,
             )
 
-        return TimeSeriesBase(signal, times=self.times, channel=self.channel)
+        if self.outlier_mask is not None:
+            signal = signal[self.outlier_mask]
+            times = self.times[self.outlier_mask]
+        else:
+            times = self.times
+
+        return TimeSeriesBase(signal, times=times, channel=self.channel)
 
     def signal_snr(self, signalpar):
         """
