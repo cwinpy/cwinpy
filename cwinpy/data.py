@@ -21,7 +21,7 @@ from numba import jit
 from scipy.ndimage import median_filter
 
 from .parfile import PulsarParameters
-from .utils import gcd_array, get_psr_name, is_par_file, logfactorial
+from .utils import allzero, gcd_array, get_psr_name, is_par_file, logfactorial
 
 
 class MultiHeterodynedData(object):
@@ -2301,7 +2301,7 @@ class HeterodynedData(TimeSeriesBase):
 
     def _chop_data(self, data, startidx=0):
         # find change point (don't split if data is zero)
-        if np.all(self.subtract_running_median() == (0.0 + 0 * 1j)):
+        if allzero(self.subtract_running_median()):
             lratio, cpidx, ntrials = (-np.inf, 0, 1)
         else:
             lratio, cpidx, ntrials = self._find_change_point(data, self.bbminlength)
@@ -2378,9 +2378,7 @@ class HeterodynedData(TimeSeriesBase):
 
         # go through each possible splitting of the data in two
         for i in range(lsum):
-            if np.all(subdata[: minlength + i] == (0.0 + 0 * 1j)) or np.all(
-                subdata[minlength + i :] == (0.0 + 0 * 1j)
-            ):
+            if allzero(subdata[: minlength + i]) or allzero(subdata[minlength + i :]):
                 # do this to avoid warnings about np.log(0.0)
                 logdouble[i] = -np.inf
             else:
