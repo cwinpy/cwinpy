@@ -18,6 +18,7 @@ from gwpy.segments import SegmentList
 from gwpy.timeseries import TimeSeries, TimeSeriesBase
 from gwpy.types import Series
 from numba import jit
+from scipy.ndimage import median_filter
 
 from .parfile import PulsarParameters
 from .utils import gcd_array, get_psr_name, is_par_file, logfactorial
@@ -1425,21 +1426,13 @@ class HeterodynedData(TimeSeriesBase):
         self.running_median = TimeSeriesBase(
             np.zeros(len(self), dtype=complex), times=self.times
         )
-        if N > 0:
-            for i in range(len(self)):
-                if i < N // 2:
-                    startidx = 0
-                    endidx = i + (N // 2) + 1
-                elif i > len(self) - N:
-                    startidx = i - (N // 2) + 1
-                    endidx = len(self)
-                else:
-                    startidx = i - (N // 2) + 1
-                    endidx = i + (N // 2) + 1
 
-                self._running_median[i] = np.median(
-                    self.data.real[startidx:endidx]
-                ) + 1j * np.median(self.data.imag[startidx:endidx])
+        median_filter(
+            self.data.real, size=N, output=self._running_median.real, mode="mirror"
+        )
+        median_filter(
+            self.data.imag, size=N, output=self._running_median.imag, mode="mirror"
+        )
 
         return self.running_median
 
