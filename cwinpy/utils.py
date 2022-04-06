@@ -95,6 +95,28 @@ def logfactorial(n):
     return gammaln(n + 1)
 
 
+@jit(nopython=True)
+def allzero(array):
+    """
+    Check if an array is all zeros. See https://stackoverflow.com/a/53474543/1862861.
+
+    Parameters
+    ----------
+    array: array_like
+        A :class:`numpy.ndarray` to check.
+
+    Returns
+    -------
+    bool:
+        True if all zero, False otherwise.
+    """
+
+    for x in array.flat:
+        if x:
+            return False
+    return True
+
+
 def gcd_array(denominators):
     """
     Function to calculate the greatest common divisor of a list of values.
