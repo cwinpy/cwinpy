@@ -1046,7 +1046,7 @@ PHI0     2.4
             np.concatenate(
                 (
                     data.real[len(data) // 2 :],
-                    data.real[len(data) // 2 + 1 :],
+                    data.real[len(data) // 2 : -1],
                 )
             )
         )
@@ -1054,7 +1054,7 @@ PHI0     2.4
             np.concatenate(
                 (
                     data.imag[len(data) // 2 :],
-                    data.imag[len(data) // 2 + 1 :],
+                    data.imag[len(data) // 2 : -1],
                 )
             )
         )
