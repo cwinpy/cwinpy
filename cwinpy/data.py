@@ -1503,7 +1503,7 @@ class HeterodynedData(TimeSeriesBase):
             if self._vars is None:
                 return None
             else:
-                return np.sqrt(self._vars)
+                return np.sqrt(self.vars)
         except AttributeError:
             return None
 
@@ -1824,13 +1824,7 @@ class HeterodynedData(TimeSeriesBase):
                 freqfactor=self.freq_factor,
             )
 
-        if self.outlier_mask is not None:
-            signal = signal[self.outlier_mask]
-            times = self.times[self.outlier_mask]
-        else:
-            times = self.times
-
-        return TimeSeriesBase(signal, times=times, channel=self.channel)
+        return TimeSeriesBase(signal, times=self.times, channel=self.channel)
 
     def signal_snr(self, signalpar):
         """
