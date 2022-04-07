@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 from bilby.core.result import Result, read_in_result
+from matplotlib import pyplot as plt
 
 from .data import HeterodynedData, MultiHeterodynedData
 from .parfile import PulsarParameters
@@ -532,3 +533,146 @@ def find_heterodyned_files(hetdir, ext="hdf5"):
         return list(filedict.values())[0]
     else:
         return (filedict[key] for key in sorted(filedict.keys()))
+
+
+def plot_snr_vs_odds(S, R, **kwargs):
+    """
+    Plot the signal-to-noise ratio for a set of sources versus their Bayesian
+    odds. The inputs can either be a dictionary of SNRs, keyed on source name,
+    and a dictionary of odds values, also keyed on source name, or it can be a
+    directory path containing a set of cwinpy_pe parameter estimation results
+    and a directory containing heterodyned data. In the later case, the
+    :func:`cwinpy.peutils.optimal_snr` and :func:`cwinpy.peutils.results_odds`
+    functions will be used to calculate the respective values.
+
+    Parameters
+    ----------
+    S: str, Path, dict
+        A dictionary of signal-to-noise ratios, or a path to a directory
+        containing heterodyned data files for a set of sources.
+    R: str, Path, dict
+        A dictionary of odds values, or a path to a directory containing
+        parameter estimation results for a set of sources.
+    oddstype: str
+        The type of odds (``"svn"`` or ``"cvi"``, see
+        :func:`~cwinpy.peutils.results_odds`) for calculating the odds and/or
+        using on the figure axis label.
+    scale: str
+        The scale for the odds (``"log10"`` or ``"ln"``, see
+        :func:`~cwinpy.peutils.results_odds`) for calculating the odds and/or
+        using on the figure axis label.
+    which: str
+        Whether to calculate SNRs using the maximum a-posterior value or
+        maximum likelihood value (see
+        :func:`~cwinpy.peutils.optimal_snr`).
+    remove_outliers: bool
+        Whether to remove outliers before calculating SNRs (see
+        :func:`~cwinpy.peutils.optimal_snr`).
+    det: str
+        The detector for which to calculate the SNRs (see
+        :func:`~cwinpy.peutils.optimal_snr`).
+    fig: Figure
+        A :class:`~matplotlib.figure.Figure` object on which to overplot the
+        results.
+    xaxis: str
+        Set whether to plot the ``"odds"`` or ``"snr"`` on the x-axis. Defaults
+        to ``"snr"``.
+    scatterc: str
+        Set whether to use the ``"odds"`` or ``"snr"`` to set the plot marker
+        colour. Default is None.
+    """
+
+    if isinstance(S, (str, Path)) and isinstance(R, (str, Path)):
+        # calculate SNRs and odds values
+        try:
+            snrs = optimal_snr(
+                R,
+                S,
+                which=kwargs.pop("which", "posterior"),
+                remove_outliers=kwargs.pop("remove_outliers", False),
+                det=kwargs.pop("det", None),
+            )
+        except (ValueError, TypeError):
+            raise ValueError("Could not calculate the SNRs")
+
+        try:
+            scale = kwargs.pop("scale", "log10")
+            oddstype = kwargs.pop("oddstype", "svn")
+
+            logodds = results_odds(
+                R,
+                scale=scale,
+                oddstype=oddstype,
+            )
+        except (ValueError, TypeError, RuntimeError):
+            raise ValueError("Could not calculate the odds")
+    else:
+        scale = kwargs.pop("scale", "log10")
+        oddstype = kwargs.pop("oddstype", "svn")
+
+        snrs = S
+        logodds = R
+
+    if not isinstance(snrs, dict) or not isinstance(logodds, dict):
+        raise TypeError("Inputs must be dictionaries or paths")
+
+    # check dictionaries contain consistent sources
+    sset = set(list(snrs.keys()))
+    rset = set(list(logodds.keys()))
+
+    if not sset.issubset(rset) and not rset.issubset(sset):
+        raise ValueError("SNRs and odds must contain consistent sources")
+
+    pset = sset if sset.issubset(rset) else rset
+    snrsp = [snrs[p] for p in pset]
+    lop = [logodds[p] for p in pset]
+
+    fig = kwargs.pop("fig", None)
+
+    if fig is None:
+        figkwargs = {}
+        if "figsize" in kwargs:
+            figkwargs["figsize"] = kwargs.pop("figsize")
+        if "dpi" in kwargs:
+            figkwargs["dpi"] = kwargs.pop("dpi")
+        fig, ax = plt.subplots(**figkwargs)
+    else:
+        ax = fig.gca()
+
+    # create plot
+    scatterc = kwargs.pop("scatterc", None)
+    if scatterc == "odds":
+        scattercvals = snrsp
+    elif scatterc == "snr":
+        scattercvals = lop
+    else:
+        scattercvals = None
+
+    oddsscalelabel = r"\log{}_{10}" if scale == "log10" else r"\ln{}"
+
+    # x and y axes scales
+    xscale = kwargs.pop("xscale", "linear")
+    yscale = kwargs.pop("yscale", "linear")
+
+    if kwargs.pop("xaxis", "snr") == "odds":
+        xvals = lop
+        yvals = snrsp
+
+        xlabel = rf"${oddsscalelabel}\mathcal{{O}}_{{\rm {oddstype}}}$"
+        ylabel = r"$\rho$"
+    else:
+        xvals = snrsp
+        yvals = lop
+
+        ylabel = rf"${oddsscalelabel}\mathcal{{O}}_{{\rm {oddstype}}}$"
+        xlabel = r"$\rho$"
+
+    ax.scatter(xvals, yvals, c=scattercvals, **kwargs)
+    ax.set_xscale(xscale)
+    ax.set_yscale(yscale)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+
+    fig.tight_layout()
+
+    return fig
