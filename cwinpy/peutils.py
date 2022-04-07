@@ -348,9 +348,9 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
 
                 # get index of required sample
                 idx = (
-                    post.log_likelihood.argmax()
+                    post.log_likelihood.idxmax()
                     if which.lower() == "likelihood"
-                    else (post.log_likelihood + post.log_prior).argmax()
+                    else (post.log_likelihood + post.log_prior).idxmax()
                 )
 
                 # update parameter file with signal values
