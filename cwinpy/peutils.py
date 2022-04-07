@@ -360,7 +360,7 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
         # get multidetector SNRs
         for ds in muldets:
             mhdmulti = MultiHeterodynedData(
-                par=parfiles[pname], bbminlength=np.inf, remove_outliers=remove_outliers
+                par=parfiles[psr], bbminlength=np.inf, remove_outliers=remove_outliers
             )
 
             for d in ds:
