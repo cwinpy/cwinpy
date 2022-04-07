@@ -658,17 +658,25 @@ class MuteStream(object):
     """
 
     def __init__(self, stream=None):
-        self.origstream = sys.stderr if stream is None else stream
-        self.origstreamfd = self.origstream.fileno()
-        # Create a pipe so the stream can be captured:
-        self.pipe_out, self.pipe_in = os.pipe()
+        # don't do this if in a Jupyter notebook as it doesn't work due to how
+        # the notebook captures outputs (the check for whether in a notebook is
+        # from https://stackoverflow.com/a/37661854/1862861)
+        self.in_notebook = "ipykernel" in sys.modules
+
+        if not self.in_notebook:
+            self.origstream = sys.stderr if stream is None else stream
+            self.origstreamfd = self.origstream.fileno()
+            # Create a pipe so the stream can be captured:
+            self.pipe_out, self.pipe_in = os.pipe()
 
     def __enter__(self):
-        self.start()
+        if not self.in_notebook:
+            self.start()
         return self
 
     def __exit__(self, type, value, traceback):
-        self.stop()
+        if not self.in_notebook:
+            self.stop()
 
     def start(self):
         """
