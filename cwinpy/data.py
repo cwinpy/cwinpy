@@ -1335,7 +1335,7 @@ class HeterodynedData(TimeSeriesBase):
         if par is not None:
             if isinstance(par, PulsarParameters):
                 return par
-            elif isinstance(par, str):
+            elif isinstance(par, (str, Path)):
                 if is_par_file(par):
                     newpar = PulsarParameters(par)
                 else:
