@@ -56,11 +56,11 @@ class TestPEUtils:
         hf = find_heterodyned_files(self.hetdir)
 
         # check dictionary is keyed to pulsar names
-        assert list(hf.keys()) == self.pnames
+        assert sorted(hf.keys()) == sorted(self.pnames)
 
         for k in hf.keys():
             # check subdictionaries are keyed on detector names
-            assert list(hf[k].keys()) == self.dets[:2]
+            assert sorted(hf[k].keys()) == sorted(self.dets[:2])
 
             for d in hf[k]:
                 # check each file is a path
