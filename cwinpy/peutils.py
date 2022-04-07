@@ -76,6 +76,8 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
             if respath.is_file():
                 result = read_in_result_wrapper(results)
                 log10odds = result.log_10_evidence - result.log_10_noise_evidence
+
+                return log10odds if scale == "log10" else log10odds / np.log10(np.e)
             elif respath.is_dir():
                 resfiles = find_results_files(
                     respath, fnamestr=kwargs.get("fnamestr", "cwinpy_pe")
@@ -430,7 +432,7 @@ def find_results_files(resdir, fnamestr="cwinpy_pe"):
     """
 
     if not isinstance(resdir, (str, Path)):
-        raise ValueError(f"'{resdir}' must be a string or a Path object")
+        raise TypeError(f"'{resdir}' must be a string or a Path object")
 
     respath = Path(resdir)
     if not respath.is_dir():
