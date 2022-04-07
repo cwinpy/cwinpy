@@ -48,7 +48,7 @@ class TestHeterodynedData(object):
             HeterodynedData(brokenfile)
 
         # run through MultiHeterodynedData
-        with pytest.raises(ValueError):
+        with pytest.raises(IOError):
             MultiHeterodynedData(brokenfile)
 
         with pytest.raises(IOError):
