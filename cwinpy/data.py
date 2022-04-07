@@ -1427,12 +1427,13 @@ class HeterodynedData(TimeSeriesBase):
             np.zeros(len(self), dtype=complex), times=self.times
         )
 
-        median_filter(
-            self.data.real, size=N, output=self._running_median.real, mode="mirror"
-        )
-        median_filter(
-            self.data.imag, size=N, output=self._running_median.imag, mode="mirror"
-        )
+        if N > 0:
+            median_filter(
+                self.data.real, size=N, output=self._running_median.real, mode="mirror"
+            )
+            median_filter(
+                self.data.imag, size=N, output=self._running_median.imag, mode="mirror"
+            )
 
         return self.running_median
 
