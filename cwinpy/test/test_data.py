@@ -1008,9 +1008,9 @@ PHI0     2.4
         """
 
         # set data
-        times = np.linspace(1000000000.0, 1000001740, 30)
-        data = np.random.normal(0.0, 1e-25, size=30) + 1j * np.random.normal(
-            0.0, 1e-25, size=30
+        times = np.linspace(1000000000.0, 1000001740, 31)
+        data = np.random.normal(0.0, 1e-25, size=31) + 1j * np.random.normal(
+            0.0, 1e-25, size=31
         )
 
         window = 1  # window is too short
@@ -1021,23 +1021,65 @@ PHI0     2.4
         with pytest.raises(TypeError):
             het = HeterodynedData(data, times=times, window=window)
 
-        window = 30
+        window = 31
 
         het = HeterodynedData(data, times=times, window=window)
 
         assert len(het.running_median) == len(het)
-        assert het.running_median.real[0] == np.median(data.real[: (window // 2) + 1])
-        assert het.running_median.imag[0] == np.median(data.imag[: (window // 2) + 1])
-        assert het.running_median.real[len(data) // 2 - 1] == np.median(data.real)
-        assert het.running_median.imag[len(data) // 2 - 1] == np.median(data.imag)
-        assert het.running_median.real[-1] == np.median(data.real[-(window // 2) :])
-        assert het.running_median.imag[-1] == np.median(data.imag[-(window // 2) :])
+
+        # running median applies "mirror" to points at either end
+        assert het.running_median.real[0] == np.median(
+            np.concatenate(
+                (data.real[: len(data) // 2 + 1], data.real[len(data) // 2 : 0 : -1])
+            )
+        )
+        assert het.running_median.imag[0] == np.median(
+            np.concatenate(
+                (data.imag[: len(data) // 2 + 1], data.imag[len(data) // 2 : 0 : -1])
+            )
+        )
+
+        assert het.running_median.real[len(data) // 2] == np.median(data.real)
+        assert het.running_median.imag[len(data) // 2] == np.median(data.imag)
+
+        assert het.running_median.real[-1] == np.median(
+            np.concatenate(
+                (
+                    data.real[len(data) // 2 :],
+                    data.real[-len(data) // 2 : len(data) // 2 - 1 : -1],
+                )
+            )
+        )
+        assert het.running_median.imag[-1] == np.median(
+            np.concatenate(
+                (
+                    data.imag[len(data) // 2 :],
+                    data.imag[-len(data) // 2 : len(data) // 2 - 1 : -1],
+                )
+            )
+        )
+
         assert len(het.subtract_running_median()) == len(het)
         assert het.subtract_running_median()[0] == (
             data[0]
             - (
-                np.median(data.real[: (window // 2) + 1])
-                + 1j * np.median(data.imag[: (window // 2) + 1])
+                np.median(
+                    np.concatenate(
+                        (
+                            data.real[: len(data) // 2 + 1],
+                            data.real[len(data) // 2 : 0 : -1],
+                        )
+                    )
+                )
+                + 1j
+                * np.median(
+                    np.concatenate(
+                        (
+                            data.imag[: len(data) // 2 + 1],
+                            data.imag[len(data) // 2 : 0 : -1],
+                        )
+                    )
+                )
             )
         )
 
