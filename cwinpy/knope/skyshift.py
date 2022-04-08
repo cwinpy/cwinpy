@@ -202,6 +202,7 @@ def skyshift_pipeline(**kwargs):
         optional.add_argument(
             "--pulsar",
             help=("The path to a TEMPO(2)-style pulsar parameter file to heterodyne."),
+            default=None,
         )
         optional.add_argument(
             "--osg",
@@ -261,9 +262,6 @@ def skyshift_pipeline(**kwargs):
         args = parser.parse_args()
         if args.config is not None:
             pulsar = kwargs.get("pulsar", args.pulsar)
-
-            if pulsar is None:
-                raise ValueError("No pulsar parameter file has be provided")
 
             hetconfigfile = args.config
             peconfigfile = args.config
