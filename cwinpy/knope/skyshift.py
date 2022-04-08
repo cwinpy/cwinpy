@@ -873,6 +873,12 @@ def skyshift_results(
                     prob = 1 - dfunc.cdf(trueodds[2] + gammashift, *fg)[0]
 
             if (kde or dist) and plot.lower() in ["invcdf", "1-cdf"]:
+                if prob != 0.0:
+                    # convert to scientific notation
+                    b10e = int(np.floor(np.log10(prob)))
+                    b10m = prob / 10**b10e
+                    prob = rf"${b10m:.1f}\!\times\!10^{{{b10e}}}$"
+
                 # add text with probability
                 ax.text(
                     0.35,
