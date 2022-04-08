@@ -532,12 +532,16 @@ def skyshift_pipeline(**kwargs):
         ]
     )
 
+    if not hetconfig.has_section("heterodyne_dag"):
+        hetconfig["heterodyne_dag"] = {}
+
+    if not peconfig.has_section("pe_dag"):
+        peconfig["pe_dag"] = {}
+
     # make sure "file transfer" is consistent with heterodyne value
     if hetconfig.getboolean(
         "heterodyne_dag", "transfer_files", fallback=True
     ) != hetconfig.getboolean("pe_dag", "transfer_files", fallback=True):
-        if not peconfig.has_section("pe_dag"):
-            peconfig["pe_dag"] = {}
         peconfig["pe_dag"]["transfer_files"] = hetconfig.get(
             "heterodyne_dag", "transfer_files", fallback="True"
         )
