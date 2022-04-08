@@ -546,15 +546,21 @@ def skyshift_pipeline(**kwargs):
             "heterodyne_dag", "transfer_files", fallback="True"
         )
 
-    # set accounting group information
-    accgroup = hetconfig.get("knope_job", "accounting_group", fallback=None)
-    accuser = hetconfig.get("knope_job", "accounting_group_user", fallback=None)
-    if accgroup is not None:
-        hetconfig["heterodyne_job"]["accounting_group"] = accgroup
-        peconfig["pe_job"]["accounting_group"] = accgroup
-    if accuser is not None:
-        hetconfig["heterodyne_job"]["accounting_group_user"] = accuser
-        peconfig["pe_job"]["accounting_group_user"] = accuser
+    # make sure accounting group information is set for all sections
+    sections = ["knope_job", "heterodyne_job", "pe_job"]
+    for section in sections:
+        accgroup = hetconfig.get(section, "accounting_group", fallback=None)
+        if accgroup is not None:
+            hetconfig["heterodyne_job"]["accounting_group"] = accgroup
+            peconfig["pe_job"]["accounting_group"] = accgroup
+            break
+
+    for section in sections:
+        accuser = hetconfig.get(section, "accounting_group_user", fallback=None)
+        if accuser is not None:
+            hetconfig["heterodyne_job"]["accounting_group_user"] = accuser
+            peconfig["pe_job"]["accounting_group_user"] = accuser
+            break
 
     # set dag name
     peconfig["pe_dag"]["name"] = "cwinpy_skyshift"
