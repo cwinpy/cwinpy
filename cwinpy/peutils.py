@@ -52,6 +52,10 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
     scale: str:
         A flag saying whether the output should be in the base-10 logarithm
         ``"log10"`` (the default), or the natural logarithm ``"ln"``.
+    det: str
+        If passing a directory to ``results`` and wanting the ``"svn"`` odds
+        for a particular detector within that directory, then that can be
+        specified.
 
     Returns
     -------
@@ -93,22 +97,27 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
 
         for pname, resultd in resfiles.items():
             # list of detectors
-            dets = [det for det in resultd if len(det) == 2]
-
-            if len(dets) == len(resultd) and len(resultd) > 1:
-                raise RuntimeError("No 'coherent' multi-detector result is given")
-
-            # get the key that contains the coherent multi-detector results
-            coherentname = [
-                ("".join(detperm)).lower() for detperm in permutations(dets)
-            ]
-            coherentname.extend(["joint", "coherent"])
-
-            for key in resultd:
-                if key.lower() in coherentname:
-                    break
+            if oddstype == "svn" and "det" in kwargs:
+                key = kwargs.pop("det")
+                if key not in resultd:
+                    raise KeyError(f"{key} not in {list(resultd.keys())}")
             else:
-                raise KeyError("No 'coherent' multi-detector result is given")
+                dets = [det for det in resultd if len(det) == 2]
+
+                if len(dets) == len(resultd) and len(resultd) > 1:
+                    raise RuntimeError("No 'coherent' multi-detector result is given")
+
+                # get the key that contains the coherent multi-detector results
+                coherentname = [
+                    ("".join(detperm)).lower() for detperm in permutations(dets)
+                ]
+                coherentname.extend(["joint", "coherent"])
+
+                for key in resultd:
+                    if key.lower() in coherentname:
+                        break
+                else:
+                    raise KeyError("No 'coherent' multi-detector result is given")
 
             result = read_in_result_wrapper(resultd[key])
 

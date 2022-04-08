@@ -230,3 +230,12 @@ class TestPEUtils:
                 assert isinstance(lo, dict)
                 assert sorted(lo.keys()) == sorted(self.pnames)
                 assert all([isinstance(v, float) for v in lo.values()])
+
+        # get results for one detector
+        with pytest.raises(KeyError):
+            results_odds(self.resdir, oddstype="svn", det="V1")
+
+        lo = results_odds(self.resdir, oddstype="svn", det="H1")
+        assert isinstance(lo, dict)
+        assert sorted(lo.keys()) == sorted(self.pnames)
+        assert all([isinstance(v, float) for v in lo.values()])
