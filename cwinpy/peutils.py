@@ -580,8 +580,8 @@ def plot_snr_vs_odds(S, R, **kwargs):
     det: str
         The detector for which to calculate the SNRs (see
         :func:`~cwinpy.peutils.optimal_snr`).
-    fig: Figure
-        A :class:`~matplotlib.figure.Figure` object on which to overplot the
+    ax: Axes
+        A :class:`~matplotlib.axes.Axes` object on which to overplot the
         results.
     xaxis: str
         Set whether to plot the ``"odds"`` or ``"snr"`` on the x-axis. Defaults
@@ -589,6 +589,16 @@ def plot_snr_vs_odds(S, R, **kwargs):
     scatterc: str
         Set whether to use the ``"odds"`` or ``"snr"`` to set the plot marker
         colour. Default is None.
+    plotsources: str, list
+        A name, or list of names, of the sources to include on the plot. If not
+        give then all sources will be plotted.
+
+    Returns
+    -------
+    fig:
+        The :class:`~matplotlib.figure.Figure` object containing the plot.
+    ax:
+        The :class:`~matplotlib.axes.Axes` object containing the plot.
     """
 
     if isinstance(S, (str, Path)) and isinstance(R, (str, Path)):
@@ -632,13 +642,18 @@ def plot_snr_vs_odds(S, R, **kwargs):
     if not sset.issubset(rset) and not rset.issubset(sset):
         raise ValueError("SNRs and odds must contain consistent sources")
 
+    # get sources to include
+    psources = kwargs.pop("plotsources", [])
+    if isinstance(psources, str):
+        psources = [psources]
+
     pset = sset if sset.issubset(rset) else rset
-    snrsp = [snrs[p] for p in pset]
-    lop = [logodds[p] for p in pset]
+    snrsp = [snrs[p] for p in pset if p in psources or len(psources) == 0]
+    lop = [logodds[p] for p in pset if p in psources or len(psources) == 0]
 
-    fig = kwargs.pop("fig", None)
+    ax = kwargs.pop("ax", None)
 
-    if fig is None:
+    if ax is None:
         figkwargs = {}
         if "figsize" in kwargs:
             figkwargs["figsize"] = kwargs.pop("figsize")
@@ -646,7 +661,7 @@ def plot_snr_vs_odds(S, R, **kwargs):
             figkwargs["dpi"] = kwargs.pop("dpi")
         fig, ax = plt.subplots(**figkwargs)
     else:
-        ax = fig.gca()
+        fig = plt.gcf()
 
     # create plot
     scatterc = kwargs.pop("scatterc", None)
@@ -684,4 +699,4 @@ def plot_snr_vs_odds(S, R, **kwargs):
 
     fig.tight_layout()
 
-    return fig
+    return fig, ax
