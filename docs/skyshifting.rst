@@ -85,26 +85,154 @@ Using the default settings, the pipeline will generate the following directory t
     |    └── ...
     └── submit             # directory containing the HTCondor DAG file and submit files
 
-Example
-=======
+Example: hardware injection
+===========================
 
 An easy way to test the sky-shifting analysis is by looking at one of the hardware injection
-signals. The ``cwinpy_skyshift_pipeline`` script below set up the analysis to run on O1 data for the
-``PULSAR03`` injection with 500 sky-shifts. By default this will run with both the LIGO detectors,
-H1 and L1, with parameter estimation performed both coherently with both detectors and on each of
-the individual detectors.
+signals. The ``cwinpy_skyshift_pipeline`` script below sets up the analysis to run on O1 data for
+the ``PULSAR03`` injection with 500 sky-shifts. By default this will run with both the LIGO
+detectors, H1 and L1, with parameter estimation performed both coherently with both detectors and on
+each of the individual detectors.
 
 .. code-block:: bash
 
    cwinpy_skyshift_pipeline --run O1 --pulsar PULSAR03 --nshifts 500 --accounting-group-tag aluk.dev.o1.cw.targeted.bayesian
 
+The above line automatically launches the HTCondor jobs that run the analysis.
+
 .. note::
 
-   After the pipeline completes, there will be many "resume" file that can take up a lot of space. It is worth moving into the ``results`` directory and deleting these, e.g.:
+   After the pipeline completes, there will be many "resume" file that can take up a lot of space.
+   It is worth moving into the ``results`` directory and deleting these, e.g.:
 
    .. code-block::
 
       rm */*.pickle
+
+Spectra and parameter estimation
+--------------------------------
+
+To show that the sky-shifting truly does decohere any signal, we can look at spectra and the final
+parameter estimation for the un-shifted result compared to a sky-shifted result. The spectra can be
+plotted (from the ``skyshift`` directory) with:
+
+.. code-block:: python
+
+   import os
+   import lal
+   from cwinpy import HeterodynedData
+   from matplotlib import pyplot as plt
+
+   hetdir = "stage2"
+
+   dets = ["H1", "L1"]
+   times = {"H1": "1129136736-1137253524", "L1": "1126164689-1137250767"}
+
+   onsource = "JPULSAR03"
+   offsource = "JPULSAR03A"
+
+   fig, ax = plt.subplots(1, 2, figsize=(9, 5))
+
+   for i, det in enumerate(dets):
+       # on source heterodyned data
+       ondata = HeterodynedData.read(os.path.join(hetdir, det, f"heterodyne_{onsource}_{det}_2_{times[det]}.hdf5"))
+       ondata.power_spectrum(remove_outliers=True, dt=int(lal.DAYSID_SI * 10), label="on-source", lw=2, color="k", ax=ax[i])
+
+       # off-source (sky-shifted) data
+       offdata = HeterodynedData.read(os.path.join(hetdir, det, f"heterodyne_{offsource}_{det}_2_{times[det]}.hdf5"))
+       offdata.power_spectrum(remove_outliers=True, dt=int(lal.DAYSID_SI * 10), label="off-source", alpha=0.8, ls="--", ax=ax[i])
+
+       ax[i].set_title(f"{det}")
+       ax[i].legend(loc="upper right")
+
+   fig.tight_layout()
+   fig.savefig(f"skyshift_hwinj_spectrum.png", dpi=200)
+
+.. thumbnail:: skyshifting/skyshift_hwinj_spectrum.png
+   :width: 600px
+   :align: center
+
+It is obvious from these that the strong hardware injection signal has been wiped out as a result of
+heterodyning using the wrong sky position.
+
+The posterior probability distributions on the signal parameters, for the joint H1 and L1 analysis,
+can be plotted with:
+
+.. code-block:: python
+
+   import os
+
+   from cwinpy.info import HW_INJ
+   from cwinpy.plot import Plot
+
+   resdir = "results"
+
+   onsource = "JPULSAR03"
+   offsource = "JPULSAR03A"
+   pulnum = 3
+
+   for title, pulsar in zip(["on-source", "off-source"], [onsource, offsource]):
+       resfile = os.path.join(resdir, pulsar, f"cwinpy_pe_H1L1_{pulsar}_result.hdf5")
+
+       p = Plot(
+           resfile,
+           parameters=["h0", "iota", "phi0", "psi"],
+           plottype="corner",
+           pulsar=(HW_INJ["O1"]["hw_inj_files"][pulnum] if pulsar == "JPULSAR03" else None),
+       )
+
+       fig = p.plot()
+       p.fig.suptitle(f"{title}")
+       p.save(f"{pulsar}_H1L1_plot.png", dpi=200)
+       p.fig.close()
+
+.. thumbnail:: skyshifting/JPULSAR03_H1L1_plot.png
+   :width: 275px
+   :align: left
+   :group: injection
+
+.. thumbnail:: skyshifting/JPULSAR03A_H1L1_plot.png
+   :width: 275px
+   :align: right
+   :group: injection
+
+where the left image shows the "on-source" posteriors and the right the "off-source" (aka
+sky-shifted) posteriors.
+
+Example: analysis outlier
+=========================
+
+In the search for gravitational-wave signals from pulsars using LIGO O1 data [6]_, the coherent
+versus incoherent signal odds for pulsar J1932+17 was an outlier when compared to these for the rest
+of the pulsars in the search sample. The sky-shifting method can be used to see assess the
+significance of the outlier. In this case, as in [3]_, a log-uniform prior will be used on the
+gravitational-wave amplitude :math:`h_0`, and therefore a configuration file must be used to set up
+the ``cwinpy_skyshift_pipeline`` rather than just using the "quick setup" options. The following
+configuration file, called ``outlier.ini``, is used to run on O1 data for both LIGO detectors:
+
+.. literalinclude:: skyshifting/exampleconfig.ini
+
+which points to a ``prior.txt`` file containing:
+
+.. literalinclude:: skyshifting/prior.txt
+
+and a pulsar parameter file, as used by the O1 analysis based on observations from the `Jodrell Bank
+Observatory <https://www.jodrellbank.manchester.ac.uk/research/groups/pulsars/>`__, containing:
+
+.. literalinclude:: skyshifting/J1932+17.par
+
+The analysis was the set up to run 500 sky-shifts with:
+
+.. code-block:: bash
+
+   cwinpy_skyshift_pipeline --nshifts 500 outlier.ini
+
+When using a configuration file the HTCondor jobs do not get automatically submitted unless
+specified in the file. Therefore, in this case the jobs were subsequently submitted using:
+
+.. code-block:: bash
+
+   condor_submit_dag submit/cwinpy_skyshift.dag
 
 Sky-shifting references
 =======================
@@ -123,3 +251,6 @@ Sky-shifting references
 
 .. [5] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
     <https://arxiv.org/abs/1705.08978v1>`_ (2017).
+
+.. [6] `B. P. Abbott *et al* <https://ui.adsabs.harvard.edu/abs/2017ApJ...839...12A/abstract>`_,
+    *ApJ*, **839**, 12 (2017).

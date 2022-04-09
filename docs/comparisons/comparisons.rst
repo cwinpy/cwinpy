@@ -291,157 +291,157 @@ To compare the final parameter estimation between the ``lalapps_knope`` and
 which produces the following plots:
 
 .. thumbnail:: JPULSAR00_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR00_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR01_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR01_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR02_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR02_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR03_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR03_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR04_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR04_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR05_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR05_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR06_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR06_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR07_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR07_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR08_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR08_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR09_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR09_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR10_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR10_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR11_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR11_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR12_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR12_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR13_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR13_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR14_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR14_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 These show very consistent posteriors produced by both codes, which extract the parameters as
-expected. They would not be expected to be identical due to are range of differences including:
+expected. They would not be expected to be identical due to a range of differences including:
 ``lalapps_knope`` performed the heterodyne in two stages rather than the one used by
 ``cwinpy_knope_pipeline``; ``lalapps_knope`` uses a low-pass filter with knee frequency of 0.25 Hz
 rather than the default 0.1 Hz used by ``cwinpy_knope_pipeline``; the outlier vetoing for the two
