@@ -467,7 +467,8 @@ def find_results_files(resdir, fnamestr="cwinpy_pe"):
 
                 for rf in rfiles:
                     # extract detector name
-                    detmatch = re.search(f"{fnamestr}_(.*?)_{dname}", str(rf))
+                    pn = dname.replace("+", "\+")
+                    detmatch = re.search(f"{fnamestr}_(.*?)_{pn}", str(rf))
                     if detmatch is None:
                         raise RuntimeError(
                             f"{rd} contains incorrectly named results file '{rf}'"
