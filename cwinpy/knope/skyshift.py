@@ -22,7 +22,7 @@ from ..info import (
 )
 from ..parfile import PulsarParameters
 from ..pe.pe import PEDAGRunner
-from ..peutils import results_odds
+from ..pe.peutils import results_odds
 from ..utils import get_psr_name, is_par_file
 
 
@@ -686,11 +686,11 @@ def skyshift_results(
         The directory containing the parameter estimation outputs for each
         sky-shifted location.
     oddstype: str
-        The odds type used by :func:`cwinpy.peutils.results_odds`. Defaults to
-        ``"cvi"``.
+        The odds type used by :func:`~cwinpy.pe.peutils.results_odds`. Defaults
+        to ``"cvi"``.
     scale: str
-        The odds scale used by :func:`cwinpy.peutils.results_odds`. Defaults to
-        ``"log10"``.
+        The odds scale used by :func:`~cwinpy.pe.peutils.results_odds`.
+        Defaults to ``"log10"``.
     plot: str, bool
         If ``plot`` is given as ``"hist"`` a histogram of the distribution of
         sky-shifted odds values will be produced; if "invcdf", then it will
@@ -698,7 +698,7 @@ def skyshift_results(
         :func:`matplotlib.pyplot.hexbin` plot will be produced using the sky
         positions converted into a cartesian coordinate system and the maximum
         odds in each bin; if healpy is installed then the
-        :func:`healpy.newvisufunc.projview`` function will be used if any of
+        :func:`healpy.newvisufunc.projview` function will be used if any of
         the following arguments are given ``"hammer"``, ``"lambert"``,
         ``"mollweide"``, ``"cart"``, or ``"aitoff"``, which will plot the
         maximum odds in each HEALPix pixel. This defaults to ``False``, i.e.,
@@ -709,7 +709,7 @@ def skyshift_results(
     kde: bool
         If plotting a histogram plot and this is ``True``, a KDE of the
         distribution will also be added using the
-        :func:`scipy.stats.gaussian_kde` function. The probability of getting a
+        :class:`scipy.stats.gaussian_kde` function. The probability of getting a
         value greater than the true sky position's odds based on the KDE will
         be added to the plot. If the ``dist`` argument is given then the KDE
         will be ignored and the gamma distribution plotted instead.
@@ -720,8 +720,8 @@ def skyshift_results(
         If plotting the histogram (and not plotting a KDE) then a fit to that
         histogram can also be added based on the name of the distribution given
         by this argument. Currently, the value here can either be ``"gamma"``
-        (using :func:`scipy.stats.gamma`) or ``"gumbel"`` (using
-        :func:`scipy.stats.gumbel_r`), for whi a best fit of the given
+        (using :class:`scipy.stats.gamma`) or ``"gumbel"`` (using
+        :class:`scipy.stats.gumbel_r`), for whi a best fit of the given
         distribution  will be plotted. The probability of getting a value from
         that distribution greater than the true sky position's odds will be
         added to the plot.

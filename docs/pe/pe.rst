@@ -14,16 +14,17 @@ emulate, as much as possible, the functionality from the `LALSuite
 described in [1]_.
 
 There is also an API for running this analysis from within a Python shell or script as described
-:ref:`below<API>`.
+:ref:`below<Parameter estimation API>`.
 
 Running the analysis
 --------------------
 
-The ``cwinpy_pe`` executable, and :ref:`API`, can be used to perform parameter estimation over a
-variety of signal parameter both on real data or simulated data. We will cover some examples of both
-cases and show equivalent ways of running the analysis via the use of: command line arguments to the
-``cwinpy_pe`` executable, a configuration file, or the :ref:`API`. The current command line
-arguments for ``cwinpy_pe`` are given :ref:`below<pe Command line arguments>`.
+The ``cwinpy_pe`` executable, and :ref:`API<Parameter estimation API>`, can be used to perform
+parameter estimation over a variety of signal parameter both on real data or simulated data. We will
+cover some examples of both cases and show equivalent ways of running the analysis via the use of:
+command line arguments to the ``cwinpy_pe`` executable, a configuration file, or the
+:ref:`API<Parameter estimation API>`. The current command line arguments for ``cwinpy_pe`` are given
+:ref:`below<pe Command line arguments>`.
 
 Example: single detector data
 =============================
@@ -344,14 +345,20 @@ given below:
 .. literalinclude:: pe_help.txt
    :language: none
 
-API
----
+Parameter estimation API
+------------------------
 
 .. automodule:: cwinpy.pe.pe
    :members: pe, pe_pipeline
 
 .. automodule:: cwinpy.pe.testing
    :members: PEPPPlotsDAG, generate_pp_plots
+
+Parameter estimation utilities API
+----------------------------------
+
+.. automodule:: cwinpy.pe.peutils
+   :members:
 
 ``cwinpy_pe`` references
 ------------------------

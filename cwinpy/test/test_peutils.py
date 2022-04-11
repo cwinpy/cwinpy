@@ -14,7 +14,7 @@ import pathlib
 import pytest
 from bilby.core.result import read_in_result
 from cwinpy import HeterodynedData, MultiHeterodynedData
-from cwinpy.peutils import (
+from cwinpy.pe.peutils import (
     find_heterodyned_files,
     find_results_files,
     optimal_snr,

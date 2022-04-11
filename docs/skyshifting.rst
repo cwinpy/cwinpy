@@ -38,27 +38,28 @@ compared with that from the un-shifted sky location.
 The sky-shifting process works as follows:
 
 #. Perform a "coarse" heterodyne, i.e., heterodyne the data without accounting for any Doppler
-corrections and just using terms of the Taylor expansion in the frequency evolution (this is the
-first stage of the :ref:`"two-stage" heterodyne approach<Example: two stage heterodyne>`). Filter
-and downsample the data, but making sure the filter is wide enough to accommodate the Doppler
-modulation of the source.
+   corrections and just using terms of the Taylor expansion in the frequency evolution (this is the
+   first stage of the :ref:`"two-stage" heterodyne approach<Example: two stage heterodyne>`). Filter
+   and downsample the data, but making sure the filter is wide enough to accommodate the Doppler
+   modulation of the source.
 #. Randomly generate a number of new sky locations in the same ecliptic
-hemisphere as the source. For each of these new locations and the original location, perform an
-additional heterodyne of the "coarse" data (this is the second stage of the :ref:`"two-stage"
-heterodyne approach<Example: two stage heterodyne>`), using the expected Doppler modulation for that
-position.
+   hemisphere as the source. For each of these new locations and the original location, perform an
+   additional heterodyne of the "coarse" data (this is the second stage of the :ref:`"two-stage"
+   heterodyne approach<Example: two stage heterodyne>`), using the expected Doppler modulation for that
+   position.
 #. Perform :ref:`parameter estimation<Known pulsar parameter estimation>` on the
-heterodyned data for each sky location (including the original un-shifted data) and calculate the
-Bayesian odds (assuming a nested sampling algorithm has been used).
+   heterodyned data for each sky location (including the original un-shifted data) and calculate the
+   Bayesian odds (assuming a nested sampling algorithm has been used).
 #. Histogram the distribution of sky-shifted odds values and perform a kernel density estimate to
-compare that distribution to the value from the true un-shifted location.
+   compare that distribution to the value from the true un-shifted location.
 
 To make this process easy, CWInPy provides the ``cwinpy_skyshift_pipeline`` script, which sets up
 the full :ref:`known pulsar analysis pipeline<Known pulsar analysis pipeline>` for an individual
 source. This can either take some "Quick setup" command-line arguments to run on open data with some
 default settings or can take a ``cwinpy_knope_pipeline``-style :ref:`configuration
 file<Configuration file>`. It will launch a HTCondor DAG for the whole process except production of
-the odds distributions, which must be done manually (add link to function for this!).
+the odds distributions, which must be done manually using the
+:func:`~cwinpy.knope.skyshift.skyshift_results` function.
 
 Using the default settings, the pipeline will generate the following directory tree structure:
 
@@ -102,7 +103,7 @@ The above line automatically launches the HTCondor jobs that run the analysis.
 
 .. note::
 
-   After the pipeline completes, there will be many "resume" file that can take up a lot of space.
+   After the pipeline completes, there will be many "resume" files that can take up a lot of space.
    It is worth moving into the ``results`` directory and deleting these, e.g.:
 
    .. code-block::
@@ -199,6 +200,139 @@ can be plotted with:
 where the left image shows the "on-source" posteriors and the right the "off-source" (aka
 sky-shifted) posteriors.
 
+Odds distribution
+-----------------
+
+The distribution of odds values can be plotted in a variety of different ways using the
+:func:`~cwinpy.knope.skyshift.skyshift_results` function. This can either plot the distribution in
+histogram form or on ths sky (if the `healpy <https://healpy.readthedocs.io/>`__ package is
+installed more options are available). :func:`~cwinpy.knope.skyshift.skyshift_results` will
+calculate the odds using the :func:`~cwinpy.pe.peutils.results_odds` function for all the results
+produced by the sky-shift pipeline. As there are two detectors in this analysis, we can use the
+"coherent versus incoherent" odds as a way to assess the significance of the hardware injection
+signal.
+
+A histogram of the background, sky-shifted, odds, can be plotted with the odds of on-source sky
+position shown as a dashed vertical line, using (from the ``skyshift`` directory):
+
+.. code-block:: python
+
+   from cwinpy.info import HW_INJ
+   from cwinpy.knope.skyshift import skyshift_results
+
+   s, t, fig = skyshift_results(
+       "pulsars",
+       HW_INJ["O1"]["hw_inj_files"][3],  # location of parameter file for hardware injection 03
+       "results",
+       plot="hist",
+   )
+
+   fig.show()
+
+.. thumbnail:: skyshifting/oddshist1.png
+   :width: 600px
+   :align: center
+
+By default, this shows the "coherent versus incoherent" odds and uses a logarithmic scale for the
+y-axis. The ``s`` variable will hold a 3x500 array containing the right ascension, declination and
+odds for each sky-shifted source, while ``t`` will be tuple of these values for the on-source
+location. These can be passed to :func:`~cwinpy.knope.skyshift.skyshift_results` rather than using
+the results directories if wanted to make further plots.
+
+For example, we can plot the `complementary cumulative distribution function
+<https://en.wikipedia.org/wiki/Cumulative_distribution_function#Complementary_cumulative_distribution_function_(tail_distribution)>`__
+(aka the `survival function <https://en.wikipedia.org/wiki/Survival_function>`__) and include a fit
+to a `gamma distribution <https://en.wikipedia.org/wiki/Gamma_distribution>`__, with:
+
+.. code-block:: python
+
+   _, _, fig = skyshift_results(s, t, plot="invcdf", dist="gamma")
+   fig.show()
+
+.. thumbnail:: skyshifting/oddshist2.png
+   :width: 600px
+   :align: center
+
+The plot displays the probability of the background producing an odds value equal to or greater than
+that from the on-source location. In this case that probability is essentially zero. However, it is
+worth noting that the background distribution appears to diverge from a gamma distribution in the
+tail.
+
+Sky distribution
+----------------
+
+The :func:`~cwinpy.knope.skyshift.skyshift_results` function can also be used to show the
+distribution of odds values over the sky. If you do not have `healpy
+<https://healpy.readthedocs.io/>`__ installed, you can plot this using a
+:func:`matplotlib.pyplot.hexbin` plot, assuming ``s`` and ``t`` have already been produced as
+:ref:`above<Odds distribution>` with:
+
+.. code-block:: python
+
+   _, _, fig = skyshift_results(s, t, plot="hexbin")
+   fig.show()
+
+.. thumbnail:: skyshifting/skydist1.png
+   :width: 600px
+   :align: center
+
+If you have `healpy <https://healpy.readthedocs.io/>`__ installed you can plot "hammer", "lambert",
+"mollweide", "cart", or "aitoff" projection plots, e.g.,
+
+.. code-block:: python
+
+   _, _, fig = skyshift_results(s, t, plot="mollweide")
+   fig.show()
+
+.. thumbnail:: skyshifting/skydist2.png
+   :width: 600px
+   :align: center
+
+This shows how only half the sky is covered when generating the sky-shifted positions.
+
+Odds versus signal-to-noise ratio
+---------------------------------
+
+It can be useful to compare how the odds for each sky location are correlated with the recovered
+signal-to-noise ratio (SNR). This can be done using the :func:`~cwinpy.pe.peutils.plot_snr_vs_odds`
+function, which makes use of the :func:`~cwinpy.pe.peutils.optimal_snr` function. This will find the
+maximum a-posteriori, or maximum likelihood, sample from the parameter estimation for each sky
+location and calculate the optimal matched filter signal-to-noise ratio of a signal with those
+parameters. The :func:`~cwinpy.pe.peutils.plot_snr_vs_odds` can take in the heterodyned data
+directory and parameter estimation directory and compute odds and SNR itself, but below we will
+assume you use the :func:`~cwinpy.pe.peutils.results_odds` and
+:func:`~cwinpy.pe.peutils.optimal_snr` functions to given values that can be reused.
+
+.. code-block:: python
+
+   from cwinpy.pe.peutils import optimal_snr, plot_snr_vs_odds, results_odds
+
+   # get dictionary of odds ratios
+   odds = results_odds("results", oddstype="cvi")
+
+   # get SNRs (this may take some time, so save the output if you want to re-use it!)
+   snrs = optimal_snr("results", "stage2")
+
+   # extract the coherent H1-L1 SNRs
+   snrsjoint = {p: snrs[p]["H1L1"] for p in snrs}
+
+   # plot the on-source values
+   fig, ax = plot_snr_vs_odds(snrsjoint, odds, oddstype="cvi", scatterc="odds")
+   
+   # highlight on-source value
+   ax.plot(snrsjoint["JPULSAR03"], odds["JPULSAR03"], marker="o", c="m", ms=15, mfc="none")
+   
+   fig.show()
+
+.. thumbnail:: skyshifting/snrsvsodds1.png
+   :width: 600px
+   :align: center
+
+.. note::
+
+   When you have lots of sky-shifts the :func:`~cwinpy.pe.peutils.optimal_snr` function can take
+   10s of minutes to compute, so you will have to be patient!
+
 Example: analysis outlier
 =========================
 
@@ -234,23 +368,53 @@ specified in the file. Therefore, in this case the jobs were subsequently submit
 
    condor_submit_dag submit/cwinpy_skyshift.dag
 
-Sky-shifting references
-=======================
+As in the :ref:`previous example<Example: hardware injection>`, we can plot the distribution of odds
+values. To get a histogram with the 
 
-.. [1] `D. Davis *et al*
+.. code-block:: python
+
+   s, t, fig = skyshift_results(
+       "pulsars",
+       "J1932+17.par",
+       "results",
+       plot="invcdf",
+       kde=True,
+   )
+
+.. thumbnail:: skyshifting/oddshistoutlier.png
+   :width: 600px
+   :align: center
+
+This overplots a kernel density estimate of the distribution (the gamma distribution used
+:ref:`above<Odds distribution>` does not provide a good fit in this case). It can be seen that
+despite the on-source value being an outlier, it is still within the distribution of background
+values and there are in fact larger odds in the background. The background distrbution suggests that
+there is about a 2% chance of getting an odds value equal or higher to the on-source value. In a
+search for hundreds of pulsars it would therefore be unsurprising to find such an outlier.
+
+Sky-shifting API
+================
+
+.. automodule:: cwinpy.knope.skyshift
+   :members: 
+
+Sky-shifting references
+-----------------------
+
+.. [1] `D. Davis et al
     <https://ui.adsabs.harvard.edu/abs/2021CQGra..38m5014D/abstract>`_, *CQG*, **38**, 135014 (2021).
 
-.. [2] `P. Covas *et al*
+.. [2] `P. Covas et al
     <https://ui.adsabs.harvard.edu/abs/2018PhRvD..97h2002C/abstract>`_, *PRD*, **97**, 082002 (2018).
 
 .. [3] `M. Isi, S. Mastrogiovanni, M. Pitkin & O. J. Piccinni
     <https://ui.adsabs.harvard.edu/abs/2020PhRvD.102l3027I/abstract>`_, *PRD*, **102**, 123027 (2020).
 
-.. [4] `S. A. Usman *et al*
-    <https://ui.adsabs.harvard.edu/abs/2016CQGra..33u5004U/abstract>_`, *CQG*, **33**, 215004 (2016).
+.. [4] `S. A. Usman et al
+    <https://ui.adsabs.harvard.edu/abs/2016CQGra..33u5004U/abstract>`_, *CQG*, **33**, 215004 (2016).
 
 .. [5] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
     <https://arxiv.org/abs/1705.08978v1>`_ (2017).
 
-.. [6] `B. P. Abbott *et al* <https://ui.adsabs.harvard.edu/abs/2017ApJ...839...12A/abstract>`_,
+.. [6] `B. P. Abbott et al <https://ui.adsabs.harvard.edu/abs/2017ApJ...839...12A/abstract>`_,
     *ApJ*, **839**, 12 (2017).

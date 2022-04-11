@@ -7,9 +7,9 @@ import numpy as np
 from bilby.core.result import Result, read_in_result
 from matplotlib import pyplot as plt
 
-from .data import HeterodynedData, MultiHeterodynedData
-from .parfile import PulsarParameters
-from .utils import get_psr_name
+from ..data import HeterodynedData, MultiHeterodynedData
+from ..parfile import PulsarParameters
+from ..utils import get_psr_name
 
 
 def results_odds(results, oddstype="svn", scale="log10", **kwargs):

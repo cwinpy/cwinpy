@@ -59,7 +59,7 @@ class Heterodyne(object):
     frametype: str
         The ``frametype`` name of the data to be heterodyned. See, e.g., the
         GWPy documentation
-        `here <https://gwpy.github.io/docs/stable/timeseries/datafind.html#available-datasets>`_
+        `here <https://gwpy.github.io/docs/stable/timeseries/datafind.html#available-datasets>`__
         for information on frame types. If this is not given the correct data
         set will be attempted to be found using the ``channel`` name.
     channel: str
@@ -71,7 +71,7 @@ class Heterodyne(object):
     host: str
         The server name for finding the gravitational-wave data files. Use
         ``datafind.ligo.org:443`` for open data available via CVMFS. To use
-        open data available from the `GWOSC <https://www.gw-openscience.org>`_
+        open data available from the `GWOSC <https://www.gw-openscience.org>`__
         use ``https://www.gw-openscience.org``. See also
         :func:`gwpy.timeseries.TimeSeries.get`.
     outputframecache: str
@@ -96,7 +96,7 @@ class Heterodyne(object):
         A string, or list of string giving data DQ flags to use to generate a
         segment list if not provided in ``segmentlist``. See, e.g., the GWPy
         documentation
-        `here <https://gwpy.github.io/docs/stable/segments/index.html>`_ and
+        `here <https://gwpy.github.io/docs/stable/segments/index.html>`__ and
         the :func:`cwinpy.heterodyne.generate_segments` function. Use, e.g.,
         "H1_DATA" (or e.g., "H1_CBC_CAT2") to get segments from GWOSC for open
         data.
@@ -2851,7 +2851,7 @@ def generate_segments(
     """
     Generate a list of times to analysis based on data quality (DQ) segments.
     As mentioned in the `GWPy documentation
-    <https://gwpy.github.io/docs/stable/segments/dqsegdb.html>`_ this requires
+    <https://gwpy.github.io/docs/stable/segments/dqsegdb.html>`__ this requires
     access to the GW segment database, which is reserved for members of the
     LIGO-Virgo-KAGRA collaborations.
 

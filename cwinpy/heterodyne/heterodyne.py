@@ -1424,6 +1424,9 @@ class HeterodyneDAGRunner(object):
             if not os.path.exists(pulsardir):
                 os.makedirs(pulsardir)
 
+            # copy original file par file into pulsar directory
+            shutil.copy2(pulsarfiles, pulsardir)
+
             origpsrname = pulsargroups[0][0]  # single pulsar name
             pulsargroups = []  # overwrite pulsargroups with sky-shifted pulsar names
 
@@ -1666,7 +1669,7 @@ class HeterodyneDAGRunner(object):
 def heterodyne_pipeline(**kwargs):
     """
     Run heterodyne_pipeline within Python. This will create a
-    `HTCondor <https://htcondor.readthedocs.io/>`_ DAG for running multiple
+    `HTCondor <https://htcondor.readthedocs.io/>`__ DAG for running multiple
     ``cwinpy_heterodyne`` instances on a computer cluster. Optional parameters
     that can be used instead of a configuration file (for "quick setup") are
     given in the "Other parameters" section.
