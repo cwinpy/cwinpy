@@ -751,18 +751,17 @@ def skyshift_results(
 
         # get sky-shift locations (add original on to the end)
         for i, p in enumerate(shiftpaths + [orig]):
+            # if original par file is prsent in shiftpaths ignore it
+            if i < len(shiftpaths):
+                if pathlib.Path(orig).name == p.name:
+                    continue
+
             if is_par_file(p):
                 psr = PulsarParameters(p)
 
                 shiftra.append(psr["RAJ"] if psr["RAJ"] is not None else psr["RA"])
                 shiftdec.append(psr["DECJ"] if psr["DECJ"] is not None else psr["DEC"])
                 shiftnames.append(get_psr_name(psr))
-                continue
-
-            if i == len(shiftpaths):
-                raise RuntimeError(
-                    f"The un-shifted parameter file '{orig}' could not be read in"
-                )
 
         if len(shiftra) == 1:
             raise IOError(
@@ -803,6 +802,7 @@ def skyshift_results(
         shiftra = fullarr[:, 0]
         shiftdec = fullarr[:, 1]
         shiftodds = fullarr[:, 2]
+        trueodds = trueodds.flatten().tolist()
 
     if plot:
         scale_label = r"\log{}_{10}" if scale == "log10" else r"\ln{}"
@@ -878,7 +878,7 @@ def skyshift_results(
                     # inverse CDF
                     ax.plot(xrange, 1 - dfunc.cdf(xrange + gammashift, *fg))
 
-                    prob = 1 - dfunc.cdf(trueodds[2] + gammashift, *fg)[0]
+                    prob = 1 - dfunc.cdf(trueodds[2] + gammashift, *fg)
 
             if (kde or dist) and plot.lower() in ["invcdf", "1-cdf"]:
                 if prob != 0.0:
