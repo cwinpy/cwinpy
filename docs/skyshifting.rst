@@ -39,19 +39,21 @@ The sky-shifting process works as follows:
 
 #. Perform a "coarse" heterodyne, i.e., heterodyne the data without accounting for any Doppler
    corrections and just using terms of the Taylor expansion in the frequency evolution (this is the
-   first stage of the :ref:`"two-stage" heterodyne approach<Example: two stage heterodyne>`). Filter
-   and downsample the data, but making sure the filter is wide enough to accommodate the Doppler
-   modulation of the source.
+   first stage of the :ref:`"two-stage" heterodyne approach<Example: two stage heterodyne>`).
+   Filter and downsample the data, but making sure the filter is wide enough to accommodate the
+   Doppler modulation of the source.
 #. Randomly generate a number of new sky locations in the same ecliptic
-   hemisphere as the source. For each of these new locations and the original location, perform an
-   additional heterodyne of the "coarse" data (this is the second stage of the :ref:`"two-stage"
-   heterodyne approach<Example: two stage heterodyne>`), using the expected Doppler modulation for that
+   hemisphere as the source. For each of these new (sky-shifted, *off-source* or *background*)
+   locations and the original (*on-source* or *foreground*) location, perform an additional
+   heterodyne of the "coarse" data (this is the second stage of the :ref:`"two-stage" heterodyne
+   approach<Example: two stage heterodyne>`), using the expected Doppler modulation for that
    position.
-#. Perform :ref:`parameter estimation<Known pulsar parameter estimation>` on the
-   heterodyned data for each sky location (including the original un-shifted data) and calculate the
-   Bayesian odds (assuming a nested sampling algorithm has been used).
-#. Histogram the distribution of sky-shifted odds values and perform a kernel density estimate to
-   compare that distribution to the value from the true un-shifted location.
+#. Perform :ref:`parameter estimation<Known pulsar parameter estimation>` on the heterodyned data
+   for each sky location (including the original un-shifted data) and calculate the Bayesian odds
+   (assuming a nested sampling algorithm has been used).
+#. Histogram the distribution of sky-shifted (*off-source* or *background*) odds values and perform
+   a kernel density estimate/distribution fit to compare that distribution to the value from the
+   true un-shifted (*on-source*) location.
 
 To make this process easy, CWInPy provides the ``cwinpy_skyshift_pipeline`` script, which sets up
 the full :ref:`known pulsar analysis pipeline<Known pulsar analysis pipeline>` for an individual
