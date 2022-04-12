@@ -889,14 +889,15 @@ def skyshift_results(
 
                 # add text with probability
                 ax.text(
-                    0.35,
-                    0.95,
+                    0.962,
+                    0.5,
                     (
                         rf"$p({scale_label}\mathcal{{O}}_{{\rm {oddstype}}}) \geq {scale_label}\mathcal{{O}}"
                         rf"_{{\rm {oddstype}}}^{{\rm source}}$ = {prob}"
                     ),
                     transform=ax.transAxes,
-                    verticalalignment="top",
+                    rotation=90,
+                    va="center",
                 )
                 ax.set_xbound(lower=shiftout[:, 2].min())
 
@@ -927,7 +928,7 @@ def skyshift_results(
             )
 
             # draw circle around True location
-            ax.plot(x[-1], y[-1], marker="o", ls="none", mfc="none", ms=30, c="m")
+            ax.plot(x[-1], y[-1], marker="o", ls="none", mfc="none", ms=20, c="m")
 
             ax.set_aspect("equal", "box")
         elif plot.lower() in ["hammer", "lambert", "mollweide", "cart", "aitoff"]:
@@ -986,13 +987,17 @@ def skyshift_results(
                 pad=0.04,
             )
 
-            # add circle around true sky position
+            # get pixel containing the true position
+            truepix = hp.ang2pix(nside, np.abs(trueodds[1] - np.pi / 2), trueodds[0])
+            pixpos = hp.pix2ang(nside, truepix)
+
+            # add circle around the pixel containing the true sky position
             newprojplot(
-                theta=np.abs(trueodds[1] - np.pi / 2),
-                phi=trueodds[0],
+                theta=pixpos[0],
+                phi=-(2 * np.pi - pixpos[1]),
                 marker="o",
                 mfc="none",
-                ms=30,
+                ms=20,
                 c="m",
             )
         else:
