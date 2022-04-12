@@ -667,9 +667,9 @@ def plot_snr_vs_odds(S, R, **kwargs):
     # create plot
     scatterc = kwargs.pop("scatterc", None)
     if scatterc == "odds":
-        scattercvals = snrsp
-    elif scatterc == "snr":
         scattercvals = lop
+    elif scatterc == "snr":
+        scattercvals = snrsp
     else:
         scattercvals = None
 
