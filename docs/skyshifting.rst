@@ -342,8 +342,9 @@ In the search for gravitational-wave signals from pulsars using LIGO O1 data [6]
 versus incoherent signal odds for pulsar J1932+17 was an outlier when compared to these for the rest
 of the pulsars in the search sample. The sky-shifting method can be used to see assess the
 significance of the outlier. In this case, as in [3]_, a log-uniform prior will be used on the
-gravitational-wave amplitude :math:`h_0`, and therefore a configuration file must be used to set up
-the ``cwinpy_skyshift_pipeline`` rather than just using the "quick setup" options. The following
+gravitational-wave amplitude :math:`h_0` (this is the uninformative Jeffreys prior for a scale
+parameter such as :math:`h_0`), and therefore a configuration file must be used to set up the
+``cwinpy_skyshift_pipeline`` rather than just using the "quick setup" options. The following
 configuration file, called ``outlier.ini``, is used to run on O1 data for both LIGO detectors:
 
 .. literalinclude:: skyshifting/exampleconfig.ini
@@ -375,6 +376,8 @@ values. To get a histogram with the
 
 .. code-block:: python
 
+   from cwinpy.knope.skyshift import skyshift_results
+
    s, t, fig = skyshift_results(
        "pulsars",
        "J1932+17.par",
@@ -382,6 +385,7 @@ values. To get a histogram with the
        plot="invcdf",
        kde=True,
    )
+   fig.show()
 
 .. thumbnail:: skyshifting/oddshistoutlier.png
    :width: 600px
@@ -393,6 +397,56 @@ despite the on-source value being an outlier, it is still within the distributio
 values and there are in fact larger odds in the background. The background distrbution suggests that
 there is about a 2% chance of getting an odds value equal or higher to the on-source value. In a
 search for hundreds of pulsars it would therefore be unsurprising to find such an outlier.
+
+The distribution on the sky can be shown with:
+
+.. code-block:: python
+
+   _, _, fig = skyshift_results(s, t, plot="mollweide")
+   fig.show()
+
+.. thumbnail:: skyshifting/skydistoutlier.png
+   :width: 600px
+   :align: center
+
+The distribution of signal-to-noise ratios versus odds can be plotted with:
+
+.. code-block:: python
+
+   from cwinpy.pe.peutils import optimal_snr, plot_snr_vs_odds, results_odds
+
+   oddsoutliers = results_odds("results", oddstype="cvi")
+   snrsoutlier = optimal_snr("results", "stage2")
+
+   snrsjoint = {p: snrsoutlier[p]["H1L1"] for p in snrsoutlier}
+   fig, ax = plot_snr_vs_odds(snrsjoint, oddsoutliers, oddstype="cvi", scatterc="odds", xscale="log")
+
+   # highlist on-source
+   ax.plot(snrsjoint["J1932+17"], oddsoutliers["J1932+17"], marker="o", c="m", ms=15, mfc="none")
+   fig.show()
+
+.. thumbnail:: skyshifting/snrsvsoddsoutlier.png
+   :width: 600px
+   :align: center
+
+The signal-to-noise ratio distribution in this case looks quite different to the :ref:`previous
+example<Odds versus signal-to-noise ratio>`. This is due to the log-uniform prior in :math:`h_0`. If
+instead the signal-to-noise ratios for the maximum likelihood values, rather than the maximum
+a-posteriori values, are used, the plot looks like:
+
+.. code-block:: python
+
+   snrsoutliermaxL = optimal_snr("results", "stage2", which="likelihood")
+   snrsjointmaxL = {p: snrsoutliermaxL[p]["H1L1"] for p in snrsoutliermaxL}
+   fig, ax = plot_snr_vs_odds(snrsjointmaxL, oddsoutliers, oddstype="cvi", scatterc="odds", xscale="log")
+
+   # highlist on-source
+   ax.plot(snrsjointmaxL["J1932+17"], oddsoutliers["J1932+17"], marker="o", c="m", ms=15, mfc="none")
+   fig.show()
+
+.. thumbnail:: skyshifting/snrsvsoddsoutliermaxl.png
+   :width: 600px
+   :align: center
 
 Sky-shifting API
 ================
