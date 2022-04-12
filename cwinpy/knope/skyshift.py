@@ -889,14 +889,15 @@ def skyshift_results(
 
                 # add text with probability
                 ax.text(
-                    0.35,
-                    0.95,
+                    0.962,
+                    0.5,
                     (
                         rf"$p({scale_label}\mathcal{{O}}_{{\rm {oddstype}}}) \geq {scale_label}\mathcal{{O}}"
                         rf"_{{\rm {oddstype}}}^{{\rm source}}$ = {prob}"
                     ),
                     transform=ax.transAxes,
-                    verticalalignment="top",
+                    rotation=90,
+                    va="center",
                 )
                 ax.set_xbound(lower=shiftout[:, 2].min())
 
