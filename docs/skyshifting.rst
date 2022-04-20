@@ -381,6 +381,8 @@ values. To get a histogram with the
        kde=True,
    )
 
+   fig.show()
+
 .. thumbnail:: skyshifting/oddshistoutlier.png
    :width: 600px
    :align: center
@@ -391,6 +393,77 @@ despite the on-source value being an outlier, it is still within the distributio
 values and there are in fact larger odds in the background. The background distrbution suggests that
 there is about a 2% chance of getting an odds value equal or higher to the on-source value. In a
 search for hundreds of pulsars it would therefore be unsurprising to find such an outlier.
+
+We can see how these odds values are distributed on the sky with:
+
+.. code-block:: python
+
+   _, _, fig = skyshift_results(
+       s,
+       t,
+       plot="mollweide",
+   )
+
+   fig.show()
+
+.. thumbnail:: skyshifting/skydistoutlier.png
+   :width: 600px
+   :align: center  
+
+As in the :ref:`previous example<Odds versus signal-to-noise ratio>`, we can look at the
+distribution of odds values plotted against the recovered signal-to-noise ratios. As above, we
+can calculate the SNRs using the (default) maximum a-posteriori sample:
+
+.. code-block:: python
+
+   from cwinpy.pe.peutils import optimal_snr, plot_snr_vs_odds, results_odds
+
+   # get dictionary of odds ratios
+   oddsoutlier = results_odds("results", oddstype="cvi")
+
+   # get SNRs (this may take some time, so save the output if you want to re-use it!)
+   snrsoutlier = optimal_snr("results", "stage2")
+
+   # extract the coherent H1-L1 SNRs
+   snrsjoint = {p: snrsoutlier[p]["H1L1"] for p in snrs}
+
+   # plot the on-source values
+   fig, ax = plot_snr_vs_odds(snrsjoint, oddsoutliers, oddstype="cvi", scatterc="odds", xscale="log")
+
+   # highlight on-source value
+   ax.plot(snrsjoint["J1932+17"], oddsoutliers["J1932+17"], marker="o", c="m", ms=15, mfc="none")
+
+   fig.show()
+
+.. thumbnail:: skyshifting/snrsvsoddsoutlier.png
+   :width: 600px
+   :align: center
+
+In the above plots, we've used a log-scale for the SNR axis due to the odd-looking SNR distribution.
+This SNR distribution is a product of using the log-uniform prior on the signal amplitude, causing
+most of the maximum a-posteriori values to be peaked close to zero. Even so, we see that the outlier
+signal is within a cluster of cases with SNR values above around 3, although it is not a unique
+outlier. We can instead switch to plotting the SNR generated using the maximum likelihood sample to
+give:
+
+.. code-block:: python
+   
+   snrsoutlier = optimal_snr("results", "stage2", which="likelihood")
+
+   # extract the coherent H1-L1 SNRs
+   snrsjoint = {p: snrsoutlier[p]["H1L1"] for p in snrs}
+
+   # plot the on-source values
+   fig, ax = plot_snr_vs_odds(snrsjoint, oddsoutliers, oddstype="cvi", scatterc="odds", xscale="log")
+
+   # highlight on-source value
+   ax.plot(snrsjoint["J1932+17"], oddsoutliers["J1932+17"], marker="o", c="m", ms=15, mfc="none")
+
+   fig.show()
+
+.. thumbnail:: skyshifting/snrsvsoddsoutliermaxl.png
+   :width: 600px
+   :align: center
 
 Sky-shifting API
 ================
