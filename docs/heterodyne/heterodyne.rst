@@ -618,17 +618,13 @@ Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid
 Command line arguments
 ======================
 
-The command line arguments for ``cwinpy_heterodyne`` (as extracted using ``cwinpy_heterodyne --help``) are
-given below:
+The command line arguments for ``cwinpy_heterodyne`` can be found using:
 
-.. literalinclude:: heterodyne_help.txt
-   :language: none
+.. command-output:: cwinpy_heterodyne --help
 
-The command line arguments for ``cwinpy_heterodyne_pipeline`` (as extracted using
-``cwinpy_heterodyne_pipeline --help``) are:
+The command line arguments for ``cwinpy_heterodyne_pipeline`` can be found using:
 
-.. literalinclude:: heterodyne_pipeline_help.txt
-   :language: none
+.. command-output:: cwinpy_heterodyne_pipeline --help
 
 .. _heterodyne API:
 

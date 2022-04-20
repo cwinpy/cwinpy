@@ -21,8 +21,8 @@ Bayesian inference
    Likelihood function <likelihood>
    Hierarchical inference <hierarchical>
 
-Plotting results
-================
+Plotting
+========
 
 .. toctree::
    :maxdepth: 2

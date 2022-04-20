@@ -55,11 +55,11 @@ The sky-shifting process works as follows:
 
 To make this process easy, CWInPy provides the ``cwinpy_skyshift_pipeline`` script, which sets up
 the full :ref:`known pulsar analysis pipeline<Known pulsar analysis pipeline>` for an individual
-source. This can either take some "Quick setup" command-line arguments to run on open data with some
-default settings or can take a ``cwinpy_knope_pipeline``-style :ref:`configuration
-file<Configuration file>`. It will launch a HTCondor DAG for the whole process except production of
-the odds distributions, which must be done manually using the
-:func:`~cwinpy.knope.skyshift.skyshift_results` function.
+source. This can either take some "Quick setup" :ref:`command-line arguments<Sky-shift command-line
+arguments>` to run on open data with some default settings or can take a
+``cwinpy_knope_pipeline``-style :ref:`configuration file<Configuration file>`. It will launch a
+HTCondor DAG for the whole process except production of the odds distributions, which must be done
+manually using the :func:`~cwinpy.knope.skyshift.skyshift_results` function.
 
 Using the default settings, the pipeline will generate the following directory tree structure:
 
@@ -85,6 +85,13 @@ Using the default settings, the pipeline will generate the following directory t
     |    ├── detector2     # directory containing the output of the second stage heterodyne for second detector
     |    └── ...
     └── submit             # directory containing the HTCondor DAG file and submit files
+
+Sky-shift command-line arguments
+--------------------------------
+
+The command line arguments for ``cwinpy_skyshift_pipeline`` can be found using:
+
+.. command-output:: cwinpy_skyshift_pipeline --help
 
 Example: hardware injection
 ===========================

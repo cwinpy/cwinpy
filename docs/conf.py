@@ -16,7 +16,6 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-import subprocess
 import sys
 
 import cwinpy
@@ -36,12 +35,12 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.mathjax",
     "sphinx.ext.intersphinx",
-    # "numpydoc",
     "sphinxcontrib.napoleon",
     "sphinx.ext.autosummary",
     "sphinx.ext.autosectionlabel",
+    "sphinxcontrib.programoutput",
     "sphinx_panels",
-    "recommonmark",
+    "myst_parser",
     "sphinx.ext.todo",
     "sphinxcontrib.images",
 ]
@@ -251,29 +250,3 @@ intersphinx_mapping = {
     "corner": ("https://corner.readthedocs.io/en/stable/", None),
     "healpy": ("https://healpy.readthedocs.io/en/stable/", None),
 }
-
-
-# generate cwinpy_pe help string for docs
-pe_help = subprocess.getoutput("cwinpy_pe --help")
-with open("pe/pe_help.txt", "w") as fp:
-    fp.write(pe_help)
-
-# generate cwinpy_heterodyne help string for docs
-heterodyne_help = subprocess.getoutput("cwinpy_heterodyne --help")
-with open("heterodyne/heterodyne_help.txt", "w") as fp:
-    fp.write(heterodyne_help)
-
-# generate cwinpy_heterodyne_dag help string for docs
-heterodyne_dag_help = subprocess.getoutput("cwinpy_heterodyne_pipeline --help")
-with open("heterodyne/heterodyne_pipeline_help.txt", "w") as fp:
-    fp.write(heterodyne_dag_help)
-
-# generate cwinpy_knope help string for docs
-knope_help = subprocess.getoutput("cwinpy_knope --help")
-with open("knope/knope_help.txt", "w") as fp:
-    fp.write(knope_help)
-
-# generate cwinpy_knope_dag help string for docs
-knope_dag_help = subprocess.getoutput("cwinpy_knope_pipeline --help")
-with open("knope/knope_pipeline_help.txt", "w") as fp:
-    fp.write(knope_dag_help)

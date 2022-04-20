@@ -339,11 +339,9 @@ submitted with:
 Command line arguments
 ----------------------
 
-The command line arguments for ``cwinpy_pe`` (as extracted using ``cwinpy_pe --help``) are
-given below:
+The command line arguments for ``cwinpy_pe`` can be found using:
 
-.. literalinclude:: pe_help.txt
-   :language: none
+.. command-output:: cwinpy_pe --help
 
 Parameter estimation API
 ------------------------

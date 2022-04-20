@@ -139,17 +139,13 @@ Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid
 *knope* Command line arguments
 ------------------------------
 
-The command line arguments for ``cwinpy_knope`` (as extracted using ``cwinpy_knope --help``) are
-given below:
+The command line arguments for ``cwinpy_knope`` can be found using:
 
-.. literalinclude:: knope_help.txt
-   :language: none
+.. command-output:: cwinpy_knope --help
 
-The command line arguments for ``cwinpy_knope_pipeline`` (as extracted using
-``cwinpy_knope_pipeline --help``) are:
+The command line arguments for ``cwinpy_knope_pipeline`` can be found using:
 
-.. literalinclude:: knope_pipeline_help.txt
-   :language: none
+.. command-output:: cwinpy_knope_pipeline --help
 
 .. _knope API:
 
