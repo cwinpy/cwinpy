@@ -438,7 +438,7 @@ a-posteriori values, are used, the plot looks like:
 
    snrsoutliermaxL = optimal_snr("results", "stage2", which="likelihood")
    snrsjointmaxL = {p: snrsoutliermaxL[p]["H1L1"] for p in snrsoutliermaxL}
-   fig, ax = plot_snr_vs_odds(snrsjointmaxL, oddsoutliers, oddstype="cvi", scatterc="odds", xscale="log")
+   fig, ax = plot_snr_vs_odds(snrsjointmaxL, oddsoutliers, oddstype="cvi", scatterc="odds")
 
    # highlist on-source
    ax.plot(snrsjointmaxL["J1932+17"], oddsoutliers["J1932+17"], marker="o", c="m", ms=15, mfc="none")
