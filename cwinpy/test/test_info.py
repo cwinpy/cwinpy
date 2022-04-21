@@ -12,6 +12,22 @@ from cwinpy.info import (
 )
 
 
+def check_connection():
+    from socket import create_connection
+    from cwinpy.info import CVMFS_GWOSC_DATA_SERVER
+
+    try:
+        create_connection((CVMFS_GWOSC_DATA_SERVER, 80))
+    except TimeoutError:
+        return False
+
+    return True
+
+
+@pytest.mark.skipif(
+    not check_connection(),
+    reason="Could not establish connection to GWOSC frame server",
+)
 def test_frame_cache():
     """
     Test that CVMFS frame caches can be found.
