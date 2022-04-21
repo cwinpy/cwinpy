@@ -18,7 +18,7 @@ def check_connection():
 
     try:
         create_connection((CVMFS_GWOSC_DATA_SERVER, 80))
-    except TimeoutError:
+    except (TimeoutError, ConnectionRefusedError):
         return False
 
     return True
