@@ -49,6 +49,7 @@ autosummary_generate = True
 autodoc_docstring_signature = True
 autodoc_default_options = {"members-order": "groupwise", "show-inheritance": True}
 todo_include_todos = True
+autoclass_content = "both"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
