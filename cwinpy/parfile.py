@@ -177,7 +177,7 @@ class PulsarParameters:
 
     def __init__(self, pp=None):
         """
-        A class to wrap the SWIG-wrapped lalpulsar.PulsarParameters structure.
+        A class to wrap the SWIG-wrapped ``lalpulsar.PulsarParameters`` structure.
 
         This class lets you access the structure in a more Pythonic way, as
         well as providing a nice format for holding pulsar (``.par``) parameter
@@ -705,7 +705,7 @@ class PulsarParameters:
     def get_fitflag(self, name):
         """
         Return the "fit flag" (a 1 or 0 depending whether the parameter with fit for by TEMPO(2)
-        in the `.par` file).
+        in the ``.par`` file).
 
         Args:
             name (str): the name of the parameter
@@ -909,7 +909,7 @@ class PulsarParameters:
 
     def pp_to_par(self, filename, precision=19):
         """
-        Output the PulsarParameter structure to a `.par` file.
+        Output the PulsarParameter structure to a ``.par`` file.
 
         Parameters
         ----------

@@ -57,11 +57,11 @@ The sky-shifting process works as follows:
 
 To make this process easy, CWInPy provides the ``cwinpy_skyshift_pipeline`` script, which sets up
 the full :ref:`known pulsar analysis pipeline<Known pulsar analysis pipeline>` for an individual
-source. This can either take some "Quick setup" command-line arguments to run on open data with some
-default settings or can take a ``cwinpy_knope_pipeline``-style :ref:`configuration
-file<Configuration file>`. It will launch a HTCondor DAG for the whole process except production of
-the odds distributions, which must be done manually using the
-:func:`~cwinpy.knope.skyshift.skyshift_results` function.
+source. This can either take some "Quick setup" :ref:`command-line arguments<Sky-shift command-line
+arguments>` to run on open data with some default settings or can take a
+``cwinpy_knope_pipeline``-style :ref:`configuration file<Configuration file>`. It will launch a
+HTCondor DAG for the whole process except production of the odds distributions, which must be done
+manually using the :func:`~cwinpy.knope.skyshift.skyshift_results` function.
 
 Using the default settings, the pipeline will generate the following directory tree structure:
 
@@ -87,6 +87,13 @@ Using the default settings, the pipeline will generate the following directory t
     |    ├── detector2     # directory containing the output of the second stage heterodyne for second detector
     |    └── ...
     └── submit             # directory containing the HTCondor DAG file and submit files
+
+Sky-shift command-line arguments
+--------------------------------
+
+The command line arguments for ``cwinpy_skyshift_pipeline`` can be found using:
+
+.. command-output:: cwinpy_skyshift_pipeline --help
 
 Example: hardware injection
 ===========================
@@ -387,6 +394,8 @@ values. To get a histogram with the
    )
    fig.show()
 
+   fig.show()
+
 .. thumbnail:: skyshifting/oddshistoutlier.png
    :width: 600px
    :align: center
@@ -398,50 +407,57 @@ values and there are in fact larger odds in the background. The background distr
 there is about a 2% chance of getting an odds value equal or higher to the on-source value. In a
 search for hundreds of pulsars it would therefore be unsurprising to find such an outlier.
 
-The distribution on the sky can be shown with:
+We can see how these odds values are distributed on the sky with:
 
 .. code-block:: python
 
    _, _, fig = skyshift_results(s, t, plot="mollweide")
+
    fig.show()
 
 .. thumbnail:: skyshifting/skydistoutlier.png
    :width: 600px
-   :align: center
+   :align: center  
 
-The distribution of signal-to-noise ratios versus odds can be plotted with:
+As in the :ref:`previous example<Odds versus signal-to-noise ratio>`, we can look at the
+distribution of odds values plotted against the recovered signal-to-noise ratios. As above, we
+can calculate the SNRs using the (default) maximum a-posteriori sample:
 
 .. code-block:: python
 
    from cwinpy.pe.peutils import optimal_snr, plot_snr_vs_odds, results_odds
 
-   oddsoutliers = results_odds("results", oddstype="cvi")
+   oddsoutlier = results_odds("results", oddstype="cvi")
    snrsoutlier = optimal_snr("results", "stage2")
 
    snrsjoint = {p: snrsoutlier[p]["H1L1"] for p in snrsoutlier}
    fig, ax = plot_snr_vs_odds(snrsjoint, oddsoutliers, oddstype="cvi", scatterc="odds", xscale="log")
 
-   # highlist on-source
+   # highlight on-source value
    ax.plot(snrsjoint["J1932+17"], oddsoutliers["J1932+17"], marker="o", c="m", ms=15, mfc="none")
+
    fig.show()
 
 .. thumbnail:: skyshifting/snrsvsoddsoutlier.png
    :width: 600px
    :align: center
 
-The signal-to-noise ratio distribution in this case looks quite different to the :ref:`previous
-example<Odds versus signal-to-noise ratio>`. This is due to the log-uniform prior in :math:`h_0`. If
-instead the signal-to-noise ratios for the maximum likelihood values, rather than the maximum
-a-posteriori values, are used, the plot looks like:
+In the above plots, we've used a log-scale for the SNR axis due to the odd-looking SNR distribution.
+This SNR distribution is a product of using the log-uniform prior on the signal amplitude :math:`h_0`, causing
+most of the maximum a-posteriori values to be peaked close to zero. Even so, we see that the outlier
+signal is within a cluster of cases with SNR values above around 3, although it is not a unique
+outlier. We can instead switch to plotting the SNR generated using the maximum likelihood sample to
+give:
 
 .. code-block:: python
-
+   
    snrsoutliermaxL = optimal_snr("results", "stage2", which="likelihood")
-   snrsjointmaxL = {p: snrsoutliermaxL[p]["H1L1"] for p in snrsoutliermaxL}
-   fig, ax = plot_snr_vs_odds(snrsjointmaxL, oddsoutliers, oddstype="cvi", scatterc="odds")
+   snrsjoint = {p: snrsoutlier[p]["H1L1"] for p in snrsoutliermaxL}
+   fig, ax = plot_snr_vs_odds(snrsjoint, oddsoutliers, oddstype="cvi", scatterc="odds", xscale="log")
 
-   # highlist on-source
-   ax.plot(snrsjointmaxL["J1932+17"], oddsoutliers["J1932+17"], marker="o", c="m", ms=15, mfc="none")
+   # highlight on-source value
+   ax.plot(snrsjoint["J1932+17"], oddsoutliers["J1932+17"], marker="o", c="m", ms=15, mfc="none")
+
    fig.show()
 
 .. thumbnail:: skyshifting/snrsvsoddsoutliermaxl.png
