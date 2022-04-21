@@ -5,6 +5,7 @@ Run known pulsar parameter estimation using bilby.
 import ast
 import configparser
 import copy
+import fnmatch
 import glob
 import json
 import os
@@ -16,20 +17,21 @@ from argparse import ArgumentParser
 import bilby
 import cwinpy
 import numpy as np
-from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.job_creation.dag import Dag
-from bilby_pipe.utils import (
-    CHECKPOINT_EXIT_CODE,
-    BilbyPipeError,
-    convert_string_to_dict,
-    parse_args,
-)
+from htcondor.dags import DAG, write_dag
 
-from ..condor.penodes import MergePENode, PEInput, PulsarPENode
+from ..condor import submit_dag
+from ..condor.penodes import MergePELayer, PulsarPELayer
+from ..cwinpyargparser import CWInPyArgParser
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..likelihood import TargetedPulsarLikelihood
 from ..parfile import PulsarParameters
-from ..utils import is_par_file, sighandler
+from ..utils import (
+    CHECKPOINT_EXIT_CODE,
+    convert_string_to_dict,
+    is_par_file,
+    parse_args,
+    sighandler,
+)
 
 
 def create_pe_parser():
@@ -41,7 +43,7 @@ def create_pe_parser():
 A script to use Bayesian inference to estimate the parameters of a \
 continuous gravitational-wave signal from a known pulsar."""
 
-    parser = BilbyArgParser(
+    parser = CWInPyArgParser(
         prog=sys.argv[0],
         description=description,
         ignore_unknown_config_file_keys=False,
@@ -495,7 +497,6 @@ class PERunner(object):
                     except (
                         ValueError,
                         SyntaxError,
-                        BilbyPipeError,
                         TypeError,
                         IndexError,
                         KeyError,
@@ -512,7 +513,6 @@ class PERunner(object):
                 except (
                     ValueError,
                     SyntaxError,
-                    BilbyPipeError,
                     TypeError,
                     IndexError,
                     KeyError,
@@ -617,7 +617,6 @@ class PERunner(object):
                     except (
                         ValueError,
                         SyntaxError,
-                        BilbyPipeError,
                         TypeError,
                         IndexError,
                         KeyError,
@@ -636,7 +635,6 @@ class PERunner(object):
                     except (
                         ValueError,
                         SyntaxError,
-                        BilbyPipeError,
                         TypeError,
                         IndexError,
                         KeyError,
@@ -652,7 +650,6 @@ class PERunner(object):
                 except (
                     ValueError,
                     SyntaxError,
-                    BilbyPipeError,
                     TypeError,
                     IndexError,
                     KeyError,
@@ -665,7 +662,6 @@ class PERunner(object):
                 except (
                     ValueError,
                     SyntaxError,
-                    BilbyPipeError,
                     TypeError,
                     IndexError,
                     KeyError,
@@ -678,7 +674,6 @@ class PERunner(object):
                 except (
                     ValueError,
                     SyntaxError,
-                    BilbyPipeError,
                     TypeError,
                     IndexError,
                     KeyError,
@@ -691,7 +686,6 @@ class PERunner(object):
                 except (
                     ValueError,
                     SyntaxError,
-                    BilbyPipeError,
                     TypeError,
                     IndexError,
                     KeyError,
@@ -774,7 +768,7 @@ class PERunner(object):
                                 except ValueError:
                                     raise ValueError("Fake seed must be an integer")
                         elif len(detseed) == 1 and len(fseed) == 1:
-                            # just a single seed is given, not inidividual seeds for each detector
+                            # just a single seed is given, not individual seeds for each detector
                             try:
                                 rstate = np.random.default_rng(int(detseed[-1]))
                             except ValueError:
@@ -1028,7 +1022,9 @@ class PERunner(object):
 
         # output parameters
         if "outdir" in kwargs:
-            self.sampler_kwargs.setdefault("outdir", kwargs.get("outdir"))
+            self.sampler_kwargs.setdefault(
+                "outdir", os.path.abspath(kwargs.get("outdir"))
+            )
         if "label" in kwargs:
             self.sampler_kwargs.setdefault("label", kwargs.get("label"))
 
@@ -1075,6 +1071,10 @@ class PERunner(object):
             self.sampler_kwargs["use_ratio"] = False
 
         if self.sampler == "dynesty":
+            # set the default sampling method to "rslice"
+            if "sample" not in self.sampler_kwargs:
+                self.sampler_kwargs["sample"] = "rslice"
+
             # turn off check_point_plot for dynesty by default
             if "check_point_plot" not in self.sampler_kwargs:
                 self.sampler_kwargs["check_point_plot"] = False
@@ -1337,10 +1337,7 @@ def pe(**kwargs):
         else:
             cliargs = sys.argv[1:]
 
-        try:
-            args, _ = parse_args(cliargs, parser)
-        except BilbyPipeError as e:
-            raise IOError("{}".format(e))
+        args, _ = parse_args(cliargs, parser)
 
         # convert args to a dictionary
         dargs = vars(args)
@@ -1402,30 +1399,17 @@ class PEDAGRunner(object):
         if not isinstance(config, configparser.ConfigParser):
             raise TypeError("'config' must be a ConfigParser object")
 
-        inputs = PEInput(config)
-
         dagsection = "pe_dag" if config.has_section("pe_dag") else "dag"
 
         if "dag" in kwargs:
             # get a previously created DAG if given (for example for a full
             # analysis pipeline)
             self.dag = kwargs["dag"]
-
-            # get whether to automatically submit the dag
-            self.dag.inputs.submit = config.getboolean(
-                dagsection, "submitdag", fallback=False
-            )
         else:
-            self.dag = Dag(inputs)
-
-        # get previous nodes that are parents to PE jobs
-        generation_nodes = kwargs.get("generation_nodes", None)
+            self.dag = DAG()
 
         # get whether to build the dag
         self.build = config.getboolean(dagsection, "build", fallback=True)
-
-        # get any additional submission options
-        self.submit_options = config.get(dagsection, "submit_options", fallback=None)
 
         # check for required configuration file section
         if not config.has_section("pe"):
@@ -1775,7 +1759,8 @@ class PEDAGRunner(object):
                     raise TypeError("Prior type is no recognised")
         else:
             # use default priors
-            priorfile = os.path.join(inputs.outdir, "prior.txt")
+            outdir = config.get("run", "basedir", fallback=os.getcwd())
+            priorfile = os.path.join(outdir, "prior.txt")
 
             with open(priorfile, "w") as fp:
                 if datafiles1f is not None and datafiles2f is not None:
@@ -1886,9 +1871,13 @@ class PEDAGRunner(object):
                         )
 
             seeddict = None
-            if simdata and inputs.n_parallel > 1 and fakeseed is None:
+            if (
+                simdata
+                and config.getint("pe", "n_parallel", fallback=1) > 1
+                and fakeseed is None
+            ):
                 # set a fake seed, so all parallel runs produce the same data
-                seeddict = {det: np.random.randint(1, 2 ** 32 - 1) for det in detectors}
+                seeddict = {det: np.random.randint(1, 2**32 - 1) for det in detectors}
             elif simdata and fakeseed is not None:
                 configdict["fake_seed"] = str(fakeseed)
 
@@ -1953,34 +1942,67 @@ class PEDAGRunner(object):
                         except KeyError:
                             pass
 
-                parallel_node_list = []
-                for idx in range(inputs.n_parallel):
-                    gnode = None
-                    if isinstance(generation_nodes, dict):
-                        # get generation nodes for all required detectors
-                        gnode = []
-                        if pname in generation_nodes:
-                            for det in dets:
-                                gnode.extend(generation_nodes[pname][det])
-                        else:
-                            gnode = None
+                if len(self.dag.nodes) == 0:
+                    # no parents (i.e. a new dag)
+                    parentname = None
+                else:
 
-                    penode = PulsarPENode(
-                        inputs,
-                        copy.deepcopy(configdict),
-                        pname,
-                        dets,
-                        idx,
-                        self.dag,
-                        generation_node=gnode,
+                    def selector(node):
+                        """
+                        Selector function for parent nodes.
+                        """
+
+                        for det in dets:
+                            if fnmatch.fnmatch(
+                                node.name,
+                                f"cwinpy_heterodyne_*_{det}_{pname.replace('+', 'plus')}",
+                            ):
+                                return True
+
+                        return False
+
+                    parentname = selector
+
+                nparallel = config.getint("pe", "n_parallel", fallback=1)
+                nparastr = "" if nparallel == 1 else f"_{nparallel}"
+
+                # create DAG layer
+                pelayer = PulsarPELayer(
+                    self.dag,
+                    config,
+                    copy.deepcopy(configdict),
+                    layer_name=f"cwinpy_pe_{''.join(dets)}_{pname.replace('+', 'plus')}{nparastr}",
+                    psrname=pname,
+                    dets=dets,
+                    parentname=parentname,
+                )
+
+                if nparallel > 1:
+                    MergePELayer(
+                        pelayer,
+                        layer_name=f"cwinpy_pe_{''.join(dets)}_{pname.replace('+', 'plus')}",
                     )
-                    parallel_node_list.append(penode)
-
-                if inputs.n_parallel > 1:
-                    _ = MergePENode(inputs, parallel_node_list, self.dag)
 
         if self.build:
-            self.dag.build()
+            # write out the DAG and submit files
+            submitdir = config.get(
+                dagsection,
+                "submit",
+                fallback=os.path.join(
+                    config.get("run", "basedir", fallback=os.getcwd()), "submit"
+                ),
+            )
+            if not os.path.exists(submitdir):
+                os.makedirs(submitdir)
+
+            dagname = config.get(dagsection, "name", fallback="cwinpy_pe")
+            self.dag_file = write_dag(
+                self.dag, submitdir, dag_file_name=f"{dagname}.dag"
+            )
+
+            # submit the DAG if requested
+            if config.getboolean(dagsection, "submitdag", fallback=False):
+                submit_dag(self.dag_file)
 
     def eval(self, arg):
         """

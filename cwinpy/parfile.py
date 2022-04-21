@@ -1,4 +1,5 @@
 import os
+import pathlib
 import re
 
 import lal
@@ -13,7 +14,7 @@ PPUNITS = {
     "DIST": u.m,  # metres
     "PX": u.rad,  # radians
     "DM": u.pc / (u.cm) ** 3,  # cm^-3 pc
-    "DM1": u.pc / (u.cm ** 3 * u.yr),  # pc cm^-3 yr^-1
+    "DM1": u.pc / (u.cm**3 * u.yr),  # pc cm^-3 yr^-1
     "RA": u.rad,  # radians
     "RAJ": u.rad,  # radians
     "DEC": u.rad,  # radians
@@ -29,7 +30,7 @@ PPUNITS = {
     "GLPH": u.rad,  # rad
     "GLF0": u.Hz,  # Hz
     "GLF1": u.Hz / u.s,  # Hz/s
-    "GLF2": u.Hz / u.s ** 2,  # Hz s^-2
+    "GLF2": u.Hz / u.s**2,  # Hz s^-2
     "GLF0D": u.Hz,  # Hz
     "GLTD": u.s,  # sec
     "A1": u.s,  # light seconds
@@ -91,7 +92,7 @@ PPUNITS = {
     "THETA": u.rad,
     "I21": u.dimensionless_unscaled,
     "I31": u.dimensionless_unscaled,
-    "Q22": u.kg * u.m ** 2,  # kg m^2
+    "Q22": u.kg * u.m**2,  # kg m^2
     "H0_F": u.dimensionless_unscaled,
     "HPLUS": u.dimensionless_unscaled,
     "HCROSS": u.dimensionless_unscaled,
@@ -176,7 +177,7 @@ class PulsarParameters:
 
     def __init__(self, pp=None):
         """
-        A class to wrap the SWIG-wrapped lalpulsar.PulsarParameters structure.
+        A class to wrap the SWIG-wrapped ``lalpulsar.PulsarParameters`` structure.
 
         This class lets you access the structure in a more Pythonic way, as
         well as providing a nice format for holding pulsar (``.par``) parameter
@@ -219,7 +220,9 @@ class PulsarParameters:
             self._pulsarparameters = lalpulsar.PulsarParameters()
         else:
             # check if pp is a pulsar parameters type or a (par file)
-            if not isinstance(pp, lalpulsar.PulsarParameters) and isinstance(pp, str):
+            if not isinstance(pp, lalpulsar.PulsarParameters) and (
+                isinstance(pp, str) or isinstance(pp, pathlib.Path)
+            ):
                 if os.path.isfile(pp):
                     # try reading in file
                     self.read(pp)
@@ -502,7 +505,7 @@ class PulsarParameters:
             else:
                 angle = Angle(pvalue)
                 cvalue = (
-                    angle.hms[0] * (60.0 ** 2) + angle.hms[1] * 60.0 + angle.hms[2]
+                    angle.hms[0] * (60.0**2) + angle.hms[1] * 60.0 + angle.hms[2]
                 ) * tempounit
         elif uname in ["DEC", "DECJ"] and not iserr:
             c = ICRS(0.0 * u.rad, pvalue)
@@ -669,7 +672,7 @@ class PulsarParameters:
         if self._pulsarparameters is not None:
             del self._pulsarparameters
 
-        pp = lalpulsar.ReadTEMPOParFile(filename)
+        pp = lalpulsar.ReadTEMPOParFile(str(filename))
 
         if pp is None:
             raise IOError(
@@ -702,7 +705,7 @@ class PulsarParameters:
     def get_fitflag(self, name):
         """
         Return the "fit flag" (a 1 or 0 depending whether the parameter with fit for by TEMPO(2)
-        in the `.par` file).
+        in the ``.par`` file).
 
         Args:
             name (str): the name of the parameter
@@ -906,7 +909,7 @@ class PulsarParameters:
 
     def pp_to_par(self, filename, precision=19):
         """
-        Output the PulsarParameter structure to a `.par` file.
+        Output the PulsarParameter structure to a ``.par`` file.
 
         Parameters
         ----------

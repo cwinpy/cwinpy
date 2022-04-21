@@ -14,16 +14,17 @@ emulate, as much as possible, the functionality from the `LALSuite
 described in [1]_.
 
 There is also an API for running this analysis from within a Python shell or script as described
-:ref:`below<API>`.
+:ref:`below<Parameter estimation API>`.
 
 Running the analysis
 --------------------
 
-The ``cwinpy_pe`` executable, and :ref:`API`, can be used to perform parameter estimation over a
-variety of signal parameter both on real data or simulated data. We will cover some examples of both
-cases and show equivalent ways of running the analysis via the use of: command line arguments to the
-``cwinpy_pe`` executable, a configuration file, or the :ref:`API`. The current command line
-arguments for ``cwinpy_pe`` are given :ref:`below<pe Command line arguments>`.
+The ``cwinpy_pe`` executable, and :ref:`API<Parameter estimation API>`, can be used to perform
+parameter estimation over a variety of signal parameter both on real data or simulated data. We will
+cover some examples of both cases and show equivalent ways of running the analysis via the use of:
+command line arguments to the ``cwinpy_pe`` executable, a configuration file, or the
+:ref:`API<Parameter estimation API>`. The current command line arguments for ``cwinpy_pe`` are given
+:ref:`below<pe Command line arguments>`.
 
 Example: single detector data
 =============================
@@ -84,16 +85,10 @@ comments describing the parameters given inline:
 .. note::
 
    When using the `dynesty <https://dynesty.readthedocs.io/en/latest/>`_ sampler (as wrapped through
-   `bilby <https://lscsoft.docs.ligo.org/bilby/>`_) it will default to use the ``rwalk`` sampling
-   method. In this example, in the ``sampler-kwargs`` argument the ``'sample'`` method value is
-   instead set to ``'rslice'`` as this is found to be quicker than ``rwalk`` when the other
-   arguments are left at their default values. If using ``rwalk`` it is worthwhile exploring
-   different values of the ``walks`` argument to find the most efficient settings. Further
-   information on dynesty settings can be found
-   `here <https://dynesty.readthedocs.io/en/latest/faq.html#sampling-questions>`__.
-
-   Note also that the ``unif`` sampling method of dynesty will often fail due to samples being drawn
-   from outside the prior range.
+   `bilby <https://lscsoft.docs.ligo.org/bilby/>`_) it will default to use the ``rslice`` sampling
+   method. This has been found to work well and be the quickest option for normal running. A
+   discussion of the different sampling options in dynesty can be found
+   `here <https://dynesty.readthedocs.io/en/latest/quickstart.html#sampling-options>`__.
 
 The analysis can then be run using:
 
@@ -161,7 +156,7 @@ look at the hardware injection signal named `PULSAR8
 parameter file as given above.
 
 The data we will use in this example is a short segment (between GPS times of 1132444817 and
-1136419217) from both the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to
+1)          from both the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to
 "H1") and the `LIGO Livingston <https://www.ligo.caltech.edu/LA>`_ detector (abbreviated to "L1").
 Both sets of data have been heterodyned using the known phase evolution of the simulated signal (see
 the description :ref:`here<Heterodyned Data>`), and low-pass filtered and down-sampled to a rate of
@@ -344,20 +339,24 @@ submitted with:
 Command line arguments
 ----------------------
 
-The command line arguments for ``cwinpy_pe`` (as extracted using ``cwinpy_pe --help``) are
-given below:
+The command line arguments for ``cwinpy_pe`` can be found using:
 
-.. literalinclude:: pe_help.txt
-   :language: none
+.. command-output:: cwinpy_pe --help
 
-API
----
+Parameter estimation API
+------------------------
 
 .. automodule:: cwinpy.pe.pe
    :members: pe, pe_pipeline
 
 .. automodule:: cwinpy.pe.testing
    :members: PEPPPlotsDAG, generate_pp_plots
+
+Parameter estimation utilities API
+----------------------------------
+
+.. automodule:: cwinpy.pe.peutils
+   :members:
 
 ``cwinpy_pe`` references
 ------------------------

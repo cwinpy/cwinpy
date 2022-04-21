@@ -16,7 +16,6 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-import subprocess
 import sys
 
 import cwinpy
@@ -36,12 +35,12 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.mathjax",
     "sphinx.ext.intersphinx",
-    # "numpydoc",
     "sphinxcontrib.napoleon",
     "sphinx.ext.autosummary",
     "sphinx.ext.autosectionlabel",
+    "sphinxcontrib.programoutput",
     "sphinx_panels",
-    "recommonmark",
+    "myst_parser",
     "sphinx.ext.todo",
     "sphinxcontrib.images",
 ]
@@ -50,6 +49,7 @@ autosummary_generate = True
 autodoc_docstring_signature = True
 autodoc_default_options = {"members-order": "groupwise", "show-inheritance": True}
 todo_include_todos = True
+autoclass_content = "both"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -67,9 +67,9 @@ source_suffix = {
 master_doc = "index"
 
 # General information about the project.
-project = u"cwinpy"
-copyright = u"2019, Matthew Pitkin"
-author = u"Matthew Pitkin"
+project = "cwinpy"
+copyright = "2019, Matthew Pitkin"
+author = "Matthew Pitkin"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -120,10 +120,11 @@ exclude_patterns = [
     "pe/data/example2/*.pickle",
     "pe/data/example2/*_trace.png",
     "heterodyne/heterodyne_help.txt",
-    "heterodyne/heterodyne_dag_help.txt",
+    "heterodyne/heterodyne_pipeline_help.txt",
     "heterodyne/examples/segments.txt",
     "knope/knope_help.txt",
-    "knope/knope_dag_help.txt",
+    "knope/knope_pipeline_help.txt",
+    "skyshifting/prior.txt",
 ]
 
 add_function_parentheses = True
@@ -205,7 +206,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "cwinpy.tex", u"cwinpy Documentation", u"Matthew Pitkin", "manual"),
+    (master_doc, "cwinpy.tex", "cwinpy Documentation", "Matthew Pitkin", "manual"),
 ]
 
 
@@ -213,7 +214,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "cwinpy", u"cwinpy Documentation", [author], 1)]
+man_pages = [(master_doc, "cwinpy", "cwinpy Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -225,7 +226,7 @@ texinfo_documents = [
     (
         master_doc,
         "cwinpy",
-        u"cwinpy Documentation",
+        "cwinpy Documentation",
         author,
         "cwinpy",
         "One line description of project.",
@@ -248,30 +249,5 @@ intersphinx_mapping = {
     "gwpy": ("https://gwpy.github.io/docs/stable/", None),
     "psrqpy": ("https://psrqpy.readthedocs.io/en/stable/", None),
     "corner": ("https://corner.readthedocs.io/en/stable/", None),
+    "healpy": ("https://healpy.readthedocs.io/en/stable/", None),
 }
-
-
-# generate cwinpy_pe help string for docs
-pe_help = subprocess.getoutput("cwinpy_pe --help")
-with open("pe/pe_help.txt", "w") as fp:
-    fp.write(pe_help)
-
-# generate cwinpy_heterodyne help string for docs
-heterodyne_help = subprocess.getoutput("cwinpy_heterodyne --help")
-with open("heterodyne/heterodyne_help.txt", "w") as fp:
-    fp.write(heterodyne_help)
-
-# generate cwinpy_heterodyne_dag help string for docs
-heterodyne_dag_help = subprocess.getoutput("cwinpy_heterodyne_pipeline --help")
-with open("heterodyne/heterodyne_pipeline_help.txt", "w") as fp:
-    fp.write(heterodyne_dag_help)
-
-# generate cwinpy_knope help string for docs
-knope_help = subprocess.getoutput("cwinpy_knope --help")
-with open("knope/knope_help.txt", "w") as fp:
-    fp.write(knope_help)
-
-# generate cwinpy_knope_dag help string for docs
-knope_dag_help = subprocess.getoutput("cwinpy_knope_pipeline --help")
-with open("knope/knope_pipeline_help.txt", "w") as fp:
-    fp.write(knope_dag_help)

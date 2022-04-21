@@ -7,8 +7,10 @@ import os
 import numpy as np
 import pytest
 from astropy import units as u
+from astropy.coordinates import SkyCoord
 from cwinpy import PulsarParameters
 from cwinpy.utils import (
+    draw_ra_dec,
     ellipticity_to_q22,
     gcd_array,
     get_psr_name,
@@ -16,6 +18,7 @@ from cwinpy.utils import (
     int_to_alpha,
     is_par_file,
     logfactorial,
+    overlap,
     q22_to_ellipticity,
 )
 
@@ -160,7 +163,7 @@ def test_q22_to_ellipticity_to_q22():
     assert np.allclose(epsilon, expected_epsilon)
 
     # test no unit
-    epsilon = q22_to_ellipticity(q22[0] * u.kg * u.m ** 2)
+    epsilon = q22_to_ellipticity(q22[0] * u.kg * u.m**2)
 
     assert np.isclose(epsilon, expected_epsilon[0])
     assert not hasattr(epsilon, "unit")
@@ -197,3 +200,90 @@ def test_initialise_ephemeris():
 
     assert tdat.nentriesT == 87660
     assert tdat.dtTtable == 14400.0
+
+
+def test_draw_ra_dec():
+    """
+    Test draw_ra_dec function.
+    """
+
+    # check exceptions
+    with pytest.raises(TypeError):
+        draw_ra_dec(eclhemi=1)
+
+    with pytest.raises(TypeError):
+        draw_ra_dec(eqhemi=1)
+
+    with pytest.raises(ValueError):
+        draw_ra_dec(eclhemi="blah")
+
+    with pytest.raises(ValueError):
+        draw_ra_dec(eqhemi="blah")
+
+    # draw a single point
+    radec = draw_ra_dec()
+
+    assert np.shape(radec) == (2,)
+    assert 0.0 <= radec[0] < 2.0 * np.pi
+    assert -np.pi / 2.0 < radec[1] < np.pi / 2.0
+
+    # draw multiple points
+    radec = draw_ra_dec(100)
+
+    assert np.shape(radec) == (2, 100)
+
+    # check points are within expected ranges
+    for ra, dec in np.array(radec).T:
+        assert 0.0 <= ra < 2.0 * np.pi
+        assert -np.pi / 2.0 < dec < np.pi / 2.0
+
+    # draw multiple points from equatorial north
+    radec = draw_ra_dec(100, eqhemi="north")
+    for ra, dec in np.array(radec).T:
+        assert 0.0 <= ra < 2.0 * np.pi
+        assert 0.0 < dec < np.pi / 2.0
+
+    # draw multiple points from equatorial south
+    radec = draw_ra_dec(100, eqhemi="south")
+    for ra, dec in np.array(radec).T:
+        assert 0.0 <= ra < 2.0 * np.pi
+        assert -np.pi / 2.0 < dec < 0.0
+
+    # draw multiple points from ecliptic north
+    radec = draw_ra_dec(100, eclhemi="north")
+    for ra, dec in np.array(radec).T:
+        pos = SkyCoord(ra, dec, unit="rad")
+        lon = pos.barycentrictrueecliptic.lon.rad
+        lat = pos.barycentrictrueecliptic.lat.rad
+        assert 0.0 <= lon < 2.0 * np.pi
+        assert 0.0 < lat < np.pi / 2.0
+
+    # draw multiple points from ecliptic south
+    radec = draw_ra_dec(100, eclhemi="south")
+    for ra, dec in np.array(radec).T:
+        pos = SkyCoord(ra, dec, unit="rad")
+        lon = pos.barycentrictrueecliptic.lon.rad
+        lat = pos.barycentrictrueecliptic.lat.rad
+        assert 0.0 <= lon < 2.0 * np.pi
+        assert -np.pi / 2.0 < lat < 0.0
+
+
+def test_overlap():
+    """
+    Test heterodyned model overlap between two sky positions.
+    """
+
+    T = 86400 * 365.25  # one year observation
+    f0 = 100.0  # frequency
+    det = "H1"  # detector
+    dt = 600  # time step
+
+    # check same position gives overlap of 1
+    pos1 = SkyCoord(2.3, 0.4, unit="rad")
+
+    assert overlap(pos1, pos1, f0, T, det=det, dt=dt) == 1.0
+
+    # check for small overlap at offset sky position
+    pos2 = SkyCoord(2.3 + 0.1, 0.4 - 0.1, unit="rad")
+
+    assert overlap(pos1, pos2, f0, T, det=det, dt=dt) < 1e-3

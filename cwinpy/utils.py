@@ -2,21 +2,28 @@
 A selection of general utility functions.
 """
 
+import ast
 import ctypes
 import os
+import pathlib
+import re
 import string
 import sys
+from copy import deepcopy
 from functools import reduce
 from math import gcd
 
 import lalpulsar
 import numpy as np
 from astropy import units as u
-from bilby_pipe.utils import CHECKPOINT_EXIT_CODE
+from astropy.coordinates.sky_coordinate import SkyCoord
 from numba import jit, njit
 from numba.extending import get_cython_function_address
 
 from .parfile import PulsarParameters
+
+#: exit code to return when checkpointing
+CHECKPOINT_EXIT_CODE = 77
 
 #: URL for LALSuite solar system ephemeris files
 LAL_EPHEMERIS_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
@@ -37,7 +44,7 @@ LAL_BINARY_MODELS = [
     "T2",
 ]
 
-#: aliases between GW detector prefixes a TEMPO2 observatory names
+#: aliases between GW detector prefixes and TEMPO2 observatory names
 TEMPO2_GW_ALIASES = {
     "G1": "GEO600",
     "GEO_600": "GEO600",
@@ -86,6 +93,28 @@ def logfactorial(n):
     """
 
     return gammaln(n + 1)
+
+
+@jit(nopython=True)
+def allzero(array):
+    """
+    Check if an array is all zeros. See https://stackoverflow.com/a/53474543/1862861.
+
+    Parameters
+    ----------
+    array: array_like
+        A :class:`numpy.ndarray` to check.
+
+    Returns
+    -------
+    bool:
+        True if all zero, False otherwise.
+    """
+
+    for x in array.flat:
+        if x:
+            return False
+    return True
 
 
 def gcd_array(denominators):
@@ -234,7 +263,7 @@ def ellipticity_to_q22(epsilon, units=False):
 
     if units:
         # add units
-        return q22 * u.kg * u.m ** 2
+        return q22 * u.kg * u.m**2
     else:
         return q22
 
@@ -339,6 +368,125 @@ def lalinference_to_bilby_result(postfile):
         log_noise_evidence=logZn,
         log_bayes_factor=logbayes,
     )
+
+
+def draw_ra_dec(n=1, eqhemi=None, eclhemi=None):
+    """
+    Draw right ascension and declination values uniformly on the sky or
+    uniformly from a single equatorial or ecliptic hemisphere.
+
+    Parameters
+    ----------
+    n: int
+        The number of points to draw on the sky.
+    eqhemi: str
+        A string that this either "north" or "south" to restrict drawn points
+        to a single equatorial hemisphere.
+    eclhemi: str
+        A string that this either "north" or "south" to restrict drawn points
+        to a single ecliptic hemisphere.
+
+    Returns
+    -------
+    radec: tuple
+        A tuple containing the pair of values (ra then dec) or a pair of NumPy
+        arrays containing the values.
+    """
+
+    # check hemisphere arguments are valid
+    for hemi in [eqhemi, eclhemi]:
+        if hemi is not None:
+            if not isinstance(hemi, str):
+                raise TypeError("hemisphere arguments must be a string")
+            elif hemi.lower() != "north" and hemi.lower() != "south":
+                raise ValueError("hemisphere argument must be 'north' or 'south'")
+
+    # draw points
+    rng = np.random.default_rng()
+    lon = rng.uniform(0.0, 2.0 * np.pi, n)
+    lat = np.arcsin(2.0 * rng.uniform(0, 1, n) - 1.0)
+
+    if eclhemi is None and eqhemi is not None:
+        # get points from one hemisphere if required
+        lat = np.abs(lat) if eqhemi.lower() == "north" else -np.abs(lat)
+    elif eclhemi is not None:
+        # get points from one hemisphere
+        lat = np.abs(lat) if eclhemi.lower() == "north" else -np.abs(lat)
+
+        # convert to right ascension and declination
+        pos = SkyCoord(lon, lat, unit="rad", frame="barycentrictrueecliptic")
+        lon = pos.icrs.ra.rad
+        lat = pos.icrs.dec.rad
+
+    return (lon[0], lat[0]) if n == 1 else (lon, lat)
+
+
+def overlap(pos1, pos2, f0, T, t0=1000000000, dt=60, det="H1"):
+    """
+    Calculate the overlap (normalised cross-correlation) between a heterodyned
+    signal at one position and a signal re-heterodyned assuming a different
+    position. This will assume a circularly polarised signal
+
+    Parameters
+    ----------
+    pos1: SkyCoord
+        The sky position, as an :class:`astropy.coordinates.SkyCoord` object,
+        of the heterodyned signal.
+    pos2: SkyCoord
+        Another position at which the signal has been re-heterodyned.
+    f0: int, float
+        The signal frequency
+    T: int, float
+        The signal duration (seconds)
+    t0: int, float
+        The GPS start time of the signal (default is 1000000000)
+    dt: int, float
+        The time steps over which to calculate the signal.
+    det: str
+        A detector name, e.g., "H1" (the default).
+
+    Returns
+    -------
+    overlap: float
+        The fractional overlap between the two models.
+    """
+
+    from .signal import HeterodynedCWSimulator
+
+    # set up a pulsar
+    p1 = PulsarParameters()
+    p1["H0"] = 1.0
+    p1["IOTA"] = 0.0
+    p1["PSI"] = 0.0
+    p1["PHI0"] = 0.0
+    p1["F"] = [float(f0)]
+    p1["RAJ"] = pos1.ra.rad
+    p1["DECJ"] = pos1.dec.rad
+
+    # set the times at which to calculate the model
+    times = np.arange(t0, t0 + T, dt)
+
+    het = HeterodynedCWSimulator(p1, det, times=times)
+
+    # calculate the model at pos1
+    hetmodel = het.model()
+
+    denom = abs(np.vdot(hetmodel, hetmodel).real)
+
+    p2 = deepcopy(p1)
+    p2["RAJ"] = pos2.ra.rad
+    p2["DECJ"] = pos2.dec.rad
+
+    # calculate the model re-heterodyned at pos2
+    hetmodel2 = het.model(newpar=p2, updateSSB=True)
+
+    # get the overlap
+    numer = abs(np.vdot(hetmodel, hetmodel2).real)
+
+    # the fractional overlap
+    overlap = numer / denom
+
+    return overlap
 
 
 def initialise_ephemeris(
@@ -474,6 +622,20 @@ def check_for_tempo2():
     return hastempo2
 
 
+def relative_topdir(path, reference):
+    """
+    Returns the top-level directory name of a path relative to a reference.
+    """
+
+    try:
+        return os.path.relpath(
+            pathlib.Path(path).resolve(), pathlib.Path(reference).resolve()
+        )
+    except ValueError as exc:
+        exc.args = (f"cannot format {path} relative to {reference}",)
+        raise
+
+
 def sighandler(signum, frame):
     # perform periodic eviction with exit code 77
     # see https://git.ligo.org/lscsoft/bilby_pipe/-/commit/c63c3e718f20ce39b0340da27fb696c49409fcd8  # noqa: E501
@@ -496,17 +658,25 @@ class MuteStream(object):
     """
 
     def __init__(self, stream=None):
-        self.origstream = sys.stderr if stream is None else stream
-        self.origstreamfd = self.origstream.fileno()
-        # Create a pipe so the stream can be captured:
-        self.pipe_out, self.pipe_in = os.pipe()
+        # don't do this if in a Jupyter notebook as it doesn't work due to how
+        # the notebook captures outputs (the check for whether in a notebook is
+        # from https://stackoverflow.com/a/37661854/1862861)
+        self.in_notebook = "ipykernel" in sys.modules
+
+        if not self.in_notebook:
+            self.origstream = sys.stderr if stream is None else stream
+            self.origstreamfd = self.origstream.fileno()
+            # Create a pipe so the stream can be captured:
+            self.pipe_out, self.pipe_in = os.pipe()
 
     def __enter__(self):
-        self.start()
+        if not self.in_notebook:
+            self.start()
         return self
 
     def __exit__(self, type, value, traceback):
-        self.stop()
+        if not self.in_notebook:
+            self.stop()
 
     def start(self):
         """
@@ -531,3 +701,122 @@ class MuteStream(object):
         os.dup2(self.streamfd, self.origstreamfd)
         # Close the duplicate stream:
         os.close(self.streamfd)
+
+
+def parse_args(input_args, parser):
+    """
+    Parse an argument list using parser generated by create_parser(). This
+    function is based on the bilby_pipe.utils.parse_args function from the
+    bilby_pipe package.
+
+    Parameters
+    ----------
+    input_args: list
+        A list of arguments
+
+    Returns
+    -------
+    args: argparse.Namespace
+        A simple object storing the input arguments
+    unknown_args: list
+        A list of any arguments in `input_args` unknown by the parser
+
+    """
+
+    if len(input_args) == 0:
+        raise IOError("No command line arguments provided")
+
+    ini_file = input_args[0]
+    if os.path.isfile(ini_file) is False:
+        if os.path.isfile(os.path.basename(ini_file)):
+            input_args[0] = os.path.basename(ini_file)
+
+    args, unknown_args = parser.parse_known_args(input_args)
+    return args, unknown_args
+
+
+def convert_string_to_dict(string, key=None):
+    """
+    Convert a string repr of a string to a python dictionary. This is based on
+    bilby_pipe.utils.convert_string_to_dict from the bilby_pipe package.
+
+    Parameters
+    ----------
+    string: str
+        The string to convert
+    key: str (None)
+        A key, used for debugging
+    """
+
+    if string == "None":
+        return None
+
+    string = strip_quotes(string)
+    # Convert equals to colons
+    string = string.replace("=", ":")
+    string = string.replace(" ", "")
+
+    string = re.sub(r'([A-Za-z/\.0-9\-\+][^\[\],:"}]*)', r'"\g<1>"', string)
+
+    # Force double quotes around everything
+    string = string.replace('""', '"')
+
+    # Evaluate as a dictionary of str: str
+    try:
+        dic = ast.literal_eval(string)
+        if isinstance(dic, str):
+            raise TypeError(f"Unable to format {string} into a dictionary")
+    except (ValueError, SyntaxError) as e:
+        if key is not None:
+            raise TypeError(f"Error {e}. Unable to parse {key}: {string}")
+        else:
+            raise TypeError(f"Error {e}. Unable to parse {string}")
+
+    # Convert values to bool/floats/ints where possible
+    dic = convert_dict_values_if_possible(dic)
+
+    return dic
+
+
+def convert_dict_values_if_possible(dic):
+    """
+    Taken from bilby_pipe.utils.convert_dict_values_if_possible from the
+    bilby_pipe package.
+    """
+
+    for key in dic:
+        if isinstance(dic[key], str) and dic[key].lower() == "true":
+            dic[key] = True
+        elif isinstance(dic[key], str) and dic[key].lower() == "false":
+            dic[key] = False
+        elif isinstance(dic[key], str):
+            dic[key] = string_to_int_float(dic[key])
+        elif isinstance(dic[key], dict):
+            dic[key] = convert_dict_values_if_possible(dic[key])
+    return dic
+
+
+def strip_quotes(string):
+    """
+    Taken from bilby_pipe.utils.strip_quotes from the bilby_pipe package.
+    """
+
+    try:
+        return string.replace('"', "").replace("'", "")
+    except AttributeError:
+        return string
+
+
+def string_to_int_float(s):
+    """
+    Taken from bilby_pipe.utils.string_to_int_float from the bilby_pipe
+    package.
+    """
+
+    try:
+        return int(s)
+    except ValueError:
+        try:
+            return float(s)
+        except ValueError:
+            return s

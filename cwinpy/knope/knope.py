@@ -4,17 +4,12 @@ from argparse import ArgumentParser
 
 import cwinpy
 
-from ..heterodyne.heterodyne import HeterodyneDAGRunner, heterodyne
-from ..info import (
-    ANALYSIS_SEGMENTS,
-    CVMFS_GWOSC_DATA_SERVER,
-    CVMFS_GWOSC_DATA_TYPES,
-    CVMFS_GWOSC_FRAME_CHANNELS,
-    HW_INJ,
-    HW_INJ_RUNTIMES,
-    HW_INJ_SEGMENTS,
-    RUNTIMES,
+from ..heterodyne.heterodyne import (
+    HeterodyneDAGRunner,
+    heterodyne,
+    heterodyne_quick_setup,
 )
+from ..info import RUNTIMES
 from ..pe.pe import PEDAGRunner, pe
 
 
@@ -29,10 +24,7 @@ data will be preprocessed based on the phase evolution of a pulsar which will \
 then be used to infer the unknown signal parameters.
 """
 
-    parser = ArgumentParser(
-        description=description,
-        allow_abbrev=False,
-    )
+    parser = ArgumentParser(description=description, allow_abbrev=False)
     parser.add(
         "--heterodyne-config",
         action="append",
@@ -209,10 +201,12 @@ def knope_cli(**kwargs):  # pragma: no cover
 
 def knope_pipeline(**kwargs):
     """
-    Run knope within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
-    DAG for consecutively running multiple ``cwinpy_heterodyne`` and ``cwinpy_pe`` instances on a
-    computer cluster. Optional parameters that can be used instead of a configuration file (for
-    "quick setup") are given in the "Other parameters" section.
+    Run knope within Python. This will create a
+    `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ DAG for consecutively
+    running multiple ``cwinpy_heterodyne`` and ``cwinpy_pe`` instances on a
+    computer cluster. Optional parameters that can be used instead of a
+    configuration file (for "quick setup") are given in the "Other parameters"
+    section.
 
     Parameters
     ----------
@@ -231,13 +225,15 @@ def knope_pipeline(**kwargs):
         will be used.
     hwinj: bool
         Set this to True to analyse the continuous hardware injections for a
-        given run. No ``pulsar`` argument is required in this case.
+        given run. If no ``pulsar`` argument is given then all hardware
+        injections will be analysed. To specify particular hardware injections
+        the names can be given using the ``pulsar`` argument.
     samplerate: str:
         Select the sample rate of the data to use. This can either be 4k or
         16k for data sampled at 4096 or 16384 Hz, respectively. The default
         is 4k, except if running on hardware injections for O1 or later, for
-        which 16k will be used due to being requred for the highest frequency
-        source. For the S5 and S6 runs only 4k data is avaialble from GWOSC,
+        which 16k will be used due to being required for the highest frequency
+        source. For the S5 and S6 runs only 4k data is available from GWOSC,
         so if 16k is chosen it will be ignored.
     pulsar: str, list
         The path to, or list of paths to, a TEMPO(2)-style pulsar parameter
@@ -248,13 +244,14 @@ def knope_pipeline(**kwargs):
     osg: bool
         Set this to True to run on the Open Science Grid rather than a local
         computer cluster.
-    output: str,
-        The location for outputting the heterodyned data. By default the
-        current directory will be used. Within this directory, subdirectories
-        for each detector will be created.
+    output: str
+        The base location for outputting the heterodyned data and parameter
+        estimation results. By default the current directory will be used.
+        Within this directory, subdirectories for each detector and for the
+        result swill be created.
     joblength: int
         The length of data (in seconds) into which to split the individual
-        analysis jobs. By default this is set to 86400, i.e., one day. If this
+        heterodyne jobs. By default this is set to 86400, i.e., one day. If this
         is set to 0, then the whole dataset is treated as a single job.
     accounting_group_tag: str
         For LVK users this sets the computing accounting group tag.
@@ -262,6 +259,15 @@ def knope_pipeline(**kwargs):
         Set this flag to use Tempo2 (if installed) for calculating the signal
         phase evolution for the heterodyne rather than the default LALSuite
         functions.
+    includeincoherent: bool
+        If using multiple detectors, as well as running an analysis that
+        coherently combines data from all given detectors, also analyse each
+        individual detector's data separately. The default is False, i.e., only
+        the coherent analysis is performed.
+    incoherentonly: bool
+        If using multiple detectors, only perform analyses on the individual
+        detector's data and do not analyse a coherent combination of the
+        detectors.
 
     Returns
     -------
@@ -297,7 +303,7 @@ def knope_pipeline(**kwargs):
             help=(
                 "Set an observing run name for which to heterodyne the data. "
                 "This can be one of {} for which open data exists".format(
-                    list(RUNTIMES.keys())
+                    ", ".join(list(RUNTIMES.keys()))
                 )
             ),
         )
@@ -317,7 +323,9 @@ def knope_pipeline(**kwargs):
             help=(
                 "Set this flag to analyse the continuous hardware injections "
                 "for a given run. No '--pulsar' arguments are required in "
-                "this case."
+                "this case, in which case all hardware injections will be "
+                "used. To specific particular hardware injections, the "
+                "required names can be set with the '--pulsar' flag."
             ),
         )
         optional.add_argument(
@@ -325,7 +333,7 @@ def knope_pipeline(**kwargs):
             help=(
                 "Select the sample rate of the data to use. This can either "
                 "be 4k or 16k for data sampled at 4096 or 16384 Hz, "
-                "respectively. The default is 4k, except if running on "
+                "respectively. The default is %(default)s, except if running on "
                 "hardware injections for O1 or later, for which 16k will be "
                 "used due to being required for the highest frequency source. "
                 "For the S5 and S6 runs only 4k data is available from GWOSC, "
@@ -374,14 +382,26 @@ def knope_pipeline(**kwargs):
             ),
         )
         optional.add_argument(
-            "--incoherent",
+            "--include-incoherent",
             action="store_true",
             help=(
-                "In running with multiple detectors, set this flag to analyse "
-                "each of them independently rather than coherently combining "
-                "the data from all detectors. The coherent analysis is the "
-                "default."
+                "If running with multiple detectors, set this flag to analyse "
+                "each of them independently and also include an analysis that "
+                "coherently combines the data from all detectors. Only "
+                "performing a coherent analysis is the default."
             ),
+            dest="inclincoh",
+        )
+        optional.add_argument(
+            "--incoherent-only",
+            action="store_true",
+            help=(
+                "If running with multiple detectors, set this flag to analyse "
+                "each of them independently rather than coherently combining "
+                "the data from all detectors. Only performing a coherent "
+                "analysis is the default."
+            ),
+            dest="incohonly",
         )
         optional.add_argument(
             "--accounting-group-tag",
@@ -404,136 +424,37 @@ def knope_pipeline(**kwargs):
             peconfigfile = args.config
         else:
             # use the "Quick setup" arguments
-            hetconfigfile = configparser.ConfigParser()
+            hetconfigfile = heterodyne_quick_setup(args, **kwargs)
             peconfigfile = configparser.ConfigParser()
 
-            run = kwargs.get("run", args.run)
-            if run not in RUNTIMES:
-                raise ValueError(f"Requested run '{run}' is not available")
-
-            pulsars = []
-            if args.hwinj:
-                # use hardware injections for the run
-                runtimes = HW_INJ_RUNTIMES
-                segments = HW_INJ_SEGMENTS
-                pulsars.extend(HW_INJ[run]["hw_inj_files"])
-
-                # set sample rate to 16k, expect for S runs
-                srate = "16k" if run[0] == "O" else "4k"
-            else:
-                # use pulsars provided
-                runtimes = RUNTIMES
-                segments = ANALYSIS_SEGMENTS
-
-                pulsar = kwargs.get("pulsar", args.pulsar)
-                if pulsar is None:
-                    raise ValueError("No pulsar parameter files have be provided")
-
-                pulsars.extend(pulsar if isinstance(pulsar, list) else [pulsar])
-
-                # get sample rate
-                srate = (
-                    "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
-                )
-
-            detector = kwargs.get("detector", args.detector)
-            if detector is None:
-                detectors = list(runtimes[run].keys())
-            else:
-                detector = detector if isinstance(detector, list) else [detector]
-                detectors = [det for det in args.detector if det in runtimes[run]]
-                if len(detectors) == 0:
-                    raise ValueError(
-                        f"Provided detectors '{detector}' are not valid for the given run"
-                    )
-
             # create required settings
-            hetconfigfile["run"] = {}
-            hetconfigfile["run"]["basedir"] = kwargs.get("output", args.output)
             peconfigfile["run"] = {}
             peconfigfile["run"]["basedir"] = kwargs.get("output", args.output)
 
-            hetconfigfile["heterodyne_dag"] = {}
             peconfigfile["pe_dag"] = {}
             peconfigfile["pe_dag"]["submitdag"] = "True"  # submit automatically
             if kwargs.get("osg", args.osg):
-                hetconfigfile["heterodyne_dag"]["osg"] = "True"
                 peconfigfile["pe_dag"]["osg"] = "True"
 
-            hetconfigfile["heterodyne_job"] = {}
-            hetconfigfile["heterodyne_job"]["getenv"] = "True"
             peconfigfile["pe_job"] = {}
             peconfigfile["pe_job"]["getenv"] = "True"
             if args.accgroup is not None:
-                hetconfigfile["heterodyne_job"]["accounting_group"] = kwargs.get(
-                    "accounting_group_tag", args.accgroup
-                )
                 peconfigfile["pe_job"]["accounting_group"] = kwargs.get(
                     "accounting_group_tag", args.accgroup
                 )
 
-            # add ephemeris settings
-            hetconfigfile["ephemerides"] = {}
-            hetconfigfile["ephemerides"]["pulsarfiles"] = str(pulsars)
-
             # add heterodyne settings
             hetconfigfile["heterodyne"] = {}
-            hetconfigfile["heterodyne"]["detectors"] = str(detectors)
-            hetconfigfile["heterodyne"]["starttimes"] = str(
-                {det: runtimes[run][det][0] for det in detectors}
-            )
-            hetconfigfile["heterodyne"]["endtimes"] = str(
-                {det: runtimes[run][det][1] for det in detectors}
-            )
-
-            hetconfigfile["heterodyne"]["frametypes"] = str(
-                {det: CVMFS_GWOSC_DATA_TYPES[run][srate][det] for det in detectors}
-            )
-            hetconfigfile["heterodyne"]["host"] = CVMFS_GWOSC_DATA_SERVER
-            hetconfigfile["heterodyne"]["channels"] = str(
-                {det: CVMFS_GWOSC_FRAME_CHANNELS[run][srate][det] for det in detectors}
-            )
-            if args.hwinj:
-                hetconfigfile["heterodyne"]["includeflags"] = str(
-                    {det: segments[run][det]["includesegments"] for det in detectors}
-                )
-                hetconfigfile["heterodyne"]["excludeflags"] = str(
-                    {det: segments[run][det]["excludesegments"] for det in detectors}
-                )
-            else:
-                hetconfigfile["heterodyne"]["includeflags"] = str(
-                    {det: segments[run][det] for det in detectors}
-                )
-            hetconfigfile["heterodyne"]["outputdir"] = str(
-                {det: os.path.join(args.output, det) for det in detectors}
-            )
-            hetconfigfile["heterodyne"]["overwrite"] = "False"
-
-            # set whether to use Tempo2 for phase evolution
-            if kwargs.get("usetempo2", args.usetempo2):
-                hetconfigfile["heterodyne"]["usetempo2"] = "True"
-
-            # split the analysis into on average day long chunks
-            if kwargs.get("joblength", args.joblength) is None:
-                hetconfigfile["heterodyne"]["joblength"] = "86400"
-            else:
-                hetconfigfile["heterodyne"]["joblength"] = str(
-                    kwargs.get("joblength", args.joblength)
-                )
 
             # set whether running a coherent or incoherent analysis
             peconfigfile["pe"] = {}
             peconfigfile["pe"]["incoherent"] = str(
-                kwargs.get("incoherent", args.incoherent)
+                kwargs.get("includeincoherent", args.inclincoh)
+                or kwargs.get("incoherentonly", args.incohonly)
             )
             peconfigfile["pe"]["coherent"] = str(
-                not kwargs.get("incoherent", args.incoherent)
+                not kwargs.get("incoherentonly", args.incohonly)
             )
-
-            # merge the resulting files and remove individual files
-            hetconfigfile["merge"] = {}
-            hetconfigfile["merge"]["remove"] = "True"
-            hetconfigfile["merge"]["overwrite"] = "True"
 
     if isinstance(hetconfigfile, configparser.ConfigParser) and isinstance(
         peconfigfile, configparser.ConfigParser
@@ -566,21 +487,18 @@ def knope_pipeline(**kwargs):
             "heterodyne_dag", "transfer_files", fallback="True"
         )
 
-    # DAG name is taken from the "knope_dag" section, but falls-back to
-    # "cwinpy_knope" if not given
-    hetconfig["heterodyne_dag"]["name"] = hetconfig.get(
-        "knope_dag", "name", fallback="cwinpy_knope"
-    )
+    # set name for output DAG
+    peconfig["pe_dag"]["name"] = "cwinpy_knope"
 
     # set accounting group information
     accgroup = hetconfig.get("knope_job", "accounting_group", fallback=None)
     accuser = hetconfig.get("knope_job", "accounting_group_user", fallback=None)
     if accgroup is not None:
-        hetconfigfile["heterodyne_job"]["accounting_group"] = accgroup
-        peconfigfile["pe_job"]["accounting_group"] = accgroup
+        hetconfig["heterodyne_job"]["accounting_group"] = accgroup
+        peconfig["pe_job"]["accounting_group"] = accgroup
     if accuser is not None:
-        hetconfigfile["heterodyne_job"]["accounting_group_user"] = accuser
-        peconfigfile["pe_job"]["accounting_group_user"] = accuser
+        hetconfig["heterodyne_job"]["accounting_group_user"] = accuser
+        peconfig["pe_job"]["accounting_group_user"] = accuser
 
     # set use of OSG
     osg = hetconfig.get("knope_dag", "osg", fallback=None)
@@ -600,7 +518,11 @@ def knope_pipeline(**kwargs):
     peconfig["pe_dag"]["build"] = str(build)
     if not hetconfig.has_section("merge"):
         hetconfig["merge"] = {}
-    hetconfig["merge"]["merge"] = "True"  # always merge files
+
+    # always merge files if doing a one stage heterodyne
+    hetconfig["merge"]["merge"] = (
+        "True" if hetconfig.getint("heterodyne", "stages", fallback=1) == 1 else "False"
+    )
     hetdag = HeterodyneDAGRunner(hetconfig, **kwargs)
 
     # add heterodyned files into PE configuration
@@ -639,7 +561,6 @@ def knope_pipeline(**kwargs):
 
     # create PE DAG
     kwargs["dag"] = hetdag.dag  # add heterodyne DAG
-    kwargs["generation_nodes"] = hetdag.pulsar_nodes  # add Heterodyne nodes
     pedag = PEDAGRunner(peconfig, **kwargs)
 
     # return the full DAG

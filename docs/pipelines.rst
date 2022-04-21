@@ -11,6 +11,7 @@ for running them, are described in the following sections:
    Processing raw data aka "Heterodyning" <heterodyne/heterodyne>
    Bayesian parameter estimation <pe/pe>
    Known pulsar pipeline aka "knope" <knope/knope>
+   Sky-shifting <skyshifting>
 
 Quick start
 ~~~~~~~~~~~

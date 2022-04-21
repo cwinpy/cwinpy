@@ -3,6 +3,7 @@ Classes for dealing with data products.
 """
 
 import os
+from pathlib import Path
 from warnings import warn
 
 import cwinpy
@@ -17,9 +18,10 @@ from gwpy.segments import SegmentList
 from gwpy.timeseries import TimeSeries, TimeSeriesBase
 from gwpy.types import Series
 from numba import jit
+from scipy.ndimage import median_filter
 
 from .parfile import PulsarParameters
-from .utils import gcd_array, get_psr_name, is_par_file, logfactorial
+from .utils import allzero, gcd_array, get_psr_name, is_par_file, logfactorial
 
 
 class MultiHeterodynedData(object):
@@ -55,27 +57,24 @@ class MultiHeterodynedData(object):
         data=None,
         times=None,
         detector=None,
-        window=30,
-        inject=False,
-        par=None,
-        injpar=None,
-        freqfactor=2.0,
-        bbthreshold="default",
-        remove_outliers=False,
-        thresh=3.5,
         **kwargs,
     ):
 
         # set keyword argument
         self._heterodyned_data_kwargs = {}
-        self._heterodyned_data_kwargs["window"] = window
-        self._heterodyned_data_kwargs["par"] = par
-        self._heterodyned_data_kwargs["injpar"] = injpar
-        self._heterodyned_data_kwargs["inject"] = inject
-        self._heterodyned_data_kwargs["freqfactor"] = freqfactor
-        self._heterodyned_data_kwargs["bbthreshold"] = bbthreshold
-        self._heterodyned_data_kwargs["remove_outliers"] = remove_outliers
-        self._heterodyned_data_kwargs["thresh"] = thresh
+        self._heterodyned_data_kwargs["window"] = kwargs.pop("window", 30)
+        self._heterodyned_data_kwargs["par"] = kwargs.pop("par", None)
+        self._heterodyned_data_kwargs["injpar"] = kwargs.pop("injpar", None)
+        self._heterodyned_data_kwargs["inject"] = kwargs.pop("inject", False)
+        self._heterodyned_data_kwargs["freqfactor"] = kwargs.pop("freqfactor", 2.0)
+        self._heterodyned_data_kwargs["bbthreshold"] = kwargs.pop(
+            "bbthreshold", "default"
+        )
+        self._heterodyned_data_kwargs["remove_outliers"] = kwargs.pop(
+            "remove_outliers", False
+        )
+        self._heterodyned_data_kwargs["thresh"] = kwargs.pop("thresh", 3.5)
+        self._heterodyned_data_kwargs.update(kwargs)
 
         self._data = dict()  # initialise empty dict
         self._currentidx = 0  # index for iterator
@@ -147,8 +146,9 @@ class MultiHeterodynedData(object):
             self._data[detname].append(data)
 
     def _add_data(self, data, detector, times=None):
-        if detector is None or data is None:
-            raise ValueError("data and detector must be set")
+        if not isinstance(data, (str, Path)):
+            if detector is None or data is None:
+                raise ValueError("data and detector must be set")
 
         het = HeterodynedData(
             data, times, detector=detector, **self._heterodyned_data_kwargs
@@ -218,7 +218,7 @@ class MultiHeterodynedData(object):
         snr2 = 0.0
         for het in self:
             if het.injpar is not None:
-                snr2 += het.injection_snr ** 2
+                snr2 += het.injection_snr**2
 
         return np.sqrt(snr2)
 
@@ -892,7 +892,9 @@ class HeterodynedData(TimeSeriesBase):
         stds = None  # initialise standard deviations
 
         # read/parse data
-        if isinstance(data, (str, list)) and np.array(data).dtype.type == np.str_:
+        if (
+            isinstance(data, (str, list)) and np.array(data).dtype.type == np.str_
+        ) or isinstance(data, Path):
             try:
                 new = cls.read(data)
             except Exception as e:
@@ -1077,7 +1079,7 @@ class HeterodynedData(TimeSeriesBase):
         See :meth:`gwpy.timeseries.TimeSeries.read` for more information.
         """
 
-        if isinstance(source, str):
+        if isinstance(source, (str, Path)):
             datafiles = [source]
         else:
             datafiles = list(source)
@@ -1333,7 +1335,7 @@ class HeterodynedData(TimeSeriesBase):
         if par is not None:
             if isinstance(par, PulsarParameters):
                 return par
-            elif isinstance(par, str):
+            elif isinstance(par, (str, Path)):
                 if is_par_file(par):
                     newpar = PulsarParameters(par)
                 else:
@@ -1424,21 +1426,14 @@ class HeterodynedData(TimeSeriesBase):
         self.running_median = TimeSeriesBase(
             np.zeros(len(self), dtype=complex), times=self.times
         )
-        if N > 0:
-            for i in range(len(self)):
-                if i < N // 2:
-                    startidx = 0
-                    endidx = i + (N // 2) + 1
-                elif i > len(self) - N:
-                    startidx = i - (N // 2) + 1
-                    endidx = len(self)
-                else:
-                    startidx = i - (N // 2) + 1
-                    endidx = i + (N // 2) + 1
 
-                self._running_median[i] = np.median(
-                    self.data.real[startidx:endidx]
-                ) + 1j * np.median(self.data.imag[startidx:endidx])
+        if N > 0:
+            median_filter(
+                self.data.real, size=N, output=self._running_median.real, mode="mirror"
+            )
+            median_filter(
+                self.data.imag, size=N, output=self._running_median.imag, mode="mirror"
+            )
 
         return self.running_median
 
@@ -1508,14 +1503,14 @@ class HeterodynedData(TimeSeriesBase):
             if self._vars is None:
                 return None
             else:
-                return np.sqrt(self._vars)
+                return np.sqrt(self.vars)
         except AttributeError:
             return None
 
     @stds.setter
     def stds(self, stds):
         if stds is not None:
-            self.vars = stds ** 2
+            self.vars = stds**2
         else:
             self.vars = None
 
@@ -1605,7 +1600,7 @@ class HeterodynedData(TimeSeriesBase):
 
         return self.vars
 
-    def inject_signal(self, injpar=None, injtimes=None, inject=True):
+    def inject_signal(self, injpar=None, injtimes=None, inject=True, **kwargs):
         """
         Inject a simulated signal into the data.
 
@@ -1622,13 +1617,17 @@ class HeterodynedData(TimeSeriesBase):
             not added into the data.
         """
 
+        # save any kwargs
+        if not hasattr(self, "_inj_kwargs") or len(kwargs) > 1:
+            self._inj_kwargs = kwargs.copy()
+
         # create the signal to inject
         if injpar is None:
             self.injpar = self.par
-            signal = self.make_signal()
+            signal = self.make_signal(**self._inj_kwargs)
         else:
             self.injpar = injpar
-            signal = self.make_signal(signalpar=self.injpar)
+            signal = self.make_signal(signalpar=self.injpar, **self._inj_kwargs)
 
         # set the times between which the injection will be added
         self.injtimes = injtimes
@@ -1765,7 +1764,7 @@ class HeterodynedData(TimeSeriesBase):
             + ((self.injection_data.imag / self.stds) ** 2).sum()
         )
 
-    def make_signal(self, signalpar=None):
+    def make_signal(self, signalpar=None, **kwargs):
         """
         Make a signal at the data time stamps given a parameter file.
 
@@ -1808,6 +1807,7 @@ class HeterodynedData(TimeSeriesBase):
             earth_ephem=self.ephemearth,
             sun_ephem=self.ephemsun,
             time_corr=self.ephemtime,
+            usetempo2=kwargs.get("usetempo2", False),
         )
 
         # get the injection
@@ -1817,10 +1817,10 @@ class HeterodynedData(TimeSeriesBase):
         else:
             signal = het.model(
                 signalpar,
-                updateSSB=True,
-                updateBSB=True,
-                updateglphase=True,
-                updatefitwaves=True,
+                updateSSB=kwargs.get("updateSSB", True),
+                updateBSB=kwargs.get("updateBSB", True),
+                updateglphase=kwargs.get("updateglphase", True),
+                updatefitwaves=kwargs.get("updatefitwaves", True),
                 freqfactor=self.freq_factor,
             )
 
@@ -2296,7 +2296,7 @@ class HeterodynedData(TimeSeriesBase):
 
     def _chop_data(self, data, startidx=0):
         # find change point (don't split if data is zero)
-        if np.all(self.subtract_running_median() == (0.0 + 0 * 1j)):
+        if allzero(self.subtract_running_median()):
             lratio, cpidx, ntrials = (-np.inf, 0, 1)
         else:
             lratio, cpidx, ntrials = self._find_change_point(data, self.bbminlength)
@@ -2373,9 +2373,7 @@ class HeterodynedData(TimeSeriesBase):
 
         # go through each possible splitting of the data in two
         for i in range(lsum):
-            if np.all(subdata[: minlength + i] == (0.0 + 0 * 1j)) or np.all(
-                subdata[minlength + i :] == (0.0 + 0 * 1j)
-            ):
+            if allzero(subdata[: minlength + i]) or allzero(subdata[minlength + i :]):
                 # do this to avoid warnings about np.log(0.0)
                 logdouble[i] = -np.inf
             else:

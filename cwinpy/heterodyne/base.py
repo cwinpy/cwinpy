@@ -16,7 +16,6 @@ import lal
 import lalpulsar
 import numpy as np
 from astropy.time import Time
-from bilby_pipe.utils import CHECKPOINT_EXIT_CODE
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from gwosc.timeline import get_segments
 from gwpy.io.cache import is_cache, read_cache
@@ -27,6 +26,7 @@ from scipy.interpolate import splev, splrep
 from ..data import HeterodynedData
 from ..parfile import PulsarParameters
 from ..utils import (
+    CHECKPOINT_EXIT_CODE,
     TEMPO2_GW_ALIASES,
     MuteStream,
     check_for_tempo2,
@@ -59,7 +59,7 @@ class Heterodyne(object):
     frametype: str
         The ``frametype`` name of the data to be heterodyned. See, e.g., the
         GWPy documentation
-        `here <https://gwpy.github.io/docs/stable/timeseries/datafind.html#available-datasets>`_
+        `here <https://gwpy.github.io/docs/stable/timeseries/datafind.html#available-datasets>`__
         for information on frame types. If this is not given the correct data
         set will be attempted to be found using the ``channel`` name.
     channel: str
@@ -71,7 +71,7 @@ class Heterodyne(object):
     host: str
         The server name for finding the gravitational-wave data files. Use
         ``datafind.ligo.org:443`` for open data available via CVMFS. To use
-        open data available from the `GWOSC <https://www.gw-openscience.org>`_
+        open data available from the `GWOSC <https://www.gw-openscience.org>`__
         use ``https://www.gw-openscience.org``. See also
         :func:`gwpy.timeseries.TimeSeries.get`.
     outputframecache: str
@@ -96,7 +96,7 @@ class Heterodyne(object):
         A string, or list of string giving data DQ flags to use to generate a
         segment list if not provided in ``segmentlist``. See, e.g., the GWPy
         documentation
-        `here <https://gwpy.github.io/docs/stable/segments/index.html>`_ and
+        `here <https://gwpy.github.io/docs/stable/segments/index.html>`__ and
         the :func:`cwinpy.heterodyne.generate_segments` function. Use, e.g.,
         "H1_DATA" (or e.g., "H1_CBC_CAT2") to get segments from GWOSC for open
         data.
@@ -272,6 +272,7 @@ class Heterodyne(object):
         usetempo2=False,
         resume=False,
         cwinpy_heterodyne_pipeline_config_file=None,
+        ignore_read_fail=False,
     ):
         # set analysis times
         self.starttime = starttime
@@ -312,6 +313,7 @@ class Heterodyne(object):
         self.resume = resume
 
         # set previously heterodyned data
+        self._ignore_read_fail = ignore_read_fail
         self.heterodyneddata = heterodyneddata
 
         # set heterodyne parameters
@@ -1436,7 +1438,8 @@ class Heterodyne(object):
                         # skip this pulsar as heterodyne has already been performed
                         continue
 
-                hetdata = TimeSeriesList()
+                hetdata = np.array([], dtype=complex)
+                hettimes = np.array([], dtype=float)
 
                 for hetfile in self.heterodyneddata[pulsar]:
                     # read in data
@@ -1575,18 +1578,14 @@ class Heterodyne(object):
                     )
 
                     if hetts is not None:
-                        hetdata.append(hetts.as_timeseries())
-
-                # output the data
-                times = np.array(
-                    [v for d in hetdata for v in d.times.value], dtype=float
-                )
-                data = hetdata.join(gap="ignore")
-                data.times = times  # preserve uneven time stamps
+                        # store and concatenate data and times
+                        hetdata = np.concatenate((hetdata, hetts.data))
+                        hettimes = np.concatenate((hettimes, hetts.times.value))
 
                 # convert to HeterodynedData
                 het = HeterodynedData(
-                    data=data,
+                    data=hetdata,
+                    times=hettimes,
                     detector=self.detector,
                     par=self._pulsars[pulsar],
                     freqfactor=self.freqfactor,
@@ -2188,17 +2187,21 @@ class Heterodyne(object):
         for hetfile in hetdata:
             if os.path.splitext(hetfile)[1] in self.extensions:
                 # try reading the data
-                try:
-                    het = HeterodynedData.read(hetfile)
-                except Exception as e:
-                    raise IOError(e.args[0])
+                if not self._ignore_read_fail:
+                    try:
+                        het = HeterodynedData.read(hetfile)
+                    except Exception as e:
+                        raise IOError(e.args[0])
 
-                if het.par is None:
-                    raise AttributeError(
-                        "Heterodyned data '{}' contains no pulsar parameter file".format(
-                            hetfile
+                    if het.par is None:
+                        raise AttributeError(
+                            "Heterodyned data '{}' contains no pulsar parameter file".format(
+                                hetfile
+                            )
                         )
-                    )
+                    else:
+                        hetfiles.append(hetfile)
+                        isfile = True
                 else:
                     hetfiles.append(hetfile)
                     isfile = True
@@ -2212,10 +2215,11 @@ class Heterodyne(object):
 
                 if len(curhetfiles) > 0:
                     # try reading first file
-                    try:
-                        het = HeterodynedData.read(curhetfiles[0])
-                    except Exception as e:
-                        raise IOError(e.args[0])
+                    if not self._ignore_read_fail:
+                        try:
+                            het = HeterodynedData.read(curhetfiles[0])
+                        except Exception as e:
+                            raise IOError(e.args[0])
 
                     hetfiles.extend(curhetfiles)
                     isfile = False
@@ -2470,8 +2474,7 @@ class Heterodyne(object):
 
             for timetype in timeephemeris:
                 self._timecorr[timetype] = initialise_ephemeris(
-                    timefile=timeephemeris[timetype],
-                    timeonly=True,
+                    timefile=timeephemeris[timetype], timeonly=True
                 )
 
     @property
@@ -2848,7 +2851,7 @@ def generate_segments(
     """
     Generate a list of times to analysis based on data quality (DQ) segments.
     As mentioned in the `GWPy documentation
-    <https://gwpy.github.io/docs/stable/segments/dqsegdb.html>`_ this requires
+    <https://gwpy.github.io/docs/stable/segments/dqsegdb.html>`__ this requires
     access to the GW segment database, which is reserved for members of the
     LIGO-Virgo-KAGRA collaborations.
 
@@ -2919,7 +2922,9 @@ def generate_segments(
 
     if isinstance(segmentfile, str):
         try:
-            segmentsarray = np.loadtxt(segmentfile, comments=["#", "%"], dtype=float)
+            segmentsarray = np.atleast_2d(
+                np.loadtxt(segmentfile, comments=["#", "%"], dtype=float)
+            )
             segments = []
             for segment in segmentsarray:
                 if segment[1] < starttime or segment[0] > endtime:

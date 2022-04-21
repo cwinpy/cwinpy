@@ -49,11 +49,10 @@ gravitational-wave community colloquially as a "PP plot" (see, e.g., Section VC 
 also more generally known as "Simulated-based calibration" [4]_.
 
 These tests have been performed in the output of ``cwinpy_knope`` by generating a set of simulated
-signals (using the :class:`cwinpy.knope.testing.KnopePPPlotsDAG`) to be analysed. After all the
-individual simulations have been analysed a PP plot is generated using :meth:`cwinpy.knope.testing.
+signals (using the :class:`cwinpy.pe.testing.PEPPPlotsDAG`) to be analysed. After all the
+individual simulations have been analysed a PP plot is generated using :meth:`cwinpy.pe.testing.
 generate_pp_plots` (which itself uses functions from `bilby
-<https://lscsoft.docs.ligo.org/bilby/index.html>`_ and `bilby_pipe
-<https://lscsoft.docs.ligo.org/bilby_pipe/index.html>`_).
+<https://lscsoft.docs.ligo.org/bilby/index.html>`_).
 
 Single harmonic signal
 ----------------------
@@ -61,7 +60,7 @@ Single harmonic signal
 We produce PP plots for the case of a signal from the :math:`l=m=2` mass quadrupole of a pulsar,
 where emission would be at twice the rotation frequency and defined by the parameters :math:`h_0`,
 :math:`\phi_0`, :math:`\iota` and :math:`\psi`. A Python file to run such an analysis for 250
-simulated signals using :class:`~cwinpy.knope.testing.KnopePPPlotsDAG` is shown below_. This also
+simulated signals using :class:`~cwinpy.pe.testing.PEPPPlotsDAG` is shown below_. This also
 shows the priors used for the generation of signal parameters and their recovery.
 
 .. note::
@@ -114,11 +113,11 @@ The distributions of signal-to-noise ratios for these simulations is:
 
 .. literalinclude:: scripts/pptest_one_harmonic.py
    :language: python
-   :lines: 1-29,33-42,45-48,50-51
+   :lines: 1-29,33-42,45-48,50-52
 
 .. literalinclude:: scripts/pptest_two_harmonics.py
    :language: python
-   :lines: 1-45,49-58,61-64,66-67
+   :lines: 1-45,49-58,61-64,66-68
 
 Pipeline comparison
 ===================
@@ -292,157 +291,157 @@ To compare the final parameter estimation between the ``lalapps_knope`` and
 which produces the following plots:
 
 .. thumbnail:: JPULSAR00_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR00_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR01_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR01_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR02_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR02_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR03_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR03_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR04_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR04_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR05_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR05_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR06_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR06_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR07_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR07_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR08_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR08_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR09_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR09_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR10_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR10_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR11_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR11_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR12_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR12_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR13_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR13_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 .. thumbnail:: JPULSAR14_H1_plot.png
-   :width: 200px
+   :width: 275px
    :align: left
    :group: injections
 
 .. thumbnail:: JPULSAR14_L1_plot.png
-   :width: 200px
+   :width: 275px
    :align: right
    :group: injections
 
 These show very consistent posteriors produced by both codes, which extract the parameters as
-expected. They would not be expected to be identical due to are range of differences including:
+expected. They would not be expected to be identical due to a range of differences including:
 ``lalapps_knope`` performed the heterodyne in two stages rather than the one used by
 ``cwinpy_knope_pipeline``; ``lalapps_knope`` uses a low-pass filter with knee frequency of 0.25 Hz
 rather than the default 0.1 Hz used by ``cwinpy_knope_pipeline``; the outlier vetoing for the two

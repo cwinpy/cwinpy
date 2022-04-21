@@ -15,8 +15,9 @@ import astropy.units as u
 import bilby
 import numpy as np
 from astropy.coordinates import SkyCoord
-from bilby_pipe.pp_test import read_in_result_list
+from htcondor.dags import write_dag
 
+from ..condor import submit_dag
 from ..utils import int_to_alpha
 from .pe import pe_pipeline
 
@@ -26,7 +27,7 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
     Script entry point, or function, to generate P-P plots (see, e.g., [6]_): a
     frequentist-style evaluation to test that the true value of a parameter
     falls with a given Bayesian credible interval the "correct" amount of
-    times, provided the trues values are drawn from the same prior as used when
+    times, provided the true values are drawn from the same prior as used when
     evaluating the posteriors.
 
     Parameters
@@ -111,12 +112,7 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
     if len(resfiles) == 0:
         raise IOError("Problem finding results files. Probably an invalid path!")
 
-    # read in results (need to create dummy class for args)
-    class DummyClass(object):
-        directory = path
-        print = False
-
-    results = read_in_result_list(DummyClass(), resfiles)
+    results = bilby.core.result.ResultList(resfiles)
 
     if parameters is None:
         # get parameters to use from results file prior
@@ -170,7 +166,7 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
             raise IOError("Problem saving figure: {}".format(e))
 
 
-class PEPPPlotsDAG(object):
+class PEPPPlotsDAG:
     """
     This class will generate a HTCondor Dagman job to create a number of
     simulated gravitational-wave signals from pulsars in Gaussian noise. These
@@ -298,10 +294,17 @@ class PEPPPlotsDAG(object):
         self.ppplots()
 
         # build and submit the DAG
+        # write out the DAG and submit files
+        submitdir = os.path.join(self.basedir, "submit")
+        if not os.path.exists(submitdir):
+            os.makedirs(submitdir)
+
+        dagname = "cwinpy_pe_pp_plot"
+        dag_file = write_dag(self.runner.dag, submitdir, dag_file_name=f"{dagname}.dag")
+
+        # submit the DAG if requested
         if submit:
-            self.runner.dag.pycondor_dag.build_submit(fancyname=False)
-        else:
-            self.runner.dag.pycondor_dag.build(fancyname=False)
+            submit_dag(dag_file)
 
     def makedirs(self, dir):
         """
@@ -340,7 +343,7 @@ class PEPPPlotsDAG(object):
                 )
 
         self.pulsars = {}
-        for i in range(self.ninj):
+        for _ in range(self.ninj):
             pulsar = {}
 
             for param in self.prior:
@@ -448,41 +451,44 @@ class PEPPPlotsDAG(object):
         Set up job to create PP plots.
         """
 
-        from pycondor import Job
+        from htcondor import Submit
 
         # get executable
         jobexec = shutil.which("cwinpy_pe_generate_pp_plots")
 
-        extra_lines = []
-        if self.accountgroup is not None:
-            extra_lines.append("accounting_group = {}".format(self.accountgroup))
-        if self.accountuser is not None:
-            extra_lines.append("accounting_group_user = {}".format(self.accountuser))
+        # set log directory
+        logdir = os.path.join(os.path.abspath(self.basedir), "log")
+        self.makedirs(logdir)
 
-        # create cwinpy_pe Job
-        job = Job(
-            "cwinpy_pe_pp_plots",
-            jobexec,
-            error=self.runner.dag.inputs.pe_log_directory,
-            log=self.runner.dag.inputs.pe_log_directory,
-            output=self.runner.dag.inputs.pe_log_directory,
-            submit=self.runner.dag.inputs.submit_directory,
-            universe="local",
-            request_memory=self.runner.dag.inputs.request_memory,
-            getenv=self.getenv,
-            queue=1,
-            requirements=self.runner.dag.inputs.requirements,
-            retry=self.runner.dag.inputs.retry,
-            extra_lines=extra_lines,
-            dag=self.runner.dag.pycondor_dag,
-        )
+        subdict = {
+            "universe": "local",
+            "executable": jobexec,
+            "getenv": self.getenv,
+            "arguments": "$(ARGS)",
+            "log": os.path.join(logdir, "cwinpy_pe_pp_plots.log"),
+            "error": os.path.join(logdir, "cwinpy_pe_pp_plots.err"),
+            "output": os.path.join(logdir, "cwinpy_pe_pp_plots.out"),
+        }
+
+        if self.accountgroup is not None:
+            subdict["accounting_group"] = self.accountgroup
+
+        if self.accountuser is not None:
+            subdict["accounting_group_user"] = self.accountuser
+
+        submit = Submit(subdict)
 
         jobargs = "--path '{}' ".format(os.path.join(self.basedir, "results", "*", "*"))
         jobargs += "--output {} ".format(os.path.join(self.basedir, "ppplot.png"))
         if self.outputsnr:
             jobargs += "--snrs "
-        job.add_arg(jobargs)
 
-        job.add_parents(
-            self.runner.dag.pycondor_dag.nodes[:-1]
-        )  # exclude cwinpy_pe_pp_plots job itself
+        vars = [{"ARGS": jobargs}]
+
+        # add child layer to dag
+        nodes = self.runner.dag.select(lambda x: x.name.startswith("cwinpy_pe"))
+        nodes.child_layer(
+            name="cwinpy_pe_pp_plots",
+            submit_description=submit,
+            vars=vars,
+        )

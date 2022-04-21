@@ -160,7 +160,11 @@ def read_hdf5_series(
         hetargs = None
 
     if hetargs is not None:
-        array.heterodyne_arguments = ast.literal_eval(hetargs[()][0].decode())
+        array.heterodyne_arguments = ast.literal_eval(
+            hetargs[()][0].decode()
+            if isinstance(hetargs[()][0], bytes)
+            else hetargs[()][0]
+        )
 
     # set any configuration file information
     if "cwinpy_heterodyne_pipeline_config" in kwargs:
@@ -285,7 +289,7 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
     if series.heterodyne_arguments is not None:
         # output into a string
         write_metadata(
-            [str(series.heterodyne_arguments)],
+            [str(series.heterodyne_arguments).encode("utf8")],
             output,
             path=path + "HeterodyneArguments",
             append=True,
