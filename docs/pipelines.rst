@@ -32,6 +32,29 @@ run in the advanced detector era, O1, can be performed with:
    <https://www.gw-openscience.org/cvmfs/>`__. See the :ref:`Known pulsar analysis pipeline` and
    :ref:`Heterodyning data` sections for more details.
 
+IGWN Cluster usage
+~~~~~~~~~~~~~~~~~~
+
+If working on a `IGWN Computing Grid <https://computing.docs.ligo.org/guide/grid/>`__ cluster there
+are certain HTCondor job values that `must be set
+<https://computing.docs.ligo.org/guide/condor/tutorial/#how-to-describe-a-job>`__. These are:
+
+* ``accounting_group``: a tag indicating the analysis that is being performed (for accounting
+  purposes). Information on valid `accounting tags
+  <https://computing.docs.ligo.org/guide/condor/accounting/>`__ can be found at
+  `accounting.ligo.org/user <https://accounting.ligo.org/user>`__. In general, if using CWInPy, the
+  "Search group" should be *Continuous Wave Group* (``cw``) and the "Search Pipeline" should be
+  *Targeted Searches: Bayesian pipeline* (``targeted.bayesian``). An example tag for a production search
+  on O3 data would be: ``ligo.prod.o3.cw.targeted.bayesian``.
+* ``request_memory``: an upper limit on the amount of RAM required for a job to successfully complete.
+* ``request_disk``: an upper limit on the amount of disk space required for a job to successfully
+  complete. If transferring input files, this must include the space required for those input files
+  as well as any products produced by the job.
+
+For the ``request_memory`` and ``request_disk`` values, defaults values are used within CWInPy if
+these are not explicitly set in configuration files, or if using "Quick setup" options. In most
+cases, these default values should work well, so user supplied values are not necessary.
+
 Local use of HTCondor
 ~~~~~~~~~~~~~~~~~~~~~
 

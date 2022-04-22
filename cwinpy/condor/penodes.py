@@ -62,6 +62,7 @@ class PulsarPELayer(CondorLayer):
         # set memory
         self.set_option("request_memory", default="8 GB")
         self.set_option("request_cpus", otype=int, default=1)
+        self.set_option("request_disk", default="1 GB")
 
         self.set_option(
             "condor_job_priority", optionname="priority", otype=int, default=0
@@ -247,6 +248,7 @@ class MergePELayer(CondorLayer):
 
         self.submit_options["request_memory"] = "8 GB"
         self.submit_options["request_cpus"] = 1
+        self.submit_options["request_disk"] = "500 MB"
         self.submit_options["universe"] = "local"
 
         # generate the node variables
