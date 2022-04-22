@@ -51,7 +51,7 @@ class HeterodyneLayer(CondorLayer):
             self.requirements = [requirements]
 
         # set memory
-        self.set_option("request_memory", default="8 GB")
+        self.set_option("request_memory", default="16 GB")
         self.set_option("request_cpus", otype=int, default=1)
         self.set_option("request_disk", default="2 GB")
 
