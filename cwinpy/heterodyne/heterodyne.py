@@ -833,6 +833,7 @@ class HeterodyneDAGRunner(object):
                 "Frame types, frame cache files, or heterodyned data information must "
                 "be supplied"
             )
+        require_gwosc = False
 
         if heterodyneddata is None:
             for fname, finfo in dict(
