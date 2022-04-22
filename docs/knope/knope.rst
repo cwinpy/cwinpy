@@ -70,8 +70,6 @@ An example configuration file, with inline comments describing the inputs, is gi
 
 .. literalinclude:: cwinpy_knope_pipeline.ini
 
-
-
 Quick setup
 ===========
 
@@ -134,6 +132,36 @@ Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid
    injections for any of the advanced detector runs the 16 kHz data will be used due to frequency of
    the fastest pulsar being above 1.6 kHz.
 
+*knope* examples
+================
+
+A selection of example configuration files for using with ``cwinpy_knope_pipeline`` are shown below.
+These examples are generally fairly minimal and make use of many default settings. If basing your
+own configuration files on these, the various input and output directory paths should be changed.
+These all assume a user ``matthew.pitkin`` running on the `ARCCA Hawk Computing Centre
+<https://computing.docs.ligo.org/guide/computing-centres/hawk/>`__.
+
+O1 LIGO (proprietary data), single pulsar
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An example configuration file for performing a search for a single pulsar, the Crab pulsar
+(J0534+2200), for a signal emitted from the :math:`l=m=2` harmonic, using proprietary O1 LIGO data
+can be downloaded :download:`here <examples/knope_example_O1_ligo.ini>` and is reproduced below:
+
+.. literalinclude:: examples/knope_example_O1_ligo.ini
+
+This requires a pulsar parameter file for the Crab pulsar within the
+``/home/matthew.pitkin/projects/O1pulsars`` directory and a prior file, called e.g.,
+``J0534+2200.prior`` in the ``/home/matthew.pitkin/projects/O1priors`` directory. An example prior
+file might contain:
+
+.. code-block::
+
+   h0 = FermiDirac(1.0e-24, mu=1.0e-22, name='h0')
+   phi0 = Uniform(minimum=0.0, maximum=pi, name='phi0')
+   iota = Sine(minimum=0.0, maximum=pi, name='iota')
+   psi = Uniform(minimum=0.0, maximum=pi/2, name='psi')
+
 .. _knope Command line arguments:
 
 *knope* Command line arguments
@@ -146,8 +174,6 @@ The command line arguments for ``cwinpy_knope`` can be found using:
 The command line arguments for ``cwinpy_knope_pipeline`` can be found using:
 
 .. command-output:: cwinpy_knope_pipeline --help
-
-.. _knope API:
 
 Knope API
 ---------
