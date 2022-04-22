@@ -53,6 +53,7 @@ class HeterodyneLayer(CondorLayer):
         # set memory
         self.set_option("request_memory", default="8 GB")
         self.set_option("request_cpus", otype=int, default=1)
+        self.set_option("request_disk", default="2 GB")
 
         self.set_option(
             "condor_job_priority", optionname="priority", otype=int, default=0
@@ -305,7 +306,7 @@ class HeterodyneLayer(CondorLayer):
 class MergeLayer(CondorLayer):
     def __init__(self, dag, cf, configurations, **kwargs):
         """
-        Class to create submit file for heterodyne jobs.
+        Class to create submit file for jobs that merge heterodyne outputs.
 
         Parameters
         ----------
@@ -336,6 +337,7 @@ class MergeLayer(CondorLayer):
                 os.makedirs(self.log_directories[logtype])
 
         self.submit_options["request_memory"] = "2 GB"
+        self.submit_options["request_disk"] = "2 GB"
         self.submit_options["request_cpus"] = 1
         self.submit_options["universe"] = "local"
 
