@@ -477,12 +477,24 @@ def knope_pipeline(**kwargs):
         except Exception as e:
             raise IOError(f"Problem reading configuration file '{peconfigfile}'\n: {e}")
 
+    # make sure "_dag" sections are present
+    if not hetconfig.has_section("heterodyne_dag"):
+        hetconfig["heterodyne_dag"] = {}
+
+    if not peconfig.has_section("pe_dag"):
+        peconfig["pe_dag"] = {}
+
+    # make sure "_job" sections are present
+    if not hetconfig.has_section("heterodyne_job"):
+        hetconfig["heterodyne_job"] = {}
+
+    if not peconfig.has_section("pe_job"):
+        peconfig["pe_job"] = {}
+
     # make sure "file transfer" is consistent with heterodyne value
     if hetconfig.getboolean(
         "heterodyne_dag", "transfer_files", fallback=True
     ) != hetconfig.getboolean("pe_dag", "transfer_files", fallback=True):
-        if not peconfig.has_section("pe_dag"):
-            peconfig["pe_dag"] = {}
         peconfig["pe_dag"]["transfer_files"] = hetconfig.get(
             "heterodyne_dag", "transfer_files", fallback="True"
         )
