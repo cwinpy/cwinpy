@@ -253,7 +253,7 @@ class MultiHeterodynedData(object):
         figsize=(12, 4),
         remove_outliers=False,
         thresh=3.5,
-        zero_time=True,
+        zero_time=False,
         labelsize=None,
         fontsize=None,
         legendsize=None,
@@ -284,7 +284,7 @@ class MultiHeterodynedData(object):
             :class:`~matplotlib.figure.Figure` objects.
         """
 
-        from matplotlib import pyplot as pl
+        from gwpy.plot import Plot
 
         if len(self) == 0:
             # nothing in the class!
@@ -313,9 +313,32 @@ class MultiHeterodynedData(object):
                 # check default size and increase
                 figsize = (figsize[0], figsize[1] * nplots)
 
-            figs, axs = pl.subplots(nplots, 1, figsize=figsize)
+            # set up plot using dummy data
+            figs = Plot(
+                *[
+                    TimeSeries(
+                        d.real, times=d.times - (0 if not zero_time else d.times[0])
+                    )
+                    for d in hets
+                ],
+                figsize=figsize,
+                separate=True,
+                sharex=True,
+            )
 
-            for ax, het in zip(axs, hets):
+            # replot data on axes
+            for het, ax in zip(hets, figs.get_axes()):
+                # remove dummy data
+                ax.clear()
+                ax.set_prop_cycle(None)  # reset color cycle
+
+                # set color based on detector
+                if "color" not in plotkwargs:
+                    color = GW_OBSERVATORY_COLORS[het.detector]
+                else:
+                    color = None
+
+                # re-plot
                 _ = het.plot(
                     which=which,
                     ax=ax,
@@ -327,6 +350,7 @@ class MultiHeterodynedData(object):
                     legendsize=legendsize,
                     fontname=fontname,
                     labelname=labelname,
+                    color=color,
                     **plotkwargs,
                 )
         else:
@@ -2673,34 +2697,69 @@ class HeterodynedData(TimeSeriesBase):
         if "xscale" not in plotkwargs and zero_time:
             # switch from auto-gps to linear scale if zeroing x-axis
             plotkwargs["xscale"] = "linear"
+        elif "xscale" not in plotkwargs:
+            plotkwargs["xscale"] = "auto-gps"
 
         # set the data to use
         if which.lower() in ["abs", "absolute"]:
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$|B_k|$"
-            plot = TimeSeries(self.take(idx).abs(), times=times).plot(**plotkwargs)
+            if ax is None:
+                plot = TimeSeries(self.take(idx).abs(), times=times).plot(
+                    figsize=figsize, **plotkwargs
+                )
+            else:
+                ax.set_ylabel(plotkwargs.pop("ylabel"))
+                ax.set_xscale(plotkwargs.pop("xscale"))
+                ax.plot(times, self.take(idx).abs(), **plotkwargs)
         elif which.lower() in ["real", "re"]:
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$\\Re{(B_k)}$"
-            plot = TimeSeries(self.take(idx).real, times=times).plot(**plotkwargs)
+            if ax is None:
+                plot = TimeSeries(self.take(idx).real, times=times).plot(
+                    afigsize=figsize, **plotkwargs
+                )
+            else:
+                ax.set_ylabel(plotkwargs.pop("ylabel"))
+                ax.set_xscale(plotkwargs.pop("xscale"))
+                ax.plot(times, self.take(idx).real, **plotkwargs)
         elif which.lower() in ["im", "imag", "imaginary"]:
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$\\Im{(B_k)}$"
-            plot = TimeSeries(self.take(idx).imag, times=times).plot(**plotkwargs)
+            if ax is None:
+                plot = TimeSeries(self.take(idx).imag, times=times).plot(
+                    figsize=figsize, **plotkwargs
+                )
+            else:
+                ax.set_ylabel(plotkwargs.pop("ylabel"))
+                ax.set_xscale(plotkwargs.pop("xscale"))
+                ax.plot(times, self.take(idx).imag, **plotkwargs)
         elif which.lower() == "both":
-            from gwpy.timeseries import TimeSeriesDict
-
-            pldata = TimeSeriesDict()
-            pldata["Real"] = TimeSeries(self.take(idx).real, times=times)
-            pldata["Imag"] = TimeSeries(self.take(idx).imag, times=times)
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$B_k$"
-            plot = pldata.plot(**plotkwargs)
-            plot.gca().legend(loc="upper right", numpoints=1)
+
+            if ax is None:
+                from gwpy.timeseries import TimeSeriesDict
+
+                pldata = TimeSeriesDict()
+                pldata["Real"] = TimeSeries(self.take(idx).real, times=times)
+                pldata["Imag"] = TimeSeries(self.take(idx).imag, times=times)
+
+                plot = pldata.plot(figsize=figsize, **plotkwargs)
+                plot.gca().legend(loc="upper right", numpoints=1)
+            else:
+                ax.set_ylabel(plotkwargs.pop("ylabel"))
+                ax.set_xscale(plotkwargs.pop("xscale"))
+                ax.plot(times, self.take(idx).real, **plotkwargs)
+                ax.plot(times, self.take(idx).imag, **plotkwargs)
+                ax.legend(loc="upper right", numpoints=1)
         else:
             raise ValueError("'which' must be 'abs', 'real', 'imag' or 'both")
 
-        return plot
+        if ax is None:
+            return plot
+        else:
+            return ax
 
     def spectrogram(
         self,
