@@ -141,6 +141,20 @@ own configuration files on these, the various input and output directory paths s
 These all assume a user ``matthew.pitkin`` running on the `ARCCA Hawk Computing Centre
 <https://computing.docs.ligo.org/guide/computing-centres/hawk/>`__.
 
+.. note::
+
+   When running an analysis it is always worth regularly checking on the Condor jobs using `condor_q
+   <https://htcondor.readthedocs.io/en/latest/man-pages/condor_q.html>`__. There is no guarantee
+   that all jobs will successfully complete or that some jobs might not get `held
+   <https://htcondor.readthedocs.io/en/latest/users-manual/managing-a-job.html?highlight=hold#job-in-the-hold-state>`__
+   for some reason. These may require some manual intervention such as resubmitting a generated
+   `rescue DAG
+   <https://htcondor.readthedocs.io/en/latest/users-manual/dagman-workflows.html#rescue-dags>`__ or
+   `releasing <https://htcondor.readthedocs.io/en/latest/man-pages/condor_release.html>`__ held jobs
+   after diagnosing and fixing (maybe via `condor_qedit
+   <https://htcondor.readthedocs.io/en/latest/man-pages/condor_qedit.html?highlight=condor_qedit>`__)
+   the hold reason.
+
 O1 LIGO (proprietary data), single pulsar
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -161,6 +175,59 @@ file might contain:
    phi0 = Uniform(minimum=0.0, maximum=pi, name='phi0')
    iota = Sine(minimum=0.0, maximum=pi, name='iota')
    psi = Uniform(minimum=0.0, maximum=pi/2, name='psi')
+
+Once complete, this example should have generated the heterodyned data files for H1 and L1 (within the
+``/home/matthew.pitkin/projects/cwinpyO1/heterodyne`` directory):
+
+.. code-block:: python
+
+   from cwinpy import MultiHeterodynedData
+
+   het = MultiHeterodynedData(
+      {
+          "H1": "H1/heterodyne_J0534+2200_H1_2_1126073529-1137253524.hdf5",
+          "L1": "L1/heterodyne_J0534+2200_L1_2_1126072156-1137250767.hdf5",
+      }
+   )
+
+   fig = het.plot(together=True, remove_outliers=True)
+   fig.show()
+
+.. thumbnail:: examples/knope_example1_bks.png
+   :width: 600px
+   :align: center
+
+and the posterior samples for an analysis using both LIGO detectors (within the
+``/home/matthew.pitkin/projects/cwinpyO1/results`` directory):
+
+.. code-block:: python
+
+   from cwinpy.plot import Plot
+
+   plot = Plot(
+      "J0534+2200/cwinpy_pe_H1L1_J0534+2200_result.hdf5",
+      parameters=["h0", "iota", "psi", "phi0"].
+   )
+   plot.plot()
+
+   # add 95% upper limit line
+   plot.fig.get_axes()[0].axvline(
+      plot.upper_limit(parameter="h0"),
+      color="k",
+      ls="--",
+   )
+
+   plot.fig.show()
+
+.. thumbnail:: examples/knope_example1_pe.png
+   :width: 600px
+   :align: center
+
+.. note::
+
+   To run the example and also perform parameter estimation for each individual detector (rather
+   than just the coherent multi-detector analysis), the additional option ``incoherent = True``
+   should be added in the ``[pe]`` section of the configuration file.
 
 .. _knope Command line arguments:
 
