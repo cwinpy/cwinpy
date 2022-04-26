@@ -3,7 +3,9 @@ from copy import deepcopy
 from itertools import permutations
 from pathlib import Path
 
+import astropy.units as u
 import numpy as np
+from astropy.table import QTable
 from bilby.core.result import Result, read_in_result
 from matplotlib import pyplot as plt
 
@@ -701,3 +703,294 @@ def plot_snr_vs_odds(S, R, **kwargs):
     fig.tight_layout()
 
     return fig, ax
+
+
+class UpperLimitTable(QTable):
+    AMPPARAMS = {
+        "h0": u.dimensionless_unscaled,
+        "c21": u.dimensionless_unscaled,
+        "c22": u.dimensionless_unscaled,
+        "ell": u.dimensionless_unscaled,
+        "q22": u.kg * u.m**2,
+    }
+
+    def __init__(self, resdir, **kwargs):
+        """
+        Generate a table (as an :class:`astropy.table.QTable`) of upper limits
+        on gravitational-wave amplitude parameters for a set of pulsars. This
+        requires the path to a results directory which will be globbed for
+        files that are the output of the CWInPy parameter estimation pipeline.
+        It is assumed that the results files are in the format
+        ``cwinpy_pe_{det}_{dname}_result.[hdf5,json]`` where ``{det}`` is the
+        detector, or detector combination, prefix and ``{dname}`` is the
+        pulsar's PSR J-name.
+
+        From each of these, upper limits on the amplitude parameters will be
+        produced. If requested, upper limits on ellipticity, mass quadrupole
+        :math:`Q_{22}` and the ratio of the limit compared to the spin-down
+        limit can be calculated. For these, a dictionary of distances/frequency
+        derivatives cen be supplied, otherwise these will be extracted from the
+        ATNF pulsar catalogue.
+
+        Parameters
+        ----------
+        resdir: str
+            The path to a directory containing results. This will be
+            recursively globbed to find valid .hdf5/json results files. It is
+            assumed that the results files contain the pulsars J-name, which
+            will be used in the table.
+        pulsars: list
+            By default all pulsar results found in the ``resdir`` will be used.
+            If wanting a subset of those pulsars, then a list of required
+            pulsars can be given.
+        detector: str:
+            By default upper limits from results for all detectors found in the
+            ``resdir`` will be used. If just wanted results from one detector
+            it can be specified.
+        ampparam: str
+            The amplitude parameter which to include in the upper limit table,
+            e.g., ``"h0"``. If not given, upper limits on all amplitude
+            parameters in the results file will be included.
+        upperlimit: float
+            A fraction between 0 and 1 giving the credibility value for the
+            upper limit. This defaults to 0.95, i.e., the 95% credible upper
+            limit.
+        ellipticity: bool
+            Include the inferred ellipticity upper limit. This requires the
+            pulsar distances, which can be supplied by the user or otherwise
+            obtained from the "best" distance estimate given in the ATNF pulsar
+            catalogue. If no distance estimate is available the table column
+            will be left blank.
+        q22: bool
+            Include the inferred mass quadrupole upper limit. This requires the
+            pulsar distances, which can be supplied by the user or otherwise
+            obtained from the "best" distance estimate given in the ATNF pulsar
+            catalogue. If no distance estimate is available the table column
+            will be left blank.
+        sdlim: bool
+            Include the ratio of the upper limit to the inferred spin-down
+            limit. This requires the pulsar distances and frequency derivative,
+            which can be supplied by the user or otherwise obtained from the
+            ATNF pulsar catalogue. The intrinsic frequency derivative (i.e.,
+            the value corrected for proper motion effects) will be
+            preferentially used if avaiable. If no distance estimate or
+            frequency derivative is available the table column will be left
+            blank.
+        distances: dict
+            A dictionary of distances (in kpc) to use when calculating derived
+            values. If a pulsar is not included in the dictionary, then the
+            ATNF value will be used.
+        fdot: dict
+            A dictionary of frequency derivatives to use when calculating
+            spin-down limits. If a pulsar is not included in the dictionary,
+            then the ATNF value will be used.
+        querykwargs: dict
+            Any keyword arguments to pass to the QueryATNF object.
+        """
+
+        resfiles = find_results_files(resdir)
+
+        if len(resfiles) == 0:
+            print(f"No results files were found in {resdir}")
+            return
+
+        pulsars = kwargs.get("pulsars", None)
+        if isinstance(pulsars, str):
+            pulsars = [pulsars]
+        if isinstance(pulsars, list):
+            # remove pulsar not in the list
+            for psr in list(resfiles.keys()):
+                if psr not in pulsars:
+                    resfiles.pop(psr)
+
+            if len(resfiles) == 0:
+                print(f"No results for the request pulsars were found in {resdir}")
+                return
+
+        pulsars = list(resfiles.keys())
+
+        detector = kwargs.get("detector", None)
+        if isinstance(detector, str):
+            # remove detector data that is not required
+            for psr in pulsars:
+                dets = list(resfiles[psr].keys())
+                if detector not in dets:
+                    print(
+                        f"No results for {detector} and PSR {psr} were found in {resdir}"
+                    )
+                    return
+
+                for det in dets:
+                    if det != detector:
+                        resfiles[psr].pop(det)
+
+        ampparam = kwargs.get("ampparam", None)
+        if isinstance(ampparam, str):
+            if ampparam.lower() not in self.AMPPARAMS:
+                raise ValueError(f"ampparams must be one of {self.AMPPARAMS}")
+
+            useampparams = [ampparam]
+        else:
+            useampparams = list(self.AMPPARAMS.keys())
+
+        upperlimit = kwargs.get("upperlimit", 0.95)
+
+        try:
+            if upperlimit <= 0.0 or upperlimit > 1.0:
+                raise ValueError("Upper limit must be between 0 and 1")
+        except TypeError:
+            raise TypeError("Upper limit must be a float")
+
+        incell = kwargs.get("ellipticity", False)
+        incq22 = kwargs.get("q22", False)
+        incsdlim = kwargs.get("sdlim", False)
+
+        if incell or incq22 or incsdlim:
+            from psrqpy import QueryATNF
+
+            try:
+                from cweqgen import equations
+            except (ImportError, ModuleNotFoundError):
+                raise ImportError(
+                    "You need to install cweqgen to do equation conversion"
+                )
+
+            psrq = QueryATNF(
+                psrs=pulsars,
+                params=["PSRJ", "F0", "P0", "P1_I", "F1", "DIST"],
+                **kwargs.get("querykwargs", {}),
+            )
+
+            # get distances
+            distances = kwargs.get("distances", {})
+
+            f1s = kwargs.get("fdot", {})
+            f0s = {}  # store frequencies
+            pdottofdot = equations("rotationfdot_to_period")
+
+            for psr in pulsars:
+                psrrow = psrq[psr]
+
+                if psr not in distances:
+                    distances[psr] = psrrow["DIST"][0] * u.kpc
+
+                f0s[psr] = psrrow["F0"][0] * u.kpc
+
+                if psr not in f1s:
+                    if isinstance(psrrow["P1_I"][0], float):
+                        # use intrinsic Pdot
+                        f1s[psr] = pdottofdot(
+                            period=psrrow["P0"][0], pdot=psrrow["P1_I"][0]
+                        )
+                    else:
+                        f1s[psr] = psrrow["F1"][0]
+
+            if incell:
+                elleq = equations("h0").rearrange("ellipticity")
+
+            if incq22:
+                q22eq = (
+                    equations("h0")
+                    .substitute(equations("massquadrupole").rearrange("ellipticity"))
+                    .rearrange("massquadrupole")
+                )
+
+            if incsdlim:
+                sdeq = equations("spindownlimit")
+
+        resdict = {"PSRJ": pulsars}
+
+        # get amplitude upper limits
+        for psr in pulsars:
+            psrfiles = resfiles[psr]
+
+            for j, det in enumerate(psrfiles):
+                resdat = read_in_result_wrapper(psrfiles[det])
+                post = resdat.posterior
+                ulstr = f"_{int(100 * upperlimit)}%UL"
+
+                h0colname = None
+                for amppar in useampparams:
+                    if amppar in post.columns:
+                        colname = (
+                            amppar + f"{ulstr}"
+                            if len(psrfiles) == 1
+                            else amppar + f"_{det}{ulstr}"
+                        )
+
+                        if colname not in resdict:
+                            resdict[colname] = [np.quantile(post[amppar], upperlimit)]
+                        else:
+                            resdict[colname].append(
+                                np.quantile(post[amppar], upperlimit)
+                            )
+
+                        if amppar == "h0":
+                            h0colname = colname
+
+                # get derived parameters
+                if h0colname is not None:
+                    if incell and "ell" not in useampparams:
+                        colname = (
+                            f"ELL{ulstr}" if len(psrfiles) == 1 else f"ELL_{det}{ulstr}"
+                        )
+                        if colname not in resdict:
+                            resdict[colname] = [
+                                elleq(
+                                    h0=resdict[h0colname][-1],
+                                    frot=f0s[psr],
+                                    distance=distances[psr],
+                                )
+                            ]
+                        else:
+                            resdict[colname].append(
+                                elleq(
+                                    h0=resdict[h0colname][-1],
+                                    frot=f0s[psr],
+                                    distance=distances[psr],
+                                )
+                            )
+
+                    if incq22 and "q22" not in useampparams:
+                        colname = (
+                            f"Q22{ulstr}" if len(psrfiles) == 1 else f"Q22_{det}{ulstr}"
+                        )
+                        if colname not in resdict:
+                            resdict[colname] = [
+                                q22eq(
+                                    h0=resdict[h0colname][-1],
+                                    frot=f0s[psr],
+                                    distance=distances[psr],
+                                )
+                            ]
+                        else:
+                            resdict[colname].append(
+                                q22eq(
+                                    h0=resdict[h0colname][-1],
+                                    frot=f0s[psr],
+                                    distance=distances[psr],
+                                )
+                            )
+
+                    if incsdlim:
+                        colname = (
+                            f"SDRAT{ulstr}"
+                            if len(psrfiles) == 1
+                            else f"SDRAT_{det}{ulstr}"
+                        )
+                        h0sd = sdeq(
+                            fdotrot=f1s[psr], frot=f0s[psr], distance=distances[psr]
+                        )
+
+                        if colname not in resdict:
+                            resdict[colname] = [resdict[h0colname][-1] / h0sd]
+                        else:
+                            resdict[colname].append(resdict[h0colname][-1] / h0sd)
+
+                        if "SDLIM" not in resdict:
+                            # add in spin-down limit
+                            resdict["SDLIM"] = [h0sd]
+                        elif j == 0:
+                            resdict["SDLIM"].append(h0sd)
+
+        super().__init__(resdict)
