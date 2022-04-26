@@ -133,7 +133,7 @@ Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid
    the fastest pulsar being above 1.6 kHz.
 
 *knope* examples
-================
+----------------
 
 A selection of example configuration files for using with ``cwinpy_knope_pipeline`` are shown below.
 These examples are generally fairly minimal and make use of many default settings. If basing your
@@ -155,8 +155,8 @@ These all assume a user ``matthew.pitkin`` running on the `ARCCA Hawk Computing 
    <https://htcondor.readthedocs.io/en/latest/man-pages/condor_qedit.html?highlight=condor_qedit>`__)
    the hold reason.
 
-O1 LIGO (proprietary data), single pulsar
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+O1 LIGO (proprietary) data, single pulsar
+=========================================
 
 An example configuration file for performing a search for a single pulsar, the Crab pulsar
 (J0534+2200), for a signal emitted from the :math:`l=m=2` harmonic, using proprietary O1 LIGO data
@@ -176,8 +176,24 @@ file might contain:
    iota = Sine(minimum=0.0, maximum=pi, name='iota')
    psi = Uniform(minimum=0.0, maximum=pi/2, name='psi')
 
-Once complete, this example should have generated the heterodyned data files for H1 and L1 (within the
-``/home/matthew.pitkin/projects/cwinpyO1/heterodyne`` directory):
+This would be run with:
+
+.. code-block:: bash
+
+   $ cwinpy_knope_pipeline knope_example_O1_ligo.ini
+
+.. note:: 
+
+   Before running this you should run:
+
+   .. code-block:: bash
+
+      $ ligo-proxy-init -p albert.einstein
+
+   to generate the credentials for accessing the proprietary data via CVMFS.
+
+Once complete, this example should have generated the heterodyned data files for H1 and L1 (within
+the ``/home/matthew.pitkin/projects/cwinpyO1/heterodyne`` directory):
 
 .. code-block:: python
 
@@ -228,6 +244,62 @@ and the posterior samples for an analysis using both LIGO detectors (within the
    To run the example and also perform parameter estimation for each individual detector (rather
    than just the coherent multi-detector analysis), the additional option ``incoherent = True``
    should be added in the ``[pe]`` section of the configuration file.
+
+O1 & O2 LIGO/Virgo (open) data, multiple pulsars
+================================================
+
+An example configuration file for performing a search for a multiple pulsars, for a signal emitted
+from the :math:`l=m=2` harmonic, using open O1 and O2 LIGO and Virgo data can be downloaded :download:`here
+<examples/knope_example_O2_open.ini>` and is reproduced below:
+
+.. literalinclude:: examples/knope_example_O2_open.ini
+
+This requires the parameter files for the pulsars being within the
+``/home/matthew.pitkin/projects/O2pulsars`` directory (in the example results shown below this
+directory contained files for the two pulsars `J0737-3039A
+<https://www.atnf.csiro.au/research/pulsar/psrcat/proc_form.php?version=1.67&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&sort_attr=jname&sort_order=asc&condition=&pulsar_names=J0737-3039A&ephemeris=long&submit_ephemeris=Get+Ephemeris&coords_unit=raj%2Fdecj&radius=&coords_1=&coords_2=&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=linear&y_axis=&y_scale=linear&state=query>`__
+and `J1843-1113
+<https://www.atnf.csiro.au/research/pulsar/psrcat/proc_form.php?version=1.67&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&sort_attr=jname&sort_order=asc&condition=&pulsar_names=J1843-1113&ephemeris=long&submit_ephemeris=Get+Ephemeris&coords_unit=raj%2Fdecj&radius=&coords_1=&coords_2=&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=linear&y_axis=&y_scale=linear&state=query>`__).
+In this example, a single prior file for all pulsars is used at the location
+``/home/matthew.pitkin/projects/O2priors/priors.txt`` directory. This might contain, e.g.,
+
+.. code-block::
+
+   h0 = FermiDirac(1.0e-24, mu=1.0e-22, name='h0')
+   phi0 = Uniform(minimum=0.0, maximum=pi, name='phi0')
+   iota = Sine(minimum=0.0, maximum=pi, name='iota')
+   psi = Uniform(minimum=0.0, maximum=pi/2, name='psi')
+
+Due to using data from two runs, the start and end times of each run need to be specified (the lists
+within the associated dictionaries), and appropriate frame types, channels and segment types need to
+be provided for each run.
+
+In this example, it uses TEMPO2 (via libstempo) for calculating the phase evolution of the signal.
+Currently, this requires that ``getenv = True`` is set within the ``[heterodyne_job]`` section of
+the configuration file.
+
+Due to the ``incoherent = True`` value in the ``[pe]`` section, this analysis will perform parameter
+estimation for each pulsar for each individual detector and also for the full multi-detector data
+set.
+
+O3 LIGO/Virgo (proprietary) data, dual harmonic
+===============================================
+
+The pulsar parameter files were generated using the DE436 solar system ephemeris, which is not one
+of the default files available within LALSuite. Therefore, these have had to be generated using the
+commands:
+
+.. code-block:: bash
+
+   $ lalapps_create_solar_system_ephemeris_python --target SUN --year-start 2000 --interval 20 --num-years 40 --ephemeris DE436 --output-file sun00-40-DE436.dat
+   $ lalapps_create_solar_system_ephemeris_python --target EARTH --year-start 2000 --interval 2 --num-years 40 --ephemeris DE436 --output-file earth00-40-DE436.dat
+
+and then gzipped. Alternatively, the ``usetempo2`` option could be used, where the latest TEMPO2 version 
+
+.. note::
+
+   If running on open GWOSC data, the O3a and O3b periods need to be treated as separate runs as in
+   the :ref:`above example<O1 & O2 LIGO/Virgo (open) data, multiple pulsars>`.
 
 .. _knope Command line arguments:
 
