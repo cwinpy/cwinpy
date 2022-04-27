@@ -840,6 +840,7 @@ class UpperLimitTable(QTable):
                     print(
                         f"No results for {detector} and PSR {psr} were found in {resdir}"
                     )
+                    super().__init__(**kwargs)
                     return
 
                 for det in dets:
@@ -867,7 +868,7 @@ class UpperLimitTable(QTable):
 
             try:
                 from cweqgen import equations
-            except (ImportError, ModuleNotFoundError):
+            except (ImportError, ModuleNotFoundError):  # pragma: no cover
                 raise ImportError(
                     "You need to install cweqgen to do equation conversion"
                 )

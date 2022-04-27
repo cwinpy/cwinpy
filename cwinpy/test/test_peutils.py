@@ -1,11 +1,21 @@
 """
 Test script for peutils.
 
-The data files used for this come from running the cwinpy_skyshift pipeline
-on the PULSAR03 CW hardware injection from O1. To make file a bit smaller, only
-two of posterior files from that analysis (one on-source and one sky-shifted)
-have been included (and these have been cut down to only include 1000 samples
-using the bilby_result script).
+The data files used for this come from three different runs:
+
+1. running the cwinpy_skyshift pipeline on the PULSAR03 CW hardware injection
+from O1. Only two posterior files have been included.
+
+2. running the cwinpy_knope_pipeline on O2 data for two pulsars (J0737-3039A,
+J1843-1113) for a single harmonic search with results for individual detectors
+and a multi-detector analysis.
+
+3. running the cwinpy_knope_pipeline on O3 data for two pulsars (J0437-4715,
+J0711-6830) for a dual harmonic search.
+
+To make files a bit smaller these have been cut down to only include 1000
+samples and only include posterior samples using the bilby_result script (with
+the --max-samples 1000 and --lightweight arguments).
 """
 
 import os
@@ -15,6 +25,7 @@ import pytest
 from bilby.core.result import read_in_result
 from cwinpy import HeterodynedData, MultiHeterodynedData
 from cwinpy.pe.peutils import (
+    UpperLimitTable,
     find_heterodyned_files,
     find_results_files,
     optimal_snr,
@@ -239,3 +250,67 @@ class TestPEUtils:
         assert isinstance(lo, dict)
         assert sorted(lo.keys()) == sorted(self.pnames)
         assert all([isinstance(v, float) for v in lo.values()])
+
+
+class TestUpperLimitTable:
+    @classmethod
+    def setup_class(cls):
+        cls.basedatadir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "data", "peutils"
+        )
+
+        # set data directories
+        cls.resdirO2 = os.path.join(cls.basedatadir, "O2results")
+
+        cls.pnamesO2 = ["J0737-3039A", "J1843-1113"]
+        cls.dets = ["H1", "L1", "V1", "H1L1V1"]
+
+        # directory that does not contain any results
+        cls.invaliddir = os.path.join(cls.basedatadir, "pulsars")
+
+    def test_empty_table(self):
+        """
+        Test that an empty table is returned in certain circumstances.
+        """
+
+        t = UpperLimitTable()
+
+        assert len(t) == 0
+        assert isinstance(t, UpperLimitTable)
+
+        # pass invalid path
+        t = UpperLimitTable(resdir=self.invaliddir)
+
+        assert len(t) == 0
+        assert isinstance(t, UpperLimitTable)
+
+        # ask for pulsar that does not exist in results
+        t = UpperLimitTable(resdir=self.resdirO2, pulsars="J0534+2200")
+
+        assert len(t) == 0
+        assert isinstance(t, UpperLimitTable)
+
+        # ask for results from detector that does not exist in results
+        t = UpperLimitTable(resdir=self.resdirO2, detector="K1")
+
+        assert len(t) == 0
+        assert isinstance(t, UpperLimitTable)
+
+    def test_errors(self):
+        # pass invalid path
+        with pytest.raises(ValueError):
+            UpperLimitTable(resdir="Blah")
+
+        # ask for invalid amplitude parameter
+        with pytest.raises(ValueError):
+            UpperLimitTable(resdir=self.resdirO2, ampparam="Z0")
+
+        # give invalid upper limit quantile
+        with pytest.raises(TypeError):
+            UpperLimitTable(resdir=self.resdirO2, upperlimit="Z0")
+
+        with pytest.raises(ValueError):
+            UpperLimitTable(resdir=self.resdirO2, upperlimit=1.1)
+
+        with pytest.raises(ValueError):
+            UpperLimitTable(resdir=self.resdirO2, upperlimit=-0.1)
