@@ -899,6 +899,7 @@ class UpperLimitTable(QTable):
                 sdeq = equations("spindownlimit")
 
         resdict = {"PSRJ": pulsars}
+        ulstr = f"_{int(100 * upperlimit)}%UL"
 
         # get amplitude upper limits
         for psr in pulsars:
@@ -907,7 +908,6 @@ class UpperLimitTable(QTable):
             for j, det in enumerate(psrfiles):
                 resdat = read_in_result_wrapper(psrfiles[det])
                 post = resdat.posterior
-                ulstr = f"_{int(100 * upperlimit)}%UL"
 
                 h0colname = None
                 for amppar in useampparams:
@@ -918,12 +918,11 @@ class UpperLimitTable(QTable):
                             else amppar + f"_{det}{ulstr}"
                         )
 
+                        ul = np.quantile(post[amppar], upperlimit)
                         if colname not in resdict:
-                            resdict[colname] = [np.quantile(post[amppar], upperlimit)]
+                            resdict[colname] = [ul]
                         else:
-                            resdict[colname].append(
-                                np.quantile(post[amppar], upperlimit)
-                            )
+                            resdict[colname].append(ul)
 
                         if amppar == "h0":
                             h0colname = colname
@@ -934,43 +933,41 @@ class UpperLimitTable(QTable):
                         colname = (
                             f"ELL{ulstr}" if len(psrfiles) == 1 else f"ELL_{det}{ulstr}"
                         )
-                        if colname not in resdict:
-                            resdict[colname] = [
-                                elleq(
-                                    h0=resdict[h0colname][-1],
-                                    frot=f0s[psr],
-                                    distance=distances[psr],
-                                )
-                            ]
-                        else:
-                            resdict[colname].append(
-                                elleq(
-                                    h0=resdict[h0colname][-1],
-                                    frot=f0s[psr],
-                                    distance=distances[psr],
-                                )
+
+                        ellul = (
+                            elleq(
+                                h0=resdict[h0colname][-1],
+                                frot=f0s[psr],
+                                distance=distances[psr],
                             )
+                            if psr in distances
+                            else np.nan
+                        )
+
+                        if colname not in resdict:
+                            resdict[colname] = [ellul]
+                        else:
+                            resdict[colname].append(ellul)
 
                     if incq22 and "q22" not in useampparams:
                         colname = (
                             f"Q22{ulstr}" if len(psrfiles) == 1 else f"Q22_{det}{ulstr}"
                         )
-                        if colname not in resdict:
-                            resdict[colname] = [
-                                q22eq(
-                                    h0=resdict[h0colname][-1],
-                                    frot=f0s[psr],
-                                    distance=distances[psr],
-                                )
-                            ]
-                        else:
-                            resdict[colname].append(
-                                q22eq(
-                                    h0=resdict[h0colname][-1],
-                                    frot=f0s[psr],
-                                    distance=distances[psr],
-                                )
+
+                        q22ul = (
+                            q22eq(
+                                h0=resdict[h0colname][-1],
+                                frot=f0s[psr],
+                                distance=distances[psr],
                             )
+                            if psr in distances
+                            else np.nan
+                        )
+
+                        if colname not in resdict:
+                            resdict[colname] = [q22ul]
+                        else:
+                            resdict[colname].append(q22ul)
 
                     if incsdlim:
                         colname = (
@@ -978,9 +975,15 @@ class UpperLimitTable(QTable):
                             if len(psrfiles) == 1
                             else f"SDRAT_{det}{ulstr}"
                         )
-                        h0sd = sdeq(
-                            fdotrot=f1s[psr], frot=f0s[psr], distance=distances[psr]
-                        )
+
+                        h0sd = np.nan
+                        if psr in f1s and psr in distances:
+                            if f1s[psr] < 0.0:
+                                h0sd = sdeq(
+                                    fdotrot=f1s[psr],
+                                    frot=f0s[psr],
+                                    distance=distances[psr],
+                                )
 
                         if colname not in resdict:
                             resdict[colname] = [resdict[h0colname][-1] / h0sd]
