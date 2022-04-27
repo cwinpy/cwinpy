@@ -710,11 +710,10 @@ class UpperLimitTable(QTable):
         "h0": u.dimensionless_unscaled,
         "c21": u.dimensionless_unscaled,
         "c22": u.dimensionless_unscaled,
-        "ell": u.dimensionless_unscaled,
         "q22": u.kg * u.m**2,
     }
 
-    def __init__(self, resdir, **kwargs):
+    def __init__(self, resdir=None, **kwargs):
         """
         Generate a table (as an :class:`astropy.table.QTable`) of upper limits
         on gravitational-wave amplitude parameters for a set of pulsars. This
@@ -755,19 +754,19 @@ class UpperLimitTable(QTable):
             A fraction between 0 and 1 giving the credibility value for the
             upper limit. This defaults to 0.95, i.e., the 95% credible upper
             limit.
-        ellipticity: bool
+        includeell: bool
             Include the inferred ellipticity upper limit. This requires the
             pulsar distances, which can be supplied by the user or otherwise
             obtained from the "best" distance estimate given in the ATNF pulsar
             catalogue. If no distance estimate is available the table column
             will be left blank.
-        q22: bool
+        includeq22: bool
             Include the inferred mass quadrupole upper limit. This requires the
             pulsar distances, which can be supplied by the user or otherwise
             obtained from the "best" distance estimate given in the ATNF pulsar
             catalogue. If no distance estimate is available the table column
             will be left blank.
-        sdlim: bool
+        includesdlim: bool
             Include the ratio of the upper limit to the inferred spin-down
             limit. This requires the pulsar distances and frequency derivative,
             which can be supplied by the user or otherwise obtained from the
@@ -784,17 +783,40 @@ class UpperLimitTable(QTable):
             A dictionary of frequency derivatives to use when calculating
             spin-down limits. If a pulsar is not included in the dictionary,
             then the ATNF value will be used.
+        izz: float, Quantity
+            The principal moment of inertia to use when calculating derived
+            quantities. This defaults to :math:`10^{38}` kg m:sup:`2`. If
+            passing a float it assumes the units are kg m:sup:`2`. If
+            requiring different units then an :class:`astropy.units.Quantity`
+            can be used.
         querykwargs: dict
             Any keyword arguments to pass to the QueryATNF object.
         """
+
+        # get keyword args
+        pulsars = kwargs.pop("pulsars", None)
+        detector = kwargs.pop("detector", None)
+        ampparam = kwargs.pop("ampparam", None)
+        upperlimit = kwargs.pop("upperlimit", 0.95)
+        distances = kwargs.pop("distances", {})
+        f1s = kwargs.pop("fdot", {})
+        incell = kwargs.pop("includeell", False)
+        incq22 = kwargs.pop("includeq22", False)
+        incsdlim = kwargs.pop("includesdlim", False)
+        izz = kwargs.pop("izz", 1e38 * u.kg * u.m**2)
+        querykwargs = kwargs.pop("querykwargs", {})
+
+        if resdir is None:
+            super().__init__(**kwargs)
+            return
 
         resfiles = find_results_files(resdir)
 
         if len(resfiles) == 0:
             print(f"No results files were found in {resdir}")
+            super().__init__(**kwargs)
             return
 
-        pulsars = kwargs.get("pulsars", None)
         if isinstance(pulsars, str):
             pulsars = [pulsars]
         if isinstance(pulsars, list):
@@ -805,11 +827,11 @@ class UpperLimitTable(QTable):
 
             if len(resfiles) == 0:
                 print(f"No results for the request pulsars were found in {resdir}")
+                super().__init__(**kwargs)
                 return
 
-        pulsars = list(resfiles.keys())
+        pulsars = sorted(list(resfiles.keys()))
 
-        detector = kwargs.get("detector", None)
         if isinstance(detector, str):
             # remove detector data that is not required
             for psr in pulsars:
@@ -824,7 +846,6 @@ class UpperLimitTable(QTable):
                     if det != detector:
                         resfiles[psr].pop(det)
 
-        ampparam = kwargs.get("ampparam", None)
         if isinstance(ampparam, str):
             if ampparam.lower() not in self.AMPPARAMS:
                 raise ValueError(f"ampparams must be one of {self.AMPPARAMS}")
@@ -833,17 +854,13 @@ class UpperLimitTable(QTable):
         else:
             useampparams = list(self.AMPPARAMS.keys())
 
-        upperlimit = kwargs.get("upperlimit", 0.95)
-
         try:
             if upperlimit <= 0.0 or upperlimit > 1.0:
                 raise ValueError("Upper limit must be between 0 and 1")
         except TypeError:
             raise TypeError("Upper limit must be a float")
 
-        incell = kwargs.get("ellipticity", False)
-        incq22 = kwargs.get("q22", False)
-        incsdlim = kwargs.get("sdlim", False)
+        resdict = {"PSRJ": pulsars}
 
         if incell or incq22 or incsdlim:
             from psrqpy import QueryATNF
@@ -858,13 +875,9 @@ class UpperLimitTable(QTable):
             psrq = QueryATNF(
                 psrs=pulsars,
                 params=["PSRJ", "F0", "P0", "P1_I", "F1", "DIST"],
-                **kwargs.get("querykwargs", {}),
+                **querykwargs,
             )
 
-            # get distances
-            distances = kwargs.get("distances", {})
-
-            f1s = kwargs.get("fdot", {})
             f0s = {}  # store frequencies
             pdottofdot = equations("rotationfdot_to_period")
 
@@ -874,16 +887,17 @@ class UpperLimitTable(QTable):
                 if psr not in distances:
                     distances[psr] = psrrow["DIST"][0] * u.kpc
 
-                f0s[psr] = psrrow["F0"][0] * u.kpc
+                f0s[psr] = psrrow["F0"][0] * u.Hz
 
                 if psr not in f1s:
-                    if isinstance(psrrow["P1_I"][0], float):
+                    if np.isfinite(psrrow["P1_I"][0]):
                         # use intrinsic Pdot
                         f1s[psr] = pdottofdot(
-                            period=psrrow["P0"][0], pdot=psrrow["P1_I"][0]
+                            rotationperiod=psrrow["P0"][0],
+                            rotationpdot=psrrow["P1_I"][0],
                         )
                     else:
-                        f1s[psr] = psrrow["F1"][0]
+                        f1s[psr] = psrrow["F1"][0] * u.Hz / u.s
 
             if incell:
                 elleq = equations("h0").rearrange("ellipticity")
@@ -896,9 +910,18 @@ class UpperLimitTable(QTable):
                 )
 
             if incsdlim:
-                sdeq = equations("spindownlimit")
+                sdeq = equations("h0spindown")
 
-        resdict = {"PSRJ": pulsars}
+            # sort in pulsar order
+            f0s = dict(sorted(f0s.items()))
+            f1s = dict(sorted(f1s.items()))
+            distances = dict(sorted(distances.items()))
+
+            # add in pulsar parameters
+            resdict["F0ROT"] = list(f0s.values())
+            resdict["F1ROT"] = list(f1s.values())
+            resdict["DIST"] = list(distances.values())
+
         ulstr = f"_{int(100 * upperlimit)}%UL"
 
         # get amplitude upper limits
@@ -910,6 +933,7 @@ class UpperLimitTable(QTable):
                 post = resdat.posterior
 
                 h0colname = None
+                hasq22 = False
                 for amppar in useampparams:
                     if amppar in post.columns:
                         colname = (
@@ -926,10 +950,12 @@ class UpperLimitTable(QTable):
 
                         if amppar == "h0":
                             h0colname = colname
+                        elif amppar == "q22":
+                            hasq22 = True
 
                 # get derived parameters
                 if h0colname is not None:
-                    if incell and "ell" not in useampparams:
+                    if incell:
                         colname = (
                             f"ELL{ulstr}" if len(psrfiles) == 1 else f"ELL_{det}{ulstr}"
                         )
@@ -939,6 +965,7 @@ class UpperLimitTable(QTable):
                                 h0=resdict[h0colname][-1],
                                 frot=f0s[psr],
                                 distance=distances[psr],
+                                izz=izz,
                             )
                             if psr in distances
                             else np.nan
@@ -949,7 +976,7 @@ class UpperLimitTable(QTable):
                         else:
                             resdict[colname].append(ellul)
 
-                    if incq22 and "q22" not in useampparams:
+                    if incq22 and not hasq22:
                         colname = (
                             f"Q22{ulstr}" if len(psrfiles) == 1 else f"Q22_{det}{ulstr}"
                         )
@@ -980,9 +1007,10 @@ class UpperLimitTable(QTable):
                         if psr in f1s and psr in distances:
                             if f1s[psr] < 0.0:
                                 h0sd = sdeq(
-                                    fdotrot=f1s[psr],
-                                    frot=f0s[psr],
+                                    rotationfdot=f1s[psr],
+                                    rotationfrequency=f0s[psr],
                                     distance=distances[psr],
+                                    izz=izz,
                                 )
 
                         if colname not in resdict:
@@ -996,4 +1024,4 @@ class UpperLimitTable(QTable):
                         elif j == 0:
                             resdict["SDLIM"].append(h0sd)
 
-        super().__init__(resdict)
+        super().__init__(resdict, **kwargs)
