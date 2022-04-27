@@ -314,3 +314,26 @@ class TestUpperLimitTable:
 
         with pytest.raises(ValueError):
             UpperLimitTable(resdir=self.resdirO2, upperlimit=-0.1)
+
+    def test_O2(self):
+        """
+        Test the O2 results.
+        """
+
+        # just get h0 90% credible upper limits for H1 detector
+        t = UpperLimitTable(
+            resdir=self.resdirO2, ampparam="h0", detector="H1", upperlimit=0.9
+        )
+
+        assert len(t) == len(self.pnamesO2)
+        assert "PSRJ" in t.columns and "h0_90%UL" in t.columns
+
+        # get 90% credible upper limits for all detectors and include
+        # ellipticity, mass quadrupole and spin-down ratio limits
+        t = UpperLimitTable(
+            resdir=self.resdirO2,
+            upperlimit=0.9,
+            includeell=True,
+            includeq22=True,
+            includesdlim=True,
+        )
