@@ -48,6 +48,8 @@ def fast_heterodyne(timeseries, phase):
     # do the heterodyning
     if input.dtype == float:
         do_heterodyne(output, input, phase)
+    elif input.dtype == numpy.float32:
+        do_heterodyne(output, input.astype(float), phase)
     else:
         do_complex_heterodyne(output, input, phase)
 
