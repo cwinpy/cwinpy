@@ -21,7 +21,9 @@ the --max-samples 1000 and --lightweight arguments).
 import os
 import pathlib
 
+import numpy as np
 import pytest
+from astropy import units as u
 from bilby.core.result import read_in_result
 from cwinpy import HeterodynedData, MultiHeterodynedData
 from cwinpy.pe.peutils import (
@@ -263,6 +265,16 @@ class TestUpperLimitTable:
         cls.resdirO2 = os.path.join(cls.basedatadir, "O2results")
 
         cls.pnamesO2 = ["J0737-3039A", "J1843-1113"]
+
+        # rough rotation frequencies for pulsars
+        cls.pfreqsO2 = [44.05 * u.Hz, 541.8 * u.Hz]
+
+        # rough rotational frequency derivatives for pulsars
+        cls.pfdotsO2 = [-3.4e-15 * u.Hz / u.s, -2.8e-15 * u.Hz / u.s]
+
+        # rough distances for pulsars
+        cls.pdistsO2 = [1.1 * u.kpc, 1.3 * u.kpc]
+
         cls.dets = ["H1", "L1", "V1", "H1L1V1"]
 
         # directory that does not contain any results
@@ -320,20 +332,88 @@ class TestUpperLimitTable:
         Test the O2 results.
         """
 
+        # just get h0 90% credible upper limit for H1 detector and one pulsar
+        t1p = UpperLimitTable(
+            resdir=self.resdirO2,
+            ampparam="h0",
+            detector="H1",
+            upperlimit=0.9,
+            pulsars=self.pnamesO2[0],
+        )
+
+        assert "PSRJ" in t1p.columns and "h0_90%UL" in t1p.columns
+        assert t1p["PSRJ"] == self.pnamesO2[0]
+
         # just get h0 90% credible upper limits for H1 detector
         t = UpperLimitTable(
             resdir=self.resdirO2, ampparam="h0", detector="H1", upperlimit=0.9
         )
 
-        assert len(t) == len(self.pnamesO2)
         assert "PSRJ" in t.columns and "h0_90%UL" in t.columns
+        assert sorted(t["PSRJ"].value.tolist()) == sorted(self.pnamesO2)
+        assert t1p["H0_90%UL"][0] == t[t["PSRJ"] == self.pnamesO2[0]]["H0_90%UL"][0]
 
-        # get 90% credible upper limits for all detectors and include
+        # get 95% credible upper limits for all detectors and include
         # ellipticity, mass quadrupole and spin-down ratio limits
         t = UpperLimitTable(
             resdir=self.resdirO2,
-            upperlimit=0.9,
+            upperlimit=0.95,
             includeell=True,
             includeq22=True,
             includesdlim=True,
         )
+
+        assert sorted(t["PSRJ"].value.tolist()) == sorted(self.pnamesO2)
+
+        # check various values are close to expected values
+        for i, psr in enumerate(self.pnamesO2):
+            assert np.isclose(t.loc[psr]["F0ROT"], self.pfreqsO2[i], rtol=0.025)
+            assert np.isclose(t.loc[psr]["F1ROT"], self.pfdotsO2[i], rtol=0.025)
+            assert np.isclose(t.loc[psr]["DIST"], self.pdistsO2[i], rtol=0.025)
+
+        # check all results columns are present
+        assert "SDLIM" in t.columns
+        for ap in ["H0", "ELL", "Q22", "SDRAT"]:
+            for det in self.dets:
+                colname = f"{ap}_{det}_95%UL"
+                assert colname in t.columns
+
+        # try passing freqs, fdots, distances as dictionaries
+        td = UpperLimitTable(
+            resdir=self.resdirO2,
+            upperlimit=0.95,
+            includeell=True,
+            includeq22=True,
+            includesdlim=True,
+            f0={psr: self.pfreqsO2[i] for i, psr in enumerate(self.pnamesO2)},
+            fdot={psr: self.pfdotsO2[i] for i, psr in enumerate(self.pnamesO2)},
+            distances={psr: self.pdistsO2[i] for i, psr in enumerate(self.pnamesO2)},
+        )
+
+        # check various values are the same as to expected values
+        for i, psr in enumerate(self.pnamesO2):
+            assert np.isclose(td.loc[psr]["F0ROT"], self.pfreqsO2[i], rtol=1e-8)
+            assert np.isclose(td.loc[psr]["F1ROT"], self.pfdotsO2[i], rtol=1e-8)
+            assert np.isclose(td.loc[psr]["DIST"], self.pdistsO2[i], rtol=1e-8)
+
+    def test_table_string(self):
+        """
+        Test generating an rst table string.
+        """
+
+        t = UpperLimitTable(
+            resdir=self.resdirO2, ampparam="h0", detector="H1", upperlimit=0.9
+        )
+
+        ts = t.table_string(format="rst")
+
+        lines = ts.strip().split("\n")
+
+        assert len(lines) == 6
+        assert len(lines[0].split() == 2)  # two columns
+        assert "PSRJ" == lines[1].split()[0]  # header
+        assert "H0_90%UL" == lines[1].split()[1]  # header
+        assert self.pnamesO2[0] == lines[3].split()[0]
+        assert self.pnamesO2[1] == lines[4].split()[0]
+        assert float(lines[3].split()[1]) > 0
+        assert float(lines[4].split()[1]) > 0

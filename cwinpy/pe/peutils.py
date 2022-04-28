@@ -5,7 +5,7 @@ from pathlib import Path
 
 import astropy.units as u
 import numpy as np
-from astropy.table import QTable
+from astropy.table import QTable, Table
 from bilby.core.result import Result, read_in_result
 from matplotlib import pyplot as plt
 
@@ -731,6 +731,8 @@ class UpperLimitTable(QTable):
         derivatives cen be supplied, otherwise these will be extracted from the
         ATNF pulsar catalogue.
 
+        The generated table will use the PSRJ name as the table index.
+
         Parameters
         ----------
         resdir: str
@@ -779,10 +781,14 @@ class UpperLimitTable(QTable):
             A dictionary of distances (in kpc) to use when calculating derived
             values. If a pulsar is not included in the dictionary, then the
             ATNF value will be used.
+        f0: dict
+            A dictionary of rotation frequencies to use when calculating
+            spin-down limits and ellipticities. If a pulsar is not included in
+            the dictionary, then the ATNF value will be used.
         fdot: dict
-            A dictionary of frequency derivatives to use when calculating
-            spin-down limits. If a pulsar is not included in the dictionary,
-            then the ATNF value will be used.
+            A dictionary of rotational frequency derivatives to use when
+            calculating spin-down limits. If a pulsar is not included in the
+            dictionary, then the ATNF value will be used.
         izz: float, Quantity
             The principal moment of inertia to use when calculating derived
             quantities. This defaults to :math:`10^{38}` kg m:sup:`2`. If
@@ -799,6 +805,7 @@ class UpperLimitTable(QTable):
         ampparam = kwargs.pop("ampparam", None)
         upperlimit = kwargs.pop("upperlimit", 0.95)
         distances = kwargs.pop("distances", {})
+        f0s = kwargs.pop("f0", {})
         f1s = kwargs.pop("fdot", {})
         incell = kwargs.pop("includeell", False)
         incq22 = kwargs.pop("includeq22", False)
@@ -808,6 +815,10 @@ class UpperLimitTable(QTable):
 
         if resdir is None:
             super().__init__(**kwargs)
+            return
+
+        if isinstance(resdir, Table):
+            super().__init__(resdir, **kwargs)
             return
 
         resfiles = find_results_files(resdir)
@@ -879,26 +890,39 @@ class UpperLimitTable(QTable):
                 **querykwargs,
             )
 
-            f0s = {}  # store frequencies
             pdottofdot = equations("rotationfdot_to_period")
 
             for psr in pulsars:
-                psrrow = psrq[psr]
+                try:
+                    psrrow = psrq[psr]
+                except KeyError:  # pragma: no cover
+                    # pulsar is not in the ATNF
+                    psrrow = None
 
                 if psr not in distances:
-                    distances[psr] = psrrow["DIST"][0] * u.kpc
+                    if psrrow is not None:
+                        distances[psr] = psrrow["DIST"][0] * u.kpc
+                    else:  # pragma: no cover
+                        distances[psr] = np.nan
 
-                f0s[psr] = psrrow["F0"][0] * u.Hz
+                if psr not in f0s:
+                    if psrrow is not None:
+                        f0s[psr] = psrrow["F0"][0] * u.Hz
+                    else:  # pragma: no cover
+                        f0s[psr] = np.nan
 
                 if psr not in f1s:
-                    if np.isfinite(psrrow["P1_I"][0]):
-                        # use intrinsic Pdot
-                        f1s[psr] = pdottofdot(
-                            rotationperiod=psrrow["P0"][0],
-                            rotationpdot=psrrow["P1_I"][0],
-                        )
-                    else:
-                        f1s[psr] = psrrow["F1"][0] * u.Hz / u.s
+                    if psrrow is not None:
+                        if np.isfinite(psrrow["P1_I"][0]):
+                            # use intrinsic Pdot
+                            f1s[psr] = pdottofdot(
+                                rotationperiod=psrrow["P0"][0],
+                                rotationpdot=psrrow["P1_I"][0],
+                            )
+                        else:
+                            f1s[psr] = psrrow["F1"][0] * u.Hz / u.s
+                    else:  # pragma: no cover
+                        f1s[psr] = np.nan
 
             if incell:
                 elleq = equations("h0").rearrange("ellipticity")
@@ -941,7 +965,7 @@ class UpperLimitTable(QTable):
                             amppar + f"{ulstr}"
                             if len(psrfiles) == 1
                             else amppar + f"_{det}{ulstr}"
-                        )
+                        ).upper()
 
                         ul = np.quantile(post[amppar], upperlimit)
                         if colname not in resdict:
@@ -1026,3 +1050,37 @@ class UpperLimitTable(QTable):
                             resdict["SDLIM"].append(h0sd)
 
         super().__init__(resdict, **kwargs)
+
+        # make PSRJ be the table index
+        self.add_index("PSRJ")
+
+    def table_string(self, format="rst", **kwargs):
+        """
+        Create a string version of the table in a paricular format. This should
+        be an `ascii table format <https://docs.astropy.org/en/stable/io/ascii/index.html#supported-formats>`_.
+        Additional keyword argumemts used by :meth:`astropy.table.Table.write`
+        can be passed to the method.
+
+        Parameters
+        ----------
+        format: str
+            The ascii table format. This can either be in the form, e.g.,
+            ``"ascii.rst"`` (for a reSTructuredText format) or without the
+            ``"ascii."`` prefix. This defaults to ``"rst"``.
+
+        Returns
+        -------
+        str:
+            The table in an ascii format.
+        """
+
+        from io import StringIO
+
+        if not format.startswith("ascii."):
+            format = f"ascii.{format}"
+
+        with StringIO() as sp:
+            self.write(sp, format=format, **kwargs)
+            stringtab = sp.getvalue()
+
+        return stringtab
