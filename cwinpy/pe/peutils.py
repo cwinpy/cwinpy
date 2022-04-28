@@ -8,6 +8,7 @@ import numpy as np
 from astropy.table import QTable, Table
 from bilby.core.result import Result, read_in_result
 from matplotlib import pyplot as plt
+from psrqpy import QueryATNF
 
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..parfile import PulsarParameters
@@ -799,6 +800,13 @@ class UpperLimitTable(QTable):
             Any keyword arguments to pass to the QueryATNF object.
         """
 
+        try:
+            from cweqgen import equations
+        except (ImportError, ModuleNotFoundError):  # pragma: no cover
+            raise ImportError(
+                "You need to install cweqgen to create an UpperLimitTable"
+            )
+
         # get keyword args
         pulsars = kwargs.pop("pulsars", None)
         detector = kwargs.pop("detector", None)
@@ -874,56 +882,59 @@ class UpperLimitTable(QTable):
 
         resdict = {"PSRJ": pulsars}
 
-        if incell or incq22 or incsdlim:
-            from psrqpy import QueryATNF
+        # get pulsar information
+        psrq = QueryATNF(
+            psrs=pulsars,
+            params=["PSRJ", "F0", "P0", "P1_I", "F1", "DIST"],
+            **querykwargs,
+        )
 
+        pdottofdot = equations("rotationfdot_to_period")
+
+        for psr in pulsars:
             try:
-                from cweqgen import equations
-            except (ImportError, ModuleNotFoundError):  # pragma: no cover
-                raise ImportError(
-                    "You need to install cweqgen to do equation conversion"
-                )
+                psrrow = psrq[psr]
+            except KeyError:  # pragma: no cover
+                # pulsar is not in the ATNF
+                psrrow = None
 
-            psrq = QueryATNF(
-                psrs=pulsars,
-                params=["PSRJ", "F0", "P0", "P1_I", "F1", "DIST"],
-                **querykwargs,
-            )
+            if psr not in distances:
+                if psrrow is not None:
+                    distances[psr] = psrrow["DIST"][0] * u.kpc
+                else:  # pragma: no cover
+                    distances[psr] = np.nan
 
-            pdottofdot = equations("rotationfdot_to_period")
+            if psr not in f0s:
+                if psrrow is not None:
+                    f0s[psr] = psrrow["F0"][0] * u.Hz
+                else:  # pragma: no cover
+                    f0s[psr] = np.nan
 
-            for psr in pulsars:
-                try:
-                    psrrow = psrq[psr]
-                except KeyError:  # pragma: no cover
-                    # pulsar is not in the ATNF
-                    psrrow = None
+            if psr not in f1s:
+                if psrrow is not None:
+                    if np.isfinite(psrrow["P1_I"][0]):
+                        # use intrinsic Pdot
+                        f1s[psr] = pdottofdot(
+                            rotationperiod=psrrow["P0"][0],
+                            rotationpdot=psrrow["P1_I"][0],
+                        )
+                    else:
+                        f1s[psr] = psrrow["F1"][0] * u.Hz / u.s
+                else:  # pragma: no cover
+                    f1s[psr] = np.nan
 
-                if psr not in distances:
-                    if psrrow is not None:
-                        distances[psr] = psrrow["DIST"][0] * u.kpc
-                    else:  # pragma: no cover
-                        distances[psr] = np.nan
+        # sort in pulsar order
+        f0s = dict(sorted(f0s.items()))
+        f1s = dict(sorted(f1s.items()))
+        distances = dict(sorted(distances.items()))
 
-                if psr not in f0s:
-                    if psrrow is not None:
-                        f0s[psr] = psrrow["F0"][0] * u.Hz
-                    else:  # pragma: no cover
-                        f0s[psr] = np.nan
+        # add in pulsar parameters
+        resdict["F0ROT"] = list(f0s.values())
+        resdict["F1ROT"] = list(f1s.values())
+        resdict["DIST"] = list(distances.values())
 
-                if psr not in f1s:
-                    if psrrow is not None:
-                        if np.isfinite(psrrow["P1_I"][0]):
-                            # use intrinsic Pdot
-                            f1s[psr] = pdottofdot(
-                                rotationperiod=psrrow["P0"][0],
-                                rotationpdot=psrrow["P1_I"][0],
-                            )
-                        else:
-                            f1s[psr] = psrrow["F1"][0] * u.Hz / u.s
-                    else:  # pragma: no cover
-                        f1s[psr] = np.nan
-
+        # set conversion equations
+        if incell or incq22 or incsdlim:
             if incell:
                 elleq = equations("h0").rearrange("ellipticity")
 
@@ -936,16 +947,6 @@ class UpperLimitTable(QTable):
 
             if incsdlim:
                 sdeq = equations("h0spindown")
-
-            # sort in pulsar order
-            f0s = dict(sorted(f0s.items()))
-            f1s = dict(sorted(f1s.items()))
-            distances = dict(sorted(distances.items()))
-
-            # add in pulsar parameters
-            resdict["F0ROT"] = list(f0s.values())
-            resdict["F1ROT"] = list(f1s.values())
-            resdict["DIST"] = list(distances.values())
 
         ulstr = f"_{int(100 * upperlimit)}%UL"
 
@@ -1084,3 +1085,71 @@ class UpperLimitTable(QTable):
             stringtab = sp.getvalue()
 
         return stringtab
+
+    def plot_results(self, column, **kwargs):
+        """
+        Create a publication quality plot of one set of results as a function
+        of another, for example, the gravitational-wave amplitude :math:`h_0`
+        as a function of signal frequency.
+
+        Parameters
+        ----------
+        column: str, list, tuple
+            The name of the column or columns to plot. If a single column name
+            is given then this will be plotted against signal (not necessarily
+            rotation) frequency. If two values are given, the first will be
+            plotted, on the x-axis and the second on the y-axis, so if wanting
+            to explicitly plot against rotation frequency pass the first value
+            as "F0ROT".
+        """
+
+        if isinstance(column, str):
+            axiscols = ["F0ROT", column]
+        elif isinstance(column, (list, tuple)):
+            if len(column) != 2:
+                raise ValueError("You must supply a pair of names")
+            axiscols = column
+        else:
+            raise TypeError("You must supply a single column name or a pair of names")
+
+        axisdata = {xy: {"label": "", "data": None, "y": None} for xy in ["x", "y"]}
+
+        for xy, acolumn in zip(["x", "y"], axiscols):
+            if acolumn not in self.columns:
+                # if the value is in the AMPPARAMS or is "ell"
+                # try getting the column containing that data (defaulting to
+                # the multi-detector value if present, column containing the
+                # smallest average value if multiple columns are present).
+                parcols = [col for col in self.columns if col.startswith(acolumn.upper)]
+
+                if len(parcols) == 0:
+                    raise ValueError(f"{acolumn} is not in the table")
+                elif len(parcols) == 1:
+                    colname = parcols[0]
+                else:
+                    # check for multi-detector column (i.e., a detector string longer
+                    # than two characters)
+                    for col in parcols:
+                        detmatch = re.search("_(.*?)_", col)
+
+                        if detmatch is None:
+                            continue
+                        elif len(detmatch.group()) - 2 > 2:
+                            colname = col
+                            break
+                    else:
+                        # get column with smallest average value
+                        colname = parcols[
+                            np.argmin([self[col].mean() for col in parcols])
+                        ]
+            else:
+                colname = column
+
+            axisdata[xy]["data"] = self[colname]
+            axisdata[xy]["label"] = colname
+
+        # scale frequency if necessary
+        if isinstance(column, str) and axisdata["y"]["label"].upper().startswith(
+            ("H0", "ELL", "Q22", "C22")
+        ):
+            axisdata["x"]["data"] *= 2.0  # GWs ate twice frot

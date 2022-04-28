@@ -341,7 +341,8 @@ class TestUpperLimitTable:
             pulsars=self.pnamesO2[0],
         )
 
-        assert "PSRJ" in t1p.columns and "H0_90%UL" in t1p.columns
+        for colname in ["PSRJ", "F0ROT", "F1ROT", "DIST", "H0_90%UL"]:
+            assert colname in t1p.columns
         assert t1p["PSRJ"] == self.pnamesO2[0]
 
         # just get h0 90% credible upper limits for H1 detector
@@ -349,7 +350,8 @@ class TestUpperLimitTable:
             resdir=self.resdirO2, ampparam="h0", detector="H1", upperlimit=0.9
         )
 
-        assert "PSRJ" in t.columns and "H0_90%UL" in t.columns
+        for colname in ["PSRJ", "F0ROT", "F1ROT", "DIST", "H0_90%UL"]:
+            assert colname in t.columns
         assert sorted(t["PSRJ"].value.tolist()) == sorted(self.pnamesO2)
         assert t1p["H0_90%UL"][0] == t[t["PSRJ"] == self.pnamesO2[0]]["H0_90%UL"][0]
 
@@ -372,6 +374,8 @@ class TestUpperLimitTable:
             assert np.isclose(t.loc[psr]["DIST"], self.pdistsO2[i], rtol=0.05)
 
         # check all results columns are present
+        for colname in ["PSRJ", "F0ROT", "F1ROT", "DIST", "SDLIM"]:
+            assert colname in t.columns
         assert "SDLIM" in t.columns
         for ap in ["H0", "ELL", "Q22", "SDRAT"]:
             for det in self.dets:
@@ -410,10 +414,22 @@ class TestUpperLimitTable:
         lines = ts.strip().split("\n")
 
         assert len(lines) == 6
-        assert len(lines[0].split()) == 2  # two columns
-        assert "PSRJ" == lines[1].split()[0]  # header
-        assert "H0_90%UL" == lines[1].split()[1]  # header
+        assert len(lines[0].split()) == 5  # five columns
+        # check header
+        for i, colname in enumerate(["PSRJ", "F0ROT", "F1ROT", "DIST", "H0_90%UL"]):
+            assert colname == lines[1].split()[i]  # header
         assert self.pnamesO2[0] == lines[3].split()[0]
         assert self.pnamesO2[1] == lines[4].split()[0]
-        assert float(lines[3].split()[1]) > 0
-        assert float(lines[4].split()[1]) > 0
+        assert float(lines[3].split()[-1]) > 0
+        assert float(lines[4].split()[-1]) > 0
+
+        for i in range(len(self.pnamesO2)):
+            assert np.isclose(
+                float(lines[3 + i].split()[1]), self.pfreqsO2[i].value, rtol=0.025
+            )
+            assert np.isclose(
+                float(lines[3 + i].split()[2]), self.pfdotsO2[i].value, rtol=0.025
+            )
+            assert np.isclose(
+                float(lines[3 + i].split()[3]), self.pdistsO2[i].value, rtol=0.05
+            )
