@@ -341,7 +341,7 @@ class TestUpperLimitTable:
             pulsars=self.pnamesO2[0],
         )
 
-        assert "PSRJ" in t1p.columns and "h0_90%UL" in t1p.columns
+        assert "PSRJ" in t1p.columns and "H0_90%UL" in t1p.columns
         assert t1p["PSRJ"] == self.pnamesO2[0]
 
         # just get h0 90% credible upper limits for H1 detector
@@ -349,7 +349,7 @@ class TestUpperLimitTable:
             resdir=self.resdirO2, ampparam="h0", detector="H1", upperlimit=0.9
         )
 
-        assert "PSRJ" in t.columns and "h0_90%UL" in t.columns
+        assert "PSRJ" in t.columns and "H0_90%UL" in t.columns
         assert sorted(t["PSRJ"].value.tolist()) == sorted(self.pnamesO2)
         assert t1p["H0_90%UL"][0] == t[t["PSRJ"] == self.pnamesO2[0]]["H0_90%UL"][0]
 
@@ -369,7 +369,7 @@ class TestUpperLimitTable:
         for i, psr in enumerate(self.pnamesO2):
             assert np.isclose(t.loc[psr]["F0ROT"], self.pfreqsO2[i], rtol=0.025)
             assert np.isclose(t.loc[psr]["F1ROT"], self.pfdotsO2[i], rtol=0.025)
-            assert np.isclose(t.loc[psr]["DIST"], self.pdistsO2[i], rtol=0.025)
+            assert np.isclose(t.loc[psr]["DIST"], self.pdistsO2[i], rtol=0.05)
 
         # check all results columns are present
         assert "SDLIM" in t.columns
@@ -410,7 +410,7 @@ class TestUpperLimitTable:
         lines = ts.strip().split("\n")
 
         assert len(lines) == 6
-        assert len(lines[0].split() == 2)  # two columns
+        assert len(lines[0].split()) == 2  # two columns
         assert "PSRJ" == lines[1].split()[0]  # header
         assert "H0_90%UL" == lines[1].split()[1]  # header
         assert self.pnamesO2[0] == lines[3].split()[0]
