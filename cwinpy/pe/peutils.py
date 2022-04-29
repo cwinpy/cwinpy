@@ -1143,7 +1143,9 @@ class UpperLimitTable(QTable):
                 # try getting the column containing that data (defaulting to
                 # the multi-detector value if present, column containing the
                 # smallest average value if multiple columns are present).
-                parcols = [col for col in self.columns if col.startswith(acolumn.upper)]
+                parcols = [
+                    col for col in self.columns if col.startswith(acolumn.upper())
+                ]
 
                 if len(parcols) == 0:
                     raise ValueError(f"{acolumn} is not in the table")
@@ -1166,7 +1168,7 @@ class UpperLimitTable(QTable):
                             np.argmin([self[col].mean() for col in parcols])
                         ]
             else:
-                colname = column
+                colname = acolumn
 
             axisdata[xy]["data"] = self[colname]
             axisdata[xy]["label"] = colname
@@ -1314,7 +1316,7 @@ class UpperLimitTable(QTable):
                     sdlim = self["SDLIM"]
                 else:
                     # use spin-down ratio to get spin-down limit
-                    sdrcol = "SDRAT" + axisdata["y"]["label"].strip("ELL").strip("Q22")
+                    sdrcol = "SDRAT" + axisdata["y"]["label"][3:]
                     sdratio = self[sdrcol][idx]
                     sdlim = ydata / sdratio
 
@@ -1390,22 +1392,31 @@ class UpperLimitTable(QTable):
 
                 ax[0].set_ylim([minell, maxell])
 
+                print(ax[0].get_yscale())
+
                 eqq = equations("massquadrupole")
 
-                q22minrange = np.floor(np.log10(eqq(ellipticity=minell, izz=1e38)))
-                q22maxrange = np.ceil(np.log10(eqq(ellipticity=maxell, izz=1e38)))
+                q22minrange = np.floor(
+                    np.log10(eqq(ellipticity=minell, izz=1e38).value)
+                )
+                q22maxrange = np.ceil(np.log10(eqq(ellipticity=maxell, izz=1e38).value))
 
                 q22vals = np.arange(q22minrange, q22maxrange, 1)
                 # scale between ellipticity and Q22
                 ieqq = eqq.rearrange("ellipticity")
-                equivell = [ieqq(massquadrupole=10**v, izz=1e38) for v in q22vals]
+                equivell = [
+                    ieqq(massquadrupole=10**v, izz=1e38).value for v in q22vals
+                ]
 
                 def formfunc(val, pos):
                     # set the Q22 tick labels
-                    newvalue = np.round(np.log10(eqq(ellipticity=val, izz=1e38)))
+                    newvalue = np.round(np.log10(eqq(ellipticity=val, izz=1e38).value))
                     return "$10^{{{}}}$".format(int(newvalue))
 
-                axq22 = ax[1].twinx()
+                if len(ax) == 1:
+                    axq22 = ax[0].twinx()
+                else:
+                    axq22 = ax[1].twinx()
                 axq22.set_yscale(ax[0].get_yscale())
                 axq22.set_yticks(equivell)
                 axq22.set_ybound([minell, maxell])
@@ -1414,7 +1425,7 @@ class UpperLimitTable(QTable):
                     which="minor", right=False, left=False
                 )
                 axq22.set_ylabel(self._get_label("Q22"))
-                axq22.grid(b=False)
+                axq22.grid(False)
 
             # plot lines of characteristic age
             if kwargs.pop("showtau", False):
@@ -1441,7 +1452,7 @@ class UpperLimitTable(QTable):
                                     rotationfrequency=taufreqs,
                                     characteristicage=tchar[0] * 86400.0 * 365.25,
                                     n=n,
-                                )
+                                ).value
                             )
                         )
                         / (np.diff(np.log10(taufreqs * 2)) * plotgrad)
@@ -1456,7 +1467,7 @@ class UpperLimitTable(QTable):
                         taufreqs * 2,
                         eqsdtau(
                             rotationfrequency=taufreqs, characteristicage=taus, n=n
-                        ),
+                        ).value,
                         "brown",
                         linewidth=0.5,
                     )
@@ -1472,7 +1483,11 @@ class UpperLimitTable(QTable):
         # add axes labels
         ax[0].set_xlabel(self._get_label(axisdata["x"]["label"]))
         ax[0].set_ylabel(self._get_label(axisdata["y"]["label"]))
-        ax[0].legend(numpoints=1)
+
+        if len(ax) < 3:
+            fig.tight_layout()
+
+        return fig
 
     @staticmethod
     def _generate_plot_grid(**kwargs):
@@ -1578,7 +1593,7 @@ class UpperLimitTable(QTable):
                     if len(ul) == 0:
                         ul = ""
                     else:
-                        ul = "^{{{0}}%%}".format(ul[0])
+                        ul = r"^{{{0}\%}}".format(ul[0])
 
                     outlabel = "$" + UpperLimitTable.LATEX_LABELS[ll].format(ul) + "$"
 
