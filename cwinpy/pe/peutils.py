@@ -10,6 +10,7 @@ from astropy.table import QTable, Table
 from bilby.core.result import Result, read_in_result
 from matplotlib import gridspec
 from matplotlib import pyplot as plt
+from matplotlib.ticker import FuncFormatter
 from psrqpy import QueryATNF
 
 from ..data import HeterodynedData, MultiHeterodynedData
@@ -1372,16 +1373,101 @@ class UpperLimitTable(QTable):
                     arrowprops=dict(arrowstyle="->"),
                 )
 
-        # plot lines of characteristic age
-        if kwargs.pop("showtau", False):
-            pass
-            # tau = kwargs.pop("tau", 5)  # braking index
+        if axisdata["x"]["label"] == "F0GW" and axisdata["y"]["label"].startswith(
+            "ELL"
+        ):
+            from cweqgen import equations
 
-            # from cweqgen import equations
+            # show axis with Q22 values
+            if kwargs.pop("showq22", True):
+                minell = np.min(
+                    [line.get_data()[1].min() for line in ax[0].get_lines()]
+                ) * (2 / 3)
+                maxell = (
+                    np.max([line.get_data()[1].max() for line in ax[0].get_lines()])
+                    * 1.5
+                )
 
-            # eqsd = equations("ellipticityspindown")
-            # eqtau = equations("characteristicage").to("rotationfrequency")
-            # eqsdtau = eqsd.substitute(eqtau.rearrange("rotationfdot"))
+                ax[0].set_ylim([minell, maxell])
+
+                eqq = equations("massquadrupole")
+
+                q22minrange = np.floor(np.log10(eqq(ellipticity=minell, izz=1e38)))
+                q22maxrange = np.ceil(np.log10(eqq(ellipticity=maxell, izz=1e38)))
+
+                q22vals = np.arange(q22minrange, q22maxrange, 1)
+                # scale between ellipticity and Q22
+                ieqq = eqq.rearrange("ellipticity")
+                equivell = [ieqq(massquadrupole=10**v, izz=1e38) for v in q22vals]
+
+                def formfunc(val, pos):
+                    # set the Q22 tick labels
+                    newvalue = np.round(np.log10(eqq(ellipticity=val, izz=1e38)))
+                    return "$10^{{{}}}$".format(int(newvalue))
+
+                axq22 = ax[1].twinx()
+                axq22.set_yscale(ax[0].get_yscale())
+                axq22.set_yticks(equivell)
+                axq22.set_ybound([minell, maxell])
+                axq22.yaxis.set_major_formatter(FuncFormatter(formfunc))
+                axq22.get_yaxis().set_tick_params(
+                    which="minor", right=False, left=False
+                )
+                axq22.set_ylabel(self._get_label("Q22"))
+                axq22.grid(b=False)
+
+            # plot lines of characteristic age
+            if kwargs.pop("showtau", False):
+                n = kwargs.pop("nbraking", 5)  # braking index
+
+                # get ellipticity spin-down limit  in terms of characteristic age
+                eqsd = equations("ellipticityspindown")
+                eqtau = equations("characteristicage").to("rotationfrequency")
+                eqsdtau = eqsd.substitute(eqtau.rearrange("rotationfdot"))
+
+                tchar = [1e3, 1e5, 1e7, 1e9]  # characteristic ages
+                taufreqs = np.array([5, 1500])
+
+                # get rotation angle for tau value text
+                plotgrad = (
+                    np.diff(np.log10(ax[0].get_ybound()))[0]
+                    / np.diff(np.log10(ax[0].get_xbound()))[0]
+                )
+                rotang = (
+                    np.arctan(
+                        -np.diff(
+                            np.log10(
+                                eqsdtau(
+                                    rotationfrequency=taufreqs,
+                                    characteristicage=tchar[0] * 86400.0 * 365.25,
+                                    n=n,
+                                )
+                            )
+                        )
+                        / (np.diff(np.log10(taufreqs * 2)) * plotgrad)
+                    )
+                    * 180.0
+                    / np.pi
+                )
+
+                for tau in tchar:
+                    taus = tau * 86400.0 * 365.25
+                    ax[0].plot(
+                        taufreqs * 2,
+                        eqsdtau(
+                            rotationfrequency=taufreqs, characteristicage=taus, n=n
+                        ),
+                        "brown",
+                        linewidth=0.5,
+                    )
+                    tpy = eqsdtau(rotationfrequency=50, characteristicage=taus, n=n)
+                    tpy += 0.2 * tpy  # raise text position further from lines
+                    ax[0].text(
+                        100,
+                        tpy,
+                        "$\\tau= 10^{%d}\\,\\mathrm{y}$" % np.log10(tau),
+                        rotation=(-rotang[0] + 3.0),
+                    )
 
         # add axes labels
         ax[0].set_xlabel(self._get_label(axisdata["x"]["label"]))
