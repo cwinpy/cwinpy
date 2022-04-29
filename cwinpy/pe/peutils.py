@@ -4,9 +4,11 @@ from itertools import permutations
 from pathlib import Path
 
 import astropy.units as u
+import matplotlib as mpl
 import numpy as np
 from astropy.table import QTable, Table
 from bilby.core.result import Result, read_in_result
+from matplotlib import gridspec
 from matplotlib import pyplot as plt
 from psrqpy import QueryATNF
 
@@ -714,6 +716,17 @@ class UpperLimitTable(QTable):
         "q22": u.kg * u.m**2,
     }
 
+    LATEX_LABELS = {
+        "H0": "h_0{0}",
+        "ELL": r"\varepsilon{0}",
+        "Q22": "Q_{{22}}{0}",
+        "C21": "C_{{21}}{0}",
+        "C22": "C_{{22}}{0}",
+        "DIST": r"d",
+        "SDLIM": r"h_0^{\rm sd}",
+        "SDRAT": r"h_0{0} / h_0^{{\rm sd}}",
+    }
+
     def __init__(self, resdir=None, **kwargs):
         """
         Generate a table (as an :class:`astropy.table.QTable`) of upper limits
@@ -1092,6 +1105,8 @@ class UpperLimitTable(QTable):
         of another, for example, the gravitational-wave amplitude :math:`h_0`
         as a function of signal frequency.
 
+        Axes scales default to log.
+
         Parameters
         ----------
         column: str, list, tuple
@@ -1106,11 +1121,18 @@ class UpperLimitTable(QTable):
         if isinstance(column, str):
             axiscols = ["F0ROT", column]
         elif isinstance(column, (list, tuple)):
-            if len(column) != 2:
+            if len(column) == 1:
+                column = column[0]
+                axiscols = ["F0ROT", column]
+            elif len(column) == 2:
+                axiscols = column
+            else:
                 raise ValueError("You must supply a pair of names")
             axiscols = column
         else:
             raise TypeError("You must supply a single column name or a pair of names")
+
+        pulsars = self["PSRJ"]
 
         axisdata = {xy: {"label": "", "data": None, "y": None} for xy in ["x", "y"]}
 
@@ -1148,8 +1170,334 @@ class UpperLimitTable(QTable):
             axisdata[xy]["data"] = self[colname]
             axisdata[xy]["label"] = colname
 
-        # scale frequency if necessary
+        # scale rotation frequency to GW frequency if necessary
         if isinstance(column, str) and axisdata["y"]["label"].upper().startswith(
             ("H0", "ELL", "Q22", "C22")
         ):
             axisdata["x"]["data"] *= 2.0  # GWs ate twice frot
+            axisdata["x"]["label"] = "F0GW"
+
+        # start creating figure
+        fig, ax = self._generate_plot_grid(**kwargs)
+
+        # get finite values
+        idx = np.isfinite(axisdata["x"]["data"]) & np.isfinite(axisdata["x"]["data"])
+        xdata = axisdata["x"]["data"][idx]
+        ydata = axisdata["y"]["data"][idx]
+        pulsars = pulsars[idx]
+
+        # add main plot
+        if isinstance(fig, mpl.figure.Figure):
+            # add amplitude spectral density for h0/C22/C21 plots if requested
+            if axisdata["x"]["label"].startswith("F0") and axisdata["x"][
+                "label"
+            ].startswith(("H0", "C21", "C22")):
+                if kwargs.pop("asd", False):
+                    pass
+
+            ax[0].plot(
+                xdata,
+                ydata,
+                **kwargs.pop(
+                    "plotkwargs", {"marker": "o", "ls": "none", "markersize": 6}
+                ),
+            )
+
+            # default scales to log
+            ax[0].set_xscale(kwargs.pop("xscale", "log"))
+            ax[0].set_yscale(kwargs.pop("yscale", "log"))
+
+            # add on histogram
+            if len(ax) == 2:
+                # set histogram bins
+                histkwargs = kwargs.pop(
+                    "histkwargs", {"histtype": "stepfilled", "alpha": 0.5}
+                )
+
+                bins = histkwargs.pop("bins", 25)
+                if isinstance(bins, int) and ax[0].get_yscale() == "log":
+                    # set bins logarithmically
+                    ymin = ydata.min()
+                    ymax = ydata.max()
+                    bins = 10 ** np.linspace(np.log10(ymin), np.log10(ymax), bins)
+
+                ax[1].hist(
+                    ydata,
+                    bins=bins,
+                    orientation="horizontal",
+                    **histkwargs,
+                )
+        else:
+            # using Seaborn
+            import seaborn as sns
+
+            xlog = False
+            xlim = None
+            if kwargs.pop("xscale", "log"):
+                xdata = np.log10(xdata)
+                xmin = np.floor(xdata.min())
+                xmax = np.ceil(xdata.max())
+                xlim = [xmin, xmax]
+                xlog = True
+
+            ylog = False
+            ylim = None
+            if kwargs.pop("yscale", "log"):
+                ydata = np.log10(ydata)
+                ymin = ydata.min()
+                ymax = ydata.max()
+                ylim = [ymin, ymax]
+                ylog = True
+
+            # joint plot
+            sns.scatterplot(x=xdata, y=ydata, ax=ax[0], **kwargs.pop("jointkwargs", {}))
+
+            if xlim is not None:
+                ax[0].set_xlim(xlim)
+            if ylim is not None:
+                ax[0].set_ylim(ylim=ylim)
+
+            # marginal plots
+            sns.histplot(
+                y=ydata,
+                ax=ax[1],
+                **kwargs.pop(
+                    "histkwargs",
+                    {
+                        "alpha": 0.5,
+                        "histtype": "stepfilled",
+                        "bins": 25,
+                        "density": True,
+                    },
+                ),
+            )
+            sns.histplot(
+                x=xdata,
+                ax=ax[2],
+                **kwargs.pop(
+                    "histkwargs",
+                    {
+                        "alpha": 0.5,
+                        "histtype": "stepfilled",
+                        "bins": 25,
+                        "density": True,
+                    },
+                ),
+            )
+
+            # add KDE is requested
+            if kwargs.pop("kde", False):
+                sns.kdeplot(
+                    y=ydata, ax=ax[1], **kwargs.pop("kdekwargs", {"shade": False})
+                )
+                sns.kdeplot(
+                    x=xdata, ax=ax[2], **kwargs.pop("kdekwargs", {"shade": False})
+                )
+
+            # set tick format for log plots
+            if xlog:
+                ax[0].set_xticks(range(int(xmin), int(xmax) + 1))
+                ax[0].set_xticklabels(
+                    [f"$10^{{{val}}}$" for val in range(int(xmin), int(xmax) + 1)]
+                )
+            if ylog:
+                ax[0].set_yticks(range(int(ymin), int(ymax) + 1))
+                ax[0].set_yticklabels(
+                    [f"$10^{{{val}}}$" for val in range(int(ymin), int(ymax) + 1)]
+                )
+
+        # show spin-down limits
+        if kwargs.pop("showsdlim", False):
+            if axisdata["y"]["label"].startswith(("H0", "ELL", "Q22")):
+                if axisdata["y"]["label"].startswith("H0"):
+                    sdlim = self["SDLIM"]
+                else:
+                    # use spin-down ratio to get spin-down limit
+                    sdrcol = "SDRAT" + axisdata["y"]["label"].strip("ELL").strip("Q22")
+                    sdratio = self[sdrcol][idx]
+                    sdlim = ydata / sdratio
+
+                sdidx = np.isfinite(sdlim)
+                sdx = xdata[sdidx]
+                sdlim = sdlim[sdidx]
+
+                ax[0].plot(
+                    sdx,
+                    sdlim,
+                    **kwargs.pop(
+                        "sdlimkwargs",
+                        {
+                            "ls": "none",
+                            "marker": "v",
+                            "markersize": 6,
+                            "markerfacecolor": "none",
+                            "markeredgecolor": "k",
+                            "alpha": 0.8,
+                            "label": "spin-down limit",
+                        },
+                    ),
+                )
+
+        # highlight requested pulsars
+        for psr in kwargs.pop("highlightpsrs", []):
+            if psr in pulsars:
+                psridx = pulsars.index(psr)
+                ax[0].plot(
+                    xdata[psridx],
+                    ydata,
+                    **kwargs.pop(
+                        "highlightkwargs",
+                        {
+                            "markerstyle": "o",
+                            "markerfacecolor": "yellow",
+                            "markersize": 12,
+                            "markeredgecolor": "saddlebrown",
+                            "alpha": 0.25,
+                        },
+                    ),
+                )
+
+                tx, ty = self._set_text_pos(
+                    xdata, ydata, ax[0].get_xlim(), ax[0].get_ylim(), ax[0]
+                )
+
+                ax[0].annotate(
+                    psr,
+                    xy=(xdata[psridx], ydata[psridx]),
+                    xycoords="data",
+                    xytext=(tx, ty),
+                    textcoords="data",
+                    horizontalalignment="center",
+                    verticalalignment="center",
+                    arrowprops=dict(arrowstyle="->"),
+                )
+
+        # plot lines of characteristic age
+        if kwargs.pop("showtau", False):
+            pass
+            # tau = kwargs.pop("tau", 5)  # braking index
+
+            # from cweqgen import equations
+
+            # eqsd = equations("ellipticityspindown")
+            # eqtau = equations("characteristicage").to("rotationfrequency")
+            # eqsdtau = eqsd.substitute(eqtau.rearrange("rotationfdot"))
+
+        # add axes labels
+        ax[0].set_xlabel(self._get_label(axisdata["x"]["label"]))
+        ax[0].set_ylabel(self._get_label(axisdata["y"]["label"]))
+        ax[0].legend(numpoints=1)
+
+    @staticmethod
+    def _generate_plot_grid(**kwargs):
+        """
+        Generate the grid on which to make the plot
+        """
+
+        # check whether using a Seaborn joint plot
+        if kwargs.pop("jointplot", False):
+            try:
+                import seaborn as sns
+            except (ImportError, ModuleNotFoundError):
+                raise ValueError("Seaborn must be installed to create a jointplot")
+            fig = sns.JointGrid(
+                ratio=kwargs.pop("ratio", 3), height=kwargs.pop("height", 9)
+            )
+            ax = [fig.ax_joint, fig.ax_marg_y, fig.ax_marg_x]
+
+        figsize = kwargs.pop("figsize", None)
+
+        addhistogram = kwargs.pop("histogram", False)
+        if addhistogram and figsize is None:
+            figsize = (15, 9)
+        elif figsize is None:
+            # default figure size
+            figsize = (12, 9)
+
+        fig = plt.figure(figsize=figsize)
+
+        if addhistogram:
+            # set grid to add a histogram to the right hand side of the plot
+            # containing a projection of the y-axis values
+            gs = gridspec.GridSpec(
+                1,
+                2,
+                width_ratios=kwargs.pop("width_ratios", [4, 1]),
+                wspace=kwargs.pop("wspace", 0.03),
+            )
+            ax = [plt.subplot(gs[0]), plt.subplot(gs[1])]
+        else:
+            ax = [plt.gca()]
+
+        return fig, ax
+
+    @staticmethod
+    def _set_text_pos(xv, yv, xlims, ylims, ax, offsetx=0.08, offsety=0.07):
+        """
+        Set the x-y position of some annotating text by the point's location
+        in a plot.
+        """
+
+        # check log or linear scale
+        xlim = np.log10(xlims) if ax.get_xscale() == "log" else xlims
+        ylim = np.log10(ylims) if ax.get_yscale() == "log" else ylims
+        x = np.log10(xv) if ax.get_xscale() == "log" else xv
+        y = np.log10(yv) if ax.get_yscale() == "log" else yv
+
+        # get mid-points
+        xmid = np.mean(xlim)
+        ymid = np.mean(ylim)
+
+        # get extent of axes
+        xextent = xlim[1] - xlim[0]
+        yextent = ylim[1] - ylim[0]
+
+        # set test positions for each quadrant
+        if x <= xmid and y <= ymid:
+            # lower left
+            textx = x - xextent * offsetx
+            texty = y - yextent * offsety
+        elif x <= xmid and y > ymid:
+            # upper left
+            textx = x + xextent * offsetx
+            texty = y + yextent * offsety
+        elif x > xmid and y > ymid:
+            # upper right
+            textx = x - xextent * offsetx
+            texty = y + yextent * offsety
+        else:
+            # lower right
+            textx = x + xextent * offsetx
+            texty = y - yextent * offsety
+
+        if ax.get_xscale() == "log":
+            textx = 10**textx
+        if ax.get_yscale() == "log":
+            texty = 10**texty
+
+        return textx, texty
+
+    @staticmethod
+    def _get_label(labelkey):
+        if labelkey.upper() == "F0ROT":
+            return "Rotation frequency (Hz)"
+        elif labelkey.upper() == "F0GW":
+            return "Gravitational-wave frequency (Hz)"
+        else:
+            for ll in UpperLimitTable.LATEX_LABELS:
+                if labelkey.upper().startswith(ll):
+                    # find upper limit value
+                    ul = re.findall(r"(\d+)%", labelkey.upper())
+
+                    if len(ul) == 0:
+                        ul = ""
+                    else:
+                        ul = "^{{{0}}%%}".format(ul[0])
+
+                    outlabel = "$" + UpperLimitTable.LATEX_LABELS[ll].format(ul) + "$"
+
+                    if ll == "Q22":
+                        # add on units
+                        outlabel += "(kg m$^2$)"
+
+                    return outlabel
