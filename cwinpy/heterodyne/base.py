@@ -783,7 +783,7 @@ class Heterodyne(object):
                 # extract channel from dictionary
                 data = data[channel]
             except Exception as e:
-                raise IOError("Could not read in frame data from cache: {}".format(e))
+                raise IOError(f"Could not read in frame data '{frfile}' from cache: {e}")
         else:
             # download data
             if host == GWOSC_DEFAULT_HOST:
