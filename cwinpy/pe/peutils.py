@@ -10,7 +10,7 @@ from astropy.table import QTable, Table
 from bilby.core.result import Result, read_in_result
 from matplotlib import gridspec
 from matplotlib import pyplot as plt
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FixedLocator, FuncFormatter
 from psrqpy import QueryATNF
 
 from ..data import HeterodynedData, MultiHeterodynedData
@@ -1170,7 +1170,7 @@ class UpperLimitTable(QTable):
             else:
                 colname = acolumn
 
-            axisdata[xy]["data"] = self[colname]
+            axisdata[xy]["data"] = self[colname].value.copy()
             axisdata[xy]["label"] = colname
 
         # scale rotation frequency to GW frequency if necessary
@@ -1215,17 +1215,14 @@ class UpperLimitTable(QTable):
                 # set histogram bins
                 histkwargs = kwargs.pop(
                     "histkwargs",
-                    {"histtype": "stepfilled", "alpha": 0.5, "density": True},
+                    {"histtype": "stepfilled", "alpha": 0.5},
                 )
 
                 bins = histkwargs.pop("bins", 25)
                 if isinstance(bins, int) and ax[0].get_yscale() == "log":
                     # set bins logarithmically
-                    ymin = np.log10(ydata.min())
-                    ymax = np.log10(ydata.max())
-                    ymin = np.ceil(ymin) if ymin < 0 else np.floor(ymin)
-                    ymax = np.floor(ymax) if ymax < 0 else np.ceil(ymax)
-                    ymin, ymax = sorted([ymin, ymax])
+                    ymin = np.floor(np.log10(ydata.min()))
+                    ymax = np.ceil(np.log10(ydata.max()))
                     bins = 10 ** np.linspace(ymin, ymax, bins)
 
                 ax[1].hist(
@@ -1242,7 +1239,6 @@ class UpperLimitTable(QTable):
                 ax[1].tick_params(
                     axis="y",
                     which="both",
-                    left=False,
                     labelleft=False,
                 )
                 ax[1].grid(b=False)
@@ -1321,14 +1317,15 @@ class UpperLimitTable(QTable):
         # highlight requested pulsars
         for psr in kwargs.pop("highlightpsrs", []):
             if psr in pulsars:
-                psridx = pulsars.index(psr)
+                psridx = pulsars.tolist().index(psr)
                 ax[0].plot(
                     xdata[psridx],
-                    ydata,
+                    ydata[psridx],
                     **kwargs.pop(
                         "highlightkwargs",
                         {
-                            "markerstyle": "o",
+                            "ls": "none",
+                            "marker": "o",
                             "markerfacecolor": "yellow",
                             "markersize": 12,
                             "markeredgecolor": "saddlebrown",
@@ -1338,7 +1335,11 @@ class UpperLimitTable(QTable):
                 )
 
                 tx, ty = self._set_text_pos(
-                    xdata, ydata, ax[0].get_xlim(), ax[0].get_ylim(), ax[0]
+                    xdata[psridx],
+                    ydata[psridx],
+                    ax[0].get_xlim(),
+                    ax[0].get_ylim(),
+                    ax[0],
                 )
 
                 ax[0].annotate(
@@ -1367,9 +1368,7 @@ class UpperLimitTable(QTable):
                     * 1.5
                 )
 
-                ax[0].set_ylim([minell, maxell])
-
-                print(ax[0].get_yscale())
+                ax[0].set_ybound([minell, maxell])
 
                 eqq = equations("massquadrupole")
 
@@ -1379,11 +1378,16 @@ class UpperLimitTable(QTable):
                 q22maxrange = np.ceil(np.log10(eqq(ellipticity=maxell, izz=1e38).value))
 
                 q22vals = np.arange(q22minrange, q22maxrange, 1)
+                q22valminor = np.array(
+                    [[i * 10**q for i in range(2, 10)] for q in q22vals]
+                ).flatten()
+
                 # scale between ellipticity and Q22
                 ieqq = eqq.rearrange("ellipticity")
-                equivell = [
-                    ieqq(massquadrupole=10**v, izz=1e38).value for v in q22vals
-                ]
+                equivell = ieqq(massquadrupole=10**q22vals, izz=1e38).value.flatten()
+                equivellminor = ieqq(
+                    massquadrupole=q22valminor, izz=1e38
+                ).value.flatten()
 
                 def formfunc(val, pos):
                     # set the Q22 tick labels
@@ -1398,8 +1402,12 @@ class UpperLimitTable(QTable):
                 axq22.set_yticks(equivell)
                 axq22.set_ybound([minell, maxell])
                 axq22.yaxis.set_major_formatter(FuncFormatter(formfunc))
+                axq22.yaxis.set_minor_locator(FixedLocator(equivellminor))
                 axq22.get_yaxis().set_tick_params(
-                    which="minor", right=False, left=False
+                    which="minor",
+                    right=True,
+                    left=False,
+                    labelright=False,
                 )
                 axq22.set_ylabel(self._get_label("Q22"))
                 axq22.grid(False)
@@ -1413,7 +1421,7 @@ class UpperLimitTable(QTable):
                 eqtau = equations("characteristicage").to("rotationfrequency")
                 eqsdtau = eqsd.substitute(eqtau.rearrange("rotationfdot"))
 
-                tchar = [1e3, 1e5, 1e7, 1e9]  # characteristic ages
+                tchar = [1e3, 1e5, 1e7, 1e9] * u.yr  # characteristic ages
                 taufreqs = np.array([5, 1500])
 
                 # get rotation angle for tau value text
@@ -1427,7 +1435,7 @@ class UpperLimitTable(QTable):
                             np.log10(
                                 eqsdtau(
                                     rotationfrequency=taufreqs,
-                                    characteristicage=tchar[0] * 86400.0 * 365.25,
+                                    characteristicage=tchar[0],
                                     n=n,
                                 ).value
                             )
@@ -1439,7 +1447,7 @@ class UpperLimitTable(QTable):
                 )
 
                 for tau in tchar:
-                    taus = tau * 86400.0 * 365.25
+                    taus = tau
                     ax[0].plot(
                         taufreqs * 2,
                         eqsdtau(
@@ -1453,7 +1461,7 @@ class UpperLimitTable(QTable):
                     ax[0].text(
                         100,
                         tpy,
-                        "$\\tau= 10^{%d}\\,\\mathrm{y}$" % np.log10(tau),
+                        "$\\tau= 10^{%d}\\,\\mathrm{y}$" % np.log10(tau.value),
                         rotation=(-rotang[0] + 3.0),
                     )
 
@@ -1507,6 +1515,7 @@ class UpperLimitTable(QTable):
                     wspace=kwargs.pop("wspace", 0.03),
                 )
                 ax = [plt.subplot(gs[0]), plt.subplot(gs[1])]
+                ax[0].sharey(ax[1])
             else:
                 ax = [plt.gca()]
 
