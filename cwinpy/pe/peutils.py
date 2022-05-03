@@ -1100,7 +1100,7 @@ class UpperLimitTable(QTable):
 
         return stringtab
 
-    def plot_results(self, column, **kwargs):
+    def plot(self, column, **kwargs):
         """
         Create a publication quality plot of one set of results as a function
         of another, for example, the gravitational-wave amplitude :math:`h_0`
@@ -1214,15 +1214,19 @@ class UpperLimitTable(QTable):
             if len(ax) == 2:
                 # set histogram bins
                 histkwargs = kwargs.pop(
-                    "histkwargs", {"histtype": "stepfilled", "alpha": 0.5}
+                    "histkwargs",
+                    {"histtype": "stepfilled", "alpha": 0.5, "density": True},
                 )
 
                 bins = histkwargs.pop("bins", 25)
                 if isinstance(bins, int) and ax[0].get_yscale() == "log":
                     # set bins logarithmically
-                    ymin = ydata.min()
-                    ymax = ydata.max()
-                    bins = 10 ** np.linspace(np.log10(ymin), np.log10(ymax), bins)
+                    ymin = np.log10(ydata.min())
+                    ymax = np.log10(ydata.max())
+                    ymin = np.ceil(ymin) if ymin < 0 else np.floor(ymin)
+                    ymax = np.floor(ymax) if ymax < 0 else np.ceil(ymax)
+                    ymin, ymax = sorted([ymin, ymax])
+                    bins = 10 ** np.linspace(ymin, ymax, bins)
 
                 ax[1].hist(
                     ydata,
@@ -1230,88 +1234,61 @@ class UpperLimitTable(QTable):
                     orientation="horizontal",
                     **histkwargs,
                 )
+
+                ax[1].set_yscale(ax[0].get_yscale())
+                ax[1].tick_params(
+                    axis="x", which="both", bottom=False, top=False, labelbottom=False
+                )
+                ax[1].tick_params(
+                    axis="y",
+                    which="both",
+                    left=False,
+                    labelleft=False,
+                )
+                ax[1].grid(b=False)
         else:
             # using Seaborn
             import seaborn as sns
 
-            xlog = False
-            xlim = None
-            if kwargs.pop("xscale", "log"):
-                xdata = np.log10(xdata)
-                xmin = np.floor(xdata.min())
-                xmax = np.ceil(xdata.max())
-                xlim = [xmin, xmax]
-                xlog = True
-
-            ylog = False
-            ylim = None
-            if kwargs.pop("yscale", "log"):
-                ydata = np.log10(ydata)
-                ymin = ydata.min()
-                ymax = ydata.max()
-                ylim = [ymin, ymax]
-                ylog = True
+            ax[0].set_xscale(kwargs.pop("xscale", "log"))
+            ax[0].set_yscale(kwargs.pop("yscale", "log"))
 
             # joint plot
             sns.scatterplot(x=xdata, y=ydata, ax=ax[0], **kwargs.pop("jointkwargs", {}))
 
-            if xlim is not None:
-                ax[0].set_xlim(xlim)
-            if ylim is not None:
-                ax[0].set_ylim(ylim=ylim)
+            hkwargs = kwargs.pop(
+                "histkwargs",
+                {
+                    "alpha": 0.5,
+                    "fill": True,
+                    "bins": 25,
+                    "stat": "density",
+                },
+            )
+
+            if kwargs.pop("kde", False):
+                if not hkwargs.get("kde", False):
+                    hkwargs["kde"] = True
+                    hkwargs["kde_kws"] = kwargs.pop("kdekwargs", {})
 
             # marginal plots
             sns.histplot(
                 y=ydata,
                 ax=ax[1],
-                **kwargs.pop(
-                    "histkwargs",
-                    {
-                        "alpha": 0.5,
-                        "histtype": "stepfilled",
-                        "bins": 25,
-                        "density": True,
-                    },
-                ),
+                **hkwargs,
             )
             sns.histplot(
                 x=xdata,
                 ax=ax[2],
-                **kwargs.pop(
-                    "histkwargs",
-                    {
-                        "alpha": 0.5,
-                        "histtype": "stepfilled",
-                        "bins": 25,
-                        "density": True,
-                    },
-                ),
+                **hkwargs,
             )
-
-            # add KDE is requested
-            if kwargs.pop("kde", False):
-                sns.kdeplot(
-                    y=ydata, ax=ax[1], **kwargs.pop("kdekwargs", {"shade": False})
-                )
-                sns.kdeplot(
-                    x=xdata, ax=ax[2], **kwargs.pop("kdekwargs", {"shade": False})
-                )
-
-            # set tick format for log plots
-            if xlog:
-                ax[0].set_xticks(range(int(xmin), int(xmax) + 1))
-                ax[0].set_xticklabels(
-                    [f"$10^{{{val}}}$" for val in range(int(xmin), int(xmax) + 1)]
-                )
-            if ylog:
-                ax[0].set_yticks(range(int(ymin), int(ymax) + 1))
-                ax[0].set_yticklabels(
-                    [f"$10^{{{val}}}$" for val in range(int(ymin), int(ymax) + 1)]
-                )
 
         # show spin-down limits
         if kwargs.pop("showsdlim", False):
-            if axisdata["y"]["label"].startswith(("H0", "ELL", "Q22")):
+            if (
+                axisdata["y"]["label"].startswith(("H0", "ELL", "Q22"))
+                and "SDLIM" in self.columns
+            ):
                 if axisdata["y"]["label"].startswith("H0"):
                     sdlim = self["SDLIM"]
                 else:
@@ -1486,8 +1463,11 @@ class UpperLimitTable(QTable):
 
         if len(ax) < 3:
             fig.tight_layout()
-
-        return fig
+            return fig
+        else:
+            # return matplotlib figure object
+            fig.figure.tight_layout()
+            return fig.figure
 
     @staticmethod
     def _generate_plot_grid(**kwargs):
@@ -1505,30 +1485,30 @@ class UpperLimitTable(QTable):
                 ratio=kwargs.pop("ratio", 3), height=kwargs.pop("height", 9)
             )
             ax = [fig.ax_joint, fig.ax_marg_y, fig.ax_marg_x]
-
-        figsize = kwargs.pop("figsize", None)
-
-        addhistogram = kwargs.pop("histogram", False)
-        if addhistogram and figsize is None:
-            figsize = (15, 9)
-        elif figsize is None:
-            # default figure size
-            figsize = (12, 9)
-
-        fig = plt.figure(figsize=figsize)
-
-        if addhistogram:
-            # set grid to add a histogram to the right hand side of the plot
-            # containing a projection of the y-axis values
-            gs = gridspec.GridSpec(
-                1,
-                2,
-                width_ratios=kwargs.pop("width_ratios", [4, 1]),
-                wspace=kwargs.pop("wspace", 0.03),
-            )
-            ax = [plt.subplot(gs[0]), plt.subplot(gs[1])]
         else:
-            ax = [plt.gca()]
+            figsize = kwargs.pop("figsize", None)
+
+            addhistogram = kwargs.pop("histogram", False)
+            if addhistogram and figsize is None:
+                figsize = (15, 9)
+            elif figsize is None:
+                # default figure size
+                figsize = (12, 9)
+
+            fig = plt.figure(figsize=figsize)
+
+            if addhistogram:
+                # set grid to add a histogram to the right hand side of the plot
+                # containing a projection of the y-axis values
+                gs = gridspec.GridSpec(
+                    1,
+                    2,
+                    width_ratios=kwargs.pop("width_ratios", [4, 1]),
+                    wspace=kwargs.pop("wspace", 0.03),
+                )
+                ax = [plt.subplot(gs[0]), plt.subplot(gs[1])]
+            else:
+                ax = [plt.gca()]
 
         return fig, ax
 
