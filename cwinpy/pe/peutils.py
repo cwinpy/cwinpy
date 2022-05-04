@@ -1300,7 +1300,7 @@ class UpperLimitTable(QTable):
                     which="both",
                     labelleft=False,
                 )
-                ax[1].grid(b=False)
+                ax[1].grid(visible=False)
         else:
             # using Seaborn
             import seaborn as sns
