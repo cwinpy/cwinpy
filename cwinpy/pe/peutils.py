@@ -1171,6 +1171,22 @@ class UpperLimitTable(QTable):
             of 10:sup:`3`, 10:sup:`5`, 10:sup:`7`, and 10:sup:`9` years. By
             default these assume a braking index of 5, although different
             braking indexes can be given using the ``nbraking`` keyword.
+        asds: list
+            A list of paths to files containing the amplitude spectral density
+            for the detectors used in producing the upper limit. These files
+            should have two columns: frequency and amplitude spectral density.
+            If given, and plotting the amplitudes, "H0", "C21" or "C22", these
+            will be used to plot an estimate of the search sensitivity. If
+            multiple files are given, the observation time weighted harmonic
+            mean of the amplitudes will be used to calculate the sensitivity.
+            Keyword arguments used by :func:`~matplotlib.pyplot.plot` when
+            plotting the sensitivity can be passed using the ``asdkwargs``
+            keyword.
+        tobs: list
+            The observation times (in seconds) for each of the detectors
+            associated with the ASD files given in the ``asds`` keyword. These
+            are required values and should be listed in the same detector order
+            as the file paths.
 
         Returns
         -------
@@ -1337,6 +1353,44 @@ class UpperLimitTable(QTable):
                 ax=ax[2],
                 **hkwargs,
             )
+
+        # add sensitivity estimate
+        if axisdata["y"]["label"].startswith(("H0", "C21", "C22")):
+            asds = kwargs.pop("asds", [])
+            nasds = len(asds)
+            tobs = kwargs.pop("tobs", [365.25 * 86400] * nasds)
+
+            if len(asds) != len(tobs):
+                raise ValueError(
+                    "An observation time must be provided for every ASD file"
+                )
+
+            # read in files
+            weightedpsds = []
+            freqs = []
+            lowfreq = -np.inf
+            highfreq = np.inf
+            for i in range(nasds):
+                try:
+                    asddata = np.loadtxt(asds[i], comments=["#", "%"])
+                except (ValueError, OSError):
+                    raise IOError(f"Could not read in ASD file '{asds[i]}'")
+
+                freqs.append(asddata[:, 0])
+                weightedpsds.append(asddata[:, 1] ** 2 / tobs[i])
+
+                if np.min(freqs[-1]) > lowfreq:
+                    lowfreq = np.min(freqs[-1])
+                if np.max(freqs[-1]) < highfreq:
+                    highfreq = np.max(freqs[-1])
+
+            # interpolate weighted PSDs to the same frequency bins and get harmonic mean
+            freqbins = np.linspace(lowfreq, highfreq, 1000)
+            hmean = np.zeros(len(freqbins))
+            for i in range(nasds):
+                hmean += 1.0 / np.interp(freqbins, freqs[i], weightedpsds[i])
+
+            hmean = np.sqrt(1.0 / hmean)
 
         # show spin-down limits
         if kwargs.pop("showsdlim", False):
