@@ -1414,6 +1414,8 @@ class UpperLimitTable(QTable):
 
             # plot lines of characteristic age
             if kwargs.pop("showtau", False):
+                from psrqpy.utils import label_line
+
                 n = kwargs.pop("nbraking", 5)  # braking index
 
                 # get ellipticity spin-down limit  in terms of characteristic age
@@ -1422,48 +1424,33 @@ class UpperLimitTable(QTable):
                 eqsdtau = eqsd.substitute(eqtau.rearrange("rotationfdot"))
 
                 tchar = [1e3, 1e5, 1e7, 1e9] * u.yr  # characteristic ages
-                taufreqs = np.array([5, 1500])
 
-                # get rotation angle for tau value text
-                plotgrad = (
-                    np.diff(np.log10(ax[0].get_ybound()))[0]
-                    / np.diff(np.log10(ax[0].get_xbound()))[0]
-                )
-                rotang = (
-                    np.arctan(
-                        -np.diff(
-                            np.log10(
-                                eqsdtau(
-                                    rotationfrequency=taufreqs,
-                                    characteristicage=tchar[0],
-                                    n=n,
-                                ).value
-                            )
-                        )
-                        / (np.diff(np.log10(taufreqs * 2)) * plotgrad)
-                    )
-                    * 180.0
-                    / np.pi
+                xlims = ax[0].get_xlim()
+                freqs = (
+                    np.array(xlims)
+                    if axisdata["x"]["label"] == "F0ROT"
+                    else np.array(xlims) / 2.0
                 )
 
                 for tau in tchar:
-                    taus = tau
-                    ax[0].plot(
-                        taufreqs * 2,
+                    tline = ax[0].plot(
+                        xlims,
                         eqsdtau(
-                            rotationfrequency=taufreqs, characteristicage=taus, n=n
+                            rotationfrequency=freqs, characteristicage=tau, n=n
                         ).value,
                         "brown",
                         linewidth=0.5,
                     )
-                    tpy = eqsdtau(rotationfrequency=50, characteristicage=taus, n=n)
-                    tpy += 0.2 * tpy  # raise text position further from lines
-                    ax[0].text(
-                        100,
-                        tpy,
-                        "$\\tau= 10^{%d}\\,\\mathrm{y}$" % np.log10(tau.value),
-                        rotation=(-rotang[0] + 3.0),
+
+                    _ = label_line(
+                        ax[0],
+                        tline[0],
+                        f"$\\tau= 10^{{{int(np.log10(tau.value))}}}\\,\\mathrm{{y}}$",
+                        color="k",
+                        frachoffset=0.05,
                     )
+
+                ax[0].set_xlim(xlims)
 
         # add axes labels
         ax[0].set_xlabel(self._get_label(axisdata["x"]["label"]))
