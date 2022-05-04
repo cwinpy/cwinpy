@@ -1104,7 +1104,9 @@ class UpperLimitTable(QTable):
         """
         Create a publication quality plot of one set of results as a function
         of another, for example, the gravitational-wave amplitude :math:`h_0`
-        as a function of signal frequency.
+        as a function of signal frequency. By default the plot will consist of
+        a single panel, although a histogram of the results in the y-axis can
+        be added or a Seaborn :class:`~seaborn.JointGrid` plot can be used.
 
         Axes scales default to log.
 
@@ -1112,11 +1114,68 @@ class UpperLimitTable(QTable):
         ----------
         column: str, list, tuple
             The name of the column or columns to plot. If a single column name
-            is given then this will be plotted against signal (not necessarily
-            rotation) frequency. If two values are given, the first will be
-            plotted, on the x-axis and the second on the y-axis, so if wanting
-            to explicitly plot against rotation frequency pass the first value
-            as "F0ROT".
+            is given then this will be plotted against the signal (not
+            necessarily rotation) frequency. If two values are given, the first
+            will be plotted on the x-axis and the second on the y-axis, so if
+            wanting to explicitly plot against rotation frequency pass the
+            first value as "F0ROT". If the table contains upper limits for
+            multiple detectors and you just pass, e.g., ``"H0"`` for the column
+            value, the plot will default to using the upper limit from mulitple
+            detector if available, otherwise it will use the set of limits with
+            the smallest average value.
+        jointplot: bool
+            If this is ``True``, the Seaborn :class:`~seaborn.JointGrid` will
+            be used to create the plot. If using this, the ``ratio`` and
+            ``height`` keyword arguments can be used to set parameters of the
+            :class:`~seaborn.JointGrid`. Arguments for the main
+            :func:`~seaborn.scatterplot` in the plot can be set providing a
+            dictionary to the ``jointkwargs`` keyword. Arguments for the
+            histograms on the plot can be set through a dictionary to the
+            ``histkwargs`` keyword. If also wanting to overplot KDEs, the
+            ``kde`` keyword should be set to ``True`` and futher arguments can
+            be passed through a dictionary to the ``kdekwargs`` keyword.
+        plotkwargs: dict
+            A dictionary defining further keyword arguments used by
+            :func:`~matplotlib.pyplot.plot` for the main plot panel.
+        xscale: str
+            The scaling to use for the x-axis. This defaults to "log".
+        yscale: str
+            The scaling to use for the y-axis. This defaults to "log".
+        histogram: bool
+            If ``True`` a histogram of the data in the y-axis will be added to
+            the right of the plot.
+        histkwargs: dict
+            A dictionary defining keyword arguments used by
+            :func:`~matplotlib.pyplot.hist` for the histogram plot.
+        showsdlim: bool
+            If plotting gravitational-wave amplitude, ellipticity or mass
+            quadrupole, and the table was generated to include the spin-down
+            limit, setting this to ``True`` will include the spin-down limits
+            on the main plot. The default is False. If using this, keyword
+            arguments used by :func:`~matplotlib.pyplot.plot` for plotting
+            these limits can be set by passing a dictionary to the
+            ``sdlimkwargs`` argument.
+        highlightpsrs: list
+            A list of pulsar names can be supplied to highlight them in the
+            plot. Keyword arguments used by :func:`~matplotlib.pyplot.plot`
+            when plotting these highlighted pulsars can be supplied as a
+            dictionary using the ``highlightkwargs`` keyword.
+        showq22: bool
+            If plotting the ellipticity, setting this to ``True`` (which is
+            the default) will add an axis on the right hand side of the plot
+            showing the equivalent values in terms of mass quadrupole (for a
+            fiducial moment of inertia of 10:sup:`38` kg m:sup:`2`).
+        showtau: bool
+            If plotting the ellipticity, setting this to ``True`` will draw
+            isocontours of ellipticity spin-down limits for characteristic ages
+            of 10:sup:`3`, 10:sup:`5`, 10:sup:`7`, and 10:sup:`9` years. By
+            default these assume a braking index of 5, although different
+            braking indexes can be given using the ``nbraking`` keyword.
+
+        Returns
+        -------
+        fig: Figure
+            The :class:`~matplotlib.figure.Figure` object containing the plot.
         """
 
         if isinstance(column, str):
@@ -1447,7 +1506,7 @@ class UpperLimitTable(QTable):
                         tline[0],
                         f"$\\tau= 10^{{{int(np.log10(tau.value))}}}\\,\\mathrm{{y}}$",
                         color="k",
-                        frachoffset=0.05,
+                        frachoffset=0.5,
                     )
 
                 ax[0].set_xlim(xlims)

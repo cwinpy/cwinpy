@@ -249,4 +249,5 @@ intersphinx_mapping = {
     "psrqpy": ("https://psrqpy.readthedocs.io/en/stable/", None),
     "corner": ("https://corner.readthedocs.io/en/stable/", None),
     "healpy": ("https://healpy.readthedocs.io/en/stable/", None),
+    "seaborn": ("https://seaborn.pydata.org/", None),
 }
