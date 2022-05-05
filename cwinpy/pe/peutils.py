@@ -1176,12 +1176,16 @@ class UpperLimitTable(QTable):
             for the detectors used in producing the upper limit. These files
             should have two columns: frequency and amplitude spectral density.
             If given, and plotting the amplitudes, "H0", "C21" or "C22", these
-            will be used to plot an estimate of the search sensitivity. If
-            multiple files are given, the observation time weighted harmonic
-            mean of the amplitudes will be used to calculate the sensitivity.
-            Keyword arguments used by :func:`~matplotlib.pyplot.plot` when
-            plotting the sensitivity can be passed using the ``asdkwargs``
-            keyword.
+            will be used to plot an estimate of the search sensitivity. Note
+            that these sensitivity estimates are based on the *median expected
+            95% upper limit* on Gaussian noise (i.e., they aren't valid if
+            plotting upper limits for a different credibility value). The
+            scaling factors used in producing the sensitivity estimates are
+            given in Appendix C of [7]_. If multiple files are given, the
+            observation time weighted harmonic mean of the amplitudes will be
+            used to calculate the sensitivity. Keyword arguments used by
+            :func:`~matplotlib.pyplot.plot` when plotting the sensitivity can
+            be passed using the ``asdkwargs`` keyword.
         tobs: list
             The observation times (in seconds) for each of the detectors
             associated with the ASD files given in the ``asds`` keyword. These
@@ -1391,6 +1395,29 @@ class UpperLimitTable(QTable):
                 hmean += 1.0 / np.interp(freqbins, freqs[i], weightedpsds[i])
 
             hmean = np.sqrt(1.0 / hmean)
+
+            # set sensitivity scaling for 95% upper limits
+            if axisdata["y"]["label"].startswith("H0"):
+                scale = 10.4
+            elif axisdata["y"]["label"].startswith("C21"):
+                scale = 19.9
+            else:
+                scale = 5.0
+
+            asdkwargs = kwargs.pop(
+                "asdkwargs",
+                {
+                    "color": "orchid",
+                    "alpha": 0.5,
+                    "linewidth": 5,
+                },
+            )
+
+            xlims = ax[0].get_xlim()
+
+            # use zorder=0 to put lines behind others on the plot
+            ax[0].plot(freqbins, scale * hmean, zorder=0, **asdkwargs)
+            ax[0].set_xlim(xlims)
 
         # show spin-down limits
         if kwargs.pop("showsdlim", False):
