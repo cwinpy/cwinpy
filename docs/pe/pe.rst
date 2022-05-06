@@ -374,3 +374,5 @@ Parameter estimation utilities API
    `LIGO T1800044-v5 <https://dcc.ligo.org/LIGO-T1800044/public>`_ (2018)
 .. [6] `T. Sidery et al. <https://arxiv.org/abs/1312.6013>`_,
    *PRD*, **89**, 084060 (2014)
+.. [7] `B. P. Abbott et al. <https://ui.adsabs.harvard.edu/abs/2019ApJ...879...10A/abstract>`_,
+   *ApJ*, **879**, p. 28 (2019)
