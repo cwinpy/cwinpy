@@ -21,11 +21,14 @@ the --max-samples 1000 and --lightweight arguments).
 import os
 import pathlib
 
+import lalsimulation as lalsim
+import matplotlib as mpl
 import numpy as np
 import pytest
 from astropy import units as u
 from bilby.core.result import read_in_result
 from cwinpy import HeterodynedData, MultiHeterodynedData
+from cwinpy.data import PSDwrapper
 from cwinpy.pe.peutils import (
     UpperLimitTable,
     find_heterodyned_files,
@@ -280,6 +283,23 @@ class TestUpperLimitTable:
         # directory that does not contain any results
         cls.invaliddir = os.path.join(cls.basedatadir, "pulsars")
 
+        # create ASD file for plot testing
+        freqs = np.linspace(5, 1500, 1000)
+        asd = np.zeros((len(freqs), 2))
+        asd[:, 0] = freqs
+        psdfunc = PSDwrapper(lalsim.SimNoisePSDaLIGOaLIGODesignSensitivityT1800044)
+        asd[:, 1] = np.array([np.sqrt(psdfunc(f)) for f in freqs])
+        cls.asdfile = "ALIGO_ASD.txt"
+        np.savetxt(cls.asdfile, asd)
+
+    @classmethod
+    def teardown_class(cls):
+        """
+        Remove ASD file.
+        """
+
+        os.remove(cls.asdfile)
+
     def test_empty_table(self):
         """
         Test that an empty table is returned in certain circumstances.
@@ -433,3 +453,54 @@ class TestUpperLimitTable:
             assert np.isclose(
                 float(lines[3 + i].split()[3]), self.pdistsO2[i].value, rtol=0.05
             )
+
+    def test_plot(self):
+        """
+        Test the plotting function
+        """
+
+        # create table
+        t = UpperLimitTable(
+            resdir=self.resdirO2,
+            upperlimit=0.95,
+            includeell=True,
+            includeq22=True,
+            includesdlim=True,
+        )
+
+        with pytest.raises(TypeError):
+            t.plot(4.5)
+
+        # try plotting h0 (with histogram)
+        fig = t.plot(
+            column="H0",
+            histogram=True,
+            showsdlim=True,
+            highlightpsrs=[self.pnamesO2[0]],
+            asds=[self.asdfile, self.asdfile],
+            tobs=[0.5 * 365.25 * 86400, 0.3 * 365.25 * 86400],
+        )
+
+        assert isinstance(fig, mpl.figure.Figure)
+
+        # try plotting ellipticity (with histogram)
+        fig = t.plot(
+            column="ELL",
+            histogram=True,
+            showsdlim=True,
+            highlightpsrs=[self.pnamesO2[0]],
+            showq22=True,
+            showtau=True,
+        )
+
+        assert isinstance(fig, mpl.figure.Figure)
+
+        # try plotting joint plot
+        fig = t.plot(
+            column=["Q22_H1L1V1_95%UL", "SDRAT_H1_95%UL"],
+            jointplot=True,
+            yscale="linear",
+            highlightpsrs=[self.pnamesO2[1]],
+        )
+
+        assert isinstance(fig, mpl.figure.Figure)
