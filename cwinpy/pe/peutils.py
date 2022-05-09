@@ -1158,7 +1158,7 @@ class UpperLimitTable(QTable):
                         elif self.type == "html":
                             return f"{val}×10<sup>{exp}</sup>"
                         elif self.type == "rst":
-                            return f"{val}×10:sup:`{exp}`"
+                            return rf"{val}×10\ :sup:`{exp}`"
                         else:
                             return f"{val}e{exp}"
                     else:
