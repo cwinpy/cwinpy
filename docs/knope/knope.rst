@@ -248,13 +248,13 @@ and the posterior samples for an analysis using both LIGO detectors (within the
 O1 & O2 LIGO/Virgo (open) data, multiple pulsars
 ================================================
 
-An example configuration file for performing a search for a multiple pulsars, for a signal emitted
+An example configuration file for performing a search for multiple pulsars, for a signal emitted
 from the :math:`l=m=2` harmonic, using open O1 and O2 LIGO and Virgo data can be downloaded :download:`here
 <examples/knope_example_O2_open.ini>` and is reproduced below:
 
 .. literalinclude:: examples/knope_example_O2_open.ini
 
-This requires the parameter files for the pulsars being within the
+This requires the parameter files for the pulsars to be within the
 ``/home/matthew.pitkin/projects/O2pulsars`` directory (in the example results shown below this
 directory contained files for the two pulsars `J0737-3039A
 <https://www.atnf.csiro.au/research/pulsar/psrcat/proc_form.php?version=1.67&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&sort_attr=jname&sort_order=asc&condition=&pulsar_names=J0737-3039A&ephemeris=long&submit_ephemeris=Get+Ephemeris&coords_unit=raj%2Fdecj&radius=&coords_1=&coords_2=&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=linear&y_axis=&y_scale=linear&state=query>`__
@@ -282,24 +282,143 @@ Due to the ``incoherent = True`` value in the ``[pe]`` section, this analysis wi
 estimation for each pulsar for each individual detector and also for the full multi-detector data
 set.
 
+Displaying the results
+~~~~~~~~~~~~~~~~~~~~~~
+
+Once the analysis is complete, a table of upper limits can be produced using the
+:class:`~cwinpy.pe.peutils.UpperLimitTable` class (this requires the `cweqgen
+<https://cweqgen.readthedocs.io/>`__ package to be installed as it makes used of the
+:func:`cweqgen.equations.equations` function). The :class:`~cwinpy.pe.peutils.UpperLimitTable` class
+is a child of an :class:`astropy.table.QTable` and retains all its attributes. We can, for example,
+create a table showing the 95% upper limits on amplitude, ellipticity, mass quadrupole and the ratio
+to the spin-down limits:
+
+.. code-block:: python
+
+   from cwinpy.pe import UpperLimitTable
+
+   # directory containing the parameter estimation results
+   resdir = "/home/matthew.pitkin/projects/cwinpyO2/results"
+
+   tab = UpperLimitTable(
+       resdir=resdir,
+       ampparam="h0",  # get the limits on h0
+       includeell=True,  # calculate the ellipticity limit
+       includeq22=True,  # calculate the mass quadrupole limit
+       includesdlim=True,  # calculate the spin-down limit and ratio
+       upperlimit=0.95,  # calculate the 95% credible upper limit (the default)
+   )
+
+   # output the table in rst format, so it renders nicely in these docs!
+   print(tab.table_string(format="rst"))
+
+=========== ====== ================== ==== ================= ================ ================ ============== ================= ================= ================ ================ ================== ================= ================ ================ ============== ================= ================ ================ ==============
+       PSRJ  F0ROT              F1ROT DIST       H0_L1_95%UL     ELL_L1_95%UL     Q22_L1_95%UL SDRAT_L1_95%UL             SDLIM   H0_H1L1V1_95%UL ELL_H1L1V1_95%UL Q22_H1L1V1_95%UL SDRAT_H1L1V1_95%UL       H0_H1_95%UL     ELL_H1_95%UL     Q22_H1_95%UL SDRAT_H1_95%UL       H0_V1_95%UL     ELL_V1_95%UL     Q22_V1_95%UL SDRAT_V1_95%UL
+=========== ====== ================== ==== ================= ================ ================ ============== ================= ================= ================ ================ ================== ================= ================ ================ ============== ================= ================ ================ ==============
+J0737-3039A  44.05 -3.41×10:sup:`-15` 1.10 2.52×10:sup:`-26` 3.37×10:sup:`-6` 2.61×10:sup:`32`            3.9 6.45×10:sup:`-27` 1.59×10:sup:`-26` 2.13×10:sup:`-6` 1.64×10:sup:`32`               2.46 1.84×10:sup:`-26` 2.47×10:sup:`-6` 1.91×10:sup:`32`           2.85 1.65×10:sup:`-25` 2.21×10:sup:`-5` 1.71×10:sup:`33`             25
+ J1843-1113 541.81 -2.78×10:sup:`-15` 1.26 7.53×10:sup:`-26` 7.64×10:sup:`-8`  5.9×10:sup:`30`             51 1.45×10:sup:`-27` 4.52×10:sup:`-26` 4.59×10:sup:`-8` 3.54×10:sup:`30`                 31 1.03×10:sup:`-25` 1.05×10:sup:`-7`  8.1×10:sup:`30`             71 9.91×10:sup:`-25` 1.01×10:sup:`-6` 7.77×10:sup:`31`            683
+=========== ====== ================== ==== ================= ================ ================ ============== ================= ================= ================ ================ ================== ================= ================ ================ ============== ================= ================ ================ ==============
+
+The :meth:`~cwinpy.pe.peutils.UpperLimitTable.plot` method of the
+:class:`~cwinpy.pe.peutils.UpperLimitTable` can also be used to produce summary plots of the
+results, e.g., upper limits on :math:`h_0` or ellipticity against signal frequency:
+
+.. code-block:: python
+
+   # get O2 amplitude spectral density estimates so we can overplot sensitivity estimates
+   import requests
+   import numpy as np
+   O2H1asd = "O2_H1_asd.txt"
+   O2H1obs = 158 * 86400  # 158 days
+   np.savetxt(
+       O2H1asd,
+       np.array([[float(val.strip()) for val in line.split()] for line in requests.get(
+           "https://dcc.ligo.org/public/0156/G1801950/001/2017-06-10_DCH_C02_H1_O2_Sensitivity_strain_asd.txt"
+       ).text.strip().split("\n")]),
+   )
+   O2L1asd = "O2_L1_asd.txt"
+   O2L1obs = 154 * 86400  # 154 days
+   np.savetxt(
+       O2L1asd,
+       np.array([[float(val.strip()) for val in line.split()] for line in requests.get(
+           "https://dcc.ligo.org/public/0156/G1801952/001/2017-08-06_DCH_C02_L1_O2_Sensitivity_strain_asd.txt"
+       ).text.strip().split("\n")]),
+   )
+
+   # plot h0 (by default this will use the joint H1L1V1 upper limits)
+   fig = tab.plot(
+       column="h0",
+       histogram=True,  # include a histogram of h0 values on rhs of plot
+       showsdlim=True,  # show spin-down limits
+       asds=[O2H1asd, O2L1asd],  # calculate and show sensitivity estimate
+       tobs=[O2H1obs, O2L1obs],  # observing times for sensitivity estimate
+   )
+   fig.show()
+
+.. thumbnail:: examples/knope_example2_h0uls.png
+   :width: 600px
+   :align: center
+
+.. code-block:: python
+
+   # plot ellipticity upper limits
+   fig = tab.plot(
+      column="ell",
+      histogram=True,
+      showsdlim=True,
+      showq22=True,  # show axis including Q22 values
+      showtau=True,  # add isocontour of constant characteristic age (for n=5)
+   )
+   fig.show()
+
+.. thumbnail:: examples/knope_example2_elluls.png
+   :width: 600px
+   :align: center
+
+.. note::
+
+   By default, if calculating limits on the ellipticity/spin-down ratio, the
+   :class:`~cwinpy.pe.peutils.UpperLimitTable` will attempt to get values for the pulsar's distance
+   and (intrinsic) frequency derivative using the values found in the `ATNF Pulsar Catalogue
+   <https://www.atnf.csiro.au/research/pulsar/psrcat/>`__. These values can be manually provided if
+   necessary.
+
+
 O3 LIGO/Virgo (proprietary) data, dual harmonic
 ===============================================
 
-The pulsar parameter files were generated using the DE436 solar system ephemeris, which is not one
-of the default files available within LALSuite. Therefore, these have had to be generated using the
-commands:
+An example configuration file for performing a search for multiple pulsars, for a signal with
+components a both the rotation frequency and twice the rotation frequency (the :math:`l=2,m=1` and
+the :math:`l=m=2` harmonics), using proprietary O3 LIGO and Virgo data can be downloaded
+:download:`here <examples/knope_example_O3_dual.ini>` and is reproduced below:
+
+.. literalinclude:: examples/knope_example_O3_dual.ini
+
+This requires the parameters for the pulsar to be within the
+``/home/matthew.pitkin/projects/O3pulsars`` directory (in the example results shown below this
+directory contained files for the two pulsars `J0437-4715
+<https://www.atnf.csiro.au/research/pulsar/psrcat/proc_form.php?version=1.67&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&sort_attr=jname&sort_order=asc&condition=&pulsar_names=J0437-4715&ephemeris=long&submit_ephemeris=Get+Ephemeris&coords_unit=raj%2Fdecj&radius=&coords_1=&coords_2=&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=linear&y_axis=&y_scale=linear&state=query>`__
+and `J0771-6830
+<https://www.atnf.csiro.au/research/pulsar/psrcat/proc_form.php?version=1.67&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&sort_attr=jname&sort_order=asc&condition=&pulsar_names=J0711-6830&ephemeris=long&submit_ephemeris=Get+Ephemeris&coords_unit=raj%2Fdecj&radius=&coords_1=&coords_2=&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=linear&y_axis=&y_scale=linear&state=query>`__).
+In this example the default priors and used, so no prior file is explicitly given.
+
+The pulsar parameter files used in the example were generated using the DE436 solar system
+ephemeris, which is not one of the default files available within LALSuite. Therefore, these have
+had to be generated using the commands:
 
 .. code-block:: bash
 
    $ lalapps_create_solar_system_ephemeris_python --target SUN --year-start 2000 --interval 20 --num-years 40 --ephemeris DE436 --output-file sun00-40-DE436.dat
    $ lalapps_create_solar_system_ephemeris_python --target EARTH --year-start 2000 --interval 2 --num-years 40 --ephemeris DE436 --output-file earth00-40-DE436.dat
 
-and then gzipped. Alternatively, the ``usetempo2`` option could be used, where the latest TEMPO2 version 
+and then gzipped. Alternatively, the ``usetempo2`` option could be used, where the latest TEMPO2 version
+will contain these ephemerides.
 
 .. note::
 
    If running on open GWOSC data, the O3a and O3b periods need to be treated as separate runs as in
-   the :ref:`above example<O1 & O2 LIGO/Virgo (open) data, multiple pulsars>`.
+   the :ref:`above example<O1 & O2 LIGO/Virgo (open) data, multiple pulsars>`. This is automatically
+   dealt with if setting up a ``cwinpy_knope_pipeline`` run using the :ref:`<Quick setup>`.
 
 .. _knope Command line arguments:
 

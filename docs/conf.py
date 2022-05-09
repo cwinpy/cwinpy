@@ -250,4 +250,5 @@ intersphinx_mapping = {
     "corner": ("https://corner.readthedocs.io/en/stable/", None),
     "healpy": ("https://healpy.readthedocs.io/en/stable/", None),
     "seaborn": ("https://seaborn.pydata.org/", None),
+    "cweqgen": ("https://cweqgen.readthedocs.io/en/latest/", None),
 }
