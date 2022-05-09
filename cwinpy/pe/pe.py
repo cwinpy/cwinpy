@@ -2038,13 +2038,8 @@ def pe_pipeline(**kwargs):
     Parameters
     ----------
     config: str
-        A configuration file, or :class:`configparser:ConfigParser` object,
+        A configuration file, or :class:`configparser.ConfigParser` object,
         for the analysis.
-
-    Returns
-    -------
-    dag:
-        The pycondor :class:`pycondor.Dagman` object.
     """
 
     if "config" in kwargs:

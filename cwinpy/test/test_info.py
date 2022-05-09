@@ -1,4 +1,5 @@
 import os
+from urllib.error import HTTPError
 
 import pytest
 from cwinpy.heterodyne import remote_frame_cache
@@ -46,16 +47,20 @@ def test_frame_cache():
                         frtype = CVMFS_GWOSC_DATA_TYPES[run][rate][det]
 
                         # get frame file cache
-                        cache = remote_frame_cache(
-                            start,
-                            end,
-                            channel,
-                            frametype=frtype,
-                            host=host,
-                        )
+                        try:
+                            cache = remote_frame_cache(
+                                start,
+                                end,
+                                channel,
+                                frametype=frtype,
+                                host=host,
+                            )
 
-                        # make sure a list of frame files has been produced
-                        assert len(cache[det]) > 1
+                            # make sure a list of frame files has been produced
+                            assert len(cache[det]) > 1
+                        except HTTPError:
+                            # ignore if no connection available
+                            pass
 
 
 def test_is_hwinj():

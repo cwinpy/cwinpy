@@ -1,20 +1,36 @@
 """
 Test script for peutils.
 
-The data files used for this come from running the cwinpy_skyshift pipeline
-on the PULSAR03 CW hardware injection from O1. To make file a bit smaller, only
-two of posterior files from that analysis (one on-source and one sky-shifted)
-have been included (and these have been cut down to only include 1000 samples
-using the bilby_result script).
+The data files used for this come from three different runs:
+
+1. running the cwinpy_skyshift pipeline on the PULSAR03 CW hardware injection
+from O1. Only two posterior files have been included.
+
+2. running the cwinpy_knope_pipeline on O2 data for two pulsars (J0737-3039A,
+J1843-1113) for a single harmonic search with results for individual detectors
+and a multi-detector analysis.
+
+3. running the cwinpy_knope_pipeline on O3 data for two pulsars (J0437-4715,
+J0711-6830) for a dual harmonic search.
+
+To make files a bit smaller these have been cut down to only include 1000
+samples and only include posterior samples using the bilby_result script (with
+the --max-samples 1000 and --lightweight arguments).
 """
 
 import os
 import pathlib
 
+import lalsimulation as lalsim
+import matplotlib as mpl
+import numpy as np
 import pytest
+from astropy import units as u
 from bilby.core.result import read_in_result
 from cwinpy import HeterodynedData, MultiHeterodynedData
+from cwinpy.data import PSDwrapper
 from cwinpy.pe.peutils import (
+    UpperLimitTable,
     find_heterodyned_files,
     find_results_files,
     optimal_snr,
@@ -239,3 +255,252 @@ class TestPEUtils:
         assert isinstance(lo, dict)
         assert sorted(lo.keys()) == sorted(self.pnames)
         assert all([isinstance(v, float) for v in lo.values()])
+
+
+class TestUpperLimitTable:
+    @classmethod
+    def setup_class(cls):
+        cls.basedatadir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "data", "peutils"
+        )
+
+        # set data directories
+        cls.resdirO2 = os.path.join(cls.basedatadir, "O2results")
+
+        cls.pnamesO2 = ["J0737-3039A", "J1843-1113"]
+
+        # rough rotation frequencies for pulsars
+        cls.pfreqsO2 = [44.05 * u.Hz, 541.8 * u.Hz]
+
+        # rough rotational frequency derivatives for pulsars
+        cls.pfdotsO2 = [-3.4e-15 * u.Hz / u.s, -2.8e-15 * u.Hz / u.s]
+
+        # rough distances for pulsars
+        cls.pdistsO2 = [1.1 * u.kpc, 1.3 * u.kpc]
+
+        cls.dets = ["H1", "L1", "V1", "H1L1V1"]
+
+        # directory that does not contain any results
+        cls.invaliddir = os.path.join(cls.basedatadir, "pulsars")
+
+        # create ASD file for plot testing
+        freqs = np.linspace(5, 1500, 1000)
+        asd = np.zeros((len(freqs), 2))
+        asd[:, 0] = freqs
+        psdfunc = PSDwrapper(lalsim.SimNoisePSDaLIGOaLIGODesignSensitivityT1800044)
+        asd[:, 1] = np.array([np.sqrt(psdfunc(f)) for f in freqs])
+        cls.asdfile = "ALIGO_ASD.txt"
+        np.savetxt(cls.asdfile, asd)
+
+    @classmethod
+    def teardown_class(cls):
+        """
+        Remove ASD file.
+        """
+
+        os.remove(cls.asdfile)
+
+    def test_empty_table(self):
+        """
+        Test that an empty table is returned in certain circumstances.
+        """
+
+        t = UpperLimitTable()
+
+        assert len(t) == 0
+        assert isinstance(t, UpperLimitTable)
+
+        # pass invalid path
+        t = UpperLimitTable(resdir=self.invaliddir)
+
+        assert len(t) == 0
+        assert isinstance(t, UpperLimitTable)
+
+        # ask for pulsar that does not exist in results
+        t = UpperLimitTable(resdir=self.resdirO2, pulsars="J0534+2200")
+
+        assert len(t) == 0
+        assert isinstance(t, UpperLimitTable)
+
+        # ask for results from detector that does not exist in results
+        t = UpperLimitTable(resdir=self.resdirO2, detector="K1")
+
+        assert len(t) == 0
+        assert isinstance(t, UpperLimitTable)
+
+    def test_errors(self):
+        # pass invalid path
+        with pytest.raises(ValueError):
+            UpperLimitTable(resdir="Blah")
+
+        # ask for invalid amplitude parameter
+        with pytest.raises(ValueError):
+            UpperLimitTable(resdir=self.resdirO2, ampparam="Z0")
+
+        # give invalid upper limit quantile
+        with pytest.raises(TypeError):
+            UpperLimitTable(resdir=self.resdirO2, upperlimit="Z0")
+
+        with pytest.raises(ValueError):
+            UpperLimitTable(resdir=self.resdirO2, upperlimit=1.1)
+
+        with pytest.raises(ValueError):
+            UpperLimitTable(resdir=self.resdirO2, upperlimit=-0.1)
+
+    def test_O2(self):
+        """
+        Test the O2 results.
+        """
+
+        # just get h0 90% credible upper limit for H1 detector and one pulsar
+        t1p = UpperLimitTable(
+            resdir=self.resdirO2,
+            ampparam="h0",
+            detector="H1",
+            upperlimit=0.9,
+            pulsars=self.pnamesO2[0],
+        )
+
+        for colname in ["PSRJ", "F0ROT", "F1ROT", "DIST", "H0_90%UL"]:
+            assert colname in t1p.columns
+        assert t1p["PSRJ"] == self.pnamesO2[0]
+
+        # just get h0 90% credible upper limits for H1 detector
+        t = UpperLimitTable(
+            resdir=self.resdirO2, ampparam="h0", detector="H1", upperlimit=0.9
+        )
+
+        for colname in ["PSRJ", "F0ROT", "F1ROT", "DIST", "H0_90%UL"]:
+            assert colname in t.columns
+        assert sorted(t["PSRJ"].value.tolist()) == sorted(self.pnamesO2)
+        assert t1p["H0_90%UL"][0] == t[t["PSRJ"] == self.pnamesO2[0]]["H0_90%UL"][0]
+
+        # get 95% credible upper limits for all detectors and include
+        # ellipticity, mass quadrupole and spin-down ratio limits
+        t = UpperLimitTable(
+            resdir=self.resdirO2,
+            upperlimit=0.95,
+            includeell=True,
+            includeq22=True,
+            includesdlim=True,
+        )
+
+        assert sorted(t["PSRJ"].value.tolist()) == sorted(self.pnamesO2)
+
+        # check various values are close to expected values
+        for i, psr in enumerate(self.pnamesO2):
+            assert np.isclose(t.loc[psr]["F0ROT"], self.pfreqsO2[i], rtol=0.025)
+            assert np.isclose(t.loc[psr]["F1ROT"], self.pfdotsO2[i], rtol=0.025)
+            assert np.isclose(t.loc[psr]["DIST"], self.pdistsO2[i], rtol=0.05)
+
+        # check all results columns are present
+        for colname in ["PSRJ", "F0ROT", "F1ROT", "DIST", "SDLIM"]:
+            assert colname in t.columns
+        assert "SDLIM" in t.columns
+        for ap in ["H0", "ELL", "Q22", "SDRAT"]:
+            for det in self.dets:
+                colname = f"{ap}_{det}_95%UL"
+                assert colname in t.columns
+
+        # try passing freqs, fdots, distances as dictionaries
+        td = UpperLimitTable(
+            resdir=self.resdirO2,
+            upperlimit=0.95,
+            includeell=True,
+            includeq22=True,
+            includesdlim=True,
+            f0={psr: self.pfreqsO2[i] for i, psr in enumerate(self.pnamesO2)},
+            fdot={psr: self.pfdotsO2[i] for i, psr in enumerate(self.pnamesO2)},
+            distances={psr: self.pdistsO2[i] for i, psr in enumerate(self.pnamesO2)},
+        )
+
+        # check various values are the same as to expected values
+        for i, psr in enumerate(self.pnamesO2):
+            assert np.isclose(td.loc[psr]["F0ROT"], self.pfreqsO2[i], rtol=1e-8)
+            assert np.isclose(td.loc[psr]["F1ROT"], self.pfdotsO2[i], rtol=1e-8)
+            assert np.isclose(td.loc[psr]["DIST"], self.pdistsO2[i], rtol=1e-8)
+
+    def test_table_string(self):
+        """
+        Test generating an rst table string.
+        """
+
+        t = UpperLimitTable(
+            resdir=self.resdirO2, ampparam="h0", detector="H1", upperlimit=0.9
+        )
+
+        ts = t.table_string(format="rst")
+
+        lines = ts.strip().split("\n")
+
+        assert len(lines) == 6
+        assert len(lines[0].split()) == 5  # five columns
+        # check header
+        for i, colname in enumerate(["PSRJ", "F0ROT", "F1ROT", "DIST", "H0_90%UL"]):
+            assert colname == lines[1].split()[i]  # header
+        assert self.pnamesO2[0] == lines[3].split()[0]
+        assert self.pnamesO2[1] == lines[4].split()[0]
+        assert float(lines[3].split()[-1]) > 0
+        assert float(lines[4].split()[-1]) > 0
+
+        for i in range(len(self.pnamesO2)):
+            assert np.isclose(
+                float(lines[3 + i].split()[1]), self.pfreqsO2[i].value, rtol=0.025
+            )
+            assert np.isclose(
+                float(lines[3 + i].split()[2]), self.pfdotsO2[i].value, rtol=0.025
+            )
+            assert np.isclose(
+                float(lines[3 + i].split()[3]), self.pdistsO2[i].value, rtol=0.05
+            )
+
+    def test_plot(self):
+        """
+        Test the plotting function
+        """
+
+        # create table
+        t = UpperLimitTable(
+            resdir=self.resdirO2,
+            upperlimit=0.95,
+            includeell=True,
+            includeq22=True,
+            includesdlim=True,
+        )
+
+        with pytest.raises(TypeError):
+            t.plot(4.5)
+
+        # try plotting h0 (with histogram)
+        fig = t.plot(
+            column="H0",
+            histogram=True,
+            showsdlim=True,
+            highlightpsrs=[self.pnamesO2[0]],
+            asds=[self.asdfile, self.asdfile],
+            tobs=[0.5 * 365.25 * 86400, 0.3 * 365.25 * 86400],
+        )
+
+        assert isinstance(fig, mpl.figure.Figure)
+
+        # try plotting ellipticity (with histogram)
+        fig = t.plot(
+            column="ELL",
+            histogram=True,
+            showsdlim=True,
+            highlightpsrs=[self.pnamesO2[0]],
+            showq22=True,
+            showtau=True,
+        )
+
+        assert isinstance(fig, mpl.figure.Figure)
+
+        # try plotting joint plot
+        fig = t.plot(
+            column=["Q22_H1L1V1_95%UL", "SDRAT_H1_95%UL"],
+            jointplot=True,
+            yscale="linear",
+            highlightpsrs=[self.pnamesO2[1]],
+        )
+
+        assert isinstance(fig, mpl.figure.Figure)

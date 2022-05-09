@@ -8,7 +8,7 @@ from configparser import ConfigParser
 import astropy.units as u
 import bilby
 import numpy as np
-from astropy.coordinates import ICRS, Galactic, Galactocentric
+from astropy.coordinates import ICRS, Galactic, Galactocentric, SkyCoord
 
 from ..hierarchical import BaseDistribution
 from ..parfile import PulsarParameters
@@ -505,7 +505,7 @@ class PEPulsarSimulationDAG(object):
                             distance=skyloc["dist"] * u.kpc,
                         )
                     )
-                    eqpos = gpos.transform_to(ICRS)
+                    eqpos = SkyCoord(gpos).transform_to(ICRS)
                     skyloc["ra"] = eqpos.ra.rad
                     skyloc["dec"] = eqpos.dec.rad
                     skyloc["dist"] = eqpos.distance.value
