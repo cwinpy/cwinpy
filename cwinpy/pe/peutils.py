@@ -806,8 +806,8 @@ class UpperLimitTable(QTable):
             dictionary, then the ATNF value will be used.
         izz: float, Quantity
             The principal moment of inertia to use when calculating derived
-            quantities. This defaults to :math:`10^{38}` kg m:sup:`2`. If
-            passing a float it assumes the units are kg m:sup:`2`. If
+            quantities. This defaults to :math:`10^{38}` kg m\ :sup:`2`. If
+            passing a float it assumes the units are kg m\ :sup:`2`. If
             requiring different units then an :class:`astropy.units.Quantity`
             can be used.
         querykwargs: dict
@@ -1094,7 +1094,7 @@ class UpperLimitTable(QTable):
             values when between 0.001 and 1000. The default is 3.
         scinot: bool
             This defaults to ``True`` and displays exponential notation of the
-            form X.xxeYY as X.xx×10:sup:`YY`.
+            form X.xxeYY as X.xx×10\ :sup:`YY`.
 
         Returns
         -------
@@ -1253,13 +1253,15 @@ class UpperLimitTable(QTable):
             If plotting the ellipticity, setting this to ``True`` (which is
             the default) will add an axis on the right hand side of the plot
             showing the equivalent values in terms of mass quadrupole (for a
-            fiducial moment of inertia of 10:sup:`38` kg m:sup:`2`).
-        showtau: bool
+            fiducial moment of inertia of 10\ :sup:`38` kg m\ :sup:`2`).
+        showtau: bool, list
             If plotting the ellipticity, setting this to ``True`` will draw
             isocontours of ellipticity spin-down limits for characteristic ages
-            of 10:sup:`3`, 10:sup:`5`, 10:sup:`7`, and 10:sup:`9` years. By
-            default these assume a braking index of 5, although different
-            braking indexes can be given using the ``nbraking`` keyword.
+            of 10\ :sup:`3`, 10\ :sup:`5`, 10\ :sup:`7`, and 10\ :sup:`9`
+            years. By default these assume a braking index of 5, although
+            different braking indexes can be given using the ``nbraking``
+            keyword. If a list of numbers is given these will be used for the
+            characteristic age assuming that they are given in years.
         asds: list
             A list of paths to files containing the amplitude spectral density
             for the detectors used in producing the upper limit. These files
@@ -1644,7 +1646,8 @@ class UpperLimitTable(QTable):
                 axq22.grid(False)
 
             # plot lines of characteristic age
-            if kwargs.pop("showtau", False):
+            taus = kwargs.pop("showtau", False)
+            if taus:
                 from psrqpy.utils import label_line
 
                 n = kwargs.pop("nbraking", 5)  # braking index
@@ -1654,7 +1657,18 @@ class UpperLimitTable(QTable):
                 eqtau = equations("characteristicage").to("rotationfrequency")
                 eqsdtau = eqsd.substitute(eqtau.rearrange("rotationfdot"))
 
-                tchar = [1e3, 1e5, 1e7, 1e9] * u.yr  # characteristic ages
+                if isinstance(taus, list):
+                    tchar = []
+                    try:
+                        for tau in taus:
+                            tchar.append(
+                                tau.value if hasattr(tau, "value") else float(tau)
+                            )
+                    except TypeError:
+                        raise TypeError("Characteristic ages must be floats or ints")
+                else:
+                    tchar = [1e3, 1e5, 1e7, 1e9]  # characteristic ages
+                tchar *= u.yr
 
                 xlims = ax[0].get_xlim()
                 freqs = (

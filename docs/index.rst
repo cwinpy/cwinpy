@@ -36,6 +36,8 @@ Quick links
 To help get started some useful links are:
 
 * :ref:`Installing CWInPy<Installation>`
+* :ref:`Running the cwinpy_knope_pipeline on real data<*knope* examples>`
+* :ref:`Running the cwinpy_knope_pipeline on open data using "Quick setup"<Quick setup>`
 * :ref:`An example of heterodyning data<Example: two simulated pulsar signals>`
 * :ref:`An example of estimating a signal's parameters<Example: single detector data>`
 

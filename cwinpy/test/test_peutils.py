@@ -490,7 +490,7 @@ class TestUpperLimitTable:
             showsdlim=True,
             highlightpsrs=[self.pnamesO2[0]],
             showq22=True,
-            showtau=True,
+            showtau=[1e4, 1e7],
         )
 
         assert isinstance(fig, mpl.figure.Figure)
