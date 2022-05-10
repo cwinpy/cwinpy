@@ -2717,7 +2717,7 @@ class HeterodynedData(TimeSeriesBase):
                 plotkwargs["ylabel"] = "$\\Re{(B_k)}$"
             if ax is None:
                 plot = TimeSeries(self.take(idx).real, times=times).plot(
-                    afigsize=figsize, **plotkwargs
+                    figsize=figsize, **plotkwargs
                 )
             else:
                 ax.set_ylabel(plotkwargs.pop("ylabel"))
