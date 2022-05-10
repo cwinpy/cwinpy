@@ -429,7 +429,7 @@ class TestUpperLimitTable:
             resdir=self.resdirO2, ampparam="h0", detector="H1", upperlimit=0.9
         )
 
-        ts = t.table_string(format="rst")
+        ts = t.table_string(format="rst", scitnot=False)
 
         lines = ts.strip().split("\n")
 
