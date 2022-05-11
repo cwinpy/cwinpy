@@ -104,7 +104,7 @@ class HeterodyneLayer(CondorLayer):
                 additional_options["MY.DESIRED_Sites"] = self.submit_options[
                     "desired_sites"
                 ]
-                self.requirements.append("IS_GLIDEIN=?=True")
+                self.requirements.append("(IS_GLIDEIN=?=True)")
 
             if self.submit_options.get("undesired_sites", ""):
                 # disallow certain OSG sites to be used
@@ -119,6 +119,17 @@ class HeterodyneLayer(CondorLayer):
                 self.requirements.append(
                     f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
                 )
+
+            # use development CWInPy singularity container
+            singularity = self.get_option("singularity", default=False)
+            if singularity:
+                self.submit_options[
+                    "executable"
+                ] = "/opt/conda/envs/python38/bin/cwinpy_heterodyne"
+                additional_options[
+                    "MY.SingularityImage"
+                ] = "/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/cwinpy-containers/cwinpy-dev-python38:latest"
+                self.requirements.append("(HAS_SINGULARITY=?=True)")
 
             # check if using GWOSC frames from CVMFS
             if self.require_gwosc:

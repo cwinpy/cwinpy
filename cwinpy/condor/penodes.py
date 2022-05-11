@@ -86,6 +86,17 @@ class PulsarPELayer(CondorLayer):
                 additional_options["MY.UNDESIRED_Sites"] = self.submit_options[
                     "undesired_sites"
                 ]
+
+            # use development CWInPy singularity container
+            singularity = self.get_option("singularity", default=False)
+            if singularity:
+                self.submit_options[
+                    "executable"
+                ] = "/opt/conda/envs/python38/bin/cwinpy_pe"
+                additional_options[
+                    "MY.SingularityImage"
+                ] = "/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/cwinpy-containers/cwinpy-dev-python38:latest"
+                self.requirements.append("(HAS_SINGULARITY=?=True)")
         else:
             self.set_option(
                 "transfer_files", optionname="should_transfer_files", default="YES"
