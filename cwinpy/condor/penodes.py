@@ -69,16 +69,29 @@ class PulsarPELayer(CondorLayer):
         )
         self.set_option("email", optionname="notify_user")
 
+        additional_options = {}
         if self.osg:
             # make sure files are transferred if using the OSG
             self.submit_options["should_transfer_files"] = "YES"
+
+            if self.submit_options.get("desired_sites", ""):
+                # allow specific OSG sites to be requested
+                additional_options["MY.DESIRED_Sites"] = self.submit_options[
+                    "desired_sites"
+                ]
+                self.requirements.append("IS_GLIDEIN=?=True")
+
+            if self.submit_options.get("undesired_sites", ""):
+                # disallow certain OSG sites to be used
+                additional_options["MY.UNDESIRED_Sites"] = self.submit_options[
+                    "undesired_sites"
+                ]
         else:
             self.set_option(
                 "transfer_files", optionname="should_transfer_files", default="YES"
             )
 
         # additional options
-        additional_options = {}
         if self.submit_options["should_transfer_files"] == "YES":
             additional_options["initialdir"] = "$(INITIALDIR)"
             additional_options["transfer_input_files"] = "$(TRANSFERINPUT)"

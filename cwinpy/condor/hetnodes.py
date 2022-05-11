@@ -99,6 +99,19 @@ class HeterodyneLayer(CondorLayer):
                 # set to check that proprietary LIGO frames are available
                 self.requirements.append("(HAS_LIGO_FRAMES=?=True)")
 
+            if self.submit_options.get("desired_sites", ""):
+                # allow specific OSG sites to be requested
+                additional_options["MY.DESIRED_Sites"] = self.submit_options[
+                    "desired_sites"
+                ]
+                self.requirements.append("IS_GLIDEIN=?=True")
+
+            if self.submit_options.get("undesired_sites", ""):
+                # disallow certain OSG sites to be used
+                additional_options["MY.UNDESIRED_Sites"] = self.submit_options[
+                    "undesired_sites"
+                ]
+
             # NOTE: the next two statements are currently only require for OSG running,
             # but at the moment not all local pools advertise the CVMFS repo flags
             if self.submit_options["executable"].startswith("/cvmfs"):
