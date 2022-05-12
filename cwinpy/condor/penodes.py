@@ -1,5 +1,6 @@
 import ast
 import os
+import re
 
 import bilby
 from configargparse import DefaultConfigFileParser
@@ -97,6 +98,21 @@ class PulsarPELayer(CondorLayer):
                     "MY.SingularityImage"
                 ] = "/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/cwinpy-containers/cwinpy-dev-python38:latest"
                 self.requirements.append("(HAS_SINGULARITY=?=True)")
+
+            if (
+                self.submit_options["executable"].startswith("/cvmfs")
+                and "igwn" in self.submit_options["executable"]
+            ) or "MY.SingularityImage" in additional_options:
+                repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
+                self.requirements.append(
+                    f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
+                )
+            else:
+                raise RuntimeError(
+                    "If running on the OSG you must be using an IGWN "
+                    "environment or the CWInPy developement singularity "
+                    "container."
+                )
         else:
             self.set_option(
                 "transfer_files", optionname="should_transfer_files", default="YES"
