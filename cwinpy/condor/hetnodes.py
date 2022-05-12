@@ -127,11 +127,17 @@ class HeterodyneLayer(CondorLayer):
             # but at the moment not all local pools advertise the CVMFS repo flags
             if (
                 self.submit_options["executable"].startswith("/cvmfs")
-                or "MY.SingularityImage" in additional_options
-            ):
+                and "igwn" in self.submit_options["executable"]
+            ) or "MY.SingularityImage" in additional_options:
                 repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
                 self.requirements.append(
                     f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
+                )
+            else:
+                raise RuntimeError(
+                    "If running on the OSG you must be using an IGWN "
+                    "environment or the CWInPy developement singularity "
+                    "container."
                 )
 
             # check if using GWOSC frames from CVMFS
