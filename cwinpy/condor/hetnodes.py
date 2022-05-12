@@ -112,14 +112,6 @@ class HeterodyneLayer(CondorLayer):
                     "undesired_sites"
                 ]
 
-            # NOTE: the next two statements are currently only require for OSG running,
-            # but at the moment not all local pools advertise the CVMFS repo flags
-            if self.submit_options["executable"].startswith("/cvmfs"):
-                repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
-                self.requirements.append(
-                    f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
-                )
-
             # use development CWInPy singularity container
             singularity = self.get_option("singularity", default=False)
             if singularity:
@@ -130,6 +122,17 @@ class HeterodyneLayer(CondorLayer):
                     "MY.SingularityImage"
                 ] = "/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/cwinpy-containers/cwinpy-dev-python38:latest"
                 self.requirements.append("(HAS_SINGULARITY=?=True)")
+
+            # NOTE: the next two statements are currently only require for OSG running,
+            # but at the moment not all local pools advertise the CVMFS repo flags
+            if (
+                self.submit_options["executable"].startswith("/cvmfs")
+                or "MY.SingularityImage" in additional_options
+            ):
+                repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
+                self.requirements.append(
+                    f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
+                )
 
             # check if using GWOSC frames from CVMFS
             if self.require_gwosc:
