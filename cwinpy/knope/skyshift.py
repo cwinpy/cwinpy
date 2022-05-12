@@ -575,6 +575,21 @@ def skyshift_pipeline(**kwargs):
         hetconfig["heterodyne_dag"]["osg"] = osg
         peconfig["pe_dag"]["osg"] = osg
 
+        desiredsites = hetconfig.get("knope_dag", "desired_sites", fallback=None)
+        if desiredsites is not None:
+            hetconfig["heterodyne_dag"]["desired_sites"] = desiredsites
+            peconfig["pe_dag"]["desired_sites"] = desiredsites
+
+        undesiredsites = hetconfig.get("knope_dag", "undesired_sites", fallback=None)
+        if desiredsites is not None:
+            hetconfig["heterodyne_dag"]["undesired_sites"] = undesiredsites
+            peconfig["pe_dag"]["undesired_sites"] = undesiredsites
+
+        singularity = hetconfig.get("knope_dag", "singularity", fallback=None)
+        if singularity is not None:
+            hetconfig["heterodyne_dag"]["singularity"] = singularity
+            peconfig["pe_dag"]["singularity"] = singularity
+
     # set whether to submit or not (via the PE DAG generator)
     submit = hetconfig.get("knope_dag", "submitdag", fallback=None)
     if submit is not None:
