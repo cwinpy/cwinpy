@@ -282,6 +282,12 @@ Due to the ``incoherent = True`` value in the ``[pe]`` section, this analysis wi
 estimation for each pulsar for each individual detector and also for the full multi-detector data
 set.
 
+This would be run with:
+
+.. code-block:: bash
+
+   $ cwinpy_knope_pipeline knope_example_O2_open.ini
+
 Displaying the results
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -383,6 +389,85 @@ results, e.g., upper limits on :math:`h_0` or ellipticity against signal frequen
    <https://www.atnf.csiro.au/research/pulsar/psrcat/>`__. These values can be manually provided if
    necessary.
 
+Searching for non-GR polarisation modes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The heterodyned output of the above pipeline can be re-used to perform a search for a signal that
+contains some combination of generic tensor, vector and scalar polarisation modes, i.e., a non-GR
+signal. This will assume that the signals are still emitted at twice the rotation frequency of the
+the pulsars. This will just use the :ref:`cwinpy_pe_pipeline<Known pulsar parameter estimation>` and
+a new prior file. An example configuration file for this can be downloaded :download:`here
+<cwinpy_pe_example_O2_nongr.ini>` and is reproduced below:
+
+.. literalinclude:: examples/cwinpy_pe_example_O2_nongr.ini
+
+while a possible prior file might contain, e.g.,:
+
+.. code-block::
+
+   hplus = FermiDirac(1.0e-24, mu=1.0e-22, name='hplus')
+   hcross = FermiDirac(1.0e-24, mu=1.0e-22, name='h0')
+   phi0tensor = Uniform(minimum=0.0, maximum=2*pi, name='phi0tensor')
+   psitensor = Uniform(minimum=0.0, maximum=2*pi, name='psitensor')
+   hvectorx = FermiDirac(1.0e-24, mu=1.0e-22, name='hvectorx')
+   hvectory = FermiDirac(1.0e-24, mu=1.0e-22, name='hvectory')
+   phi0vector = Uniform(minimum=0.0, maximum=2*pi, name='phi0vector')
+   psivector = Uniform(minimum=0.0, maximum=2*pi, name='psivector')
+   hscalarb = FermiDirac(1.0e-24, mu=1.0e-22, name='hscalarb')
+   phi0scalar = Uniform(minimum=0.0, maximum=2*pi, name='phi0scalar')
+   psiscalar = Uniform(minimum=0.0, maximum=2*pi, name='psiscalar')
+
+In this case, the prior assumes a signal containing tensor (``hplus`` and ``hcross``), vector
+(``hvectorx`` and ``hvectory``) and scalar (``hscalarb``, but not ``hscalarl`` as they are
+completely degenerate) amplitudes and associated initial phases and polarisations. The phases and
+polarisation all cover a :math:`2\pi` radian range.
+
+This would be run with:
+
+.. code-block:: bash
+
+   $ cwinpy_pe_pipeline cwinpy_pe_example_O2_nongr.ini
+
+The analysis will take significantly longer (10s of hours) than the default analysis, which assumes
+just four unknown parameters.
+
+This could have been achieved using the original ``cwinpy_knope_pipeline`` by passing it the non-GR
+prior file.
+
+We can look at a plot for one of the pulsars showing the posteriors for all parameters for each
+detector with: 
+
+.. code-block:: python
+
+   from cwinpy.plot import Plot
+
+   plot = Plot(
+       {
+           "Joint": "J0737-3039A/cwinpy_pe_H1L1_J0737-3039A_result.hdf5",
+           "H1": "J0737-3039A/cwinpy_pe_H1_J0737-3039A_result.hdf5",
+           "L1": "J0737-3039A/cwinpy_pe_L1_J0737-3039A_result.hdf5",
+       },
+       parameters=[
+           "hplus",
+           "hcross",
+           "hvectorx",
+           "hvectory",
+           "hscalarb",
+           "phi0tensor",
+           "phi0vector",
+           "phi0scalar",
+           "psitensor",
+           "psivector",
+           "psiscalar"
+       ]
+   )
+
+   plot.plot()
+   plot.fig.show()
+
+.. thumbnail:: examples/nongr_example.png
+   :width: 600px
+   :align: center
 
 O3 LIGO/Virgo (proprietary) data, dual harmonic
 ===============================================

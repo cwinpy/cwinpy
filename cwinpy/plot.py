@@ -23,7 +23,19 @@ LATEX_LABELS = {
     "phi0": r"$\phi_0$ (rad)",
     "phi21": r"$\Phi_{21}$ (rad)",
     "phi22": r"$\Phi_{22}$ (rad)",
-    "q22": r"$Q_{22}$ ($\text{ kg}\,\text{m}^2$)",
+    "q22": r"$Q_{22}$ ($\rm{kg}\,\rm{m}^2$)",
+    "hplus": r"$h_+^{\rm{t}}$",
+    "hcross": r"$h_{\times}^{\rm{t}}$",
+    "hvectorx": r"$h_x^{\rm{v}}$",
+    "hvectory": r"$h_y^{\rm{v}}$",
+    "hscalarl": r"$h_l^{\rm{s}}$",
+    "hscalarb": r"$h_b^{\rm{s}}$",
+    "phi0tensor": r"$\phi_0^{\rm{t}}$ (rad)",
+    "phi0vector": r"$\phi_0^{\rm{v}}$ (rad)",
+    "phi0scalar": r"$\phi_0^{\rm{s}}$ (rad)",
+    "psitensor": r"$\psi^{\rm{t}}$ (rad)",
+    "psivector": r"$\psi^{\rm{v}}$ (rad)",
+    "psiscalar": r"$\psi^{\rm{s}}$ (rad)",
 }
 
 #: dictionary of default parameter bounds
@@ -39,6 +51,18 @@ DEFAULT_BOUNDS = {
     "phi21": {"low": 0.0, "high": 2 * np.pi},
     "phi22": {"low": 0.0, "high": np.pi},
     "q22": {"low": 0.0},
+    "hplus": {"low": 0.0},
+    "hcross": {"low": 0.0},
+    "hvectorx": {"low": 0.0},
+    "hvectory": {"low": 0.0},
+    "hscalarl": {"low": 0.0},
+    "hscalarb": {"low": 0.0},
+    "phi0tensor": {"low": 0.0, "high": 2 * np.pi},
+    "phi0vector": {"low": 0.0, "high": 2 * np.pi},
+    "phi0scalar": {"low": 0.0, "high": 2 * np.pi},
+    "psitensor": {"low": 0.0, "high": 2 * np.pi},
+    "psivector": {"low": 0.0, "high": 2 * np.pi},
+    "psiscalar": {"low": 0.0, "high": 2 * np.pi},
 }
 
 #: dictionary mapping colors to color map names.
