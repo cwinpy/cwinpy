@@ -38,6 +38,7 @@ class CondorLayer:
 
         self.dag = dag
         self.cf = cf
+        self.requirements = []
 
         # get configuration sections and section values
         self.sections = list(self.cf.sections())
@@ -206,11 +207,11 @@ class CondorLayer:
         submit["arguments"] = "$(ARGS)"
 
         # add requirements
-        if hasattr(self, "requirements"):
-            if isinstance(self.requirements, list):
+        if isinstance(self.requirements, list):
+            if len(self.requirements) > 0:
                 submit["requirements"] = " && ".join(self.requirements)
-            else:
-                submit["requirements"] = self.requirements
+        else:
+            submit["requirements"] = self.requirements
 
         return Submit(submit)
 
