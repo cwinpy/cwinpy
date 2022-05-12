@@ -118,10 +118,12 @@ class HeterodyneLayer(CondorLayer):
                 self.submit_options[
                     "executable"
                 ] = "/opt/conda/envs/python38/bin/cwinpy_heterodyne"
-                additional_options[
-                    "MY.SingularityImage"
-                ] = "/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/cwinpy-containers/cwinpy-dev-python38:latest"
+                additional_options["MY.SingularityImage"] = (
+                    '"/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/'
+                    'cwinpy-containers/cwinpy-dev-python38:latest"'
+                )
                 self.requirements.append("(HAS_SINGULARITY=?=True)")
+                self.submit_options["transfer_executable"] = False
 
             # NOTE: the next two statements are currently only require for OSG running,
             # but at the moment not all local pools advertise the CVMFS repo flags
