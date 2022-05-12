@@ -103,7 +103,10 @@ class PulsarPELayer(CondorLayer):
                 self.submit_options["executable"].startswith("/cvmfs")
                 and "igwn" in self.submit_options["executable"]
             ) or "MY.SingularityImage" in additional_options:
-                repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
+                if "MY.SingularityImage" in additional_options:
+                    repo = "singularity.opensciencegrid.org"
+                else:
+                    repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
                 self.requirements.append(
                     f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
                 )
