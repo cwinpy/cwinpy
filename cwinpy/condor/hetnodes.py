@@ -202,10 +202,10 @@ class HeterodyneLayer(CondorLayer):
 
             # output the DAG configuration file to a temporary file, which will
             # later be read and stored in the HeterodynedData objects
-            _, dagconfigpath = tempfile.mkstemp(
+            fp, dagconfigpath = tempfile.mkstemp(
                 prefix="pipeline_config", suffix=".ini", text=True
             )
-            with open(dagconfigpath, "w") as cfp:
+            with os.fdopen(fp, "w") as cfp:
                 self.cf.write(cfp)
             config["cwinpy_heterodyne_pipeline_config_file"] = dagconfigpath
 
