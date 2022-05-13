@@ -2,6 +2,7 @@
 Classes for dealing with data products.
 """
 
+import ast
 import os
 from pathlib import Path
 from warnings import warn
@@ -1036,6 +1037,18 @@ class HeterodynedData(TimeSeriesBase):
             new.add_noise(fakeasd, issigma=issigma, seed=fakeseed)
 
         # set solar system ephemeris files if provided
+        try:
+            earthephemeris = ast.literal_eval(earthephemeris)
+        except ValueError:
+            pass
+        try:
+            sunephemeris = ast.literal_eval(sunephemeris)
+        except ValueError:
+            pass
+        try:
+            timeephemeris = ast.literal_eval(timeephemeris)
+        except ValueError:
+            pass
         new.set_ephemeris(earthephemeris, sunephemeris, timeephemeris)
 
         # set and add a simulated signal

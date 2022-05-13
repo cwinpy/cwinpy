@@ -177,6 +177,7 @@ class PulsarPELayer(CondorLayer):
         self.resultsfiles = []
 
         for i in range(self.n_parallel):
+            curconfig = copy.deepcopy(config)
             vardict = {}
 
             label = f"{self.submit_options.get('name', 'cwinpy_pe')}_{''.join(self.dets)}_{self.psrname}"
@@ -199,7 +200,7 @@ class PulsarPELayer(CondorLayer):
                 )
             )
 
-            config["label"] = label
+            curconfig["label"] = label
 
             # add files for transfer
             if transfer_files == "YES":
@@ -222,7 +223,7 @@ class PulsarPELayer(CondorLayer):
                                 )
 
                                 # exclude full path as the transfer directory is flat
-                                config[key][detkey] = os.path.basename(
+                                curconfig[key][detkey] = os.path.basename(
                                     config[key][detkey]
                                 )
                         else:
@@ -231,7 +232,7 @@ class PulsarPELayer(CondorLayer):
                             )
 
                             # exclude full path as the transfer directory is flat
-                            config[key] = os.path.basename(config[key])
+                            curconfig[key] = os.path.basename(config[key])
 
                 # transfer ephemeris files
                 for ephem in ["earth", "sun", "time"]:
@@ -242,16 +243,16 @@ class PulsarPELayer(CondorLayer):
                                 transfer_input.append(
                                     relative_topdir(config[key][etype], self.resdir)
                                 )
-                                config[key][etype] = os.path.basename(
+                                curconfig[key][etype] = os.path.basename(
                                     config[key][etype]
                                 )
                         else:
                             transfer_input.append(
                                 relative_topdir(config[key], self.resdir)
                             )
-                            config[key] = os.path.basename(config[key])
+                            curconfig[key] = os.path.basename(config[key])
 
-                config["outdir"] = "results/"
+                curconfig["outdir"] = "results/"
 
                 # add output directory to inputs in case resume file exists
                 transfer_input.append(".")
@@ -277,7 +278,7 @@ class PulsarPELayer(CondorLayer):
             # write out configuration file
             parseobj = DefaultConfigFileParser()
             with open(configfile, "w") as fp:
-                fp.write(parseobj.serialize(config))
+                fp.write(parseobj.serialize(curconfig))
 
             self.vars.append(vardict)
 
