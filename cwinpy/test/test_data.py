@@ -833,16 +833,16 @@ PHI0     2.4
         data = np.random.normal(0.0, 1e-25, size=(1440, 2))
 
         with pytest.raises(IOError):
-            HeterodynedData(data, times=times, ephemearth="kagskdgd")
+            HeterodynedData(data, times=times, earthephemeris="kagskdgd")
 
         with pytest.raises(IOError):
-            HeterodynedData(data, times=times, ephemsun="kagskdgd")
+            HeterodynedData(data, times=times, sunephemeris="kagskdgd")
 
         with pytest.raises(TypeError):
-            HeterodynedData(data, times=times, ephemearth=1.2)
+            HeterodynedData(data, times=times, earthephemeris=1.2)
 
         with pytest.raises(TypeError):
-            HeterodynedData(data, times=times, ephemsun=13)
+            HeterodynedData(data, times=times, sunephemeris=13)
 
     def test_array_data_complex(self):
         """

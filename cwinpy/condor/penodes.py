@@ -1,4 +1,5 @@
 import ast
+import copy
 import os
 import re
 
@@ -176,6 +177,7 @@ class PulsarPELayer(CondorLayer):
         self.resultsfiles = []
 
         for i in range(self.n_parallel):
+            curconfig = copy.deepcopy(config)
             vardict = {}
 
             label = f"{self.submit_options.get('name', 'cwinpy_pe')}_{''.join(self.dets)}_{self.psrname}"
@@ -198,7 +200,7 @@ class PulsarPELayer(CondorLayer):
                 )
             )
 
-            config["label"] = label
+            curconfig["label"] = label
 
             # add files for transfer
             if transfer_files == "YES":
@@ -221,7 +223,7 @@ class PulsarPELayer(CondorLayer):
                                 )
 
                                 # exclude full path as the transfer directory is flat
-                                config[key][detkey] = os.path.basename(
+                                curconfig[key][detkey] = os.path.basename(
                                     config[key][detkey]
                                 )
                         else:
@@ -230,9 +232,27 @@ class PulsarPELayer(CondorLayer):
                             )
 
                             # exclude full path as the transfer directory is flat
-                            config[key] = os.path.basename(config[key])
+                            curconfig[key] = os.path.basename(config[key])
 
-                config["outdir"] = "results/"
+                # transfer ephemeris files
+                for ephem in ["earth", "sun", "time"]:
+                    key = f"{ephem}ephemeris"
+                    if key in config:
+                        if isinstance(config[key], dict):
+                            for etype in copy.deepcopy(config[key]):
+                                transfer_input.append(
+                                    relative_topdir(config[key][etype], self.resdir)
+                                )
+                                curconfig[key][etype] = os.path.basename(
+                                    config[key][etype]
+                                )
+                        else:
+                            transfer_input.append(
+                                relative_topdir(config[key], self.resdir)
+                            )
+                            curconfig[key] = os.path.basename(config[key])
+
+                curconfig["outdir"] = "results/"
 
                 # add output directory to inputs in case resume file exists
                 transfer_input.append(".")
@@ -240,7 +260,7 @@ class PulsarPELayer(CondorLayer):
                 vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
                 vardict["INITIALDIR"] = self.resdir
                 vardict["TRANSFERINPUT"] = ",".join(transfer_input)
-                vardict["TRANSFEROUTPUT"] = config["outdir"]
+                vardict["TRANSFEROUTPUT"] = curconfig["outdir"]
             else:
                 vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
 
@@ -258,7 +278,7 @@ class PulsarPELayer(CondorLayer):
             # write out configuration file
             parseobj = DefaultConfigFileParser()
             with open(configfile, "w") as fp:
-                fp.write(parseobj.serialize(config))
+                fp.write(parseobj.serialize(curconfig))
 
             self.vars.append(vardict)
 
