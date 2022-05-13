@@ -1861,12 +1861,30 @@ class PEDAGRunner(object):
 
             for ephem, ephemname in zip(
                 [earthephem, sunephem, timeephem],
-                ["ephem_earth", "ephem_sun", "ephem_time"],
+                ["earthephemeris", "sunephemeris", "timeephemeris"],
             ):
                 if ephem is not None:
                     if isinstance(ephem, dict):
                         if pname in ephem:
+                            # check if keyed on pulsar name
                             configdict[ephemname] = ephem[pname]
+                        else:
+                            # check if keyed on ephemeris type
+                            psrpar = PulsarParameters(pulsardict[pname])
+                            if ephemname.startswith(("earth", "sun")):
+                                if psrpar["EPHEM"] in ephem:
+                                    configdict[ephemname] = ephem[psrpar["EPHEM"]]
+                                else:
+                                    raise KeyError(
+                                        "Earth/Sun ephemeris dictionary has unknown key types"
+                                    )
+                            else:
+                                if psrpar["UNIT"] in ephem:
+                                    configdict[ephemname] = ephem[psrpar["UNIT"]]
+                                else:
+                                    raise KeyError(
+                                        "Time ephemeris dictionary has unknown key types"
+                                    )
                     elif isinstance(ephem, str):
                         configdict[ephemname] = ephem
                     else:

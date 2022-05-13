@@ -232,6 +232,13 @@ class PulsarPELayer(CondorLayer):
                             # exclude full path as the transfer directory is flat
                             config[key] = os.path.basename(config[key])
 
+                # transfer ephemeris files
+                for ephem in ["earth", "sun", "time"]:
+                    key = f"{ephem}ephemeris"
+                    if key in config:
+                        transfer_input.append(relative_topdir(config[key], self.resdir))
+                        config[key] = os.path.basename(config[key])
+
                 config["outdir"] = "results/"
 
                 # add output directory to inputs in case resume file exists
