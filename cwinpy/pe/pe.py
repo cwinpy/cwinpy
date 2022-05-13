@@ -362,7 +362,7 @@ continuous gravitational-wave signal from a known pulsar."""
 
     ephemparser = parser.add_argument_group("Solar System Ephemeris inputs")
     ephemparser.add(
-        "--ephem-earth",
+        "--earthephemeris",
         type=str,
         help=(
             "The path to a file providing the Earth ephemeris. If "
@@ -371,7 +371,7 @@ continuous gravitational-wave signal from a known pulsar."""
         ),
     )
     ephemparser.add(
-        "--ephem-sun",
+        "--sunephemeris",
         type=str,
         help=(
             "The path to a file providing the Sun ephemeris. If not "
@@ -380,7 +380,7 @@ continuous gravitational-wave signal from a known pulsar."""
         ),
     )
     ephemparser.add(
-        "--ephem-time",
+        "--timeephemeris",
         type=str,
         help=(
             "The path to a file providing the time correction "
@@ -456,9 +456,9 @@ class PERunner(object):
             self.datakwargs["remove_outliers"] = True
 
         # get solar system ephemeris information if provided
-        self.datakwargs.setdefault("ephemearth", kwargs.get("ephem_earth", None))
-        self.datakwargs.setdefault("ephemsun", kwargs.get("ephem_sun", None))
-        self.datakwargs.setdefault("ephemtime", kwargs.get("ephem_time", None))
+        self.datakwargs.setdefault("earthephemeris", kwargs.get("earthephemeris", None))
+        self.datakwargs.setdefault("sunephemeris", kwargs.get("sunephemeris", None))
+        self.datakwargs.setdefault("timeephemeris", kwargs.get("timeephemeris", None))
 
         # data parameters
         if "detector" in kwargs:
@@ -1316,12 +1316,16 @@ def pe(**kwargs):
         43200 seconds (12 hours), at which point the job will be stopped (and
         then restarted if running under HTCondor). If running directly within
         Python this defaults to 10000000.
-    ephem_earth: str, dict
+    earthephemeris: str, dict
         The path to a file providing the Earth ephemeris. If not supplied, the
         code will attempt to automatically find the appropriate file.
-    ephem_sun: str, dict
+    sunephemeris: str, dict
         The path to a file providing the Sun ephemeris. If not supplied, the
         code will attempt to automatically find the appropriate file.
+    timeephemeris: str, dict
+        The path to a file providing the time delay (TDB or TCB) ephemeris. If
+        not supplied, the code will attempt to automatically find the
+        appropriate file.
     """
 
     if "cli" in kwargs or "config" in kwargs:
