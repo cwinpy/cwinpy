@@ -1875,7 +1875,6 @@ class PEDAGRunner(object):
                             configdict[ephemname] = ephem[pname]
                         else:
                             # check if keyed on ephemeris type
-                            psrpar = PulsarParameters(pulsardict[pname])
                             if (
                                 ephemname.startswith(("earth", "sun"))
                                 and ephemtype in ephem
