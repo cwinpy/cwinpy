@@ -260,7 +260,7 @@ class PulsarPELayer(CondorLayer):
                 vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
                 vardict["INITIALDIR"] = self.resdir
                 vardict["TRANSFERINPUT"] = ",".join(transfer_input)
-                vardict["TRANSFEROUTPUT"] = config["outdir"]
+                vardict["TRANSFEROUTPUT"] = curconfig["outdir"]
             else:
                 vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
 
