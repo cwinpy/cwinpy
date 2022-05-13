@@ -1825,8 +1825,13 @@ class PEDAGRunner(object):
             # create dictionary of configuration outputs
             configdict = {}
 
+            ephemtype = None
+            units = None
             if is_par_file(pulsardict[pname]):
                 configdict["par_file"] = pulsardict[pname]
+                psrpar = PulsarParameters(pulsardict[pname])
+                ephemtype = psrpar["EPHEM"]
+                units = psrpar["UNIT"]
 
             # get detectors
             for freqfactor in ["1f", "2f"]:
@@ -1871,20 +1876,16 @@ class PEDAGRunner(object):
                         else:
                             # check if keyed on ephemeris type
                             psrpar = PulsarParameters(pulsardict[pname])
-                            if ephemname.startswith(("earth", "sun")):
-                                if psrpar["EPHEM"] in ephem:
-                                    configdict[ephemname] = ephem[psrpar["EPHEM"]]
-                                else:
-                                    raise KeyError(
-                                        "Earth/Sun ephemeris dictionary has unknown key types"
-                                    )
+                            if (
+                                ephemname.startswith(("earth", "sun"))
+                                and ephemtype in ephem
+                            ):
+                                configdict[ephemname] = ephem[ephemtype]
+                            elif ephemname.startswith("time") and units in ephem:
+                                configdict[ephemname] = ephem[units]
                             else:
-                                if psrpar["UNIT"] in ephem:
-                                    configdict[ephemname] = ephem[psrpar["UNIT"]]
-                                else:
-                                    raise KeyError(
-                                        "Time ephemeris dictionary has unknown key types"
-                                    )
+                                # try passing entire dictionary
+                                configdict[ephemname] = ephem
                     elif isinstance(ephem, str):
                         configdict[ephemname] = ephem
                     else:

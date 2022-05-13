@@ -1,4 +1,5 @@
 import ast
+import copy
 import os
 import re
 
@@ -236,8 +237,19 @@ class PulsarPELayer(CondorLayer):
                 for ephem in ["earth", "sun", "time"]:
                     key = f"{ephem}ephemeris"
                     if key in config:
-                        transfer_input.append(relative_topdir(config[key], self.resdir))
-                        config[key] = os.path.basename(config[key])
+                        if isinstance(config[key], dict):
+                            for etype in copy.deepcopy(config[key]):
+                                transfer_input.append(
+                                    relative_topdir(config[key][etype], self.resdir)
+                                )
+                                config[key][etype] = os.path.basename(
+                                    config[key][etype]
+                                )
+                        else:
+                            transfer_input.append(
+                                relative_topdir(config[key], self.resdir)
+                            )
+                            config[key] = os.path.basename(config[key])
 
                 config["outdir"] = "results/"
 
