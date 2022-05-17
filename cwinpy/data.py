@@ -2,6 +2,7 @@
 Classes for dealing with data products.
 """
 
+import ast
 import os
 from pathlib import Path
 from warnings import warn
@@ -841,11 +842,11 @@ class HeterodynedData(TimeSeriesBase):
         :meth:`~cwinpy.data.HeterodynedData.find_outliers`)
     comments: str
         A string containing any comments about the data.
-    ephemearth: str, None
+    earthephemeris: str, None
         The path to the Earth ephemeris used for the signal phase model.
-    ephemsun: str, None
+    sunephemeris: str, None
         The path to the Sun ephemeris used for the signal phase model.
-    ephemtime: str, None
+    timeephemeris: str, None
         The path to the time correction ephemeris used for the signal phase
         model.
     """
@@ -908,9 +909,9 @@ class HeterodynedData(TimeSeriesBase):
         remove_outliers=False,
         thresh=3.5,
         comments="",
-        ephemearth=None,
-        ephemsun=None,
-        ephemtime=None,
+        earthephemeris=None,
+        sunephemeris=None,
+        timeephemeris=None,
         **kwargs,
     ):
         stds = None  # initialise standard deviations
@@ -1060,7 +1061,19 @@ class HeterodynedData(TimeSeriesBase):
             new.add_noise(fakeasd, issigma=issigma, seed=fakeseed)
 
         # set solar system ephemeris files if provided
-        new.set_ephemeris(ephemearth, ephemsun, ephemtime)
+        try:
+            earthephemeris = ast.literal_eval(earthephemeris)
+        except ValueError:
+            pass
+        try:
+            sunephemeris = ast.literal_eval(sunephemeris)
+        except ValueError:
+            pass
+        try:
+            timeephemeris = ast.literal_eval(timeephemeris)
+        except ValueError:
+            pass
+        new.set_ephemeris(earthephemeris, sunephemeris, timeephemeris)
 
         # set and add a simulated signal
         if bool(inject):
@@ -1723,22 +1736,46 @@ class HeterodynedData(TimeSeriesBase):
 
         Parameters
         ----------
-        earth: str, None
+        earth: str, dict, None
             The Earth ephemeris file used for the phase model. Defaults to
             None, in which case the ephemeris files will be determined from the
-            pulsar parameter file information.
-        sun: str, None
+            pulsar parameter file information. If a dictionary is passed, it
+            should be keyed to ephemeris types (e.g., DE405) and point to the
+            equivalent file. The type in the par file will be used to determine
+            which key to use.
+        sun: str, dict, None
             The Sun ephemeris file used for the phase model. Defaults to
             None, in which case the ephemeris files will be determined from the
-            pulsar parameter file information.
-        time: str, None
+            pulsar parameter file information. If a dictionary is passed, it
+            should be keyed to ephemeris types (e.g., DE405) and point to the
+            equivalent file. The type in the par file will be used to determine
+            which key to use.
+        time: str, dict, None
             The time correction ephemeris file used for the phase model.
             Defaults to None, in which case the ephemeris files will be
-            determined from the pulsar parameter file information.
+            determined from the pulsar parameter file information. If a
+            dictionary is passed, it should be keyed to unit type (e.g., TCB)
+            and point to the equivalent file. The type in the par file will be
+            used to determine which key to use.
         """
 
         efiles = [earth, sun, time]
 
+        efiles = []
+
+        # check for dictionaries
+        for ef in [earth, sun]:
+            if isinstance(ef, dict):
+                efiles.append(ef.get(self.par["EPHEM"], None))
+            else:
+                efiles.append(ef)
+
+        if isinstance(time, dict):
+            efiles.append(time.get(self.par["UNIT"], None))
+        else:
+            efiles.append(time)
+
+        # check ephemeris files
         for ef in efiles:
             if ef is None:
                 continue

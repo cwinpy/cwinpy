@@ -206,6 +206,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 not in self.AMPLITUDE_PARAMS
                 + self.BINARY_PARAMS
                 + self.POSITIONAL_PARAMETERS
+                + self.NONGR_AMPLITUDE_PARAM
             ) and not self._is_vector_param(key.upper()):
                 raise ValueError("Unknown parameter '{}' being used!".format(key))
 
