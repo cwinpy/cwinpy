@@ -8,11 +8,10 @@ import subprocess as sp
 
 import numpy as np
 import pytest
-from astropy.utils.data import download_file
 from bilby.core.prior import PriorDict, Uniform
 from cwinpy import HeterodynedData, PulsarParameters
 from cwinpy.knope import knope
-from cwinpy.utils import LAL_EPHEMERIS_URL
+from cwinpy.utils import LAL_EPHEMERIS_URL, download_ephemeris_file
 
 
 class TestKnope(object):
@@ -109,11 +108,11 @@ phi0 = {phi0}
             fp.write("\n")
 
         # set ephemeris files
-        efile = download_file(
-            LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz"), cache=True
+        efile = download_ephemeris_file(
+            LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz")
         )
-        sfile = download_file(
-            LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz"), cache=True
+        sfile = download_ephemeris_file(
+            LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz")
         )
 
         for j, datastart in enumerate(cls.fakedatastarts):

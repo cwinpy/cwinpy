@@ -13,8 +13,10 @@ from copy import deepcopy
 from functools import reduce
 from math import gcd
 
+import appdirs
 import lalpulsar
 import numpy as np
+import requests
 from astropy import units as u
 from astropy.coordinates.sky_coordinate import SkyCoord
 from numba import jit, njit
@@ -30,6 +32,9 @@ LAL_EPHEMERIS_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/
 
 #: the current solar system ephemeris types in LALSuite
 LAL_EPHEMERIS_TYPES = ["DE200", "DE405", "DE421", "DE430"]
+
+#: the location for caching ephemeris files
+EPHEMERIS_CACHE_DIR = appdirs.user_cache_dir(appname="cwinpy", appauthor=False)
 
 #: the current TEMPO-compatible binary system model types provided in LALSuite
 LAL_BINARY_MODELS = [
@@ -556,10 +561,8 @@ def initialise_ephemeris(
         except RuntimeError:
             # try downloading the ephemeris files
             try:
-                from astropy.utils.data import download_file
-
-                efile = download_file(LAL_EPHEMERIS_URL.format(earth), cache=True)
-                sfile = download_file(LAL_EPHEMERIS_URL.format(sun), cache=True)
+                efile = download_ephemeris_file(LAL_EPHEMERIS_URL.format(earth))
+                sfile = download_ephemeris_file(LAL_EPHEMERIS_URL.format(sun))
                 edat = lalpulsar.InitBarycenter(efile, sfile)
                 filepaths = [efile, sfile]
             except Exception as e:
@@ -586,9 +589,7 @@ def initialise_ephemeris(
     except RuntimeError:
         try:
             # try downloading the time coordinate file
-            from astropy.utils.data import download_file
-
-            tfile = download_file(LAL_EPHEMERIS_URL.format(time), cache=True)
+            tfile = download_ephemeris_file(LAL_EPHEMERIS_URL.format(time))
             tdat = lalpulsar.InitTimeCorrections(tfile)
             filepaths.append(tfile)
         except Exception as e:
@@ -598,6 +599,50 @@ def initialise_ephemeris(
         return (tdat, filepaths) if filenames else tdat
     else:
         return (edat, tdat, filepaths) if filenames else (edat, tdat)
+
+
+def download_ephemeris_file(url):
+    """
+    Download and cache an ephemeris files from a given URL. If the file has
+    already been downloaded and cached it will just be retrieved from the cache
+    location.
+
+    Parameters
+    ----------
+    url: str
+        The URL of the file to download.
+    """
+
+    fname = os.path.basename(url)  # extract the file name
+    fpath = os.path.join(EPHEMERIS_CACHE_DIR, fname)
+
+    if os.path.isfile(fpath):
+        # return previously cached file
+        return fpath
+
+    # try downloading the file
+    try:
+        ephdata = requests.get(url)
+    except Exception as e:
+        raise RuntimeError(f"Error downloading from {url}\n{e}")
+
+    if ephdata.status_code != 200:
+        raise RuntimeError(f"Error downloading from {url}")
+
+    if not os.path.exists(EPHEMERIS_CACHE_DIR):
+        try:
+            os.makedirs(EPHEMERIS_CACHE_DIR)
+        except OSError:
+            if not os.path.exists(EPHEMERIS_CACHE_DIR):
+                raise
+    elif not os.path.isdir(EPHEMERIS_CACHE_DIR):
+        raise OSError(f"Cache directory {EPHEMERIS_CACHE_DIR} is not a directory")
+
+    # write out file to cache
+    with open(fpath, "wb") as fp:
+        fp.write(ephdata.content)
+
+    return fpath
 
 
 def check_for_tempo2():
