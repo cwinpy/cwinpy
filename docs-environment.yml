@@ -35,6 +35,7 @@ dependencies:
   - zlib=1.2.11=h516909a_1010
   - pip:
     - alabaster==0.7.12
+    - appdirs==1.4.4
     - astropy==4.2
     - async-generator==1.10
     - attrs==20.3.0
