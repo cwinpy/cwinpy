@@ -99,12 +99,48 @@ class HeterodyneLayer(CondorLayer):
                 # set to check that proprietary LIGO frames are available
                 self.requirements.append("(HAS_LIGO_FRAMES=?=True)")
 
+            if self.submit_options.get("desired_sites", ""):
+                # allow specific OSG sites to be requested
+                additional_options["MY.DESIRED_Sites"] = self.submit_options[
+                    "desired_sites"
+                ]
+                self.requirements.append("(IS_GLIDEIN=?=True)")
+
+            if self.submit_options.get("undesired_sites", ""):
+                # disallow certain OSG sites to be used
+                additional_options["MY.UNDESIRED_Sites"] = self.submit_options[
+                    "undesired_sites"
+                ]
+
+            # use development CWInPy singularity container
+            singularity = self.get_option("singularity", default=False)
+            if singularity:
+                self.submit_options[
+                    "executable"
+                ] = "/opt/conda/envs/python38/bin/cwinpy_heterodyne"
+                additional_options["MY.SingularityImage"] = (
+                    '"/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/'
+                    'cwinpy-containers/cwinpy-dev-python38:latest"'
+                )
+                self.requirements.append("(HAS_SINGULARITY=?=True)")
+                self.submit_options["transfer_executable"] = False
+
             # NOTE: the next two statements are currently only require for OSG running,
             # but at the moment not all local pools advertise the CVMFS repo flags
-            if self.submit_options["executable"].startswith("/cvmfs"):
-                repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
-                self.requirements.append(
-                    f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
+            if (
+                self.submit_options["executable"].startswith("/cvmfs")
+                and "igwn" in self.submit_options["executable"]
+            ) or "MY.SingularityImage" in additional_options:
+                if "MY.SingularityImage" not in additional_options:
+                    repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
+                    self.requirements.append(
+                        f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
+                    )
+            else:
+                raise RuntimeError(
+                    "If running on the OSG you must be using an IGWN "
+                    "environment or the CWInPy developement singularity "
+                    "container."
                 )
 
             # check if using GWOSC frames from CVMFS
@@ -166,10 +202,10 @@ class HeterodyneLayer(CondorLayer):
 
             # output the DAG configuration file to a temporary file, which will
             # later be read and stored in the HeterodynedData objects
-            _, dagconfigpath = tempfile.mkstemp(
+            fp, dagconfigpath = tempfile.mkstemp(
                 prefix="pipeline_config", suffix=".ini", text=True
             )
-            with open(dagconfigpath, "w") as cfp:
+            with os.fdopen(fp, "w") as cfp:
                 self.cf.write(cfp)
             config["cwinpy_heterodyne_pipeline_config_file"] = dagconfigpath
 

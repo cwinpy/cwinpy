@@ -52,8 +52,41 @@ are certain HTCondor job values that `must be set
   as well as any products produced by the job.
 
 For the ``request_memory`` and ``request_disk`` values, defaults values are used within CWInPy if
-these are not explicitly set in configuration files, or if using "Quick setup" options. In most
+these are not explicitly set in configuration files or if using "Quick setup" options. In most
 cases, these default values should work well, so user supplied values are not necessary.
+
+Running on the Open Science Grid
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The pipelines within CWInPy can be run on the Open Science Grid (OSG) provided you have access to a
+HTCondor submit machine that has access to the OSG (see `here
+<https://computing.docs.ligo.org/guide/condor/submission/#submithosts>`__ for OSG submit host for
+use within the LVK). To run CWInPy pipelines on the OSG you will need to setup the jobs (or point at
+CWInPy executables) within a `CVMFS-hosted IGWN conda
+environment<https://computing.docs.ligo.org/conda/>`__, or use the Singularity image containing the
+latest development version of CWInPy (this should only be used for testing purposes). To do the
+former, you should make sure to activate an IGWN conda distribution, e.g.,:
+
+>>> conda activate igwn-py38
+
+and your pipeline configuration files should set
+
+.. code-block::
+
+   osg = True
+
+in its ``[*_dag]`` section (where the ``*`` might be ``knope``, ``heterodyne`` or ``pe`` depending
+on the pipeline). If running a pipeline using "Quick setup" arguments, then the ``--osg`` flag can
+be used instead of providing a configuration file.
+
+To use the Singularity container, in addition to setting ``osg = True``, the configuration file must
+have:
+
+.. code-block::
+
+   singularity = True
+
+in the same ``[*_dag]`` section.
 
 Local use of HTCondor
 ~~~~~~~~~~~~~~~~~~~~~

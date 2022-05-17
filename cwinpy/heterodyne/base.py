@@ -1471,14 +1471,13 @@ class Heterodyne(object):
                         ephems = ["DE405"]
 
                     for ephem, unit in zip(ephems, units):
-                        if ephem not in self._ephemerides or unit not in self._timecorr:
-                            edat, tdat = initialise_ephemeris(ephem=ephem, units=unit)
+                        if ephem not in self._ephemerides:
+                            edat = initialise_ephemeris(ephem=ephem, ssonly=True)
+                            self._ephemerides[ephem] = edat
 
-                            if ephem not in self._ephemerides:
-                                self._ephemerides[ephem] = edat
-
-                            if unit not in self._timecorr:
-                                self._timecorr[unit] = tdat
+                        if unit not in self._timecorr:
+                            tdat = initialise_ephemeris(units=unit, timeonly=True)
+                            self._timecorr[unit] = tdat
 
                     # convert times to GPS time vector
                     gpstimes = lalpulsar.CreateTimestampVector(thishet.size)
@@ -1834,19 +1833,18 @@ class Heterodyne(object):
                                         )
                                     )
 
-                                if (
-                                    ephem not in self._ephemerides
-                                    or units not in self._timecorr
-                                ):
-                                    edat, tdat = initialise_ephemeris(
-                                        ephem=ephem, units=units
+                                if ephem not in self._ephemerides:
+                                    edat = initialise_ephemeris(
+                                        ephem=ephem,
+                                        ssonly=True,
                                     )
+                                    self._ephemerides[ephem] = edat
 
-                                    if ephem not in self._ephemerides:
-                                        self._ephemerides[ephem] = edat
-
-                                    if units not in self._timecorr:
-                                        self._timecorr[units] = tdat
+                                if units not in self._timecorr:
+                                    tdat = initialise_ephemeris(
+                                        units=units, timeonly=True
+                                    )
+                                    self._timecorr[units] = tdat
 
                                 if self.interpolationstep > 0:
                                     # calculate SSB delay and BSB delay at interpolation nodes

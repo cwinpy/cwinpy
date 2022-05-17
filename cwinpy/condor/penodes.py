@@ -1,5 +1,7 @@
 import ast
+import copy
 import os
+import re
 
 import bilby
 from configargparse import DefaultConfigFileParser
@@ -69,16 +71,58 @@ class PulsarPELayer(CondorLayer):
         )
         self.set_option("email", optionname="notify_user")
 
+        additional_options = {}
         if self.osg:
             # make sure files are transferred if using the OSG
             self.submit_options["should_transfer_files"] = "YES"
+
+            if self.submit_options.get("desired_sites", ""):
+                # allow specific OSG sites to be requested
+                additional_options["MY.DESIRED_Sites"] = self.submit_options[
+                    "desired_sites"
+                ]
+                self.requirements.append("IS_GLIDEIN=?=True")
+
+            if self.submit_options.get("undesired_sites", ""):
+                # disallow certain OSG sites to be used
+                additional_options["MY.UNDESIRED_Sites"] = self.submit_options[
+                    "undesired_sites"
+                ]
+
+            # use development CWInPy singularity container
+            singularity = self.get_option("singularity", default=False)
+            if singularity:
+                self.submit_options[
+                    "executable"
+                ] = "/opt/conda/envs/python38/bin/cwinpy_pe"
+                additional_options["MY.SingularityImage"] = (
+                    '"/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/'
+                    'cwinpy-containers/cwinpy-dev-python38:latest"'
+                )
+                self.requirements.append("(HAS_SINGULARITY=?=True)")
+                self.submit_options["transfer_executable"] = False
+
+            if (
+                self.submit_options["executable"].startswith("/cvmfs")
+                and "igwn" in self.submit_options["executable"]
+            ) or "MY.SingularityImage" in additional_options:
+                if "MY.SingularityImage" not in additional_options:
+                    repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
+                    self.requirements.append(
+                        f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
+                    )
+            else:
+                raise RuntimeError(
+                    "If running on the OSG you must be using an IGWN "
+                    "environment or the CWInPy developement singularity "
+                    "container."
+                )
         else:
             self.set_option(
                 "transfer_files", optionname="should_transfer_files", default="YES"
             )
 
         # additional options
-        additional_options = {}
         if self.submit_options["should_transfer_files"] == "YES":
             additional_options["initialdir"] = "$(INITIALDIR)"
             additional_options["transfer_input_files"] = "$(TRANSFERINPUT)"
@@ -133,6 +177,7 @@ class PulsarPELayer(CondorLayer):
         self.resultsfiles = []
 
         for i in range(self.n_parallel):
+            curconfig = copy.deepcopy(config)
             vardict = {}
 
             label = f"{self.submit_options.get('name', 'cwinpy_pe')}_{''.join(self.dets)}_{self.psrname}"
@@ -155,7 +200,7 @@ class PulsarPELayer(CondorLayer):
                 )
             )
 
-            config["label"] = label
+            curconfig["label"] = label
 
             # add files for transfer
             if transfer_files == "YES":
@@ -178,7 +223,7 @@ class PulsarPELayer(CondorLayer):
                                 )
 
                                 # exclude full path as the transfer directory is flat
-                                config[key][detkey] = os.path.basename(
+                                curconfig[key][detkey] = os.path.basename(
                                     config[key][detkey]
                                 )
                         else:
@@ -187,9 +232,27 @@ class PulsarPELayer(CondorLayer):
                             )
 
                             # exclude full path as the transfer directory is flat
-                            config[key] = os.path.basename(config[key])
+                            curconfig[key] = os.path.basename(config[key])
 
-                config["outdir"] = "results/"
+                # transfer ephemeris files
+                for ephem in ["earth", "sun", "time"]:
+                    key = f"{ephem}ephemeris"
+                    if key in config:
+                        if isinstance(config[key], dict):
+                            for etype in copy.deepcopy(config[key]):
+                                transfer_input.append(
+                                    relative_topdir(config[key][etype], self.resdir)
+                                )
+                                curconfig[key][etype] = os.path.basename(
+                                    config[key][etype]
+                                )
+                        else:
+                            transfer_input.append(
+                                relative_topdir(config[key], self.resdir)
+                            )
+                            curconfig[key] = os.path.basename(config[key])
+
+                curconfig["outdir"] = "results/"
 
                 # add output directory to inputs in case resume file exists
                 transfer_input.append(".")
@@ -197,7 +260,7 @@ class PulsarPELayer(CondorLayer):
                 vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
                 vardict["INITIALDIR"] = self.resdir
                 vardict["TRANSFERINPUT"] = ",".join(transfer_input)
-                vardict["TRANSFEROUTPUT"] = config["outdir"]
+                vardict["TRANSFEROUTPUT"] = curconfig["outdir"]
             else:
                 vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
 
@@ -215,7 +278,7 @@ class PulsarPELayer(CondorLayer):
             # write out configuration file
             parseobj = DefaultConfigFileParser()
             with open(configfile, "w") as fp:
-                fp.write(parseobj.serialize(config))
+                fp.write(parseobj.serialize(curconfig))
 
             self.vars.append(vardict)
 
