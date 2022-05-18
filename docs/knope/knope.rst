@@ -397,7 +397,7 @@ contains some combination of generic tensor, vector and scalar polarisation mode
 signal. This will assume that the signals are still emitted at twice the rotation frequency of the
 the pulsars. This will just use the :ref:`cwinpy_pe_pipeline<Known pulsar parameter estimation>` and
 a new prior file. An example configuration file for this can be downloaded :download:`here
-<cwinpy_pe_example_O2_nongr.ini>` and is reproduced below:
+<examples/cwinpy_pe_example_O2_nongr.ini>` and is reproduced below:
 
 .. literalinclude:: examples/cwinpy_pe_example_O2_nongr.ini
 

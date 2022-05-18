@@ -25,7 +25,7 @@ data from the LIGO and Virgo detectors.
 
 In addition to these main functions, CWInPy enables users to:
 
-* simulate processed signals from :ref:`individual sources<Simulating a signal>`, or
+* simulate processed signals from :ref:`individual sources<Simulating a signal>` or
   :ref:`populations<Pulsar simulations>` of sources;
 * perform :ref:`hierarchical inference<Hierarchical analyses>` on the underlying ellipticity/mass
   quadrupole distribution for multiple sources.
