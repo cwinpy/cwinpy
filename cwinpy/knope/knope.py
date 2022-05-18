@@ -443,9 +443,6 @@ def knope_pipeline(**kwargs):
                     "accounting_group_tag", args.accgroup
                 )
 
-            # add heterodyne settings
-            hetconfigfile["heterodyne"] = {}
-
             # set whether running a coherent or incoherent analysis
             peconfigfile["pe"] = {}
             peconfigfile["pe"]["incoherent"] = str(
@@ -476,6 +473,10 @@ def knope_pipeline(**kwargs):
             peconfig.read_file(open(peconfigfile, "r"))
         except Exception as e:
             raise IOError(f"Problem reading configuration file '{peconfigfile}'\n: {e}")
+
+    # make sure "heterodyne" section is present
+    if not hetconfig.has_section("heterodyne"):
+        hetconfigfile["heterodyne"] = {}
 
     # make sure "_dag" sections are present
     if not hetconfig.has_section("heterodyne_dag"):
