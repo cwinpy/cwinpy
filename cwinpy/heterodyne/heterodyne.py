@@ -819,14 +819,17 @@ class HeterodyneDAGRunner(object):
                         timedict[key][i] = int(timedict[key][i])
                     else:
                         try:
-                            isotime = Time(timedict[key][i], scale="utc")
+                            strtime = int(timedict[key][i])
                         except ValueError:
-                            raise ValueError(
-                                f"Time {timedict[key][i]} cannot be converted to GPS time"
-                            )
+                            try:
+                                strtime = int(Time(timedict[key][i], scale="utc").gps)
+                            except ValueError:
+                                raise ValueError(
+                                    f"Time {timedict[key][i]} cannot be converted to GPS time"
+                                )
 
                         # get GPS seconds
-                        timedict[key][i] = int(isotime.gps)
+                        timedict[key][i] = strtime
 
         print(fullstarttimes, fullendtimes)
 
