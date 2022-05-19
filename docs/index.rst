@@ -15,7 +15,7 @@ the phase evolution of a given source (using a `Tempo
 display this data is available. Following data processing, the package provides tools for inferring
 the unknown gravitational-wave parameters describing the source and its orientation. An integrated
 pipeline combining both these stages (``cwinpy_knope``) is also provided. These tools are all
-available through command line exectubles and through a Python API. The pipelines can generate
+available through command line executables and through a Python API. The pipelines can generate
 `HTCondor <https://htcondor.readthedocs.io/en/latest/>`__ `DAGs
 <https://htcondor.readthedocs.io/en/latest/users-manual/dagman-workflows.html>`_ to run analyses
 over long observing runs for multiple detectors and multiple sources on a computer cluster or via
@@ -25,7 +25,7 @@ data from the LIGO and Virgo detectors.
 
 In addition to these main functions, CWInPy enables users to:
 
-* simulate processed signals from :ref:`individual sources<Simulating a signal>`, or
+* simulate processed signals from :ref:`individual sources<Simulating a signal>` or
   :ref:`populations<Pulsar simulations>` of sources;
 * perform :ref:`hierarchical inference<Hierarchical analyses>` on the underlying ellipticity/mass
   quadrupole distribution for multiple sources.
@@ -36,6 +36,8 @@ Quick links
 To help get started some useful links are:
 
 * :ref:`Installing CWInPy<Installation>`
+* :ref:`Running the cwinpy_knope_pipeline on real data<*knope* examples>`
+* :ref:`Running the cwinpy_knope_pipeline on open data using "Quick setup"<Quick setup>`
 * :ref:`An example of heterodyning data<Example: two simulated pulsar signals>`
 * :ref:`An example of estimating a signal's parameters<Example: single detector data>`
 
@@ -43,9 +45,10 @@ Contributing
 ------------
 
 CWInPy is open source and anyone is welcome to contribute. The development repository of CWInPy is
-currently not public, however the repository is mirrored on `Github
-<https://github.com/cwinpy/cwinpy>`_. `Issues <https://github.com/cwinpy/cwinpy/issues>`_,
-`discussions <https://github.com/cwinpy/cwinpy/discussions>`_ or `pull requests
+publicly available at `git.ligo.org/cwinpy/cwinpy <https://git.ligo.org/cwinpy/cwinpy>`_ and is
+mirrored on `Github <https://github.com/cwinpy/cwinpy>`_. `Issues
+<https://github.com/cwinpy/cwinpy/issues>`_, `discussions
+<https://github.com/cwinpy/cwinpy/discussions>`_ or `pull requests
 <https://github.com/cwinpy/cwinpy/pulls>`_ can be opened in that Github repository, or can be
 emailed directly to `contact+cw-software-cwinpy-3315-issue-@support.ligo.org
 <mailto:contact+cw-software-cwinpy-3315-issue-@support.ligo.org>`_.

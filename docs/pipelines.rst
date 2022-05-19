@@ -16,10 +16,11 @@ for running them, are described in the following sections:
 Quick start
 ~~~~~~~~~~~
 
-The data processing stage and full analysis pipeline can be set up and run using simple one-liner
-commands. For example, running an analysis on `PSR J0737-3039A
+The data processing stage and the full analysis pipeline can be set up and run using simple
+one-liner commands. For example, running an analysis on `PSR J0737-3039A
 <https://en.wikipedia.org/wiki/PSR_J0737%E2%88%923039>`_ using LIGO data from the first observing
-run in the advanced detector era, O1, can be performed with:
+run in the advanced detector era, `O1 <https://www.gw-openscience.org/O1/>`__, can be performed
+with:
 
 >>> cwinpy_knope_pipeline --run O1 --pulsar J0737-3039A
 
@@ -35,7 +36,7 @@ run in the advanced detector era, O1, can be performed with:
 IGWN Cluster usage
 ~~~~~~~~~~~~~~~~~~
 
-If working on a `IGWN Computing Grid <https://computing.docs.ligo.org/guide/grid/>`__ cluster there
+If working on an `IGWN Computing Grid <https://computing.docs.ligo.org/guide/grid/>`__ cluster there
 are certain HTCondor job values that `must be set
 <https://computing.docs.ligo.org/guide/condor/tutorial/#how-to-describe-a-job>`__. These are:
 
@@ -58,24 +59,24 @@ cases, these default values should work well, so user supplied values are not ne
 Running on the Open Science Grid
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The pipelines within CWInPy can be run on the Open Science Grid (OSG) provided you have access to a
-HTCondor submit machine that has access to the OSG (see `here
+The pipelines within CWInPy can be run on the `Open Science Grid <https://opensciencegrid.org/>`__
+(OSG) provided you have access to a HTCondor submit machine that has access to the OSG (see `here
 <https://computing.docs.ligo.org/guide/condor/submission/#submithosts>`__ for OSG submit host for
-use within the LVK). To run CWInPy pipelines on the OSG you will need to setup the jobs (or point at
-CWInPy executables) within a `CVMFS-hosted IGWN conda
-environment<https://computing.docs.ligo.org/conda/>`__, or use the Singularity image containing the
-latest development version of CWInPy (this should only be used for testing purposes). To do the
-former, you should make sure to activate an IGWN conda distribution, e.g.,:
+use within the LIGO-Virgo-KAGRA Collaboration). To run CWInPy pipelines on the OSG you will need to
+setup the jobs (or point at CWInPy executables) within a `CVMFS-hosted IGWN conda environment
+<https://computing.docs.ligo.org/conda/>`__, or use the Singularity image containing the latest
+development version of CWInPy (this should only be used for testing purposes). To do the former, you
+should make sure to activate an IGWN conda distribution, e.g.,:
 
 >>> conda activate igwn-py38
 
-and your pipeline configuration files should set
+and within your pipeline configuration file the following flag should be set
 
 .. code-block::
 
    osg = True
 
-in its ``[*_dag]`` section (where the ``*`` might be ``knope``, ``heterodyne`` or ``pe`` depending
+in the ``[*_dag]`` section (where the ``*`` might be ``knope``, ``heterodyne`` or ``pe`` depending
 on the pipeline). If running a pipeline using "Quick setup" arguments, then the ``--osg`` flag can
 be used instead of providing a configuration file.
 

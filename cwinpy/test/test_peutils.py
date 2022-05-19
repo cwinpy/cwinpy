@@ -429,7 +429,7 @@ class TestUpperLimitTable:
             resdir=self.resdirO2, ampparam="h0", detector="H1", upperlimit=0.9
         )
 
-        ts = t.table_string(format="rst")
+        ts = t.table_string(format="rst", scinot=False)
 
         lines = ts.strip().split("\n")
 
@@ -453,6 +453,12 @@ class TestUpperLimitTable:
             assert np.isclose(
                 float(lines[3 + i].split()[3]), self.pdistsO2[i].value, rtol=0.05
             )
+
+        latextab = t.table_string(format="latex")
+        assert r"\begin{table}" in latextab and r"\end{table}" in latextab
+
+        htmltab = t.table_string(format="html")
+        assert "<table>" in htmltab and "</table>" in htmltab
 
     def test_plot(self):
         """
@@ -490,7 +496,7 @@ class TestUpperLimitTable:
             showsdlim=True,
             highlightpsrs=[self.pnamesO2[0]],
             showq22=True,
-            showtau=True,
+            showtau=[1e4, 1e7],
         )
 
         assert isinstance(fig, mpl.figure.Figure)

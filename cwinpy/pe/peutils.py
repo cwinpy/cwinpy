@@ -806,8 +806,8 @@ class UpperLimitTable(QTable):
             dictionary, then the ATNF value will be used.
         izz: float, Quantity
             The principal moment of inertia to use when calculating derived
-            quantities. This defaults to :math:`10^{38}` kg m:sup:`2`. If
-            passing a float it assumes the units are kg m:sup:`2`. If
+            quantities. This defaults to :math:`10^{38}` kg m\ :sup:`2`. If
+            passing a float it assumes the units are kg m\ :sup:`2`. If
             requiring different units then an :class:`astropy.units.Quantity`
             can be used.
         querykwargs: dict
@@ -1082,6 +1082,19 @@ class UpperLimitTable(QTable):
             The ascii table format. This can either be in the form, e.g.,
             ``"ascii.rst"`` (for a reSTructuredText format) or without the
             ``"ascii."`` prefix. This defaults to ``"rst"``.
+        formats: dict
+            A dictionary of format strings for each column. A default
+            formatting style is set by the additional parameters below.
+            Any column listed here will override those defaults.
+        dp: int
+            The number of decimal places to show for column values (except
+            ``SDRAT``). The default is 2.
+        sf: int
+            The number of significant figures to show for spin-down ratio
+            values when between 0.001 and 1000. The default is 3.
+        scinot: bool
+            This defaults to ``True`` and displays exponential notation of the
+            form X.xxeYY as X.xx×10\ :sup:`YY`.
 
         Returns
         -------
@@ -1094,8 +1107,84 @@ class UpperLimitTable(QTable):
         if not format.startswith("ascii."):
             format = f"ascii.{format}"
 
+        class set_formats:
+            def __init__(self, name=None, type=None, dp=2, sf=3, scinot=True):
+                """
+                Defaults to rounding to two decimal places (or three significant
+                figures for spin-down ratios)
+                """
+                self.name = name
+                self.type = type
+                self.dp = dp
+                self.sf = sf
+                self.scinot = scinot
+
+            def __call__(self, x):
+                if isinstance(x, np.ma.core.MaskedConstant):
+                    return
+
+                def splitexponent(y):
+                    # get exponent
+                    exp = int(np.floor(np.log10(abs(y))))
+                    val = y / 10**exp
+                    return val, exp
+
+                if hasattr(x, "value"):
+                    num = deepcopy(x.value)
+                else:
+                    num = deepcopy(x)
+
+                if self.name == "PSRJ":
+                    if "-" in num and self.type == "latex":
+                        return num.replace("-", r"\textminus")
+                    else:
+                        return num
+                if self.name in ["F0ROT", "DIST"]:
+                    return f"%.{self.dp}f" % num
+                elif self.name.startswith("SDRAT") and 1e-3 < num < 1000:
+                    num = round(num, self.sf - int(np.floor(np.log10(num))) - 1)
+                    if num > 10:
+                        return f"{int(num)}"
+                    else:
+                        return f"{num}"
+                else:
+                    val, exp = splitexponent(num)
+                    val = round(val, self.dp)
+
+                    if self.scinot:
+                        if self.type == "latex":
+                            # LaTeX formating
+                            return rf"{val}\!\times\!10^{{{exp}}}"
+                        elif self.type == "html":
+                            return f"{val}×10<sup>{exp}</sup>"
+                        elif self.type == "rst":
+                            return rf"{val}×10\ :sup:`{exp}`"
+                        else:
+                            return f"{val}e{exp}"
+                    else:
+                        return f"{val}e{exp}"
+
+        # set default output formatting
+        formats = kwargs.pop("formats", {})
+        sf = kwargs.pop("sigfig", 3)
+        dp = kwargs.pop("dp", 2)
+        scinot = kwargs.pop("scinot", True)
+
+        for col in self.columns:
+            if col not in formats:
+                formats[col] = set_formats(
+                    name=col,
+                    type=format.strip("ascii."),
+                    dp=dp,
+                    sf=sf,
+                    scinot=scinot,
+                )
+
+        # use copy of table (otherwise formatter of table gets changed)
+        ct = self.copy()
+
         with StringIO() as sp:
-            self.write(sp, format=format, **kwargs)
+            ct.write(sp, format=format, formats=formats, **kwargs)
             stringtab = sp.getvalue()
 
         return stringtab
@@ -1164,13 +1253,15 @@ class UpperLimitTable(QTable):
             If plotting the ellipticity, setting this to ``True`` (which is
             the default) will add an axis on the right hand side of the plot
             showing the equivalent values in terms of mass quadrupole (for a
-            fiducial moment of inertia of 10:sup:`38` kg m:sup:`2`).
-        showtau: bool
+            fiducial moment of inertia of 10\ :sup:`38` kg m\ :sup:`2`).
+        showtau: bool, list
             If plotting the ellipticity, setting this to ``True`` will draw
             isocontours of ellipticity spin-down limits for characteristic ages
-            of 10:sup:`3`, 10:sup:`5`, 10:sup:`7`, and 10:sup:`9` years. By
-            default these assume a braking index of 5, although different
-            braking indexes can be given using the ``nbraking`` keyword.
+            of 10\ :sup:`3`, 10\ :sup:`5`, 10\ :sup:`7`, and 10\ :sup:`9`
+            years. By default these assume a braking index of 5, although
+            different braking indexes can be given using the ``nbraking``
+            keyword. If a list of numbers is given these will be used for the
+            characteristic age assuming that they are given in years.
         asds: list
             A list of paths to files containing the amplitude spectral density
             for the detectors used in producing the upper limit. These files
@@ -1414,10 +1505,12 @@ class UpperLimitTable(QTable):
             )
 
             xlims = ax[0].get_xlim()
+            ylims = ax[0].get_ylim()
 
             # use zorder=0 to put lines behind others on the plot
             ax[0].plot(freqbins, scale * hmean, zorder=0, **asdkwargs)
             ax[0].set_xlim(xlims)
+            ax[0].set_ylim(ylims)
 
         # show spin-down limits
         if kwargs.pop("showsdlim", False):
@@ -1553,7 +1646,8 @@ class UpperLimitTable(QTable):
                 axq22.grid(False)
 
             # plot lines of characteristic age
-            if kwargs.pop("showtau", False):
+            taus = kwargs.pop("showtau", False)
+            if taus:
                 from psrqpy.utils import label_line
 
                 n = kwargs.pop("nbraking", 5)  # braking index
@@ -1563,7 +1657,18 @@ class UpperLimitTable(QTable):
                 eqtau = equations("characteristicage").to("rotationfrequency")
                 eqsdtau = eqsd.substitute(eqtau.rearrange("rotationfdot"))
 
-                tchar = [1e3, 1e5, 1e7, 1e9] * u.yr  # characteristic ages
+                if isinstance(taus, list):
+                    tchar = []
+                    try:
+                        for tau in taus:
+                            tchar.append(
+                                tau.value if hasattr(tau, "value") else float(tau)
+                            )
+                    except TypeError:
+                        raise TypeError("Characteristic ages must be floats or ints")
+                else:
+                    tchar = [1e3, 1e5, 1e7, 1e9]  # characteristic ages
+                tchar *= u.yr
 
                 xlims = ax[0].get_xlim()
                 freqs = (

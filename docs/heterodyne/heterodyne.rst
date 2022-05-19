@@ -66,12 +66,12 @@ for ``cwinpy_heterodyne`` are given :ref:`below<heterodyne Command line argument
 
 If running an analysis for multiple pulsars on a large stretch of data it is recommended that you
 split the analysis up to run as many separate jobs. If you have access to a computer cluster (such
-as those available to the LVK, or via the `Open Science Grid <https://opensciencegrid.org/>`_), or
-an individual machine (see below), running the `HTCondor
-<https://htcondor.readthedocs.io/en/latest/>`_ job scheduler system then the analysis can be split
-up using the ``cwinpy_heterodyne_pipeline`` pipeline script (see :ref:`Running using HTCondor`). In
-some cases you may need to generate a proxy certificate to allow the analysis script to access frame
-files, e.g.,:
+as those `available to the LVK <https://computing.docs.ligo.org/guide/grid/>`__, or via the `Open
+Science Grid <https://opensciencegrid.org/>`_), or an individual machine (see below), running the
+`HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ job scheduler system then the analysis can
+be split up using the ``cwinpy_heterodyne_pipeline`` pipeline script (see :ref:`Running using
+HTCondor`). In some cases you may need to generate a proxy certificate to allow the analysis script
+to access proprietary frame files, e.g.,:
 
 .. code:: bash
 
@@ -80,10 +80,14 @@ files, e.g.,:
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
 data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
 <https://cvmfs.readthedocs.io/>`__. To find out more about accessing this data see the instructions
-`here <https://www.gw-openscience.org/cvmfs/>`__. If using GWOSC data sampled at 4 kHz it should be
-noted that that this has a low-pass filter applied that causes a sharp drop-off above about 1.6 kHz,
-which is below the Nyquist rate. Therefore, if analysing sources with gravitational-wave signal
-frequencies greater than about 1.6 kHz the 16 kHz sample rate data should be used.
+`here <https://computing.docs.ligo.org/guide/cvmfs/>`__. If using GWOSC data sampled at 4 kHz it
+should be noted that that this has a low-pass filter applied that causes a sharp drop-off above
+about 1.6 kHz, which is below the Nyquist rate. Therefore, if analysing sources with
+gravitational-wave signal frequencies greater than about 1.6 kHz the 16 kHz sample rate data should
+be used.
+
+In the examples below, times will be defined using `GPS seconds
+<https://gssc.esa.int/navipedia/index.php/Time_References_in_GNSS#GPS_Time_.28GPST.29>`__.
 
 .. note::
 
@@ -93,7 +97,7 @@ frequencies greater than about 1.6 kHz the 16 kHz sample rate data should be use
 Example: two simulated pulsar signals
 =====================================
 
-For the first example we will generate some simulated data containing signals from two (fake)
+For the first example, we will generate some simulated data containing signals from two (fake)
 pulsars. To make the simulation manageable in terms of the amount of data and to have a quick run
 time we will generate only one day of data at a sample rate of 16 Hz (the standard LIGO/Virgo sample
 rate is 16384 Hz).
@@ -122,7 +126,8 @@ low level of simulated noise, so that the signals can be seen prominently):
 .. literalinclude:: examples/example_mfd_1.py
    :language: python
 
-This should create the file ``H-H1_FAKEDATA-1000000000-86400.gwf`` in the gwf format.
+This should create the file ``H-H1_FAKEDATA-1000000000-86400.gwf`` in the `gwf
+<https://computing.docs.ligo.org/guide/data/#gwf>`_ format.
 
 Heterodyning the data
 ---------------------
@@ -134,9 +139,9 @@ using the Python API.
 Using the executable
 ^^^^^^^^^^^^^^^^^^^^
 
-For most inputs we will use the default values as described in the API for
-:class:`~cwinpy.heterodyne.Heterodyne`, but otherwise we can set the heterodyne parameters via a
-configuration file, in this case called ``example1_config.ini``, containing:
+For most inputs we will use the default values as described in the API for the
+:class:`~cwinpy.heterodyne.Heterodyne` class, but otherwise we can set the heterodyne parameters via
+a configuration file, in this case called ``example1_config.ini``, containing:
 
 .. literalinclude:: examples/example1_config.ini 
 
@@ -195,7 +200,7 @@ Using the Python API
 There are two ways that the same thing can be achieved within Python via the API. Both use the
 :func:`~cwinpy.heterodyne.heterodyne` function, which is just a wrapper to the
 :class:`~cwinpy.heterodyne.Heterodyne` class, but also runs the heterodyne via
-:meth:`~cwinpy.heterodyne.Heterodyne.heterodyne`.
+:meth:`cwinpy.heterodyne.Heterodyne.heterodyne`.
 
 The first option is to use a configuration file as above with:
 
@@ -227,8 +232,8 @@ The second way is to explicitly pass all the options as arguments, e.g.,
 Using Tempo2 for phase calculation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you have the `Tempo2 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package,
-and the `libstempo <https://vallis.github.io/libstempo/>`_ Python wrapper for it, installed you can
+If you have the `Tempo2 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package
+and the `libstempo <https://vallis.github.io/libstempo/>`_ Python wrapper for it installed, you can
 use it to generate the phase evolution used to heterodyne the data. This is achieved by including:
 
 .. code-block::
@@ -248,8 +253,8 @@ case and all delay corrections will be included.
    binary signal created using, e.g., ``lalapps_Makefakedata_v5``, the recovered initial phase will
    not be consistent with the expected value.
 
-Comparisons between heterodyning a described in the previous section and that using Tempo2 are shown
-below (the heterodyne using Tempo2 is shown as the black dashed lines):
+Comparisons between heterodyning as described in the previous section and that using Tempo2 are
+shown below (the heterodyne using Tempo2 is shown as the black dashed lines):
 
 .. thumbnail:: examples/example1_plot_tempo1.png
    :width: 600px
@@ -458,12 +463,6 @@ configuration file) using:
 
    condor_submit_dag /home/username/heterodyne/submit/dag_cwinpy_heterodyne.submit
 
-.. note::
-
-   When running ``condor_submit_dag`` you need to make sure you call it from the same directory that
-   you ran ``cwinpy_heterodyne_pipeline`` from and make sure the path to the DAG file is relative to the
-   current directory.
-
 This example will generate the following directory tree structure:
 
 .. code-block:: bash
@@ -475,7 +474,7 @@ This example will generate the following directory tree structure:
                    ├── H1       # directory containing the heterodyned data files for the H1 detector
                    └── L1       # directory containing the heterodyned data files for the L1 detector
 
-By default the multiple heterodyned data files for each pulsar created due to the splitting will be
+By default, the multiple heterodyned data files for each pulsar created due to the splitting will be
 merged using the ``cwinpy_heterodyne_merge`` executable (see the
 :func:`~cwinpy.heterodyne.heterodyne_merge` API). If the ``remove`` option is set in the
 configuration file then the individual unmerged files will be removed, but by default they will be
@@ -488,7 +487,7 @@ be altered using the ``label`` option.
 
 .. note::
 
-   If running on LIGO Scientific Collaboration computing clusters the ``acounting_group`` value must
+   If running on IGWN grid computing clusters the ``acounting_group`` value must
    be specified and provide a valid tag. Valid tag names can be found `here
    <https://accounting.ligo.org/user>`__ unless custom values for a specific cluster are allowed.
 
@@ -581,7 +580,7 @@ pulsar `J0737-3039A <https://en.wikipedia.org/wiki/PSR_J0737%E2%88%923039>`_ you
 
    cwinpy_heterodyne_pipeline --run O2 --pulsar J0737-3039A --output /home/usr/heterodyneddata
 
-Internally the ephemeris information is obtained using the :class:`~psrqpy.search.QueryATNF` class
+Internally, the ephemeris information is obtained using the :class:`~psrqpy.search.QueryATNF` class
 from `psrqpy <https://psrqpy.readthedocs.io/en/latest/>`_.
 
 CWInPy also contains information on the continuous :ref:`hardware injections<Hardware Injections>`
