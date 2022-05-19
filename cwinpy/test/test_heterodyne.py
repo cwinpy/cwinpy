@@ -395,10 +395,14 @@ transientTau = {tau}
         Test for valid start and end times.
         """
 
-        starttime = "blah"
-        endtime = "blah"
+        starttime = True
+        endtime = False
 
         with pytest.raises(TypeError):
+            Heterodyne(starttime, endtime)
+
+        starttime = "blah"
+        with pytest.raises(ValueError):
             Heterodyne(starttime, endtime)
 
         starttime = 100000000.0
@@ -406,6 +410,10 @@ transientTau = {tau}
             Heterodyne(starttime, endtime)
 
         endtime = 100
+        with pytest.raises(ValueError):
+            Heterodyne(starttime, endtime)
+
+        endtime = "blah"
         with pytest.raises(ValueError):
             Heterodyne(starttime, endtime)
 
@@ -428,6 +436,13 @@ transientTau = {tau}
         # try setter
         het.endtime = 1000000002.1
         assert het.endtime == int(1000000002.1)
+
+        # try ISO format time
+        het.endtime = "2017-08-02 01:02:03"
+        het.starttime = "2017-08-01 12:34:56"
+
+        assert het.starttime == 1185626114
+        assert het.endtime == 1185670941
 
         # test the stride (default value)
         assert het.stride == 3600

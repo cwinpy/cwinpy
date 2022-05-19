@@ -15,6 +15,7 @@ from argparse import ArgumentParser
 import cwinpy
 import numpy as np
 from astropy.coordinates import SkyCoord
+from astropy.time import Time
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
 
@@ -100,14 +101,18 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
     dataparser.add(
         "--starttime",
         required=True,
-        type=int,
-        help=("The start time of the data to be heterodyned in GPS seconds."),
+        help=(
+            "The start time of the data to be heterodyned in GPS seconds or "
+            "as an ISO format date string."
+        ),
     )
     dataparser.add(
         "--endtime",
         required=True,
-        type=int,
-        help=("The end time of the data to be heterodyned in GPS seconds."),
+        help=(
+            "The end time of the data to be heterodyned in GPS seconds or as "
+            "an ISO format date string."
+        ),
     )
     dataparser.add(
         "--stride",
@@ -781,11 +786,11 @@ class HeterodyneDAGRunner(object):
             if sorted(detectors) != sorted(fullstarttimes.keys()):
                 raise ValueError("Start times must be specified for all detectors")
             for key, value in fullstarttimes.copy().items():
-                if isinstance(value, int):
+                if isinstance(value, (int, float, str)):
                     fullstarttimes[key] = [value]  # convert values to lists
                 elif not isinstance(value, list):
                     raise TypeError("Must have a list of start times for a detector")
-        elif isinstance(fullstarttimes, int):
+        elif isinstance(fullstarttimes, (int, float, str)):
             fullstarttimes = {
                 det: [fullstarttimes] for det in detectors
             }  # convert to dict
@@ -797,14 +802,36 @@ class HeterodyneDAGRunner(object):
             if sorted(detectors) != sorted(fullendtimes.keys()):
                 raise ValueError("End times must be specified for all detectors")
             for key, value in fullendtimes.copy().items():
-                if isinstance(value, int):
+                if isinstance(value, (int, float, str)):
                     fullendtimes[key] = [value]  # convert values to lists
                 elif not isinstance(value, list):
                     raise TypeError("Must have a list of end times for a detector")
-        elif isinstance(fullendtimes, int):
+        elif isinstance(fullendtimes, (int, float, str)):
             fullendtimes = {det: [fullendtimes] for det in detectors}  # convert to dict
         else:
             raise ValueError("End times must be given")
+
+        # check if any start/end times are strings that can be converted to GPS
+        for timedict in [fullstarttimes, fullendtimes]:
+            for key in list(timedict.keys()):
+                for i in range(len(timedict[key])):
+                    if isinstance(timedict[key][i], (int, float)):
+                        timedict[key][i] = int(timedict[key][i])
+                    else:
+                        try:
+                            strtime = int(timedict[key][i])
+                        except ValueError:
+                            try:
+                                strtime = int(Time(timedict[key][i], scale="utc").gps)
+                            except ValueError:
+                                raise ValueError(
+                                    f"Time {timedict[key][i]} cannot be converted to GPS time"
+                                )
+
+                        # get GPS seconds
+                        timedict[key][i] = strtime
+
+        print(fullstarttimes, fullendtimes)
 
         for det in detectors:
             if len(fullendtimes[det]) != len(fullstarttimes[det]):

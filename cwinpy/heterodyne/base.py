@@ -46,10 +46,12 @@ class Heterodyne(object):
 
     Parameters
     ----------
-    starttime: int, float
-        The integer start time of the data to be heterodyned in GPS seconds.
-    endtime: int, float
-        The integer end time of the data to be heterodyned in GPS seconds.
+    starttime: int, float, str
+        The integer start time of the data to be heterodyned in GPS seconds or
+        an ISO format data string.
+    endtime: int, float, str
+        The integer end time of the data to be heterodyned in GPS seconds or an
+        ISO format date string.
     stride: int
         The number of seconds to stride through the data, i.e., loop through
         the data reading in ``stride`` seconds each time. Defaults to 3600.
@@ -359,7 +361,19 @@ class Heterodyne(object):
     @starttime.setter
     def starttime(self, gpsstart):
         if gpsstart is not None:
-            if not isinstance(gpsstart, (int, float)):
+            if isinstance(gpsstart, str):
+                try:
+                    strtime = int(gpsstart)
+                except ValueError:
+                    try:
+                        strtime = Time(gpsstart, scale="utc").gps
+                    except ValueError:
+                        raise ValueError(
+                            f"Could not convert start time {gpsstart} to GPS time"
+                        )
+
+                gpsstart = strtime
+            elif not (type(gpsstart) is int or type(gpsstart) is float):
                 raise TypeError("GPS start time must be a number")
 
             if self.endtime is not None:
@@ -384,7 +398,19 @@ class Heterodyne(object):
     @endtime.setter
     def endtime(self, gpsend):
         if gpsend is not None:
-            if not isinstance(gpsend, (int, float)):
+            if isinstance(gpsend, str):
+                try:
+                    strtime = int(gpsend)
+                except ValueError:
+                    try:
+                        strtime = Time(gpsend, scale="utc").gps
+                    except ValueError:
+                        raise ValueError(
+                            f"Could not convert end time {gpsend} to GPS time"
+                        )
+
+                gpsend = strtime
+            elif not (type(gpsend) is int or type(gpsend) is float):
                 raise TypeError("GPS end time must be a number")
 
             if self.starttime is not None:
