@@ -139,7 +139,8 @@ A selection of example configuration files for using with ``cwinpy_knope_pipelin
 These examples are generally fairly minimal and make use of many default settings. If basing your
 own configuration files on these, the various input and output directory paths should be changed.
 These all assume a user ``matthew.pitkin`` running on the `ARCCA Hawk Computing Centre
-<https://computing.docs.ligo.org/guide/computing-centres/hawk/>`__.
+<https://computing.docs.ligo.org/guide/computing-centres/hawk/>`__ or the `LDAS@Caltech
+<https://computing.docs.ligo.org/guide/computing-centres/cit/>`__ cluster.
 
 .. note::
 
@@ -504,6 +505,65 @@ will contain these ephemerides.
    If running on open GWOSC data, the O3a and O3b periods need to be treated as separate runs as in
    the :ref:`above example<O1 & O2 LIGO/Virgo (open) data, multiple pulsars>`. This is automatically
    dealt with if setting up a ``cwinpy_knope_pipeline`` run using the :ref:`"Quick setup"<Quick setup>`.
+
+Once complete, this example should have generated the heterodyned data files for H1, L1 and V1
+(within the ``/home/matthew.pitkin/projects/cwinpyO3/heterodyne`` directory) for the signals at both
+once and twice the pulsar rotation frequency.
+
+We could look at the heterodyned data at the rotation frequency for the pulsar J0437-4715 using:
+
+.. code-block:: python
+
+   from cwinpy import MultiHeterodynedData
+
+   het = MultiHeterodynedData(
+      {
+          "H1": "H1/heterodyne_J0437-4715_H1_1_1238166018-1269363618.hdf5",
+          "L1": "L1/heterodyne_J0437-4715_L1_1_1238166018-1269363615.hdf5",
+          "V1": "V1/heterodyne_J0437-4715_V1_1_1238166018-1269363618.hdf5",
+      }
+   )
+
+   fig = het.plot(together=True, remove_outliers=True, markersize=2)
+   fig.show()
+
+.. thumbnail:: examples/knope_example3_bks.png
+   :width: 600px
+   :align: center
+
+The results of the parameter estimation stage would be found in the
+``/home/matthew.pitkin/projects/cwinpyO3/results`` directory. Posteriors parameter distributions for
+all the parameters for J0437-4715, for each detector and the joint detector analysis, could be plotted
+using:
+
+.. code-block:: python
+
+   from cwinpy.plot import Plot
+
+   plot = Plot(
+       {
+           "Joint": "J0437-4715/cwinpy_pe_H1L1V1_J0437-4715_result.hdf5",
+           "H1": "J0437-4715/cwinpy_pe_H1_J0437-4715_result.hdf5",
+           "L1": "J0437-4715/cwinpy_pe_L1_J0437-4715_result.hdf5",
+           "V1": "J0437-4715/cwinpy_pe_V1_J0437-4715_result.hdf5",
+       },
+       parameters=[
+           "c21",
+           "c22",
+           "phi21",
+           "phi22",
+           "iota",
+           "psi",
+       ]
+   )
+
+   plot.plot()
+   plot.fig.show()
+
+.. thumbnail:: examples/knope_example3_.png
+   :width: 600px
+   :align: center
+
 
 .. _knope Command line arguments:
 
