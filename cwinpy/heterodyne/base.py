@@ -363,13 +363,16 @@ class Heterodyne(object):
         if gpsstart is not None:
             if isinstance(gpsstart, str):
                 try:
-                    isotime = Time(gpsstart, scale="utc")
+                    strtime = int(gpsstart)
                 except ValueError:
-                    raise ValueError(
-                        f"Could not convert start time {gpsstart} to GPS time"
-                    )
+                    try:
+                        strtime = Time(gpsstart, scale="utc").gps
+                    except ValueError:
+                        raise ValueError(
+                            f"Could not convert start time {gpsstart} to GPS time"
+                        )
 
-                gpsstart = isotime.gps
+                gpsstart = strtime
             elif not (type(gpsstart) is int or type(gpsstart) is float):
                 raise TypeError("GPS start time must be a number")
 
@@ -397,11 +400,16 @@ class Heterodyne(object):
         if gpsend is not None:
             if isinstance(gpsend, str):
                 try:
-                    isotime = Time(gpsend, scale="utc")
+                    strtime = int(gpsend)
                 except ValueError:
-                    raise ValueError(f"Could not convert end time {gpsend} to GPS time")
+                    try:
+                        strtime = Time(gpsend, scale="utc").gps
+                    except ValueError:
+                        raise ValueError(
+                            f"Could not convert end time {gpsend} to GPS time"
+                        )
 
-                gpsend = isotime.gps
+                gpsend = strtime
             elif not (type(gpsend) is int or type(gpsend) is float):
                 raise TypeError("GPS end time must be a number")
 
