@@ -43,7 +43,7 @@ is downsampled to 1/60 Hz (one sample per minute).
 CWInPy can be used to perform this heterodyning, taking files containing raw gravitational-wave
 strain and returning the complex, filtered, down-sampled time series in a form that can be read in
 as a :class:`~cwinpy.data.HeterodynedData` object. To generate the phase evolution used for the
-heterodyne CWInPy can either use functions within `LALSuite
+heterodyne, CWInPy can either use functions within `LALSuite
 <https://lscsoft.docs.ligo.org/lalsuite/>`_ (the default) or, if installed, use the `Tempo2
 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package  (via the `libstempo
 <https://vallis.github.io/libstempo/>`_ wrapper package).
@@ -67,7 +67,7 @@ for ``cwinpy_heterodyne`` are given :ref:`below<heterodyne Command line argument
 If running an analysis for multiple pulsars on a large stretch of data it is recommended that you
 split the analysis up to run as many separate jobs. If you have access to a computer cluster (such
 as those `available to the LVK <https://computing.docs.ligo.org/guide/grid/>`__, or via the `Open
-Science Grid <https://opensciencegrid.org/>`_), or an individual machine (see below), running the
+Science Grid <https://opensciencegrid.org/>`__), or an individual machine (see below), running the
 `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ job scheduler system then the analysis can
 be split up using the ``cwinpy_heterodyne_pipeline`` pipeline script (see :ref:`Running using
 HTCondor`). In some cases you may need to generate a proxy certificate to allow the analysis script
@@ -483,7 +483,7 @@ kept (although not for the :ref:`Quick setup`).
 The default naming format of the output heterodyned data files in their respective detector
 directories will be:
 ``heterodyne_{pulsarname}_{detector}_{frequencyfactor}_{gpsstart}-{gpsend}.hdf5`` although this can
-be altered using the ``label`` option.
+be altered using the ``label`` option (it is recommended to stick to the default for consistency).
 
 .. note::
 
@@ -517,7 +517,7 @@ Doppler/relativistic effects, and the second stage subsequently including these 
 recommended to perform the heterodyne in a single stage, it may sometimes be useful to have
 intermediate products.
 
-To create a DAG for this "two stage" approach the following option needs to be set in the
+To create a DAG for this "two stage" approach, the following option needs to be set in the
 ``[heterodyne]`` section of the configuration file:
 
 .. code-block::
@@ -608,7 +608,7 @@ Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid
 
    The frame data used by the quick setup defaults to that with a 4096 Hz sample rate. However, if
    analysing sources with frequencies above about 1.6 kHz this should be switched, using the
-   ``--samplerate`` flag to using the 16 kHz sampled data. By default, if analysing hardware
+   ``--samplerate`` flag, to using the 16 kHz sampled data. By default, if analysing hardware
    injections for any of the advanced detector runs the 16 kHz data will be used due to frequency of
    the fastest pulsar being above 1.6 kHz.
 

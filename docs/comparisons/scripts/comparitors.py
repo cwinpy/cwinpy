@@ -117,7 +117,7 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
     everr = np.sqrt(info / nlive)  # the uncertainty on the evidence
 
     # read in cwinpy results
-    result = read_in_result(outdir=outdir, label=label)
+    result = read_in_result(outdir=outdir, label=label, extension="hdf5")
 
     # comparison file
     comparefile = os.path.join(outdir, "{}_compare.txt".format(label))
@@ -273,7 +273,7 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
     everr = np.sqrt(info / nlive)  # the uncertainty on the evidence
 
     # read in cwinpy results
-    result = read_in_result(outdir=outdir, label=label)
+    result = read_in_result(outdir=outdir, label=label, extension="hdf5")
 
     # comparison file
     comparefile = os.path.join(outdir, "{}_compare.txt".format(label))

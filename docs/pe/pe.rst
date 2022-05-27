@@ -44,10 +44,10 @@ simulated signal (see the description :ref:`here<Heterodyned Data>`), and low-pa
 down-sampled to a rate of one sample per minute. This data file (in a gzipped format) can be
 downloaded here: :download:`fine-H1-PULSAR08.txt.gz <data/fine-H1-PULSAR08.txt.gz>`.
 
-A TEMPO(2)-style [2]_ pulsar parameter (``.par``) file for this simulated signal is reproduced below
+A Tempo(2)-style [2]_ pulsar parameter (``.par``) file for this simulated signal is reproduced below
 and can be downloaded :download:`here <data/PULSAR08.par>`, where it should be noted that the ``F0``
 and ``F1`` parameters in that file are the expected **rotation** frequency and frequency derivative
-of the putative pulsar, so they are **half** that of the simulated gravitational-wave signal in the
+of the putative pulsar, so they are **half** those of the simulated gravitational-wave signal in the
 data.
 
 .. literalinclude:: data/PULSAR08.par
@@ -62,22 +62,22 @@ be downloaded :download:`here <data/example1_prior.txt>`:
 
 .. literalinclude:: data/example1_prior.txt
 
-Here we have set the prior on :math:`h_0` to be uniform between 0 and 10\ :sup:`-22`, where in
-this case the maximum has been chosen to be large compared to the expected signal strength. The
+Here we have set the prior on :math:`h_0` to be uniform between 0 and 10\ :sup:`-22`, where in this
+case the maximum has been chosen to be large compared to the expected signal strength. The
 combination of the :math:`\iota` and :math:`\psi` parameters has been chosen to be uniform over a
 sphere, which means using a uniform prior over :math:`\psi` between 0 and :math:`\pi/2` (there is a
 degeneracy meaning this doesn't have to cover the full range between 0 and :math:`2\pi` [1]_ [3]_),
 and a sine distribution prior on :math:`\iota` (equivalently one could use a uniform prior on a
-:math:`\cos{\iota}` parameter between -1 and 1.) The :math:`\phi_0` parameter is the rotational
-phase, so only needs to span 0 to :math:`\pi` to cover the full phase of the equivalent
-gravitational-wave phase parameter in the case where the source is emitting at twice the rotational
-frequency.
+:math:`\cos{\iota}` parameter between -1 and 1). The :math:`\phi_0` parameter is the initial
+rotational phase at a given epoch, so only needs to span 0 to :math:`\pi` to cover the full phase of
+the equivalent gravitational-wave phase parameter in the case where the source is emitting at twice
+the rotational frequency.
 
 With the data at hand, and the priors defined, the analysis can now be run. It is recommended to run
 by setting up a configuration file, although as mentioned equivalent command line arguments can be
 passed to ``cwinpy_pe`` (or a combination of a configuration file and command line arguments may
 be useful if defining some fixed setting for many analyses in the file, but making minor changes for
-individual cases on the command line.) A configuration file for this example is shown below, with
+individual cases on the command line). A configuration file for this example is shown below, with
 comments describing the parameters given inline:
 
 .. literalinclude:: data/example1_config.ini
@@ -230,7 +230,7 @@ source. This makes use of `PyCondor <https://jrbourbeau.github.io/pycondor/insta
 which is installed as one of the requirements for CWInPy.
 
 To set up a DAG to analyse real data for multiple pulsars you need to have certain datasets and
-files organised in a particular way. You must have a set of TEMPO(2)-style pulsar parameter files,
+files organised in a particular way. You must have a set of Tempo(2)-style pulsar parameter files,
 with only one for each pulsar you wish to analyse, which each contain a ``PSRJ`` value giving the
 pulsar's name, e.g.,
 

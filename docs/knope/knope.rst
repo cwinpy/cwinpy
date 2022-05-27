@@ -560,7 +560,7 @@ using:
    plot.plot()
    plot.fig.show()
 
-.. thumbnail:: examples/knope_example3_.png
+.. thumbnail:: examples/knope_example3_pe.png
    :width: 600px
    :align: center
 

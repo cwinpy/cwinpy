@@ -2,22 +2,22 @@
 Simulating a signal
 ###################
 
-This module provides the :class:`~cwinpy.signal.HeterodynedCWSimulator` class for simulating a
+Here we describe the :class:`~cwinpy.signal.HeterodynedCWSimulator` class for simulating a
 signal from a continuous wave source after application of a heterodyne as described in Equations 7
 and 8 of [1]_.
 
 When generating the signal using the :meth:`~cwinpy.signal.HeterodynedCWSimulator.model` method, the
 default is to assume that the phase evolution used in the heterodyne exactly matches the signal's
 phase evolution and that emission is from the :math:`l=m=2` quadrupole mode (a triaxial source
-emitted at twice the rotation frequency), i.e., the :math:`\Delta\phi` term in Equations 8 of [1]_
+emitting at twice the rotation frequency), i.e., the :math:`\Delta\phi` term in Equations 8 of [1]_
 is zero. If the file/object that provides the signal parameters contains parameters for
 non-tensorial polarisation modes (i.e., if assuming emission is not purely as given by general
 relativity; see Table 6 of [1]_ for the names of the required parameters) then those polarisations
-will be included in the signal (e.g., Equation 11 of [1]_), otherwise general relativty will be
+will be included in the signal (e.g., Equation 11 of [1]_), otherwise general relativity will be
 assumed and only the "+" and "×" polarisations included.
 
 The :meth:`~cwinpy.signal.HeterodynedCWSimulator.model` method can also generate model amplitude
-coefficents for use in a "pre-summed" likelihood function, as described in Appendix C and Equations
+coefficients for use in a "pre-summed" likelihood function, as described in Appendix C and Equations
 C8 and C12 of [1]_, by passing the ``outputampcoeffs`` argument as ``True``. For a GR signal this
 means two complex amplitude values get returned, while for non-GR signals six complex amplitudes are
 returned.
@@ -25,7 +25,7 @@ returned.
 The signal model at the rotation frequency, i.e., from the :math:`l=2,m=1` mode, can be set by
 passing ``freqfactor=1.0`` as an argument to :meth:`~cwinpy.signal.HeterodynedCWSimulator.model`.
 This requires that the file/object containing the source parameters has the :math:`C_{21}` and
-:math:`Phi_{21}` defined as given in Equation 7 of [1]_.
+:math:`Phi_{21}` parameters defined as given in Equation 7 of [1]_.
 
 Phase offset signal
 ===================

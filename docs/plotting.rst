@@ -17,15 +17,15 @@ posterior results from multiple different detectors/samplers. A selection of exa
 shown below, which are selected in :class:`~cwinpy.plot.Plot` class using the ``plottype``
 argument:
 
-* "hist": produce a histogram of posterior samples for a single parameters (the ``kde`` option can
+* "hist": produce a histogram of posterior samples for a single parameter (the ``kde`` option can
   be used to also overplot a kernel density estimate of the posterior);
 * "kde": produce a kernel density estimate using posterior samples for a single parameter;
-* "corner": produce what is known as a corner, or triangle, plot of posterior distributons for two or
-  more parameters in this case produced with the
+* "corner": produce what is known as a corner, or triangle, plot of posterior distributions for two
+  or more parameters in this case produced with the
   `corner.py <https://corner.readthedocs.io/en/latest/>`_ [2]_ package;
-* "triangle": a different style of triangle plot (as produce by the
+* "triangle": a different style of triangle plot (as produced by the
   `PESummary <https://docs.ligo.org/lscsoft/pesummary/>`_ package [1]_) that can only be used for
-  a pair of parameters;
+  pairs of parameters;
 * "reverse_triangle": another style of triangle plot (as produce by the
   `PESummary <https://docs.ligo.org/lscsoft/pesummary/>`_ package [1]_) that has the 1D
   distributions to the left/below rather than to the right/above the 2D distribution plot;
@@ -63,7 +63,7 @@ Example: over-plotting multiple 1D posteriors
 ---------------------------------------------
 
 If we have multiple posterior results (e.g., from different detectors or from runs using different
-samplers) that we want to compare these can be overplotted on the same figure. To do this we can
+samplers) that we want to compare, these can be overplotted on the same figure. To do this we can
 pass a dictionary pointing to the various results. In this case we will overplot the
 :math:`\cos{\iota}` posterior results of running on a simulated pulsar signal using CWInPy to
 produce both posterior samples and an evaluation of the posterior on a grid, and using the

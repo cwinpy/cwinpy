@@ -2,8 +2,8 @@
 Data handling
 #############
 
-Classes to deal with data products from searches for continuous sources of gravitational waves that
-can be used for inference.
+Here we document classes to deal with data products from searches for continuous sources of
+gravitational waves that can subsequently be used for inference.
 
 Heterodyned Data
 ================
@@ -25,7 +25,7 @@ derivative (higher order derivatives can also be used), :math:`t'` is the time i
 with respect to the pulsar (the pulsar proper time, which for isolated pulsars is assumed to be
 consistent with the solar system barycentre), :math:`T_0` is the time reference epoch in the pulsar
 proper time, and :math:`C` is an emission mechanism-dependent scaling factor (often set to 2, for
-emission from the :math:`l=m=2` quadrupole mode.) In searches for known pulsars, the frequency, its
+emission from the :math:`l=m=2` quadrupole mode). In searches for known pulsars, the frequency, its
 derivatives, and the source position are assumed to be known from the observed properties of the
 pulsar.
 
@@ -41,7 +41,7 @@ delays between the time at the detector and the pulsar proper time (see, e.g., E
 The resulting complex series :math:`h'(t)` is low-pass filtered (effectively a band-pass filter on
 the two-sided complex data) using a high order Butterworth filter, often with a knee frequency of
 0.25 Hz, and down-sampled, via averaging, to a far lower sample rate than the original raw data. In
-general gravitational-wave detector data is sampled at 16384 Hz, and often the heterodyned data is
+general, gravitational-wave detector data is sampled at 16384 Hz, and often the heterodyned data is
 downsampled to 1/60 Hz (one sample per minute).
 
 Reading and writing
@@ -61,8 +61,8 @@ ASCII
 The :class:`~cwinpy.data.HeterodynedData` class will automatically detect an ASCII file provided it
 has the file extension ``.txt`` or, if it is gzipped, ``.txt.gz``. Any comments in the file taken
 from lines starting with a ``#`` or ``%`` will be stored in the object. The format of data required
-in an ASCII text file is shown for with the :class:`~cwinpy.data.HeterodynedData` API below. Given a
-text file called ``data.txt``, it could either be read in as:
+in an ASCII text file is shown within the :class:`~cwinpy.data.HeterodynedData` API documentation
+below. Given a text file called ``data.txt``, it could either be read in as:
 
 .. code-block:: python
 
@@ -138,7 +138,7 @@ Python `h5py <https://www.h5py.org/>`_ package using:
     >>> metadata = dict(dataset.attrs)
     >>> hfile.close()
 
-If the file you are writing to already exists the, by default it will not be overwritten and an
+If the file you are writing to already exists then by default it will not be overwritten and an
 exception will be raised. To overwrite a file use:
 
 .. code-block:: python
@@ -156,8 +156,8 @@ combine them into one :class:`~cwinpy.data.HeterodynedData` object. The
 :meth:`~cwinpy.data.HeterodynedData.read` method can in fact be passed a list of heterodyned data
 files, and provided that they are compatible (i.e., they are for the same detector, the same pulsar,
 and the same frequency scale factor) they will be merged into one using the
-:meth:`~cwinpy.data.HeterodynedData.merge` method. By default the resulting object will be sorted in
-ascending time order even if the input files were not sorted in time order. If you had two files
+:meth:`~cwinpy.data.HeterodynedData.merge` method. By default, the resulting object will be sorted
+in ascending time order even if the input files were not sorted in time order. If you had two files
 ``data1.hdf5`` and ``data2.hdf5`` they could be read in and merged with:
 
 .. code-block:: python

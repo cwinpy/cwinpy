@@ -168,4 +168,4 @@ from the repository's base directory after the code has been installed.
 
    .. code-block:: console
 
-      $ conda install -c conda-forge libstempo 
+      $ conda install -c conda-forge libstempo

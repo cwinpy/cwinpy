@@ -105,7 +105,7 @@ execpath = os.path.join(execpath, "bin")
 lppen = os.path.join(execpath, "lalapps_pulsar_parameter_estimation_nested")
 n2p = os.path.join(execpath, "lalinference_nest2pos")
 
-Nlive = 1024  # number of nested sampling live points
+Nlive = 1000  # number of nested sampling live points
 Nmcmcinitial = 0  # set to 0 so that prior samples are not resampled
 
 outfile = os.path.join(outdir, "{}_nest.hdf".format(label))
@@ -188,8 +188,6 @@ runner = pe(
     par_file=parfile,
     prior=priors,
     detector=detector,
-    sampler="dynesty",
-    sampler_kwargs={"Nlive": Nlive, "walks": 40},
     outdir=outdir,
     label=label,
 )
