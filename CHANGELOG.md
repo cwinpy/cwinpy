@@ -1,5 +1,21 @@
 # Notable changes between versions
 
+## [0.8.0] 2022-05-27
+
+The release has major changes, including some that are backwards incompatible. The major changes are:
+
+- Allow pipelines to be given ISO format start and end dates as well as GPS times (!106)
+- Greatly speed-up the running median calculation for `HeterodynedData` (!93)
+- Greatly speed-up the Bayesian Blocks calculation for `HeterodynedData` (!94)
+- Fix bugs that now allow non-GR parameters to be estimated (!99, !100)
+- Correctly deal with input frame data that is 32-bit floats when heterodyning (!98)
+- Add pipeline to perform sky-shifting analysis (!72)
+- Set the default dynesty sampler method to be `rslice` (!91)
+- Fixes to allow running pipelines on the OSG (!70, !101)
+- Switch from using pycondor to HTCondor Python package (!89)
+- Remove dependencies on bilby_pipe package (!90)
+- (**Backwards incompatible**) Change `_dag` suffix on pipeline scripts to `_pipeline` (!71)
+
 ## [0.7.2] 2021-10-29
 
 Changes for this release:
