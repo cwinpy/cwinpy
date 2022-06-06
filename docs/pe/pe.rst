@@ -14,16 +14,17 @@ emulate, as much as possible, the functionality from the `LALSuite
 described in [1]_.
 
 There is also an API for running this analysis from within a Python shell or script as described
-:ref:`below<API>`.
+:ref:`below<Parameter estimation API>`.
 
 Running the analysis
 --------------------
 
-The ``cwinpy_pe`` executable, and :ref:`API`, can be used to perform parameter estimation over a
-variety of signal parameter both on real data or simulated data. We will cover some examples of both
-cases and show equivalent ways of running the analysis via the use of: command line arguments to the
-``cwinpy_pe`` executable, a configuration file, or the :ref:`API`. The current command line
-arguments for ``cwinpy_pe`` are given :ref:`below<Command line arguments>`.
+The ``cwinpy_pe`` executable, and :ref:`API<Parameter estimation API>`, can be used to perform
+parameter estimation over a variety of signal parameter both on real data or simulated data. We will
+cover some examples of both cases and show equivalent ways of running the analysis via the use of:
+command line arguments to the ``cwinpy_pe`` executable, a configuration file, or the
+:ref:`API<Parameter estimation API>`. The current command line arguments for ``cwinpy_pe`` are given
+:ref:`below<pe Command line arguments>`.
 
 Example: single detector data
 =============================
@@ -43,10 +44,10 @@ simulated signal (see the description :ref:`here<Heterodyned Data>`), and low-pa
 down-sampled to a rate of one sample per minute. This data file (in a gzipped format) can be
 downloaded here: :download:`fine-H1-PULSAR08.txt.gz <data/fine-H1-PULSAR08.txt.gz>`.
 
-A TEMPO(2)-style [2]_ pulsar parameter (``.par``) file for this simulated signal is reproduced below
+A Tempo(2)-style [2]_ pulsar parameter (``.par``) file for this simulated signal is reproduced below
 and can be downloaded :download:`here <data/PULSAR08.par>`, where it should be noted that the ``F0``
 and ``F1`` parameters in that file are the expected **rotation** frequency and frequency derivative
-of the putative pulsar, so they are **half** that of the simulated gravitational-wave signal in the
+of the putative pulsar, so they are **half** those of the simulated gravitational-wave signal in the
 data.
 
 .. literalinclude:: data/PULSAR08.par
@@ -61,22 +62,22 @@ be downloaded :download:`here <data/example1_prior.txt>`:
 
 .. literalinclude:: data/example1_prior.txt
 
-Here we have set the prior on :math:`h_0` to be uniform between 0 and 10\ :sup:`-22`, where in
-this case the maximum has been chosen to be large compared to the expected signal strength. The
+Here we have set the prior on :math:`h_0` to be uniform between 0 and 10\ :sup:`-22`, where in this
+case the maximum has been chosen to be large compared to the expected signal strength. The
 combination of the :math:`\iota` and :math:`\psi` parameters has been chosen to be uniform over a
 sphere, which means using a uniform prior over :math:`\psi` between 0 and :math:`\pi/2` (there is a
 degeneracy meaning this doesn't have to cover the full range between 0 and :math:`2\pi` [1]_ [3]_),
 and a sine distribution prior on :math:`\iota` (equivalently one could use a uniform prior on a
-:math:`\cos{\iota}` parameter between -1 and 1.) The :math:`\phi_0` parameter is the rotational
-phase, so only needs to span 0 to :math:`\pi` to cover the full phase of the equivalent
-gravitational-wave phase parameter in the case where the source is emitting at twice the rotational
-frequency.
+:math:`\cos{\iota}` parameter between -1 and 1). The :math:`\phi_0` parameter is the initial
+rotational phase at a given epoch, so only needs to span 0 to :math:`\pi` to cover the full phase of
+the equivalent gravitational-wave phase parameter in the case where the source is emitting at twice
+the rotational frequency.
 
 With the data at hand, and the priors defined, the analysis can now be run. It is recommended to run
 by setting up a configuration file, although as mentioned equivalent command line arguments can be
 passed to ``cwinpy_pe`` (or a combination of a configuration file and command line arguments may
 be useful if defining some fixed setting for many analyses in the file, but making minor changes for
-individual cases on the command line.) A configuration file for this example is shown below, with
+individual cases on the command line). A configuration file for this example is shown below, with
 comments describing the parameters given inline:
 
 .. literalinclude:: data/example1_config.ini
@@ -84,16 +85,10 @@ comments describing the parameters given inline:
 .. note::
 
    When using the `dynesty <https://dynesty.readthedocs.io/en/latest/>`_ sampler (as wrapped through
-   `bilby <https://lscsoft.docs.ligo.org/bilby/>`_) it will default to use the ``rwalk`` sampling
-   method. In this example, in the ``sampler-kwargs`` argument the ``'sample'`` method value is
-   instead set to ``'rslice'`` as this is found to be quicker than ``rwalk`` when the other
-   arguemnts are left at their default values. If using ``rwalk`` it is worthwhile exploring
-   different values of the ``walks`` argument to find the most efficient settings. Further
-   information on dynesty settings can be found
-   `here <https://dynesty.readthedocs.io/en/latest/faq.html#sampling-questions>`_.
-
-   Note also that the ``unif`` sampling method of dynesty will often fail due to samples being drawn
-   from outside the prior range.
+   `bilby <https://lscsoft.docs.ligo.org/bilby/>`_) it will default to use the ``rslice`` sampling
+   method. This has been found to work well and be the quickest option for normal running. A
+   discussion of the different sampling options in dynesty can be found
+   `here <https://dynesty.readthedocs.io/en/latest/quickstart.html#sampling-options>`__.
 
 The analysis can then be run using:
 
@@ -107,7 +102,7 @@ This will create a directory called ``example1`` containing: the results as a bi
 object saved, by default, in an `HDF5
 <https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5>`_
 format file called ``example1_result.hdf5`` (see `here
-<https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on reading
+<https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`__ for information on reading
 this information within Python); and (due to the setting of ``'plot': True`` in the
 ``sampler_kwargs`` dictionary), a "`corner <https://corner.readthedocs.io/en/latest/>`_ plot" in the
 file ``example1_corner.png`` showing 1D and 2D marginalised posterior probability distributions for
@@ -161,7 +156,7 @@ look at the hardware injection signal named `PULSAR8
 parameter file as given above.
 
 The data we will use in this example is a short segment (between GPS times of 1132444817 and
-1136419217) from both the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to
+1)          from both the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to
 "H1") and the `LIGO Livingston <https://www.ligo.caltech.edu/LA>`_ detector (abbreviated to "L1").
 Both sets of data have been heterodyned using the known phase evolution of the simulated signal (see
 the description :ref:`here<Heterodyned Data>`), and low-pass filtered and down-sampled to a rate of
@@ -185,7 +180,7 @@ This will create a directory called ``example2`` containing: the results as a bi
 object saved, by default, in an `HDF5
 <https://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5>`_ format file called
 ``example2_result.hdf5`` (see `here
-<https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`_ for information on reading
+<https://lscsoft.docs.ligo.org/bilby/bilby-output.html#the-result-file>`__ for information on reading
 this information within Python); and (due to the setting of ``'plot': True`` in the
 ``sampler_kwargs`` dictionary), a "`corner <https://corner.readthedocs.io/en/latest/>`_ plot" in the
 file ``example2_corner.png`` showing 1D and 2D marginalised posterior probability distributions for
@@ -228,14 +223,14 @@ Running on multiple sources
 
 You may have multiple real sources for which you want to perform parameter estimation, or you may
 want to simulate data from many sources. If you have a multicore machine or access to a computer
-cluster with `HTCondor <https://research.cs.wisc.edu/htcondor/>`_ installed you can use CWInPy to
+cluster with `HTCondor <https://htcondor.readthedocs.io>`__ installed you can use CWInPy to
 create a set of analysis jobs, in the form of an HTCondor `DAG
 <https://htcondor.readthedocs.io/en/v8_8_4/users-manual/dagman-applications.html>`_, for each
 source. This makes use of `PyCondor <https://jrbourbeau.github.io/pycondor/installation.html>`_,
 which is installed as one of the requirements for CWInPy.
 
 To set up a DAG to analyse real data for multiple pulsars you need to have certain datasets and
-files organised in a particular way. You must have a set of TEMPO(2)-style pulsar parameter files,
+files organised in a particular way. You must have a set of Tempo(2)-style pulsar parameter files,
 with only one for each pulsar you wish to analyse, which each contain a ``PSRJ`` value giving the
 pulsar's name, e.g.,
 
@@ -271,21 +266,21 @@ An example of such a directory tree structure might be:
     |    └── ...
     └── ...
 
-The DAG for the analysis can be created using the ``cwinpy_pe_dag`` executable, which requires a
-configuration file as its only input. An example configuration file, based on the above directory
+The DAG for the analysis can be created using the ``cwinpy_pe_pipeline`` executable, which requires
+a configuration file as its only input. An example configuration file, based on the above directory
 tree structure is given below. Comments about each input parameter, and different potential input
 options are given inline; some input parameters are also commented out using a ``;`` if the default
 values are appropriate. For more information on the various HTCondor options see the `user manual
 <https://htcondor.readthedocs.io/en/v8_8_4/users-manual/index.html>`_.
 
-.. literalinclude:: cwinpy_pe_dag.ini
+.. literalinclude:: cwinpy_pe_pipeline.ini
 
-Once the configuration file is created (called, say, ``cwinpy_pe_dag.ini``), the Condor DAG dag
+Once the configuration file is created (called, say, ``cwinpy_pe_pipeline.ini``), the Condor DAG dag
 can be generated with:
 
 .. code-block:: bash
 
-    cwinpy_pe_dag cwinpy_pe_dag.ini
+    cwinpy_pe_pipeline cwinpy_pe_pipeline.ini
 
 This will, using the defaults and values in the above file, generate the following directory tree
 structure:
@@ -303,12 +298,24 @@ structure:
     |    └── ...
     ├── submit             # directory containing the DAG and job submit files
     |    ├── dag_cwinpy_pe.submit      # Condor DAG submit file
-    |    ├── cwinpy_pe_pulsar1.submit  # cwinpy_pe job submit file for pulsar1
-    |    ├── cwinpy_pe_pulsar2.submit  # cwinpy_pe job submit file for pulsar2
+    |    ├── cwinpy_pe_H1L1_pulsar1.submit  # cwinpy_pe job submit file for pulsar1
+    |    ├── cwinpy_pe_H1L1_pulsar2.submit  # cwinpy_pe job submit file for pulsar2
     |    └── ...
     └── log                # directory for the job log files
 
-If the original ``cwinpy_pe_dag`` configuration file contained the line:
+By default, if passed data for multiple detectors, the parameter estimation will be performed with
+a likelihood that coherently combines the data from all detectors. To also include parameter
+estimation using data from each detector individually, the ``[pe]`` section of the configuration
+file should contain
+
+.. code-block:: bash
+
+   incoherent = True
+
+The submit files and the final output parameter estimation files will show the combination of
+detectors used in the filename.
+
+If the original ``cwinpy_pe_pipeline`` configuration file contained the line:
 
 .. code-block:: bash
 
@@ -325,31 +332,37 @@ submitted with:
 
    If running on LIGO Scientific Collaboration computing clusters the ``acounting_group`` value must
    be specified and be a valid tag. Valid tag names can be found `here
-   <https://accounting.ligo.org/user>`_ unless custom values for a specfic cluster are allowed.
+   <https://accounting.ligo.org/user>`__ unless custom values for a specific cluster are allowed.
+
+.. _pe Command line arguments:
 
 Command line arguments
 ----------------------
 
-The command line arguments for ``cwinpy_pe`` (as extracted using ``cwinpy_pe --help``) are
-given below:
+The command line arguments for ``cwinpy_pe`` can be found using:
 
-.. literalinclude:: pe_help.txt
-   :language: none
+.. command-output:: cwinpy_pe --help
 
-API
----
+Parameter estimation API
+------------------------
 
 .. automodule:: cwinpy.pe.pe
-   :members: pe, pe_dag
+   :members: pe, pe_pipeline
 
 .. automodule:: cwinpy.pe.testing
    :members: PEPPPlotsDAG, generate_pp_plots
+
+Parameter estimation utilities API
+----------------------------------
+
+.. automodule:: cwinpy.pe.peutils
+   :members:
 
 ``cwinpy_pe`` references
 ------------------------
 
 .. [1] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1
-       <https:arxiv.org/abs/1705.08978v1>`_, 2017.
+       <https://arxiv.org/abs/1705.08978v1>`_, 2017.
 .. [2] `G. B. Hobbs, R. T. Edwards & R. N. Manchester
    <https://ui.adsabs.harvard.edu/?#abs/2006MNRAS.369..655H>`_,
    *MNRAS*, **369**, 655-672 (2006)
@@ -361,3 +374,5 @@ API
    `LIGO T1800044-v5 <https://dcc.ligo.org/LIGO-T1800044/public>`_ (2018)
 .. [6] `T. Sidery et al. <https://arxiv.org/abs/1312.6013>`_,
    *PRD*, **89**, 084060 (2014)
+.. [7] `B. P. Abbott et al. <https://ui.adsabs.harvard.edu/abs/2019ApJ...879...10A/abstract>`_,
+   *ApJ*, **879**, p. 28 (2019)

@@ -28,11 +28,14 @@ ext_modules = [
             "-m64",
             "-ffast-math",
             "-fno-finite-math-only",
-            "-march=native",
             "-funroll-loops",
         ],
     )
 ]
+
+# add language level = 3
+for e in ext_modules:
+    e.cython_directives = {"language_level": "3"}
 
 setup(
     use_scm_version=True,

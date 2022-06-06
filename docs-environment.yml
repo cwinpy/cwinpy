@@ -35,13 +35,14 @@ dependencies:
   - zlib=1.2.11=h516909a_1010
   - pip:
     - alabaster==0.7.12
+    - appdirs==1.4.4
     - astropy==4.2
     - async-generator==1.10
     - attrs==20.3.0
     - autodoc==0.5.0
     - babel==2.9.0
     - beautifulsoup4==4.9.3
-    - bilby==1.1.1
+    - bilby==1.1.4
     - bilby-pipe==1.0.2
     - bleach==3.3.0
     - cached-property==1.5.2
@@ -50,7 +51,7 @@ dependencies:
     - click==7.1.2
     - commonmark==0.9.1
     - configargparse==1.3
-    - corner==2.1.0
+    - corner==2.2.1
     - cryptography==3.3.1
     - cycler==0.10.0
     - decorator==4.4.2
@@ -65,7 +66,7 @@ dependencies:
     - future==0.18.2
     - gwdatafind==1.0.4
     - gwosc==0.5.6
-    - gwpy==2.0.2
+    - gwpy==2.1.1
     - h5py==3.1.0
     - idna==2.10
     - imagesize==1.2.0
@@ -77,7 +78,7 @@ dependencies:
     - jupyter-core==4.7.1
     - jupyterlab-pygments==0.1.2
     - kiwisolver==1.3.1
-    - lalsuite==6.82
+    - lalsuite==7.3
     - ligo-gracedb==2.7.6
     - ligo-segments==1.3.0
     - ligotimegps==2.0.1
@@ -86,6 +87,7 @@ dependencies:
     - markupsafe==1.1.1
     - matplotlib==3.3.4
     - mistune==0.8.4
+    - myst-parser==0.17.2
     - nbclient==0.5.2
     - nbconvert==6.0.7
     - nbformat==5.1.2
@@ -98,7 +100,7 @@ dependencies:
     - pandas==1.2.2
     - pandocfilters==1.4.3
     - patsy==0.5.1
-    - pesummary==0.11.0
+    - pesummary==0.13.0
     - pillow==8.1.0
     - plotly==4.14.3
     - pockets==0.9.1
@@ -115,7 +117,6 @@ dependencies:
     - pytz==2021.1
     - pyyaml==5.4.1
     - pyzmq==22.0.3
-    - recommonmark==0.7.1
     - requests==2.25.1
     - retrying==1.3.3
     - scipy==1.6.1
@@ -133,6 +134,7 @@ dependencies:
     - sphinxcontrib-images==0.9.2
     - sphinxcontrib-jsmath==1.0.1
     - sphinxcontrib-napoleon==0.7
+    - sphinxcontrib-programoutput==0.17
     - sphinxcontrib-qthelp==1.0.3
     - sphinxcontrib-serializinghtml==1.1.4
     - statsmodels==0.12.2

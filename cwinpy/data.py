@@ -2,8 +2,10 @@
 Classes for dealing with data products.
 """
 
+import ast
 import os
-import warnings
+from pathlib import Path
+from warnings import warn
 
 import cwinpy
 import lal
@@ -17,9 +19,10 @@ from gwpy.segments import SegmentList
 from gwpy.timeseries import TimeSeries, TimeSeriesBase
 from gwpy.types import Series
 from numba import jit
+from scipy.ndimage import median_filter
 
-# import utility functions
-from .utils import gcd_array, get_psr_name, is_par_file, logfactorial
+from .parfile import PulsarParameters
+from .utils import allzero, gcd_array, get_psr_name, is_par_file, logfactorial
 
 
 class MultiHeterodynedData(object):
@@ -55,27 +58,24 @@ class MultiHeterodynedData(object):
         data=None,
         times=None,
         detector=None,
-        window=30,
-        inject=False,
-        par=None,
-        injpar=None,
-        freqfactor=2.0,
-        bbthreshold="default",
-        remove_outliers=False,
-        thresh=3.5,
         **kwargs,
     ):
 
         # set keyword argument
         self._heterodyned_data_kwargs = {}
-        self._heterodyned_data_kwargs["window"] = window
-        self._heterodyned_data_kwargs["par"] = par
-        self._heterodyned_data_kwargs["injpar"] = injpar
-        self._heterodyned_data_kwargs["inject"] = inject
-        self._heterodyned_data_kwargs["freqfactor"] = freqfactor
-        self._heterodyned_data_kwargs["bbthreshold"] = bbthreshold
-        self._heterodyned_data_kwargs["remove_outliers"] = remove_outliers
-        self._heterodyned_data_kwargs["thresh"] = thresh
+        self._heterodyned_data_kwargs["window"] = kwargs.pop("window", 30)
+        self._heterodyned_data_kwargs["par"] = kwargs.pop("par", None)
+        self._heterodyned_data_kwargs["injpar"] = kwargs.pop("injpar", None)
+        self._heterodyned_data_kwargs["inject"] = kwargs.pop("inject", False)
+        self._heterodyned_data_kwargs["freqfactor"] = kwargs.pop("freqfactor", 2.0)
+        self._heterodyned_data_kwargs["bbthreshold"] = kwargs.pop(
+            "bbthreshold", "default"
+        )
+        self._heterodyned_data_kwargs["remove_outliers"] = kwargs.pop(
+            "remove_outliers", False
+        )
+        self._heterodyned_data_kwargs["thresh"] = kwargs.pop("thresh", 3.5)
+        self._heterodyned_data_kwargs.update(kwargs)
 
         self._data = dict()  # initialise empty dict
         self._currentidx = 0  # index for iterator
@@ -147,8 +147,9 @@ class MultiHeterodynedData(object):
             self._data[detname].append(data)
 
     def _add_data(self, data, detector, times=None):
-        if detector is None or data is None:
-            raise ValueError("data and detector must be set")
+        if not isinstance(data, (str, Path)):
+            if detector is None or data is None:
+                raise ValueError("data and detector must be set")
 
         het = HeterodynedData(
             data, times, detector=detector, **self._heterodyned_data_kwargs
@@ -218,7 +219,7 @@ class MultiHeterodynedData(object):
         snr2 = 0.0
         for het in self:
             if het.injpar is not None:
-                snr2 += het.injection_snr ** 2
+                snr2 += het.injection_snr**2
 
         return np.sqrt(snr2)
 
@@ -253,7 +254,7 @@ class MultiHeterodynedData(object):
         figsize=(12, 4),
         remove_outliers=False,
         thresh=3.5,
-        zero_time=True,
+        zero_time=False,
         labelsize=None,
         fontsize=None,
         legendsize=None,
@@ -284,7 +285,7 @@ class MultiHeterodynedData(object):
             :class:`~matplotlib.figure.Figure` objects.
         """
 
-        from matplotlib import pyplot as pl
+        from gwpy.plot import Plot
 
         if len(self) == 0:
             # nothing in the class!
@@ -313,9 +314,32 @@ class MultiHeterodynedData(object):
                 # check default size and increase
                 figsize = (figsize[0], figsize[1] * nplots)
 
-            figs, axs = pl.subplots(nplots, 1, figsize=figsize)
+            # set up plot using dummy data
+            figs = Plot(
+                *[
+                    TimeSeries(
+                        d.real, times=d.times - (0 if not zero_time else d.times[0])
+                    )
+                    for d in hets
+                ],
+                figsize=figsize,
+                separate=True,
+                sharex=True,
+            )
 
-            for ax, het in zip(axs, hets):
+            # replot data on axes
+            for het, ax in zip(hets, figs.get_axes()):
+                # remove dummy data
+                ax.clear()
+                ax.set_prop_cycle(None)  # reset color cycle
+
+                # set color based on detector
+                if "color" not in plotkwargs:
+                    color = GW_OBSERVATORY_COLORS[het.detector]
+                else:
+                    color = None
+
+                # re-plot
                 _ = het.plot(
                     which=which,
                     ax=ax,
@@ -327,6 +351,7 @@ class MultiHeterodynedData(object):
                     legendsize=legendsize,
                     fontname=fontname,
                     labelname=labelname,
+                    color=color,
                     **plotkwargs,
                 )
         else:
@@ -754,8 +779,8 @@ class HeterodynedData(TimeSeriesBase):
     times: array_like
         If the data was passed using the `data` argument, then the associated
         time stamps should be passed using this argument.
-    par: str, ``lalpulsar.PulsarParametersPy``
-        A parameter file, or :class:`lalpulsar.PulsarParametersPy` object
+    par: str, PulsarParameters
+        A parameter file, or :class:`~cwinpy.parfile.PulsarParameters` object
         containing the parameters with which the data was heterodyned.
     detector: str, ``lal.Detector``
         A string, or :class:`lal.Detector` object, identifying the detector
@@ -767,8 +792,8 @@ class HeterodynedData(TimeSeriesBase):
     inject: bool, False
         Set to ``True`` to add a simulated signal to the data based on the
         parameters supplied in `injpar`, or `par` if `injpar` is not given.
-    injpar: str, ``lalpulsar.PulsarParametersPy``
-        A parameter file name or :class:`lalpulsar.PulsarParametersPy`
+    injpar: str, PulsarParameters
+        A parameter file name or :class:`~cwinpy.parfile.PulsarParameters`
         object containing values for the injected signal. A `par` file must
         also have been provided, and the injected signal will assume that
         the data has already been heterodyned using the parameters from
@@ -787,9 +812,9 @@ class HeterodynedData(TimeSeriesBase):
         the amplitude spectral density for that detector at design sensitivity
         will be used (this requires a `par` value to be included, which
         contains the source rotation frequency).
-    fakeseed: (int, class:`numpy.random.RandomState`), None
+    fakeseed: (int, class:`numpy.random.Generator`), None
         A seed for the random number generator used to create the fake data
-        (see :meth:`numpy.random.seed` and :class:`numpy.random.RandomState`
+        (see :meth:`numpy.random.seed` and :class:`numpy.random.Generator`
         for more information).
     issigma: bool
         Set to ``True`` if the ``fakeasd`` value passed is actually a noise
@@ -817,10 +842,13 @@ class HeterodynedData(TimeSeriesBase):
         :meth:`~cwinpy.data.HeterodynedData.find_outliers`)
     comments: str
         A string containing any comments about the data.
-    ephemearth: str, None
+    earthephemeris: str, None
         The path to the Earth ephemeris used for the signal phase model.
-    ephemsun: str, None
+    sunephemeris: str, None
         The path to the Sun ephemeris used for the signal phase model.
+    timeephemeris: str, None
+        The path to the time correction ephemeris used for the signal phase
+        model.
     """
 
     # set some default detector color maps for plotting
@@ -858,7 +886,7 @@ class HeterodynedData(TimeSeriesBase):
         "include_fitwaves",
         "cwinpy_version",
         "heterodyne_arguments",
-        "cwinpy_heterodyne_dag_config",
+        "cwinpy_heterodyne_pipeline_config",
     )
 
     def __new__(
@@ -881,14 +909,17 @@ class HeterodynedData(TimeSeriesBase):
         remove_outliers=False,
         thresh=3.5,
         comments="",
-        ephemearth=None,
-        ephemsun=None,
+        earthephemeris=None,
+        sunephemeris=None,
+        timeephemeris=None,
         **kwargs,
     ):
         stds = None  # initialise standard deviations
 
         # read/parse data
-        if isinstance(data, (str, list)):
+        if (
+            isinstance(data, (str, list)) and np.array(data).dtype.type == np.str_
+        ) or isinstance(data, Path):
             try:
                 new = cls.read(data)
             except Exception as e:
@@ -959,16 +990,26 @@ class HeterodynedData(TimeSeriesBase):
                         "Supplied times and times in data file are not the same"
                     )
 
+            # check for and remove any duplicate time stamps
+            utimes, uidx = np.unique(hettimes, return_index=True)
+
+            if len(utimes) < len(hettimes):
+                warn(
+                    "Data contained duplicate time stamps. Any duplicates will be removed."
+                )
+
             # generate TimeSeriesBase
-            new = super(HeterodynedData, cls).__new__(cls, dataarray, times=hettimes)
+            new = super(HeterodynedData, cls).__new__(
+                cls, dataarray[uidx], times=utimes
+            )
 
             new.stds = None
             if stds is not None:
                 # set pre-calculated data standard deviations
-                new.stds = stds
-                new._input_stds = True
+                new.stds = stds[uidx]
+                new.input_stds = True
             else:
-                new._input_stds = False
+                new.input_stds = False
 
             new.detector = detector
 
@@ -988,7 +1029,7 @@ class HeterodynedData(TimeSeriesBase):
             if len(new) > 1:
                 new.dt = np.min(np.diff(new.times))
             else:
-                warnings.warn("Your data is only one data point long!")
+                warn("Your data is only one data point long!")
                 new.dt = None
 
         # don't recompute values on data that has been read in or have had outliers
@@ -1020,7 +1061,19 @@ class HeterodynedData(TimeSeriesBase):
             new.add_noise(fakeasd, issigma=issigma, seed=fakeseed)
 
         # set solar system ephemeris files if provided
-        new.set_ephemeris(ephemearth, ephemsun)
+        try:
+            earthephemeris = ast.literal_eval(earthephemeris)
+        except ValueError:
+            pass
+        try:
+            sunephemeris = ast.literal_eval(sunephemeris)
+        except ValueError:
+            pass
+        try:
+            timeephemeris = ast.literal_eval(timeephemeris)
+        except ValueError:
+            pass
+        new.set_ephemeris(earthephemeris, sunephemeris, timeephemeris)
 
         # set and add a simulated signal
         if bool(inject):
@@ -1063,7 +1116,7 @@ class HeterodynedData(TimeSeriesBase):
         See :meth:`gwpy.timeseries.TimeSeries.read` for more information.
         """
 
-        if isinstance(source, str):
+        if isinstance(source, (str, Path)):
             datafiles = [source]
         else:
             datafiles = list(source)
@@ -1189,7 +1242,7 @@ class HeterodynedData(TimeSeriesBase):
                 raise ValueError("Incompatible frequency factors")
 
         # check variances either are all set or not set
-        if self._input_stds != other._input_stds:
+        if self.input_stds != other.input_stds:
             raise ValueError("Incompatible setting of variances")
 
         # check injection times are all set or not set
@@ -1220,7 +1273,10 @@ class HeterodynedData(TimeSeriesBase):
     def window(self):
         """The running median window length."""
 
-        return self._window
+        try:
+            return self._window
+        except AttributeError:
+            return None
 
     @window.setter
     def window(self, window):
@@ -1233,26 +1289,13 @@ class HeterodynedData(TimeSeriesBase):
             raise TypeError("Window must be an integer")
 
     @property
-    def dt(self):
-        try:
-            return self.dx
-        except AttributeError:
-            return self._dt
-
-    @dt.setter
-    def dt(self, dt):
-        """
-        Overload the default setting of the time step in a TimeSeries, so that
-        it does not delete non-uniform time values.
-        """
-
-        self._dt = dt
-
-    @property
     def comments(self):
         """Any comments on the data"""
 
-        return self._comments
+        try:
+            return self._comments
+        except AttributeError:
+            return None
 
     @comments.setter
     def comments(self, comment):
@@ -1291,7 +1334,10 @@ class HeterodynedData(TimeSeriesBase):
 
     @property
     def par(self):
-        return self._par
+        try:
+            return self._par
+        except AttributeError:
+            return None
 
     @par.setter
     def par(self, par):
@@ -1299,7 +1345,10 @@ class HeterodynedData(TimeSeriesBase):
 
     @property
     def injpar(self):
-        return self._injpar
+        try:
+            return self._injpar
+        except AttributeError:
+            return None
 
     @injpar.setter
     def injpar(self, par):
@@ -1307,27 +1356,25 @@ class HeterodynedData(TimeSeriesBase):
 
     def _parse_par(self, par):
         """
-        Parse a pulsar parameter file or :class:`lalpulsar.PulsarParametersPy`
-        object.
+        Parse a pulsar parameter file or
+        :class:`~cwinpy.parfile.PulsarParameters` object.
 
         Parameters
         ----------
-        par: (str, lalpulsar.PulsarParametersPy)
+        par: (str, PulsarParameters)
             A file or object containing a set of pulsar parameters.
 
         Returns
         -------
-        lalpulsar.PulsarParametersPy
+        PulsarParameters
         """
 
         if par is not None:
-            from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
-
-            if isinstance(par, PulsarParametersPy):
+            if isinstance(par, PulsarParameters):
                 return par
-            elif isinstance(par, str):
+            elif isinstance(par, (str, Path)):
                 if is_par_file(par):
-                    newpar = PulsarParametersPy(par)
+                    newpar = PulsarParameters(par)
                 else:
                     raise IOError("Could not read in pulsar parameter file")
             else:
@@ -1358,16 +1405,21 @@ class HeterodynedData(TimeSeriesBase):
         except AttributeError:
             return None
 
+    @laldetector.setter
+    def laldetector(self, detector):
+        if isinstance(detector, lal.Detector):
+            self._laldetector = detector
+
     @detector.setter
     def detector(self, detector):
         if isinstance(detector, lal.Detector):
             self.channel = Channel("{}:".format(detector.frDetector.prefix))
-            self._laldetector = detector
+            self.laldetector = detector
         elif isinstance(detector, str):
             self.channel = Channel("{}:".format(detector))
 
             try:
-                self._laldetector = lalpulsar.GetSiteInfo(detector)
+                self.laldetector = lalpulsar.GetSiteInfo(detector)
             except RuntimeError:
                 raise ValueError("Could not set LAL detector!")
 
@@ -1375,7 +1427,14 @@ class HeterodynedData(TimeSeriesBase):
     def running_median(self):
         """A :class:`~numpy.ndarray` containing the running median of the data."""
 
-        return self._running_median
+        try:
+            return self._running_median
+        except AttributeError:
+            return None
+
+    @running_median.setter
+    def running_median(self, rm):
+        self._running_median = rm
 
     def compute_running_median(self, N=30):
         """
@@ -1401,24 +1460,17 @@ class HeterodynedData(TimeSeriesBase):
         if N < 2 and N != 0:
             raise ValueError("The running median window must be greater than 1")
 
-        self._running_median = TimeSeriesBase(
+        self.running_median = TimeSeriesBase(
             np.zeros(len(self), dtype=complex), times=self.times
         )
-        if N > 0:
-            for i in range(len(self)):
-                if i < N // 2:
-                    startidx = 0
-                    endidx = i + (N // 2) + 1
-                elif i > len(self) - N:
-                    startidx = i - (N // 2) + 1
-                    endidx = len(self)
-                else:
-                    startidx = i - (N // 2) + 1
-                    endidx = i + (N // 2) + 1
 
-                self._running_median[i] = np.median(
-                    self.data.real[startidx:endidx]
-                ) + 1j * np.median(self.data.imag[startidx:endidx])
+        if N > 0:
+            median_filter(
+                self.data.real, size=N, output=self._running_median.real, mode="mirror"
+            )
+            median_filter(
+                self.data.imag, size=N, output=self._running_median.imag, mode="mirror"
+            )
 
         return self.running_median
 
@@ -1488,16 +1540,32 @@ class HeterodynedData(TimeSeriesBase):
             if self._vars is None:
                 return None
             else:
-                return np.sqrt(self._vars)
+                return np.sqrt(self.vars)
         except AttributeError:
             return None
 
     @stds.setter
     def stds(self, stds):
         if stds is not None:
-            self.vars = stds ** 2
+            self.vars = stds**2
         else:
             self.vars = None
+
+    @property
+    def input_stds(self):
+        """
+        A boolean stating whether the standard deviations where provides as an
+        input.
+        """
+
+        try:
+            return self._input_stds
+        except AttributeError:
+            return False
+
+    @input_stds.setter
+    def input_stds(self, inputstds):
+        self._input_stds = bool(inputstds)
 
     def compute_variance(self, change_points=None, N=30):
         """
@@ -1569,13 +1637,13 @@ class HeterodynedData(TimeSeriesBase):
 
         return self.vars
 
-    def inject_signal(self, injpar=None, injtimes=None, inject=True):
+    def inject_signal(self, injpar=None, injtimes=None, inject=True, **kwargs):
         """
         Inject a simulated signal into the data.
 
         Parameters
         ----------
-        injpar: (str, lalpulsar.PulsarParametersPy)
+        injpar: (str, PulsarParameters)
             A parameter file or object containing the parameters for the
             simulated signal.
         injtimes: list
@@ -1586,13 +1654,17 @@ class HeterodynedData(TimeSeriesBase):
             not added into the data.
         """
 
+        # save any kwargs
+        if not hasattr(self, "_inj_kwargs") or len(kwargs) > 1:
+            self._inj_kwargs = kwargs.copy()
+
         # create the signal to inject
         if injpar is None:
             self.injpar = self.par
-            signal = self.make_signal()
+            signal = self.make_signal(**self._inj_kwargs)
         else:
             self.injpar = injpar
-            signal = self.make_signal(signalpar=self.injpar)
+            signal = self.make_signal(signalpar=self.injpar, **self._inj_kwargs)
 
         # set the times between which the injection will be added
         self.injtimes = injtimes
@@ -1658,24 +1730,52 @@ class HeterodynedData(TimeSeriesBase):
         else:
             return False
 
-    def set_ephemeris(self, earth=None, sun=None):
+    def set_ephemeris(self, earth=None, sun=None, time=None):
         """
         Set the solar system ephemeris and time correction files.
 
         Parameters
         ----------
-        earth: str, None
+        earth: str, dict, None
             The Earth ephemeris file used for the phase model. Defaults to
             None, in which case the ephemeris files will be determined from the
-            pulsar parameter file information.
-        sun: str, None
+            pulsar parameter file information. If a dictionary is passed, it
+            should be keyed to ephemeris types (e.g., DE405) and point to the
+            equivalent file. The type in the par file will be used to determine
+            which key to use.
+        sun: str, dict, None
             The Sun ephemeris file used for the phase model. Defaults to
             None, in which case the ephemeris files will be determined from the
-            pulsar parameter file information.
+            pulsar parameter file information. If a dictionary is passed, it
+            should be keyed to ephemeris types (e.g., DE405) and point to the
+            equivalent file. The type in the par file will be used to determine
+            which key to use.
+        time: str, dict, None
+            The time correction ephemeris file used for the phase model.
+            Defaults to None, in which case the ephemeris files will be
+            determined from the pulsar parameter file information. If a
+            dictionary is passed, it should be keyed to unit type (e.g., TCB)
+            and point to the equivalent file. The type in the par file will be
+            used to determine which key to use.
         """
 
-        efiles = [earth, sun]
+        efiles = [earth, sun, time]
 
+        efiles = []
+
+        # check for dictionaries
+        for ef in [earth, sun]:
+            if isinstance(ef, dict):
+                efiles.append(ef.get(self.par["EPHEM"], None))
+            else:
+                efiles.append(ef)
+
+        if isinstance(time, dict):
+            efiles.append(time.get(self.par["UNIT"], None))
+        else:
+            efiles.append(time)
+
+        # check ephemeris files
         for ef in efiles:
             if ef is None:
                 continue
@@ -1687,6 +1787,7 @@ class HeterodynedData(TimeSeriesBase):
 
         self.ephemearth = efiles[0]
         self.ephemsun = efiles[1]
+        self.ephemtime = efiles[2]
 
     @property
     def injection_data(self):
@@ -1724,7 +1825,7 @@ class HeterodynedData(TimeSeriesBase):
             + ((self.injection_data.imag / self.stds) ** 2).sum()
         )
 
-    def make_signal(self, signalpar=None):
+    def make_signal(self, signalpar=None, **kwargs):
         """
         Make a signal at the data time stamps given a parameter file.
 
@@ -1739,7 +1840,7 @@ class HeterodynedData(TimeSeriesBase):
 
         Parameters
         ----------
-        signalpar: str, ``lalpulsar.PulsarParametersPy``
+        signalpar: str, PulsarParameters
             A parameter file or object containing the parameters for the
             simulated signal.
 
@@ -1766,20 +1867,21 @@ class HeterodynedData(TimeSeriesBase):
             times=self.times,
             earth_ephem=self.ephemearth,
             sun_ephem=self.ephemsun,
+            time_corr=self.ephemtime,
+            usetempo2=kwargs.get("usetempo2", False),
         )
 
         # get the injection
         if signalpar is None:
             # use self.par for the injection parameters
-            signal = het.model(usephase=True, freqfactor=self.freq_factor)
+            signal = het.model(freqfactor=self.freq_factor)
         else:
             signal = het.model(
                 signalpar,
-                updateSSB=True,
-                updateBSB=True,
-                updateglphase=True,
-                updatefitwaves=True,
-                usephase=True,
+                updateSSB=kwargs.get("updateSSB", True),
+                updateBSB=kwargs.get("updateBSB", True),
+                updateglphase=kwargs.get("updateglphase", True),
+                updatefitwaves=kwargs.get("updatefitwaves", True),
                 freqfactor=self.freq_factor,
             )
 
@@ -1792,7 +1894,7 @@ class HeterodynedData(TimeSeriesBase):
 
         Parameters
         ----------
-        signalpar: str, ``lalpulsar.PulsarParametersPy``
+        signalpar: str, PulsarParameters
             A parameter file or object containing the parameters for the
             simulated signal.
 
@@ -1818,7 +1920,10 @@ class HeterodynedData(TimeSeriesBase):
         was heterodyned.
         """
 
-        return self._freqfactor
+        try:
+            return self._freqfactor
+        except AttributeError:
+            return None
 
     @freq_factor.setter
     def freq_factor(self, freqfactor):
@@ -1838,6 +1943,10 @@ class HeterodynedData(TimeSeriesBase):
         """
 
         return self.freq_factor
+
+    @freqfactor.setter
+    def freqfactor(self, freqfactor):
+        self.freq_factor = freqfactor
 
     def add_noise(self, asd, issigma=False, seed=None):
         """
@@ -1859,9 +1968,9 @@ class HeterodynedData(TimeSeriesBase):
             If ``issigma`` is ``True`` then the value passed to `asd` is assumed
             to be a dimensionless time domain standard deviation for the noise
             level rather than an amplitude spectral density.
-        seed: int, :class:`numpy.random.RandomState`, None
+        seed: int, :class:`numpy.random.Generator`, None
             A seed for the random number generator used to create the fake data
-            (see :meth:`numpy.random.seed` and :class:`numpy.random.RandomState`
+            (see :meth:`numpy.random.seed` and :class:`numpy.random.Generator`
             for more information).
         """
 
@@ -2012,10 +2121,10 @@ class HeterodynedData(TimeSeriesBase):
             raise TypeError("ASD must be a float or a string with a detector name.")
 
         # set noise seed
-        if isinstance(seed, np.random.RandomState):
+        if isinstance(seed, np.random.Generator):
             rstate = seed
         else:
-            rstate = np.random.RandomState(seed)
+            rstate = np.random.default_rng(seed)
 
         # get noise for real and imaginary components
         noise = TimeSeriesBase(
@@ -2035,10 +2144,10 @@ class HeterodynedData(TimeSeriesBase):
         self.bayesian_blocks()
 
         # set noise based on provided value
-        self.stds = sigmaval
+        self.stds = np.full(len(self), sigmaval)
 
         # standard devaitions have been provided rather than calculated
-        self._input_stds = True
+        self.input_stds = True
 
     def bayesian_blocks(self, threshold="default", minlength=5, maxlength=np.inf):
         """
@@ -2098,13 +2207,24 @@ class HeterodynedData(TimeSeriesBase):
                 self._change_point_indices_and_ratios
             )
 
-            # if any chunks are longer than maxlength, then split them
+            # if any chunks are longer than maxlength, then split them while
+            # making sure to not leave chunks smaller than minlength
             if self.bbmaxlength < len(self):
                 insertcps = []
                 cppos = 0
                 for clength in self.chunk_lengths:
-                    if clength > self.bbmaxlength:
-                        insertcps.append((cppos + maxlength, 0))
+                    cl = clength
+                    chunkcount = 0
+                    while cl > self.bbmaxlength:
+                        chunkcount += self.bbmaxlength
+                        if cl < (self.bbminlength + self.bbmaxlength):
+                            # split final chunk to leave at least minlength
+                            insertcps.append((cppos + clength - self.bbminlength, 0))
+                        else:
+                            insertcps.append((cppos + chunkcount, 0))
+
+                        cl -= self.bbmaxlength
+
                     cppos += clength
 
                 self._change_point_indices_and_ratios += insertcps
@@ -2113,7 +2233,7 @@ class HeterodynedData(TimeSeriesBase):
                 )
 
         # (re)calculate the variances for each chunk
-        if not self._input_stds:
+        if not self.input_stds:
             _ = self.compute_variance(N=self.window)
 
     @property
@@ -2237,7 +2357,7 @@ class HeterodynedData(TimeSeriesBase):
 
     def _chop_data(self, data, startidx=0):
         # find change point (don't split if data is zero)
-        if np.all(self.subtract_running_median() == (0.0 + 0 * 1j)):
+        if allzero(self.subtract_running_median()):
             lratio, cpidx, ntrials = (-np.inf, 0, 1)
         else:
             lratio, cpidx, ntrials = self._find_change_point(data, self.bbminlength)
@@ -2314,9 +2434,7 @@ class HeterodynedData(TimeSeriesBase):
 
         # go through each possible splitting of the data in two
         for i in range(lsum):
-            if np.all(subdata[: minlength + i] == (0.0 + 0 * 1j)) or np.all(
-                subdata[minlength + i :] == (0.0 + 0 * 1j)
-            ):
+            if allzero(subdata[: minlength + i]) or allzero(subdata[minlength + i :]):
                 # do this to avoid warnings about np.log(0.0)
                 logdouble[i] = -np.inf
             else:
@@ -2616,34 +2734,69 @@ class HeterodynedData(TimeSeriesBase):
         if "xscale" not in plotkwargs and zero_time:
             # switch from auto-gps to linear scale if zeroing x-axis
             plotkwargs["xscale"] = "linear"
+        elif "xscale" not in plotkwargs:
+            plotkwargs["xscale"] = "auto-gps"
 
         # set the data to use
         if which.lower() in ["abs", "absolute"]:
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$|B_k|$"
-            plot = TimeSeries(self.take(idx).abs(), times=times).plot(**plotkwargs)
+            if ax is None:
+                plot = TimeSeries(self.take(idx).abs(), times=times).plot(
+                    figsize=figsize, **plotkwargs
+                )
+            else:
+                ax.set_ylabel(plotkwargs.pop("ylabel"))
+                ax.set_xscale(plotkwargs.pop("xscale"))
+                ax.plot(times, self.take(idx).abs(), **plotkwargs)
         elif which.lower() in ["real", "re"]:
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$\\Re{(B_k)}$"
-            plot = TimeSeries(self.take(idx).real, times=times).plot(**plotkwargs)
+            if ax is None:
+                plot = TimeSeries(self.take(idx).real, times=times).plot(
+                    figsize=figsize, **plotkwargs
+                )
+            else:
+                ax.set_ylabel(plotkwargs.pop("ylabel"))
+                ax.set_xscale(plotkwargs.pop("xscale"))
+                ax.plot(times, self.take(idx).real, **plotkwargs)
         elif which.lower() in ["im", "imag", "imaginary"]:
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$\\Im{(B_k)}$"
-            plot = TimeSeries(self.take(idx).imag, times=times).plot(**plotkwargs)
+            if ax is None:
+                plot = TimeSeries(self.take(idx).imag, times=times).plot(
+                    figsize=figsize, **plotkwargs
+                )
+            else:
+                ax.set_ylabel(plotkwargs.pop("ylabel"))
+                ax.set_xscale(plotkwargs.pop("xscale"))
+                ax.plot(times, self.take(idx).imag, **plotkwargs)
         elif which.lower() == "both":
-            from gwpy.timeseries import TimeSeriesDict
-
-            pldata = TimeSeriesDict()
-            pldata["Real"] = TimeSeries(self.take(idx).real, times=times)
-            pldata["Imag"] = TimeSeries(self.take(idx).imag, times=times)
             if "ylabel" not in plotkwargs:
                 plotkwargs["ylabel"] = "$B_k$"
-            plot = pldata.plot(**plotkwargs)
-            plot.gca().legend(loc="upper right", numpoints=1)
+
+            if ax is None:
+                from gwpy.timeseries import TimeSeriesDict
+
+                pldata = TimeSeriesDict()
+                pldata["Real"] = TimeSeries(self.take(idx).real, times=times)
+                pldata["Imag"] = TimeSeries(self.take(idx).imag, times=times)
+
+                plot = pldata.plot(figsize=figsize, **plotkwargs)
+                plot.gca().legend(loc="upper right", numpoints=1)
+            else:
+                ax.set_ylabel(plotkwargs.pop("ylabel"))
+                ax.set_xscale(plotkwargs.pop("xscale"))
+                ax.plot(times, self.take(idx).real, **plotkwargs)
+                ax.plot(times, self.take(idx).imag, **plotkwargs)
+                ax.legend(loc="upper right", numpoints=1)
         else:
             raise ValueError("'which' must be 'abs', 'real', 'imag' or 'both")
 
-        return plot
+        if ax is None:
+            return plot
+        else:
+            return ax
 
     def spectrogram(
         self,
@@ -2842,7 +2995,7 @@ class HeterodynedData(TimeSeriesBase):
         **plotkwargs,
     ):
         """
-        Compute and plot the power spectrum of the data. This compute the
+        Compute and plot the power spectrum of the data. This computes the
         spectrogram, and averages the power over time.
 
         See :meth:`~cwinpy.data.HeterodynedData.spectrogram` for input
@@ -2958,7 +3111,8 @@ class HeterodynedData(TimeSeriesBase):
             times = self.times.value
             tottime = self.tottime.value
 
-        Fs = 1.0 / gcd_array(np.diff(times))  # sampling frequency
+        Fs = 1.0 / gcd_array(np.diff(times))  # sampling frequency of padded data
+        Fn = 1.0 / np.diff(times).min()  # sampling frequency of non-padded data
 
         if ptype in ["spectrogram", "power"]:
             dt = speckwargs.get("dt", 86400)
@@ -3050,8 +3204,8 @@ class HeterodynedData(TimeSeriesBase):
                 if fraction_label_num < 1:
                     raise ValueError("'fraction_label_num' must be positive")
 
-                df = Fs / fraction_label_num
-                ticks = np.linspace(-Fs / 2, Fs / 2, int(Fs / df) + 1)
+                df = Fn / fraction_label_num
+                ticks = np.linspace(-Fn / 2, Fn / 2, int(Fn / df) + 1)
                 labels = []
                 for tick in ticks:
                     if tick == 0.0:
@@ -3078,7 +3232,7 @@ class HeterodynedData(TimeSeriesBase):
 
                 # extents of the plot
                 if "extent" not in plotkwargs:
-                    plotkwargs["extent"] = [0, tottime, -2 / Fs, 2 / Fs]
+                    plotkwargs["extent"] = [0, tottime, -2 / Fn, 2 / Fn]
 
                 if "aspect" not in plotkwargs:
                     plotkwargs["aspect"] = "auto"
@@ -3145,7 +3299,7 @@ class HeterodynedData(TimeSeriesBase):
                 thisax.set_xlabel(
                     "Frequency (Hz)", fontname=fontname, fontsize=fontsize
                 )
-                thisax.set_xlim([-Fs / 2, Fs / 2])
+                thisax.set_xlim([-Fn / 2, Fn / 2])
 
                 if fraction_labels:
                     thisax.set_xticks(ticks)
@@ -3449,22 +3603,22 @@ class HeterodynedData(TimeSeriesBase):
             self._heterodyne_arguments.append(args)
 
     @property
-    def cwinpy_heterodyne_dag_config(self):
+    def cwinpy_heterodyne_pipeline_config(self):
         """
         If the :class:`~cwinpy.data.HeterodynedData` object was created through
         :class:`~cwinpy.heterodyne.Heterodyne` being called within a HTCondor
-        DAG, which itself was set up using the ``cwinpy_heterodyne_dag``
+        DAG, which itself was set up using the ``cwinpy_heterodyne_pipeline``
         script, then this attribute can contain the contents of the
         configuration file that created the DAG.
         """
 
-        if hasattr(self, "_cwinpy_heterodyne_dag_config"):
-            return self._cwinpy_heterodyne_dag_config
+        if hasattr(self, "_cwinpy_heterodyne_pipeline_config"):
+            return self._cwinpy_heterodyne_pipeline_config
         else:
             return None
 
-    @cwinpy_heterodyne_dag_config.setter
-    def cwinpy_heterodyne_dag_config(self, config):
+    @cwinpy_heterodyne_pipeline_config.setter
+    def cwinpy_heterodyne_pipeline_config(self, config):
         # check config can be converted into a valid ConfigParser object
         try:
             import configparser
@@ -3474,7 +3628,7 @@ class HeterodynedData(TimeSeriesBase):
         except (TypeError, configparser.MissingSectionHeaderError):
             raise TypeError("Configuration file is not valid")
 
-        self._cwinpy_heterodyne_dag_config = config
+        self._cwinpy_heterodyne_pipeline_config = config
 
     def __len__(self):
         return len(self.data)

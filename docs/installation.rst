@@ -3,10 +3,10 @@ Installation
 ############
 
 Install CWInPy from source
---------------------------
+==========================
 
-CWInPy can be installed using the supplied Python setup script,
-from its source `git <https://git-scm.com/>`_ `repository <https://github.com/cwinpy/cwinpy>`_.
+CWInPy can be installed from its source `git <https://git-scm.com/>`_ `repository
+<https://github.com/cwinpy/cwinpy>`_ using the supplied Python setup script.
 
 First, clone the repository
 
@@ -30,7 +30,7 @@ First, clone the repository
 
       $ gh repo clone cwinpy/cwinpy
 
-then install the requirements and the software using:
+then install CWInPy along with all its requirements using:
 
 .. tabbed:: Standard
 
@@ -68,21 +68,32 @@ then install the requirements and the software using:
 
    within the ``cwinpy`` repository directory, which will add the ``pre-commit`` hook file to
    your ``.git/hooks`` directory. After this, when running ``git commit`` the checks will
-   automatically be run, and results will be presented to you. In some cases the required fixes
+   automatically be run and results will be presented to you. In some cases the required fixes
    will be automatically applied, but in cases where there was some failure it will print a
    message about why it failed. In these cases you will have to manually correct the offending
    files before running ``git commit`` again.
 
-To run the parameter estimation via the `bilby <https://lscsoft.docs.ligo.org/bilby/index.html>`_
+   .. note::
+
+      If installing the ``test`` packages you will need to have the
+      `Tempo2 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package
+      installed. The easiest way to install this is by using ``conda`` to install the
+      `libstempo <https://vallis.github.io/libstempo/>`_ package:
+
+      .. code-block:: console
+
+         $ conda install -c conda-forge libstempo 
+
+Running parameter estimation via the `bilby <https://lscsoft.docs.ligo.org/bilby/index.html>`_
 package with any sampler other than the default of `dynesty
-<https://dynesty.readthedocs.io/en/latest/>`_, requires those additional samplers to be `installed
+<https://dynesty.readthedocs.io/en/latest/>`_ requires those additional samplers to be `installed
 separately <https://lscsoft.docs.ligo.org/bilby/samplers.html#installing-samplers>`_.
 
 Install CWInPy via a package manager
-------------------------------------
+====================================
 
-CWInPy is available through the `PyPI <https://pypi.org/project/cwinpy/>`_ and
-`Conda <https://anaconda.org/conda-forge/cwinpy>`_ package management systems and can be installed using:
+CWInPy is available through the `PyPI <https://pypi.org/project/cwinpy/>`_ and `Conda
+<https://anaconda.org/conda-forge/cwinpy>`_ package management systems and can be installed using:
 
 .. tabbed:: PyPI
 
@@ -101,13 +112,17 @@ CWInPy is available through the `PyPI <https://pypi.org/project/cwinpy/>`_ and
 CWInPy is also available within the Conda environment supplied via the `International
 Gravitational-Wave Observatory Network <https://computing.docs.ligo.org/conda/>`_ (IGWN) over CVMFS.
 To install CVMFS (for Linux and macOS only) you can follow the instructions `here
-<https://computing.docs.ligo.org/guide/cvmfs/>`_. Once this is installed you can enter the, e.g.,
-``igwn-py38`` Conda environment from a terminal using:
+<https://computing.docs.ligo.org/guide/cvmfs/>`__. Once this is installed you can enter a Conda
+environment, e.g., ``igwn-py38``, from a terminal using:
 
    .. code-block:: console
 
       $ source /cvmfs/oasis.opensciencegrid.org/ligo/sw/conda/etc/profile.d/conda.sh
       $ conda activate igwn-py38 
+
+If running on many of the `IGWN Computing Grid clusters
+<https://computing.docs.ligo.org/guide/grid/>`__, the first line can be omitted as the required
+Conda distribution should automatically be in your path.
 
 Documentation
 =============
@@ -143,3 +158,14 @@ and then run `pytest <https://docs.pytest.org/en/latest/>`_ with:
    $ pytest
 
 from the repository's base directory after the code has been installed.
+
+.. note::
+
+   If installing the ``test`` packages you will need to have the
+   `Tempo2 <https://bitbucket.org/psrsoft/tempo2/src/master/>`_ pulsar timing package
+   installed. The easiest way to install this is by using ``conda`` to install the
+   `libstempo <https://vallis.github.io/libstempo/>`_ package:
+
+   .. code-block:: console
+
+      $ conda install -c conda-forge libstempo

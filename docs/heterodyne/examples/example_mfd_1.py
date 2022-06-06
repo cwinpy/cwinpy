@@ -3,9 +3,8 @@
 import shutil
 import subprocess as sp
 
-from astropy.utils.data import download_file
-from cwinpy.utils import LAL_EPHEMERIS_URL
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+from cwinpy import PulsarParameters
+from cwinpy.utils import LAL_EPHEMERIS_URL, download_ephemeris_file
 
 # set data start, duration and bandwidth
 fakedatastart = 1000000000
@@ -41,7 +40,7 @@ injfile = "inj.dat"
 fp = open(injfile, "w")
 
 for i, parfile in enumerate(parfiles):
-    p = PulsarParametersPy(parfile)
+    p = PulsarParameters(parfile)
     fp.write("[Pulsar {}]\n".format(i + 1))
 
     # set parameters (multiply freqs/phase by 2)
@@ -73,14 +72,15 @@ for i, parfile in enumerate(parfiles):
 fp.close()
 
 # set ephemeris files
-efile = download_file(LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz"), cache=True)
-sfile = download_file(LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz"), cache=True)
+efile = download_ephemeris_file(LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz"))
+sfile = download_ephemeris_file(LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz"))
 
 # set detector
 detector = "H1"
 channel = "{}:FAKE_DATA".format(detector)
 
-# set noise amplitude spectral density (use a small value to see the signal clearly)
+# set noise amplitude spectral density (use a small value to see the signal
+# clearly)
 sqrtSn = 1e-29
 
 # set Makefakedata commands

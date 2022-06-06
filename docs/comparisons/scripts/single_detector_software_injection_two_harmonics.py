@@ -70,7 +70,7 @@ asds = [1e-24, 2e-24]  # noise amplitude spectral densities
 times = np.linspace(1000000000.0, 1000086340.0, 1440)  # times
 harmonics = [1, 2]
 
-seed = np.random.RandomState(896231)
+seed = np.random.default_rng(896231)
 
 hetfiles = []
 for harmonic, asd in zip(harmonics, asds):
@@ -146,7 +146,7 @@ execpath = os.path.join(execpath, "bin")
 lppen = os.path.join(execpath, "lalapps_pulsar_parameter_estimation_nested")
 n2p = os.path.join(execpath, "lalinference_nest2pos")
 
-Nlive = 1024  # number of nested sampling live points
+Nlive = 1000  # number of nested sampling live points
 Nmcmcinitial = 0  # set to 0 so that prior samples are not resampled
 
 outfile = os.path.join(outdir, "{}_nest.hdf".format(label))
@@ -224,8 +224,6 @@ runner = pe(
     par_file=parfile,
     prior=priors,
     detector=detector,
-    sampler="dynesty",
-    sampler_kwargs={"Nlive": Nlive, "walks": 60},
     outdir=outdir,
     label=label,
 )

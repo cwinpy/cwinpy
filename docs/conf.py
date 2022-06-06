@@ -16,7 +16,6 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-import subprocess
 import sys
 
 import cwinpy
@@ -36,12 +35,12 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.mathjax",
     "sphinx.ext.intersphinx",
-    # "numpydoc",
     "sphinxcontrib.napoleon",
     "sphinx.ext.autosummary",
     "sphinx.ext.autosectionlabel",
+    "sphinxcontrib.programoutput",
     "sphinx_panels",
-    "recommonmark",
+    "myst_parser",
     "sphinx.ext.todo",
     "sphinxcontrib.images",
 ]
@@ -50,6 +49,7 @@ autosummary_generate = True
 autodoc_docstring_signature = True
 autodoc_default_options = {"members-order": "groupwise", "show-inheritance": True}
 todo_include_todos = True
+autoclass_content = "both"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -67,9 +67,9 @@ source_suffix = {
 master_doc = "index"
 
 # General information about the project.
-project = u"cwinpy"
-copyright = u"2019, Matthew Pitkin"
-author = u"Matthew Pitkin"
+project = "cwinpy"
+copyright = "2019, Matthew Pitkin"
+author = "Matthew Pitkin"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -120,8 +120,11 @@ exclude_patterns = [
     "pe/data/example2/*.pickle",
     "pe/data/example2/*_trace.png",
     "heterodyne/heterodyne_help.txt",
-    "heterodyne/heterodyne_dag_help.txt",
+    "heterodyne/heterodyne_pipeline_help.txt",
     "heterodyne/examples/segments.txt",
+    "knope/knope_help.txt",
+    "knope/knope_pipeline_help.txt",
+    "skyshifting/prior.txt",
 ]
 
 add_function_parentheses = True
@@ -141,12 +144,6 @@ todo_include_todos = False
 # a list of builtin themes.
 #
 html_theme = "pydata_sphinx_theme"
-
-# Theme options are theme-specific and customize the look and feel of a theme
-# further.  For a list of options available for each theme, see the
-# documentation.
-#
-# html_theme_options = {}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -176,7 +173,16 @@ html_theme_options = {
             "url": "https://git.ligo.org/CW/software/cwinpy",
             "icon": "fab fa-gitlab",
         },
-    ]
+    ],
+    "use_edit_page_button": True,
+}
+
+html_context = {
+    "github_url": "https://github.com",
+    "github_user": "cwinpy",
+    "github_repo": "cwinpy",
+    "github_version": "master",
+    "doc_path": "docs",
 }
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -200,7 +206,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "cwinpy.tex", u"cwinpy Documentation", u"Matthew Pitkin", "manual"),
+    (master_doc, "cwinpy.tex", "cwinpy Documentation", "Matthew Pitkin", "manual"),
 ]
 
 
@@ -208,7 +214,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "cwinpy", u"cwinpy Documentation", [author], 1)]
+man_pages = [(master_doc, "cwinpy", "cwinpy Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -220,7 +226,7 @@ texinfo_documents = [
     (
         master_doc,
         "cwinpy",
-        u"cwinpy Documentation",
+        "cwinpy Documentation",
         author,
         "cwinpy",
         "One line description of project.",
@@ -238,24 +244,11 @@ intersphinx_mapping = {
     "matplotlib": ("https://matplotlib.org/", None),
     "astropy": ("https://docs.astropy.org/en/stable/", None),
     "bilby": ("https://lscsoft.docs.ligo.org/bilby/", None),
-    "pycondor": ("https://jrbourbeau.github.io/pycondor/", None),
     "numba": ("http://numba.pydata.org/numba-doc/latest/", None),
     "gwpy": ("https://gwpy.github.io/docs/stable/", None),
     "psrqpy": ("https://psrqpy.readthedocs.io/en/stable/", None),
+    "corner": ("https://corner.readthedocs.io/en/stable/", None),
+    "healpy": ("https://healpy.readthedocs.io/en/stable/", None),
+    "seaborn": ("https://seaborn.pydata.org/", None),
+    "cweqgen": ("https://cweqgen.readthedocs.io/en/latest/", None),
 }
-
-
-# generate cwinpy_pe help string for docs
-pe_help = subprocess.getoutput("cwinpy_pe --help")
-with open("pe/pe_help.txt", "w") as fp:
-    fp.write(pe_help)
-
-# generate cwinpy_heterodyne help string for docs
-heterodyne_help = subprocess.getoutput("cwinpy_heterodyne --help")
-with open("heterodyne/heterodyne_help.txt", "w") as fp:
-    fp.write(heterodyne_help)
-
-# generate cwinpy_heterodyne_dag help string for docs
-heterodyne_dag_help = subprocess.getoutput("cwinpy_heterodyne_dag --help")
-with open("heterodyne/heterodyne_dag_help.txt", "w") as fp:
-    fp.write(heterodyne_dag_help)

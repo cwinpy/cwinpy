@@ -297,7 +297,7 @@ class BoundedGaussianDistribution(BaseDistribution):
     >>> weights = DirichletPriorDict(n_dim=2, label="weight")
     >>> dist = BoundedGaussianDistribution("x", mus=mus, sigmas=sigmas, weights=weights)
 
-    Note that if usind a Dirichlet prior on the weights all weights must be
+    Note that if using a Dirichlet prior on the weights all weights must be
     included and none can be set as fixed.
 
     Parameters
@@ -1221,13 +1221,6 @@ class MassQuadrupoleDistribution(object):
         If True, work with fiducial ellipticity :math:`\\varepsilon` rather
         than mass quadrupole.
 
-    To do
-    -----
-
-    Distributions that could be added include:
-
-    * a Student's t-distributions with unknown mean and number of degrees of
-      freedom.
     """
 
     def __init__(
@@ -1682,7 +1675,7 @@ class MassQuadrupoleDistribution(object):
         ----------
         integration_method: str
             Default is 'numerical' to perform trapezium rule integration.
-            The ther allowed value is 'expectation', which uses the
+            The other allowed value is 'expectation', which uses the
             :math:`Q_{22}` posterior samples to approximate the expectation
             value of the hyperparameter distribution.
         """

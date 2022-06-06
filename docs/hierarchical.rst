@@ -24,11 +24,11 @@ prior distribution for :math:`Q_{22}` defined by a set of hyperparameters :math:
    p(\vec{\theta}|\mathbf{D}, I) = \left(\prod_{i=1}^N \int^{{Q_{22}}_i} p(\mathbf{d}_i|{Q_{22}}_i,I) p({Q_{22}}_i|\vec{\theta},I) {\textrm d}{Q_{22}}_i\right) p(\vec{\theta}|I),
 
 where :math:`p(\mathbf{d}_i|{Q_{22}}_i,I)` is the marginalised likelihood distribution on
-:math:`Q_{22}` for an individual pulsar given it's obervations :math:`\mathbf{d}_i`, and
+:math:`Q_{22}` for an individual pulsar given it's observations :math:`\mathbf{d}_i`, and
 :math:`p(\vec{\theta}|I)` is the prior on the hyperparameters.
 
 The hierarchical module in CWInPy allows the outputs of pulsar :ref:`parameter estimation<Known
-pulsar parameter estimation>` for mutiple sources to be combined to estimate the hyperparameters of
+pulsar parameter estimation>` for multiple sources to be combined to estimate the hyperparameters of
 several different potential :math:`Q_{22}` (or ellipticity) distributions. To do this it is required
 that the parameter estimation has been performed using :math:`Q_{22}` when defining the signal
 amplitude, rather than :math:`h_0`, and that the distance is either assumed to be precisely known,
@@ -36,7 +36,7 @@ or the parameter estimation has included distance within the estimation via the 
 prior.
 
 Evaluating the integral
------------------------
+=======================
 
 Within the CWInPy implementation there are two ways provided of evaluating the integrals in the
 equation for :math:`p(\vec{\theta}|\mathbf{D}, I)`.
@@ -53,7 +53,7 @@ where :math:`p({Q_{22}}_i|I)` is the prior on :math:`Q_{22}` used during the par
 and :math:`p(\mathbf{d}_i|I)` is the marginal likelihood given the data for the i\ :sup:`th` pulsar.
 
 The second method uses the fact that the integrals are equivalent to calculating the expectation
-value of the prior distributuion:
+value of the prior distribution (see, e.g., [3]_):
 
 .. math::
 
@@ -70,7 +70,7 @@ still can still be calculated.
 .. note::
 
    Both these methods should be equivalent, but as discussed in [2]_, for the particular case of
-   estimtating the pulsar mass quadrupole distribution, the "expectation value" method appears to
+   estimating the pulsar mass quadrupole distribution, the "expectation value" method appears to
    suffer from numerical issues. This is particularly prominent for cases where to are no
    significantly detected signals for any pulsar, although it appears to have some effect even when
    strong signals are present (see the example :ref:`below<Sampling the hyperparameters>`). It is
@@ -82,7 +82,7 @@ still can still be calculated.
    KDEs of the posteriors.
 
 Available distributions
------------------------
+=======================
 
 The currently allowed distributions are:
 
@@ -112,7 +112,7 @@ These names can also be used for the ``distribution`` argument of
 :class:`~cwinpy.hierarchical.MassQuadrupoleDistribution`.
 
 Example
--------
+=======
 
 In this example we will use the :ref:`simulation<Pulsar simulations>` module to generate a set of
 pulsars with mass quadrupoles drawn from an `exponential distribution
@@ -120,10 +120,10 @@ pulsars with mass quadrupoles drawn from an `exponential distribution
 exponential distribution can be estimated.
 
 The code below will generate a HTCondor DAG that will simulate 100 pulsars with :math:`Q_{22}`
-values drawn from an exponential distribution with a mean of :math:`\mu = 10^{30}\,{\textrm
-kg}\,{\textrm m}^2`. The pulsars' sky locations will be drawn uniformly over the sky and from the
-default uniform distance distribution. The orientations of the pulsars will also be drawn from the
-default uniform distributions, which are described in the
+values drawn from an exponential distribution with a mean of :math:`\mu = 10^{30}\,
+{\textrm{kg}}\,{\textrm m}^2`. The pulsars' sky locations will be drawn uniformly over the sky and
+from the default uniform distance distribution. The orientations of the pulsars will also be drawn
+from the default uniform distributions, which are described in the
 :class:`~cwinpy.pe.simulation.PEPulsarSimulationDAG` documentation. The simulation will only
 generate observations from a single gravitational-wave detector, the LIGO Hanford detector ("H1"),
 in this case.
@@ -210,10 +210,10 @@ hyperparameters, the method of :ref:`evaluating the integrals<Evaluating the int
 arguments required for the stochastic or grid-based sampling method. In this case the distribution
 is an exponential, and we will use a :class:`~bilby.core.prior.analytical.HalfNormal` prior (a
 Gaussian distribution with a mode a zero, but excluding negative values) for the hyperparameter
-:math:`\mu`, with a scale parameter :math:`\sigma = 10^{34}\,{\textrm kg}\,{\textrm m}^2` roughly
+:math:`\mu`, with a scale parameter :math:`\sigma = 10^{34}\,{\textrm{kg}}\,{\textrm m}^2` roughly
 based on the largest sustainable quadrupole deformations as described in [1]_.
 
-The first example below uses the integral evalution method that performs the integrals over
+The first example below uses the integral evaluation method that performs the integrals over
 :math:`Q_{22}` numerically with the trapezium rule, which requires the ``"numerical"`` argument, and
 uses the default nested sampling routine to draw the samples from :math:`\mu`.
 
@@ -385,7 +385,7 @@ For comparison, we can plot the results from these different methods as below (a
    :width: 600px
    :align: center
 
-It's interesting to look at the distribution of the signal-to-noise ratios of the simulation versus
+It is interesting to look at the distribution of the signal-to-noise ratios of the simulation versus
 the recovered maximum a-posteriori signal to noise ratios. Another informative plot is a posterior
 predictive plot that checks the recovered exponential distribution matches the simulated
 distribution of :math:`Q_{22}` values. Both these are shown below.
@@ -393,9 +393,9 @@ distribution of :math:`Q_{22}` values. Both these are shown below.
 .. code-block:: python
 
    from bilby.core.prior import Exponential
+   from cwinpy import PulsarParameters
    import glob
    import json
-   from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
    from matplotlib import pyplot as plt
    from matplotlib import rc
 
@@ -415,7 +415,7 @@ distribution of :math:`Q_{22}` values. Both these are shown below.
 
    # load in simulation pulsar parameters and extract Q22 values
    pulsarfiles = glob.glob("/home/user/exponential/pulsars/*.par")
-   trueq22 = np.array([PulsarParametersPy(pf)["Q22"] for pf in pulsarfiles])
+   trueq22 = np.array([PulsarParameters(pf)["Q22"] for pf in pulsarfiles])
 
    # create plot
    rc("mathtext", **{"fontset": "stix"})
@@ -474,7 +474,7 @@ Below, we use chose to try and fit another simple distribution with a single hyp
 used to fit a mixture model of Gaussians to the data (bounded at zero, so that only positive values
 are allowed), but here we will just assume a single mode. The peak of the mode will be fixed at zero
 and the width, :math:`\sigma`, will be given a :class:`~bilby.core.prior.analytical.HalfNormal`
-prior with the same scale of :math:`\sigma = 10^{34}\,{\textrm kg}\,{\textrm m}^2` as used for
+prior with the same scale of :math:`\sigma = 10^{34}\,{\textrm{kg}}\,{\textrm m}^2` as used for
 :math:`\mu` previously.
 
 .. note::
@@ -633,13 +633,13 @@ predictive plots:
 We can see that both models do a reasonable job at recovering the simulated distribution.
 
 Hierarchical module API
------------------------
+=======================
 
 .. automodule:: cwinpy.hierarchical
    :members:
 
 Hierarchical analysis references
---------------------------------
+================================
 
 .. [1] `N. K. Johnson-McDaniel & B. J. Owen
    <https://ui.adsabs.harvard.edu/abs/2013PhRvD..88d4004J/abstract>`_, *PRD*,

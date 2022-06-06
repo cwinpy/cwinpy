@@ -14,34 +14,40 @@ from argparse import ArgumentParser
 
 import cwinpy
 import numpy as np
-from bilby_pipe.bilbyargparser import BilbyArgParser
-from bilby_pipe.job_creation.dag import Dag
-from bilby_pipe.utils import (
-    BilbyPipeError,
-    check_directory_exists_and_if_not_mkdir,
-    parse_args,
-)
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
 from configargparse import ArgumentError
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+from htcondor.dags import DAG, write_dag
 
+from ..condor import submit_dag
+from ..condor.hetnodes import HeterodyneLayer, MergeLayer
+from ..cwinpyargparser import CWInPyArgParser
 from ..data import HeterodynedData
 from ..info import (
     ANALYSIS_SEGMENTS,
+    CVMFS_GWOSC_DATA_SERVER,
+    CVMFS_GWOSC_DATA_TYPES,
     CVMFS_GWOSC_FRAME_CHANNELS,
-    CVMFS_GWOSC_FRAME_DATA_LOCATIONS,
     HW_INJ,
     HW_INJ_RUNTIMES,
     HW_INJ_SEGMENTS,
     RUNTIMES,
+    is_hwinj,
 )
+from ..parfile import PulsarParameters
 from ..utils import (
     LAL_BINARY_MODELS,
     LAL_EPHEMERIS_TYPES,
+    check_for_tempo2,
+    draw_ra_dec,
+    get_psr_name,
     initialise_ephemeris,
+    int_to_alpha,
+    overlap,
+    parse_args,
     sighandler,
 )
 from .base import Heterodyne, generate_segments, remote_frame_cache
-from .nodes import HeterodyneInput, HeterodyneNode, MergeHeterodyneNode
 
 
 def create_heterodyne_parser():
@@ -53,7 +59,7 @@ def create_heterodyne_parser():
 A script to heterodyne raw gravitational-wave strain data based on the \
 expected evolution of the gravitational-wave signal from a set of pulsars."""
 
-    parser = BilbyArgParser(
+    parser = CWInPyArgParser(
         prog=sys.argv[0],
         description=description,
         ignore_unknown_config_file_keys=False,
@@ -81,8 +87,8 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         default=False,
         help=(
             "Set this flag to make sure any previously generated heterodyned "
-            'files are overwritten. By default the analysis will "resume" from'
-            "where it left off (by checking whether output files, as set "
+            'files are overwritten. By default the analysis will "resume" '
+            "from where it left off (by checking whether output files, as set "
             'using "--output" and "--label" arguments, already exist), such '
             "as after forced Condor eviction for checkpointing purposes. "
             "Therefore, this flag is needs to be explicitly given (the "
@@ -95,14 +101,18 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
     dataparser.add(
         "--starttime",
         required=True,
-        type=int,
-        help=("The start time of the data to be heterodyned in GPS seconds."),
+        help=(
+            "The start time of the data to be heterodyned in GPS seconds or "
+            "as an ISO format date string."
+        ),
     )
     dataparser.add(
         "--endtime",
         required=True,
-        type=int,
-        help=("The end time of the data to be heterodyned in GPS seconds."),
+        help=(
+            "The end time of the data to be heterodyned in GPS seconds or as "
+            "an ISO format date string."
+        ),
     )
     dataparser.add(
         "--stride",
@@ -118,7 +128,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         "--detector",
         required=True,
         type=str,
-        help=("The name of the detectors for which the data is to be " "heterodyned."),
+        help=("The name of the detectors for which the data is to be heterodyned."),
     )
     dataparser.add(
         "--frametype",
@@ -131,7 +141,6 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
     )
     dataparser.add(
         "--channel",
-        required=True,
         type=str,
         help=(
             'The "channel" within the gravitational-wave data file(s) '
@@ -203,11 +212,8 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
     segmentparser.add(
         "--segmentlist",
         help=(
-            "Provide a list of data segment start and end times, as tuple "
-            "pairs in the list, or an ASCII text file containing the "
-            "segment start and end times in two columns. If a list, this "
-            "should be in the form of a Python list, surrounded by quotation "
-            'marks, e.g., "[(900000000,900086400),(900100000,900186400)]".'
+            "Provide an ASCII text file containing a list of science segment "
+            "start and end times in two columns."
         ),
     )
     segmentparser.add(
@@ -254,8 +260,8 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         help=(
             "This specifies the pulsars for which to heterodyne the data. It "
             "can be either i) a string giving the path to an individual "
-            "pulsar TEMPO(2)-style parameter file, ii) a string giving the "
-            "path to a directory containing multiple TEMPO(2)-style parameter "
+            "pulsar Tempo(2)-style parameter file, ii) a string giving the "
+            "path to a directory containing multiple Tempo(2)-style parameter "
             "files (the path will be recursively searched for any file with "
             'the extension ".par"), iii) a list of paths to individual '
             "pulsar parameter files, iv) a dictionary containing paths to "
@@ -384,6 +390,21 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "in the pulsar signal during the heterodyne."
         ),
     )
+    heterodyneparser.add(
+        "--usetempo2",
+        action="store_true",
+        default=False,
+        help=(
+            "Set this to True to use Tempo2 (via libstempo) to calculate the "
+            "signal phase evolution. For this to be used v2.4.2 or greater of "
+            "libstempo must be installed. When using Tempo2 the "
+            '"--earthephemeris", "--sunephemeris" and "--timeephemeris" '
+            "arguments do not need to be supplied. This can only be used when "
+            "running the full heterodyne in one stage, but not for "
+            're-heterodyning previous data, as such all the "--include..." '
+            "arguments will be assumed to be True."
+        ),
+    )
 
     ephemerisparser = parser.add_argument_group("Solar system ephemeris inputs")
     ephemerisparser.add(
@@ -422,9 +443,9 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
 
     cfparser = parser.add_argument_group("Configuration inputs")
     cfparser.add(
-        "--cwinpy-heterodyne-dag-config-file",
+        "--cwinpy-heterodyne-pipeline-config-file",
         help=(
-            "A path to the cwinpy_heterodyne_dag configuration file can be "
+            "A path to the cwinpy_heterodyne_pipeline configuration file can be "
             "supplied if this was has been used to setup the heterodyne job."
         ),
     )
@@ -456,10 +477,7 @@ def heterodyne(**kwargs):
         else:
             cliargs = sys.argv[1:]
 
-        try:
-            args, _ = parse_args(cliargs, parser)
-        except BilbyPipeError as e:
-            raise IOError("{}".format(e))
+        args, _ = parse_args(cliargs, parser)
 
         # convert args to a dictionary
         hetkwargs = vars(args)
@@ -485,27 +503,36 @@ def heterodyne(**kwargs):
         "timeephemeris",
     ]
     for attr in nsattrs:
-        value = hetkwargs.pop(attr, None)
+        value = str(hetkwargs.pop(attr, None))
 
+        # check whether the value can be evaluated as a Python object
+        try:
+            value = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            pass
+
+        # if the value was a string within a string, e.g., '"[2.3]"',
+        # evaluate again just in case it contains a Python object!
         if isinstance(value, str):
-            # check whether the value can be evaluated as a Python object
             try:
                 value = ast.literal_eval(value)
             except (ValueError, SyntaxError):
                 pass
 
-            hetkwargs[attr] = value
-        elif value is not None:
+        if value is not None:
             hetkwargs[attr] = value
 
-    # make sure pulsar files is not a single entry list containing a dictionary
+    # check if pulsarfiles is a single entry list containing a dictionary
     if isinstance(hetkwargs["pulsarfiles"], list):
         if len(hetkwargs["pulsarfiles"]) == 1:
-            value = ast.literal_eval(hetkwargs["pulsarfiles"][0])
+            try:
+                value = ast.literal_eval(hetkwargs["pulsarfiles"][0])
 
-            if isinstance(value, dict):
-                # swicth to passing the dictionary
-                hetkwargs["pulsarfiles"] = value
+                if isinstance(value, dict):
+                    # switch to passing the dictionary
+                    hetkwargs["pulsarfiles"] = value
+            except (SyntaxError, ValueError):
+                pass
 
     signal.signal(signal.SIGALRM, handler=sighandler)
     signal.alarm(hetkwargs.pop("periodic_restart_time", 14400))
@@ -548,7 +575,7 @@ def create_heterodyne_merge_parser():
 
     description = "A script to merge multiple heterodyned data files."
 
-    parser = BilbyArgParser(
+    parser = CWInPyArgParser(
         prog=sys.argv[0],
         description=description,
         ignore_unknown_config_file_keys=False,
@@ -567,9 +594,7 @@ def create_heterodyne_merge_parser():
         help=("A path, or list of paths, to heterodyned data files to merge together."),
     )
     parser.add(
-        "--output",
-        type=str,
-        help=("The output file for the merged heterodyned data."),
+        "--output", type=str, help=("The output file for the merged heterodyned data.")
     )
     parser.add(
         "--overwrite",
@@ -614,10 +639,7 @@ def heterodyne_merge(**kwargs):
         parser = create_heterodyne_merge_parser()
         cliargs = sys.argv[1:]
 
-        try:
-            args, _ = parse_args(cliargs, parser)
-        except BilbyPipeError as e:
-            raise IOError("{}".format(e))
+        args, _ = parse_args(cliargs, parser)
 
         # convert args to a dictionary
         mergekwargs = vars(args)
@@ -644,14 +666,14 @@ def heterodyne_merge(**kwargs):
         het.write(mergekwargs["output"], overwrite=mergekwargs.get("overwrite", False))
 
     if mergekwargs.get("remove", False):
-        # remove the inidividual files
+        # remove the individual files
         for hf in filelist:
             os.remove(hf)
 
     return het
 
 
-def heterodyne_merge_cli(**kwargs):  # pragme: no cover
+def heterodyne_merge_cli(**kwargs):  # pragma: no cover
     """
     Entry point to ``cwinpy_heterodyne_merge`` script. This just calls
     :func:`cwinpy.heterodyne.heterodyne_merge`, but does not return any
@@ -691,23 +713,17 @@ class HeterodyneDAGRunner(object):
         if not isinstance(config, configparser.ConfigParser):
             raise TypeError("'config' must be a ConfigParser object")
 
-        inputs = HeterodyneInput(config)
+        dagsection = "heterodyne_dag" if config.has_section("heterodyne_dag") else "dag"
 
         if "dag" in kwargs:
             # get a previously created DAG if given (for example for a full
             # analysis pipeline)
             self.dag = kwargs["dag"]
         else:
-            self.dag = Dag(inputs)
+            self.dag = DAG()
 
         # get whether to build the dag
-        self.build = config.getboolean("dag", "build", fallback=True)
-
-        # get whether to automatically submit the dag
-        self.submitdag = config.getboolean("dag", "submitdag", fallback=False)
-
-        # get any additional submission options
-        self.submit_options = config.get("dag", "submit_options", fallback=None)
+        self.build = config.getboolean(dagsection, "build", fallback=True)
 
         # get the base directory
         self.basedir = config.get("run", "basedir", fallback=os.getcwd())
@@ -724,8 +740,8 @@ class HeterodyneDAGRunner(object):
             raise ValueError("At least one detector must be supplied")
 
         # get pulsar information
-        pulsarfiles = self.eval(config.get("heterodyne", "pulsarfiles", fallback=None))
-        pulsars = self.eval(config.get("heterodyne", "pulsars", fallback=None))
+        pulsarfiles = self.eval(config.get("ephemerides", "pulsarfiles", fallback=None))
+        pulsars = self.eval(config.get("ephemerides", "pulsars", fallback=None))
         if pulsarfiles is None:
             raise ValueError("A set of pulsar parameter files must be supplied")
 
@@ -740,7 +756,8 @@ class HeterodyneDAGRunner(object):
             elif isinstance(outputdir, dict):
                 if sorted(outputdir.keys()) != sorted(detectors):
                     raise KeyError(
-                        "outputdirs dictionary must have same keys as the given detectors"
+                        "outputdirs dictionary must have same keys as the given "
+                        "detectors"
                     )
                 for det in detectors:
                     if not isinstance(outputdir[det], str):
@@ -769,11 +786,11 @@ class HeterodyneDAGRunner(object):
             if sorted(detectors) != sorted(fullstarttimes.keys()):
                 raise ValueError("Start times must be specified for all detectors")
             for key, value in fullstarttimes.copy().items():
-                if isinstance(value, int):
+                if isinstance(value, (int, float, str)):
                     fullstarttimes[key] = [value]  # convert values to lists
                 elif not isinstance(value, list):
                     raise TypeError("Must have a list of start times for a detector")
-        elif isinstance(fullstarttimes, int):
+        elif isinstance(fullstarttimes, (int, float, str)):
             fullstarttimes = {
                 det: [fullstarttimes] for det in detectors
             }  # convert to dict
@@ -785,14 +802,36 @@ class HeterodyneDAGRunner(object):
             if sorted(detectors) != sorted(fullendtimes.keys()):
                 raise ValueError("End times must be specified for all detectors")
             for key, value in fullendtimes.copy().items():
-                if isinstance(value, int):
+                if isinstance(value, (int, float, str)):
                     fullendtimes[key] = [value]  # convert values to lists
                 elif not isinstance(value, list):
                     raise TypeError("Must have a list of end times for a detector")
-        elif isinstance(fullendtimes, int):
+        elif isinstance(fullendtimes, (int, float, str)):
             fullendtimes = {det: [fullendtimes] for det in detectors}  # convert to dict
         else:
             raise ValueError("End times must be given")
+
+        # check if any start/end times are strings that can be converted to GPS
+        for timedict in [fullstarttimes, fullendtimes]:
+            for key in list(timedict.keys()):
+                for i in range(len(timedict[key])):
+                    if isinstance(timedict[key][i], (int, float)):
+                        timedict[key][i] = int(timedict[key][i])
+                    else:
+                        try:
+                            strtime = int(timedict[key][i])
+                        except ValueError:
+                            try:
+                                strtime = int(Time(timedict[key][i], scale="utc").gps)
+                            except ValueError:
+                                raise ValueError(
+                                    f"Time {timedict[key][i]} cannot be converted to GPS time"
+                                )
+
+                        # get GPS seconds
+                        timedict[key][i] = strtime
+
+        print(fullstarttimes, fullendtimes)
 
         for det in detectors:
             if len(fullendtimes[det]) != len(fullstarttimes[det]):
@@ -818,8 +857,10 @@ class HeterodyneDAGRunner(object):
         framedata = {det: [] for det in detectors}
         if frametypes is None and framecaches is None and heterodyneddata is None:
             raise ValueError(
-                "Frame types, frame cache files, or heterodyned data information must be supplied"
+                "Frame types, frame cache files, or heterodyned data information must "
+                "be supplied"
             )
+        require_gwosc = False
 
         if heterodyneddata is None:
             for fname, finfo in dict(
@@ -830,7 +871,9 @@ class HeterodyneDAGRunner(object):
                     if isinstance(finfo, dict):
                         for key, value in finfo.copy().items():
                             if isinstance(value, str):
-                                finfo[key] = [value] * len(fullstarttimes[key])
+                                finfo[key] = [
+                                    value for _ in range(len(fullstarttimes[key]))
+                                ]
                             elif isinstance(value, list):
                                 if len(value) != len(fullstarttimes[key]):
                                     raise ValueError(
@@ -875,29 +918,23 @@ class HeterodyneDAGRunner(object):
                 if isinstance(sinfo, dict):
                     for key, value in sinfo.copy().items():
                         if isinstance(value, str):
-                            sinfo[key] = [value] * len(fullstarttimes[key])
+                            sinfo[key] = [
+                                value for _ in range(len(fullstarttimes[key]))
+                            ]
                         elif isinstance(value, list):
                             if len(value) != len(fullstarttimes[key]):
                                 raise ValueError(
-                                    "{} lists must be consistent with the number of start and end times".format(
-                                        sname
-                                    )
+                                    f"{sname} lists must be consistent with the number of start and end times"
                                 )
                         else:
-                            raise TypeError("Must have a list of {}".format(sname))
+                            raise TypeError(f"Must have a list of {sname}")
                 else:
-                    raise TypeError("{} should be a dictionary".format(sname))
+                    raise TypeError(f"{sname} should be a dictionary")
 
         # get ephemeris information
-        earthephemeris = self.eval(
-            config.get("heterodyne", "earthephemeris", fallback=None)
-        )
-        sunephemeris = self.eval(
-            config.get("heterodyne", "sunephemeris", fallback=None)
-        )
-        timeephemeris = self.eval(
-            config.get("heterodyne", "timeephemeris", fallback=None)
-        )
+        earthephemeris = self.eval(config.get("ephemerides", "earth", fallback=None))
+        sunephemeris = self.eval(config.get("ephemerides", "sun", fallback=None))
+        timeephemeris = self.eval(config.get("ephemerides", "time", fallback=None))
 
         # get all the split segment times and frame caches
         if joblength == 0:
@@ -907,29 +944,33 @@ class HeterodyneDAGRunner(object):
             for det in detectors:
                 for i in range(len(fullstarttimes[det])):
                     frinfo = {}
-                    if frametypes is not None:
-                        # generate the frame caches now rather than relying on
-                        # each job doing it
-                        frcachedir = os.path.join(self.basedir, "cache")
-                        check_directory_exists_and_if_not_mkdir(frcachedir)
-                        frinfo["framecache"] = os.path.join(
-                            frcachedir,
-                            "frcache_{0:d}-{1:d}_{2}.txt".format(
-                                starttimes[det][i], endtimes[det][i], frametypes[det][i]
-                            ),
-                        )
-                        _ = remote_frame_cache(
-                            starttimes[det][i],
-                            endtimes[det][i],
-                            channels[det][i],
-                            frametype=frametypes[det][i],
-                            host=config.get("heterodyne", "host", fallback=None),
-                            write=frinfo["framecache"],
-                        )
-                    else:
-                        frinfo["framecache"] = framecaches[det][i]
+                    if heterodyneddata is None:
+                        if frametypes is not None:
+                            # generate the frame caches now rather than relying on
+                            # each job doing it
+                            frcachedir = os.path.join(self.basedir, "cache")
+                            if not os.path.exists(frcachedir):
+                                os.makedirs(frcachedir)
+                            frinfo["framecache"] = os.path.join(
+                                frcachedir,
+                                "frcache_{0:d}-{1:d}_{2}.txt".format(
+                                    starttimes[det][i],
+                                    endtimes[det][i],
+                                    frametypes[det][i],
+                                ),
+                            )
+                            _ = remote_frame_cache(
+                                starttimes[det][i],
+                                endtimes[det][i],
+                                channels[det][i],
+                                frametype=frametypes[det][i],
+                                host=config.get("heterodyne", "host", fallback=None),
+                                write=frinfo["framecache"],
+                            )
+                        else:
+                            frinfo["framecache"] = framecaches[det][i]
                     frinfo["channel"] = channels[det][i]
-                    framedata[det].append(frinfo.copy())
+                    framedata[det].append(copy.deepcopy(frinfo))
 
                     seginfo = {}
                     if segmentlists is not None:
@@ -944,12 +985,13 @@ class HeterodyneDAGRunner(object):
                             or "BURST_CAT" in includeflags[det][i]
                         ):
                             usegwosc = True
-                            inputs.require_gwosc = True
+                            require_gwosc = True
 
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
                         segdir = os.path.join(self.basedir, "segments")
-                        check_directory_exists_and_if_not_mkdir(segdir)
+                        if not os.path.exists(segdir):
+                            os.makedirs(segdir)
                         seginfo["segmentlist"] = os.path.join(
                             segdir,
                             "segments_{0:d}-{1:d}_{2}.txt".format(
@@ -972,7 +1014,7 @@ class HeterodyneDAGRunner(object):
                             server=segmentserver,
                         )
 
-                    segmentdata[det].append(seginfo.copy())
+                    segmentdata[det].append(copy.deepcopy(seginfo))
         elif joblength > 0:
             starttimes = {det: [] for det in detectors}
             endtimes = {det: [] for det in detectors}
@@ -1000,12 +1042,13 @@ class HeterodyneDAGRunner(object):
                             or "BURST_CAT" in includeflags[det][idx]
                         ):
                             usegwosc = True
-                            inputs.require_gwosc = True
+                            require_gwosc = True
 
                         # if segment list files are not provided create the lists
                         # now rather than relying on each job doing it
                         segdir = os.path.join(self.basedir, "segments")
-                        check_directory_exists_and_if_not_mkdir(segdir)
+                        if not os.path.exists(segdir):
+                            os.makedirs(segdir)
                         seginfo["segmentlist"] = os.path.join(
                             segdir,
                             "segments_{0:d}-{1:d}_{2}.txt".format(
@@ -1037,27 +1080,29 @@ class HeterodyneDAGRunner(object):
                     segmentlist = [list(seg) for seg in segmentlist]
 
                     frinfo = {}
-                    if frametypes is not None:
-                        # generate the frame caches now rather than relying on
-                        # each job doing it
-                        frcachedir = os.path.join(self.basedir, "cache")
-                        check_directory_exists_and_if_not_mkdir(frcachedir)
-                        frinfo["framecache"] = os.path.join(
-                            frcachedir,
-                            "frcache_{0:d}-{1:d}_{2}.txt".format(
-                                starttime, endtime, frametypes[det][idx]
-                            ),
-                        )
-                        _ = remote_frame_cache(
-                            starttime,
-                            endtime,
-                            channels[det][i],
-                            frametype=frametypes[det][idx],
-                            host=config.get("heterodyne", "host", fallback=None),
-                            write=frinfo["framecache"],
-                        )
-                    else:
-                        frinfo["framecache"] = framecaches[det][idx]
+                    if heterodyneddata is None:
+                        if frametypes is not None:
+                            # generate the frame caches now rather than relying on
+                            # each job doing it
+                            frcachedir = os.path.join(self.basedir, "cache")
+                            if not os.path.exists(frcachedir):
+                                os.makedirs(frcachedir)
+                            frinfo["framecache"] = os.path.join(
+                                frcachedir,
+                                "frcache_{0:d}-{1:d}_{2}.txt".format(
+                                    starttime, endtime, frametypes[det][idx]
+                                ),
+                            )
+                            _ = remote_frame_cache(
+                                starttime,
+                                endtime,
+                                channels[det][idx],
+                                frametype=frametypes[det][idx],
+                                host=config.get("heterodyne", "host", fallback=None),
+                                write=frinfo["framecache"],
+                            )
+                        else:
+                            frinfo["framecache"] = framecaches[det][idx]
                     frinfo["channel"] = channels[det][idx]
 
                     segidx = 0
@@ -1074,9 +1119,9 @@ class HeterodyneDAGRunner(object):
                                 break
 
                         if segidx < len(segmentlist):
-                            overlap = sumseg - joblength
+                            overlapamount = sumseg - joblength
                             segidx -= 1
-                            curend = segmentlist[segidx][1] - overlap
+                            curend = segmentlist[segidx][1] - overlapamount
                             segmentlist[segidx][0] = curend
                         else:
                             # ignore final segment if it's less than 30 mins
@@ -1090,19 +1135,34 @@ class HeterodyneDAGRunner(object):
                         endtimes[det].append(int(curend))
 
                         # append frame data for jobs
-                        framedata[det].append(frinfo.copy())
+                        framedata[det].append(copy.deepcopy(frinfo))
 
-                        segmentdata[det].append(seginfo.copy())
+                        segmentdata[det].append(copy.deepcopy(seginfo))
                     idx += 1
         else:
             raise ValueError("Length of each job must be a positive integer")
 
-        # create Heterodyne object to get pulsar parameter file information
-        het = Heterodyne(
-            pulsarfiles=pulsarfiles,
-            pulsars=pulsars,
-            heterodyneddata=heterodyneddata,
-        )
+        # create Heterodyne objects (one for each detector) to get pulsar parameter
+        # file information and heterodyned data information
+        hets = {}
+        for det in detectors:
+            # check if heterodyneddata is a dictionary keyed by detectors
+            hetdata = heterodyneddata
+            if isinstance(heterodyneddata, dict):
+                if det in heterodyneddata:
+                    hetdata = heterodyneddata[det]
+
+            hets[det] = Heterodyne(
+                pulsarfiles=pulsarfiles,
+                pulsars=pulsars,
+                heterodyneddata=hetdata,
+                detector=det,
+                ignore_read_fail=config.getboolean(
+                    "heterodyne", "ignore_read_fail", fallback=False
+                ),
+            )
+
+        het = list(hets.values())[0]
 
         # get number over which to split up pulsars
         npulsarjobs = config.getint("heterodyne", "npulsarjobs", fallback=1)
@@ -1151,34 +1211,38 @@ class HeterodyneDAGRunner(object):
             filterknee = config.getfloat("heterodyne", "filterknee", fallback=0.1)
         else:
             includessb = self.eval(
-                config.getboolean("heterodyne", "includessb", fallback="[False, True]")
+                config.get("heterodyne", "includessb", fallback="[False, True]")
             )
             includebsb = self.eval(
-                config.getboolean("heterodyne", "includebsb", fallback="[False, True]")
+                config.get("heterodyne", "includebsb", fallback="[False, True]")
             )
             includeglitch = self.eval(
-                config.getboolean(
-                    "heterodyne", "includeglitch", fallback="[False, True]"
-                )
+                config.get("heterodyne", "includeglitch", fallback="[False, True]")
             )
             includefitwaves = self.eval(
-                config.getboolean(
-                    "heterodyne", "includefitwaves", fallback="[False, True]"
-                )
+                config.get("heterodyne", "includefitwaves", fallback="[False, True]")
             )
 
             # filter knee frequency (default to 0.5 Hz for two stage heterodyne)
             filterknee = config.getfloat("heterodyne", "filterknee", fallback=0.5)
+
+        # get whether using Tempo2 or not and check it's availability
+        usetempo2 = config.getboolean("heterodyne", "usetempo2", fallback=False)
+        if usetempo2 and not check_for_tempo2():
+            raise ImportError(
+                "libstempo is not installed so 'usetempo2' option cannot be used"
+            )
 
         # get the required solar system ephemeris types and binary model for
         # the given pulsars
         etypes = []
         binarymodels = []
         for pf in het.pulsarfiles:
-            par = PulsarParametersPy(het.pulsarfiles[pf])
+            par = PulsarParameters(het.pulsarfiles[pf])
             etypes.append(par["EPHEM"] if par["EPHEM"] is not None else "DE405")
             if par["BINARY"] is not None:
                 binarymodels.append(par["BINARY"])
+        self.pulsar_files = copy.deepcopy(het.pulsarfiles)
 
         # remove duplicates
         etypes = set(etypes)
@@ -1203,36 +1267,44 @@ class HeterodyneDAGRunner(object):
                     )
                     timeephemeris[unit] = fnames[0]
 
-        # create copy of file to a unique name in case of identical filenames
+        # create copy of each file to a unique name in case of identical filenames
         # from astropy cache, which causes problems if requiring files be
         # transferred
-        for edat, ename in zip(
-            [earthephemeris, sunephemeris, timeephemeris], ["earth", "sun", "time"]
-        ):
-            if (
-                len(set([os.path.basename(edat[etype]) for etype in edat])) == 1
-                and len(edat) > 1
+        transfer_files = config.get(dagsection, "transfer_files", fallback="YES")
+        osg = config.getboolean(dagsection, "osg", fallback=False)
+        if transfer_files == "YES" or osg:
+            for edat, ename in zip(
+                [earthephemeris, sunephemeris, timeephemeris], ["earth", "sun", "time"]
             ):
-                for etype in edat:
-                    tmpephem = os.path.join(tempfile.gettempdir(), f"{ename}_{etype}")
-                    shutil.copy(edat[etype], tmpephem)
-                    edat[etype] = tmpephem
+                if (
+                    len(set([os.path.basename(edat[etype]) for etype in edat]))
+                    != len(edat)
+                    and len(edat) > 1
+                ):
+                    for etype in edat:
+                        tmpephem = os.path.join(
+                            tempfile.gettempdir(), f"{ename}_{etype}"
+                        )
+                        shutil.copy(edat[etype], tmpephem)
+                        edat[etype] = tmpephem
 
         # check that ephemeris files exist for all required types
-        for etype in etypes:
-            if etype not in earthephemeris or etype not in sunephemeris:
-                raise ValueError(
-                    f"Pulsar(s) require ephemeris '{etype}' which has not been supplied"
-                )
+        if not usetempo2:
+            for etype in etypes:
+                if etype not in earthephemeris or etype not in sunephemeris:
+                    raise ValueError(
+                        f"Pulsar(s) require ephemeris '{etype}' which has not been supplied"
+                    )
 
         # check that binary models exist for all required types
-        # NOTE: in the future, if libstempo can be used for phase generation,
-        # this can be relaxed
-        for bmodel in binarymodels:
-            if bmodel not in LAL_BINARY_MODELS:
-                raise ValueError(
-                    f"Pulsar(s) require binary model type '{bmodel}' which is not available in LALSuite"
-                )
+        if not usetempo2:
+            for bmodel in binarymodels:
+                if bmodel not in LAL_BINARY_MODELS:
+                    raise ValueError(
+                        f"Pulsar(s) require binary model type '{bmodel}' "
+                        "which is not available in LALSuite. Try the "
+                        "usetempo2 option."
+                    )
 
         # check output directories and labels lists are correct length
         if stages == 1:
@@ -1258,25 +1330,11 @@ class HeterodyneDAGRunner(object):
 
         merge = config.getboolean("merge", "merge", fallback=True) and joblength > 0
 
-        # create jobs
-        self.hetnodes = []
-
-        # dictionary to contain all nodes for a given pulsar (for passing on to
-        # cwinpy_pe if required)
-        self.pulsar_nodes = {psr: [] for psr in het.pulsars}
-
-        if merge:
-            # dictionary containing child nodes for each merge job
-            mergechildren = {
-                det: {ff: {psr: [] for psr in het.pulsars} for ff in freqfactors}
-                for det in detectors
-            }
-
-            # dictionary containing the output files for the merge results
-            mergeoutputs = {
-                det: {ff: {psr: None for psr in het.pulsars} for ff in freqfactors}
-                for det in detectors
-            }
+        # dictionary containing the output files for the merge results
+        self.mergeoutputs = {
+            det: {ff: {psr: None for psr in het.pulsars} for ff in freqfactors}
+            for det in detectors
+        }
 
         # dictionary to contain all the heterodyned data files for each pulsar
         self.heterodyned_files = {
@@ -1284,13 +1342,14 @@ class HeterodyneDAGRunner(object):
             for det in detectors
         }
 
-        # loop over sets of pulsars
-        for pgroup in pulsargroups:
-            self.hetnodes.append([])
+        # loop over sets of pulsars to create heterodyne jobs
+        for pidx, pgroup in enumerate(pulsargroups):
             # loop over frequency factors
             for ff in freqfactors:
                 # loop over each detector
                 for det in detectors:
+                    configurations = []  # config files for each time
+
                     # loop over times
                     idx = 0
                     for starttime, endtime in zip(starttimes[det], endtimes[det]):
@@ -1312,7 +1371,7 @@ class HeterodyneDAGRunner(object):
                         configdict["heterodyneddata"] = (
                             heterodyneddata
                             if heterodyneddata is None
-                            else {psr: het.heterodyneddata[psr] for psr in pgroup}
+                            else {psr: hets[det].heterodyneddata[psr] for psr in pgroup}
                         )
 
                         # set segment data info
@@ -1329,6 +1388,7 @@ class HeterodyneDAGRunner(object):
                         configdict["includeglitch"] = includeglitch[0]
                         configdict["includefitwaves"] = includefitwaves[0]
                         configdict["interpolationstep"] = interpolationstep
+                        configdict["usetempo2"] = usetempo2
 
                         # include ephemeris files
                         configdict["earthephemeris"] = earthephemeris
@@ -1346,54 +1406,129 @@ class HeterodyneDAGRunner(object):
                             pulsars=copy.deepcopy(pgroup),
                             pulsarfiles=pulsarfiles,
                         )
+
+                        # get lists of set of output heterodyned files for each pulsar/detector
                         for psr in pgroup:
-                            labeldict = {
-                                "det": tmphet.detector,
-                                "gpsstart": int(tmphet.starttime),
-                                "gpsend": int(tmphet.endtime),
-                                "freqfactor": int(tmphet.freqfactor),
-                                "psr": psr,
-                            }
                             self.heterodyned_files[det][ff][psr].append(
-                                tmphet.outputfiles[psr].format(**labeldict)
+                                copy.deepcopy(tmphet.outputfiles[psr])
                             )
 
-                            if merge and mergeoutputs[det][ff][psr] is None:
+                        # set the final merged output files
+                        for psr in pgroup:
+                            if merge and self.mergeoutputs[det][ff][psr] is None:
                                 # use full start and end times
-                                labeldict["gpsstart"] = starttimes[det][0]
-                                labeldict["gpsend"] = endtimes[det][-1]
-                                mergeoutputs[det][ff][psr] = os.path.join(
-                                    outputdirs[0][det],
-                                    tmphet.outputfiles[psr].format(**labeldict),
+                                tmphet.starttime = starttimes[det][0]
+                                tmphet.endtime = endtimes[det][-1]
+                                self.mergeoutputs[det][ff][psr] = os.path.join(
+                                    outputdirs[0][det], tmphet.outputfiles[psr]
                                 )
 
                         configdict["output"] = outputdirs[0][det]
                         configdict["label"] = label[0] if label is not None else None
 
-                        self.hetnodes[-1].append(
-                            HeterodyneNode(
-                                inputs,
-                                {
-                                    key: copy.deepcopy(value)
-                                    for key, value in configdict.items()
-                                    if value is not None
-                                },
-                                self.dag,
-                            )
+                        # store configurations
+                        configurations.append(
+                            {
+                                key: copy.deepcopy(value)
+                                for key, value in configdict.items()
+                                if value is not None
+                            }
                         )
 
-                        # put nodes into dictionary for each pulsar
-                        if stages == 1:
-                            if not merge:
-                                for psr in pgroup:
-                                    self.pulsar_nodes[psr].append(self.hetnodes[-1][-1])
-                            else:
-                                for psr in pgroup:
-                                    mergechildren[det][ff][psr].append(
-                                        self.hetnodes[-1][-1]
-                                    )
-
                         idx += 1
+
+                    _ = HeterodyneLayer(
+                        self.dag,
+                        config,
+                        configurations,
+                        layer_name=f"cwinpy_heterodyne_{pidx}_{ff}_{det}",
+                        require_gwosc=require_gwosc,
+                    )
+
+        # if performing sky-shifting, generate the new shifted pulsar parameter files
+        skyshift = config.has_section("skyshift")
+        if skyshift:
+            pulsardir = os.path.join(config["run"]["basedir"], "pulsars")
+            if not os.path.exists(pulsardir):
+                os.makedirs(pulsardir)
+
+            # copy original file par file into pulsar directory
+            shutil.copy2(pulsarfiles, pulsardir)
+
+            origpsrname = pulsargroups[0][0]  # single pulsar name
+            pulsargroups = []  # overwrite pulsargroups with sky-shifted pulsar names
+
+            parfiles = [pulsarfiles]  # add original (non-sky-shifted) parameters
+
+            nshifts = config.getint("skyshift", "nshifts", fallback=0)
+
+            if nshifts == 0:
+                raise ValueError("Number of sky shifts must be specified")
+
+            hemisphere = config.get("skyshift", "hemisphere", fallback=None)
+
+            if hemisphere not in ["north", "south"]:
+                raise ValueError("Hemisphere must be set to 'north' or 'south'")
+
+            exclusion = config.getfloat("skyshift", "exclusion", fallback=0.01)
+            overlapfrac = config.getfloat("skyshift", "overlap", fallback=0.0)
+            tobs = config.getfloat("skyshift", "tobs", fallback=0.0)
+
+            if overlapfrac > 0.0 and tobs == 0.0:
+                raise ValueError(
+                    "Total observation time must be given to calculate allowed overlap when sky-shifting"
+                )
+
+            # get pulsar position
+            psr = PulsarParameters(pulsarfiles)
+
+            # generate new positions
+            ra = psr["RAJ"] if psr["RAJ"] is not None else psr["RA"]
+            dec = psr["DECJ"] if psr["DECJ"] is not None else psr["DEC"]
+            pulsargroups.append([get_psr_name(psr)])
+            pos = SkyCoord(ra, dec, unit="rad")  # current position
+
+            for i in range(nshifts):
+                # generate points while checking angular distance from true position
+                while True:
+                    # draw points from same ecliptic hemisphere as source
+                    ranew, decnew = draw_ra_dec(eclhemi=hemisphere)
+                    newpos = SkyCoord(ranew, decnew, unit="rad")
+
+                    # check new position is outside exclusion region
+                    if np.abs(pos.separation(newpos).rad) > exclusion:
+                        if overlapfrac == 0.0:
+                            break
+
+                        # check new position has small fractional overlap
+                        if (
+                            overlap(pos, newpos, psr["F0"], tobs, starttime, dt=600)
+                            < overlapfrac
+                        ):
+                            break
+
+                # output par files for all new positions
+                newpsr = copy.deepcopy(psr)
+                if newpsr["RAJ"] is not None:
+                    newpsr["RAJ"] = newpos.ra.rad
+                else:
+                    newpsr["RA"] = newpos.ra.rad
+                if newpsr["DECJ"] is not None:
+                    newpsr["DECJ"] = newpos.dec.rad
+                else:
+                    newpsr["DEC"] = newpos.dec.rad
+
+                # make name unique with additional alphabetical values
+                anum = int_to_alpha(i + 1)
+                newpsr["PSRJ"] = get_psr_name(newpsr) + anum
+                pulsargroups.append([newpsr["PSRJ"]])
+
+                parfiles.append(
+                    os.path.join(pulsardir, "{}.par".format(newpsr["PSRJ"]))
+                )
+
+                # output parameter file
+                newpsr.pp_to_par(parfiles[-1])
 
         # need to check whether doing fine heterodyne - in this case need to create new jobs on a per pulsar basis
         if stages == 2:
@@ -1407,7 +1542,9 @@ class HeterodyneDAGRunner(object):
                             configdict["detector"] = det
                             configdict["freqfactor"] = ff
                             configdict["pulsars"] = psr
-                            configdict["pulsarfiles"] = pulsarfiles
+                            configdict["pulsarfiles"] = (
+                                pulsarfiles if not skyshift else parfiles[i]
+                            )
                             configdict["resamplerate"] = resamplerate[-1]
 
                             # include all modulations
@@ -1423,26 +1560,48 @@ class HeterodyneDAGRunner(object):
 
                             # input the data
                             configdict["heterodyneddata"] = {
-                                psr: self.heterodyned_files[det][ff][psr]
+                                psr: self.heterodyned_files[det][ff][
+                                    psr if not skyshift else origpsrname
+                                ]
                             }
 
-                            # output structure
+                            # output structure (always overwrite for 2nd stage)
+                            configdict["overwrite"] = True
                             configdict["output"] = outputdirs[1][det]
                             configdict["label"] = (
                                 label[1] if label is not None else None
                             )
 
-                            self.pulsar_nodes[psr].append(
-                                HeterodyneNode(
-                                    inputs,
+                            # temporary Heterodyne object to get the output file names
+                            tmphet = Heterodyne(
+                                starttime=configdict["starttime"],
+                                endtime=configdict["endtime"],
+                                detector=det,
+                                freqfactor=ff,
+                                output=outputdirs[1][det],
+                                label=configdict["label"],
+                                pulsars=psr,
+                                pulsarfiles=copy.deepcopy(configdict["pulsarfiles"]),
+                            )
+
+                            self.mergeoutputs[det][ff][psr] = os.path.join(
+                                outputdirs[1][det], tmphet.outputfiles[psr]
+                            )
+
+                            HeterodyneLayer(
+                                self.dag,
+                                config,
+                                [
                                     {
                                         key: copy.deepcopy(value)
                                         for key, value in configdict.items()
                                         if value is not None
-                                    },
-                                    self.dag,
-                                    generation_node=self.hetnodes[i],
-                                )
+                                    }
+                                ],
+                                layer_name=f"cwinpy_heterodyne_{ff}_{det}_{psr.replace('+', 'plus')}",
+                                parentname=f"cwinpy_heterodyne_*_{ff}_{det}"
+                                if not skyshift
+                                else f"cwinpy_heterodyne_0_{ff}_{det}",
                             )
         elif merge:
             # set output merge jobs
@@ -1450,28 +1609,40 @@ class HeterodyneDAGRunner(object):
                 for psr in pgroup:
                     for ff in freqfactors:
                         for det in detectors:
-                            if len(self.heterodyned_files[det][ff][psr]) > 1:
-                                self.pulsar_nodes[psr].append(
-                                    MergeHeterodyneNode(
-                                        inputs,
-                                        {
-                                            "heterodynedfiles": copy.deepcopy(
-                                                self.heterodyned_files[det][ff][psr]
-                                            ),
-                                            "freqfactor": ff,
-                                            "detector": det,
-                                            "pulsar": psr,
-                                            "output": copy.deepcopy(
-                                                mergeoutputs[det][ff][psr]
-                                            ),
-                                        },
-                                        self.dag,
-                                        generation_node=mergechildren[det][ff][psr],
-                                    )
-                                )
+                            MergeLayer(
+                                self.dag,
+                                config,
+                                {
+                                    "heterodynedfiles": copy.deepcopy(
+                                        self.heterodyned_files[det][ff][psr]
+                                    ),
+                                    "freqfactor": ff,
+                                    "detector": det,
+                                    "pulsar": psr,
+                                    "output": copy.deepcopy(
+                                        self.mergeoutputs[det][ff][psr]
+                                    ),
+                                },
+                                layer_name=f"cwinpy_heterodyne_{ff}_{det}_{psr.replace('+', 'plus')}",
+                                parentname=f"cwinpy_heterodyne_{i}_{ff}_{det}"
+                                if not skyshift
+                                else f"cwinpy_heterodyne_0_{ff}_{det}",
+                            )
 
         if self.build:
-            self.dag.build()
+            # write out the DAG and submit files
+            submitdir = config.get(
+                dagsection, "submit", fallback=os.path.join(self.basedir, "submit")
+            )
+            if not os.path.exists(submitdir):
+                os.makedirs(submitdir)
+            self.dag_file = write_dag(
+                self.dag, submitdir, dag_file_name="cwinpy_heterodyne.dag"
+            )
+
+            # submit the DAG if requested
+            if config.getboolean(dagsection, "submitdag", fallback=False):
+                submit_dag(self.dag_file)
 
     def eval(self, arg):
         """
@@ -1523,10 +1694,13 @@ class HeterodyneDAGRunner(object):
         return newobj
 
 
-def heterodyne_dag(**kwargs):
+def heterodyne_pipeline(**kwargs):
     """
-    Run heterodyne_dag within Python. This will create a `HTCondor <https://research.cs.wisc.edu/htcondor/>`_
-    DAG for running multiple ``cwinpy_heterodyne`` instances on a computer cluster.
+    Run heterodyne_pipeline within Python. This will create a
+    `HTCondor <https://htcondor.readthedocs.io/>`__ DAG for running multiple
+    ``cwinpy_heterodyne`` instances on a computer cluster. Optional parameters
+    that can be used instead of a configuration file (for "quick setup") are
+    given in the "Other parameters" section.
 
     Parameters
     ----------
@@ -1534,16 +1708,54 @@ def heterodyne_dag(**kwargs):
         A configuration file, or :class:`configparser:ConfigParser` object,
         for the analysis.
 
-    Optional parameters
-    -------------------
+    Other parameters
+    ----------------
     run: str
         The name of an observing run for which open data exists, which will be
         heterodyned, e.g., "O1".
+    detector: str, list
+        The detector, or list of detectors, for which the data will be
+        heterodyned. If not set then all detectors available for a given run
+        will be used.
+    hwinj: bool
+        Set this to True to analyse the continuous hardware injections for a
+        given run. If no ``pulsar`` argument is given then all hardware
+        injections will be analysed. To specify particular hardware injections
+        the names can be given using the ``pulsar`` argument.
+    samplerate: str:
+        Select the sample rate of the data to use. This can either be 4k or
+        16k for data sampled at 4096 or 16384 Hz, respectively. The default
+        is 4k, except if running on hardware injections for O1 or later, for
+        which 16k will be used due to being requred for the highest frequency
+        source. For the S5 and S6 runs only 4k data is avaialble from GWOSC,
+        so if 16k is chosen it will be ignored.
+    pulsar: str, list
+        The path to, or list of paths to, a Tempo(2)-style pulsar parameter
+        file(s), or directory containing multiple parameter files, to
+        heterodyne. If a pulsar name is given instead of a parameter file
+        then an attempt will be made to find the pulsar's ephemeris from the
+        ATNF pulsar catalogue, which will then be used.
+    osg: bool
+        Set this to True to run on the Open Science Grid rather than a local
+        computer cluster.
+    output: str,
+        The location for outputting the heterodyned data. By default the
+        current directory will be used. Within this directory, subdirectories
+        for each detector will be created.
+    joblength: int
+        The length of data (in seconds) into which to split the individual
+        analysis jobs. By default this is set to 86400, i.e., one day. If this
+        is set to 0, then the whole dataset is treated as a single job.
+    accounting_group_tag: str
+        For LVK users this sets the computing accounting group tag.
+    usetempo2: bool
+        Set this flag to use Tempo2 (if installed) for calculating the signal
+        phase evolution rather than the default LALSuite functions.
 
     Returns
     -------
     dag:
-        The pycondor :class:`pycondor.Dagman` object.
+        An object containing a pycondor :class:`pycondor.Dagman` object.
     """
 
     if "config" in kwargs:
@@ -1551,9 +1763,9 @@ def heterodyne_dag(**kwargs):
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
-                "A script to create a HTCondor DAG to run GW strain data "
-                "processing to heterodyne the data based on the expected "
-                "phase evolution for a selection of pulsars."
+                "A script to create a HTCondor DAG to process GW strain data "
+                "by heterodyning it based on the expected phase evolution for "
+                "a selection of pulsars."
             )
         )
         parser.add_argument(
@@ -1591,14 +1803,29 @@ def heterodyne_dag(**kwargs):
             help=(
                 "Set this flag to analyse the continuous hardware injections "
                 "for a given run. No '--pulsar' arguments are required in "
-                "this case."
+                "this case, in which case all hardware injections will be "
+                "used. To specific particular hardware injections, the "
+                "required names can be set with the '--pulsar' flag."
             ),
+        )
+        optional.add_argument(
+            "--samplerate",
+            help=(
+                "Select the sample rate of the data to use. This can either "
+                "be 4k or 16k for data sampled at 4096 or 16384 Hz, "
+                "respectively. The default is 4k, except if running on "
+                "hardware injections for O1 or later, for which 16k will be "
+                "used due to being requred for the highest frequency source. "
+                "For the S5 and S6 runs only 4k data is avaialble from GWOSC, "
+                "so if 16k is chosen it will be ignored."
+            ),
+            default="4k",
         )
         optional.add_argument(
             "--pulsar",
             action="append",
             help=(
-                "The path to a TEMPO(2)-style pulsar parameter file, or "
+                "The path to a Tempo(2)-style pulsar parameter file, or "
                 "directory containing multiple parameter files, to "
                 "heterodyne. This can be used multiple times to specify "
                 "multiple pulsar inputs. If a pulsar name is given instead "
@@ -1639,115 +1866,21 @@ def heterodyne_dag(**kwargs):
             dest="accgroup",
             help=("For LVK users this sets the computing accounting group tag"),
         )
+        optional.add_argument(
+            "--usetempo2",
+            action="store_true",
+            help=(
+                "Set this flag to use Tempo2 (if installed) for calculating "
+                "the signal phase evolution rather than the default LALSuite "
+                "functions."
+            ),
+        )
 
         args = parser.parse_args()
         if args.config is not None:
             configfile = args.config
         else:
-            # use the "Quick setup" arguments
-            configfile = configparser.ConfigParser()
-
-            run = args.run
-            if run not in RUNTIMES:
-                raise ValueError("Requested run '{}' is not available".format(args.run))
-
-            pulsars = []
-            if args.hwinj:
-                # use hardware injections for the run
-                runtimes = HW_INJ_RUNTIMES
-                segments = HW_INJ_SEGMENTS
-                pulsars.extend(HW_INJ[run]["hw_inj_files"])
-            else:
-                # use pulsars provided
-                runtimes = RUNTIMES
-                segments = ANALYSIS_SEGMENTS
-
-                if args.pulsar is None:
-                    raise ValueError("No pulsar parameter files have be provided")
-
-                pulsars.extend(args.pulsar)
-
-            # check pulsar files/directories exist
-            pulsars = [
-                pulsar
-                for pulsar in pulsars
-                if (os.path.isfile(pulsar) or os.path.idir(pulsar))
-            ]
-            if len(pulsars) == 0:
-                raise ValueError("No valid pulsar parameter files have be provided")
-
-            if args.detector is None:
-                detectors = list(runtimes[run].keys())
-            else:
-                detectors = [det for det in args.detector if det in runtimes[run]]
-                if len(detectors) == 0:
-                    raise ValueError(
-                        "Provided detectors '{}' are not valid for the given run".format(
-                            args.detector
-                        )
-                    )
-
-            # create required settings
-            configfile["run"] = {}
-            configfile["run"]["basedir"] = args.output
-
-            configfile["dag"] = {}
-            configfile["dag"]["submitdag"] = "True"
-            if args.osg:
-                configfile["dag"]["osg"] = "True"
-
-            configfile["job"] = {}
-            configfile["job"]["getenv"] = "True"
-            if args.accgroup is not None:
-                configfile["job"]["accounting_group"] = args.accgroup
-
-            # add heterodyne settings
-            configfile["heterodyne"] = {}
-            configfile["heterodyne"]["detectors"] = str(detectors)
-            configfile["heterodyne"]["pulsarfiles"] = str(pulsars)
-            configfile["heterodyne"]["starttimes"] = str(
-                {det: runtimes[run][det][0] for det in detectors}
-            )
-            configfile["heterodyne"]["endtimes"] = str(
-                {det: runtimes[run][det][1] for det in detectors}
-            )
-
-            configfile["heterodyne"]["framecaches"] = str(
-                {
-                    det: CVMFS_GWOSC_FRAME_DATA_LOCATIONS[run]["4k"][det]
-                    for det in detectors
-                }
-            )
-            configfile["heterodyne"]["channels"] = str(
-                {det: CVMFS_GWOSC_FRAME_CHANNELS[run]["4k"][det] for det in detectors}
-            )
-            if args.hwinj:
-                configfile["heterodyne"]["includeflags"] = str(
-                    {det: segments[run][det]["includesegments"] for det in detectors}
-                )
-                configfile["heterodyne"]["excludeflags"] = str(
-                    {det: segments[run][det]["excludesegments"] for det in detectors}
-                )
-            else:
-                configfile["heterodyne"]["includeflags"] = str(
-                    {det: segments[run][det] for det in detectors}
-                )
-            configfile["heterodyne"]["outputdir"] = str(
-                {det: os.path.join(args.output, det) for det in detectors}
-            )
-            configfile["heterodyne"]["overwrite"] = "False"
-
-            # split the analysis into on average day long chunks
-            if args.joblength is None:
-                configfile["heterodyne"]["joblength"] = "86400"
-            else:
-                configfile["heterodyne"]["joblength"] = str(args.joblength)
-
-            # merge the resulting files and remove individual files
-            configfile["merge"] = {}
-            configfile["merge"]["merge"] = "True"
-            configfile["merge"]["remove"] = "True"
-            configfile["merge"]["overwrite"] = "True"
+            configfile = heterodyne_quick_setup(args, **kwargs)
 
     if isinstance(configfile, configparser.ConfigParser):
         config = configfile
@@ -1757,17 +1890,200 @@ def heterodyne_dag(**kwargs):
         try:
             config.read_file(open(configfile, "r"))
         except Exception as e:
-            raise IOError(
-                "Problem reading configuration file '{}'\n: {}".format(configfile, e)
-            )
+            raise IOError(f"Problem reading configuration file '{configfile}'\n: {e}")
 
     return HeterodyneDAGRunner(config, **kwargs)
 
 
-def heterodyne_dag_cli(**kwargs):  # pragma: no cover
+def heterodyne_pipeline_cli(**kwargs):  # pragma: no cover
     """
-    Entry point to the cwinpy_heterodyne_dag script. This just calls
-    :func:`cwinpy.heterodyne.heterodyne_dag`, but does not return any objects.
+    Entry point to the cwinpy_heterodyne_pipeline script. This just calls
+    :func:`cwinpy.heterodyne.heterodyne_pipeline`, but does not return any objects.
     """
 
-    _ = heterodyne_dag(**kwargs)
+    _ = heterodyne_pipeline(**kwargs)
+
+
+def heterodyne_quick_setup(args, **kwargs):
+    """
+    Setup the configuration based on the "quick setup" command line arguments.
+
+    Parameters
+    ----------
+    args:
+        The output of :meth:`argparse.ArgumentParser.parse_args`.
+
+    Returns
+    -------
+    configfile:
+        A :class:`configparser:ConfigParser` object containing the required
+        settings.
+    """
+
+    # create the ConfigParser object
+    configfile = configparser.ConfigParser()
+
+    run = kwargs.get("run", args.run)
+    if run not in RUNTIMES:
+        raise ValueError(f"Requested run '{run}' is not available")
+
+    pulsars = []
+    hwinj = kwargs.get("hwinj", args.hwinj)
+    if hwinj:
+        # use hardware injections for the run
+        runtimes = HW_INJ_RUNTIMES
+        segments = HW_INJ_SEGMENTS
+
+        # check if requesting any particular hardware injections
+        argpulsars = kwargs.get("pulsar", args.pulsar)
+        if argpulsars is not None:
+            argpulsars = argpulsars if isinstance(argpulsars, list) else [argpulsars]
+
+            for pf in argpulsars:
+                hwinjf = is_hwinj(pf, return_file=True)
+                if hwinjf:
+                    pulsars.append(hwinjf)
+        else:
+            # use all HW injections
+            pulsars.extend(HW_INJ[run]["hw_inj_files"])
+
+        # set sample rate to 16k, expect for S runs
+        srate = "16k" if run[0] == "O" else "4k"
+    else:
+        # use pulsars provided
+        runtimes = RUNTIMES
+        segments = ANALYSIS_SEGMENTS
+
+        pulsar = kwargs.get("pulsar", args.pulsar)
+        if pulsar is None:
+            raise ValueError("No pulsar parameter files have be provided")
+
+        pulsars.extend(pulsar if isinstance(pulsar, list) else [pulsar])
+
+        # get sample rate
+        srate = "16k" if (args.samplerate[0:2] == "16" and run[0] == "O") else "4k"
+
+        # check if any pulsar par files are hardware injection and if so use
+        # appropriate segments
+        for pf in pulsars:
+            if is_hwinj(pf):
+                runtimes = HW_INJ_RUNTIMES
+                segments = HW_INJ_SEGMENTS
+                srate = "16k" if run[0] == "O" else "4k"
+                hwinj = True
+                break
+
+    detector = kwargs.get("detector", args.detector)
+    if args.detector is None:
+        detectors = list(runtimes[run].keys())
+    else:
+        detector = detector if isinstance(detector, list) else [detector]
+        detectors = [det for det in detector if det in runtimes[run]]
+        if len(detectors) == 0:
+            raise ValueError(
+                f"Provided detectors '{detector}' are not valid for the given run"
+            )
+
+    # create required settings
+    configfile["run"] = {}
+    configfile["run"]["basedir"] = kwargs.get("output", args.output)
+
+    configfile["heterodyne_dag"] = {}
+    configfile["heterodyne_dag"]["submitdag"] = "True"
+    if kwargs.get("osg", args.osg):
+        configfile["heterodyne_dag"]["osg"] = "True"
+
+    configfile["heterodyne_job"] = {}
+    configfile["heterodyne_job"]["getenv"] = "True"
+
+    if args.accgroup is not None:
+        configfile["heterodyne_job"]["accounting_group"] = kwargs.get(
+            "accounting_group_tag", args.accgroup
+        )
+
+    # add pulsars/pulsar ephemerides
+    configfile["ephemerides"] = {}
+    configfile["ephemerides"]["pulsarfiles"] = str(pulsars)
+
+    # add heterodyne settings
+    configfile["heterodyne"] = {}
+    configfile["heterodyne"]["detectors"] = str(detectors)
+
+    if run == "O3":
+        # for full O3 we need to set times for O3a and O3b separately
+        configfile["heterodyne"]["starttimes"] = str(
+            {
+                det: [runtimes[o3run][det][0] for o3run in ["O3a", "O3b"]]
+                for det in detectors
+            }
+        )
+        configfile["heterodyne"]["endtimes"] = str(
+            {
+                det: [runtimes[o3run][det][1] for o3run in ["O3a", "O3b"]]
+                for det in detectors
+            }
+        )
+
+        configfile["heterodyne"]["frametypes"] = str(
+            {
+                det: [
+                    CVMFS_GWOSC_DATA_TYPES[o3run][srate][det]
+                    for o3run in ["O3a", "O3b"]
+                ]
+                for det in detectors
+            }
+        )
+    else:
+        configfile["heterodyne"]["starttimes"] = str(
+            {det: runtimes[run][det][0] for det in detectors}
+        )
+        configfile["heterodyne"]["endtimes"] = str(
+            {det: runtimes[run][det][1] for det in detectors}
+        )
+
+        configfile["heterodyne"]["frametypes"] = str(
+            {det: CVMFS_GWOSC_DATA_TYPES[run][srate][det] for det in detectors}
+        )
+
+    configfile["heterodyne"]["channels"] = str(
+        {det: CVMFS_GWOSC_FRAME_CHANNELS[run][srate][det] for det in detectors}
+    )
+    configfile["heterodyne"]["host"] = CVMFS_GWOSC_DATA_SERVER
+    if hwinj:
+        configfile["heterodyne"]["includeflags"] = str(
+            {det: segments[run][det]["includesegments"] for det in detectors}
+        )
+        configfile["heterodyne"]["excludeflags"] = str(
+            {det: segments[run][det]["excludesegments"] for det in detectors}
+        )
+    else:
+        configfile["heterodyne"]["includeflags"] = str(
+            {det: segments[run][det] for det in detectors}
+        )
+    configfile["heterodyne"]["outputdir"] = str(
+        {
+            det: os.path.join(kwargs.get("output", os.path.abspath(args.output)), det)
+            for det in detectors
+        }
+    )
+    configfile["heterodyne"]["overwrite"] = "False"
+
+    # set whether to use Tempo2 for phase evolution
+    if kwargs.get("usetempo2", args.usetempo2):
+        configfile["heterodyne"]["usetempo2"] = "True"
+
+    # split the analysis into on average day long chunks
+    if kwargs.get("joblength", args.joblength) is None:
+        configfile["heterodyne"]["joblength"] = "86400"
+    else:
+        configfile["heterodyne"]["joblength"] = str(
+            kwargs.get("joblength", args.joblength)
+        )
+
+    # merge the resulting files and remove individual files
+    configfile["merge"] = {}
+    configfile["merge"]["merge"] = "True"
+    configfile["merge"]["remove"] = "True"
+    configfile["merge"]["overwrite"] = "True"
+
+    return configfile

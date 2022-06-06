@@ -1,4 +1,5 @@
 import ast
+import copy
 import os
 
 import numpy as np
@@ -159,11 +160,17 @@ def read_hdf5_series(
         hetargs = None
 
     if hetargs is not None:
-        array.heterodyne_arguments = ast.literal_eval(hetargs[()][0].decode())
+        array.heterodyne_arguments = ast.literal_eval(
+            hetargs[()][0].decode()
+            if isinstance(hetargs[()][0], bytes)
+            else hetargs[()][0]
+        )
 
     # set any configuration file information
-    if "cwinpy_heterodyne_dag_config" in kwargs:
-        array.cwinpy_heterodyne_dag_config = kwargs["cwinpy_heterodyne_dag_config"]
+    if "cwinpy_heterodyne_pipeline_config" in kwargs:
+        array.cwinpy_heterodyne_pipeline_config = kwargs[
+            "cwinpy_heterodyne_pipeline_config"
+        ]
 
     return array
 
@@ -172,13 +179,16 @@ def read_hdf5_series(
 
 
 def write_ascii_series(series, output, **kwargs):
-    """Write a `Series` to a file in ASCII format
+    """
+    Write a `Series` to a file in ASCII format
+
     Parameters
     ----------
     series : :class:`~gwpy.data.Series`
         data series to write
     output : `str`, `file`
         file to write to
+
     See also
     --------
     numpy.savetxt
@@ -193,10 +203,7 @@ def write_ascii_series(series, output, **kwargs):
     if series._input_stds:
         stds = series.stds
 
-    try:
-        comments = series.comments
-    except AttributeError:
-        comments = ""
+    comments = series.comments if series.comments is not None else ""
 
     if stds is None:
         return np.savetxt(
@@ -212,17 +219,15 @@ def write_ascii_series(series, output, **kwargs):
 
 
 def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
-    """Write a `Series` to a file in ASCII format
+    """
+    Write a `Series` to a file in HDF5 format
+
     Parameters
     ----------
     series : :class:`~gwpy.data.Series`
         data series to write
     output : `str`, `file`
         file to write to
-    See also
-    --------
-    numpy.savetxt
-        for documentation of keyword arguments
     """
 
     # set additional attributes to save
@@ -249,7 +254,7 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
         "heterodyne_arguments",
     ]
 
-    if series._input_stds:
+    if series.input_stds:
         # allow vars to be included
         badslots.remove("vars")
 
@@ -277,14 +282,14 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
     write_metadata(segments, output, path=path + "TimeSegments", append=True)
 
     # add standard deviations to a different dataset (path+"Sigmas") in the HDF5 file
-    if series._input_stds:
+    if series.input_stds:
         write_metadata(series.stds, output, path=path + "Sigmas", append=True)
 
     # check heterodyne_arguments for segment list/frame cache list
     if series.heterodyne_arguments is not None:
         # output into a string
         write_metadata(
-            [str(series.heterodyne_arguments)],
+            [str(series.heterodyne_arguments).encode("utf8")],
             output,
             path=path + "HeterodyneArguments",
             append=True,
@@ -312,14 +317,14 @@ def register_ascii_series_io(array_type, format="txt", identify=True, **defaults
     """
 
     def _read(filepath, **kwargs):
-        kwgs = defaults.copy()
+        kwgs = copy.deepcopy(defaults)
         kwgs.update(kwargs)
         if "comments" not in kwgs:
             kwgs.update({"comments": ["%", "#"]})
         return read_ascii_series(filepath, array_type=array_type, **kwgs)
 
     def _write(series, output, **kwargs):
-        kwgs = defaults.copy()
+        kwgs = copy.deepcopy(defaults)
         kwgs.update(kwargs)
         return write_ascii_series(series, output, **kwgs)
 
@@ -335,14 +340,14 @@ def register_hdf_series_io(array_type, format="hdf5", identify=True, **defaults)
     """
 
     def _read(filepath, **kwargs):
-        kwgs = defaults.copy()
+        kwgs = copy.deepcopy(defaults)
         kwgs.update(kwargs)
         if "comments" not in kwgs:
             kwgs.update({"comments": ["%", "#"]})
         return read_hdf5_series(filepath, array_type=array_type, **kwgs)
 
     def _write(series, output, **kwargs):
-        kwgs = defaults.copy()
+        kwgs = copy.deepcopy(defaults)
         kwgs.update(kwargs)
         return write_hdf5_series(series, output, **kwgs)
 

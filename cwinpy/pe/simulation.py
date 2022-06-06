@@ -8,12 +8,12 @@ from configparser import ConfigParser
 import astropy.units as u
 import bilby
 import numpy as np
-from astropy.coordinates import ICRS, Galactic, Galactocentric
-from lalpulsar.PulsarParametersWrapper import PulsarParametersPy
+from astropy.coordinates import ICRS, Galactic, Galactocentric, SkyCoord
 
 from ..hierarchical import BaseDistribution
+from ..parfile import PulsarParameters
 from ..utils import ellipticity_to_q22, int_to_alpha, is_par_file
-from .pe import pe_dag
+from .pe import pe_pipeline
 
 
 class PEPulsarSimulationDAG(object):
@@ -234,8 +234,7 @@ class PEPulsarSimulationDAG(object):
         self.create_config()
 
         # create the DAG for cwinpy_knope jobs
-        self.runner = pe_dag(config=self.config)
-        self.runner.dag.build()
+        self.runner = pe_pipeline(config=self.config)
 
     @property
     def ampdist(self):
@@ -357,7 +356,7 @@ class PEPulsarSimulationDAG(object):
                     for pf in os.listdir(parfiles):
                         parfile = os.path.join(parfiles, pf)
                         if is_par_file(parfile):
-                            psr = PulsarParametersPy(parfile)
+                            psr = PulsarParameters(parfile)
 
                             # add parfile to dictionary
                             for name in ["PSRJ", "PSRB", "PSR", "NAME"]:
@@ -506,7 +505,7 @@ class PEPulsarSimulationDAG(object):
                             distance=skyloc["dist"] * u.kpc,
                         )
                     )
-                    eqpos = gpos.transform_to(ICRS)
+                    eqpos = SkyCoord(gpos).transform_to(ICRS)
                     skyloc["ra"] = eqpos.ra.rad
                     skyloc["dec"] = eqpos.dec.rad
                     skyloc["dist"] = eqpos.distance.value
@@ -518,7 +517,7 @@ class PEPulsarSimulationDAG(object):
             orientation = self.oridist.sample()
 
             if self.parfiles is None:
-                pulsar = PulsarParametersPy()
+                pulsar = PulsarParameters()
                 pulsar["RAJ"] = skyloc["ra"]
                 pulsar["DECJ"] = skyloc["dec"]
                 pulsar["DIST"] = (skyloc["dist"] * u.kpc).to("m").value
@@ -552,7 +551,7 @@ class PEPulsarSimulationDAG(object):
                 self.priors[pname] = self.prior
             else:
                 pfile = list(self.parfiles.values())[i]
-                pulsar = PulsarParametersPy(pfile)
+                pulsar = PulsarParameters(pfile)
                 pname = list(self.parfiles.keys())[i]
                 injfile = os.path.join(self.pulsardir, "{}.par".format(pname))
 
@@ -630,24 +629,26 @@ class PEPulsarSimulationDAG(object):
 
         self.config["run"] = {"basedir": self.basedir}
 
-        self.config["dag"] = {"build": False}
-        self.config["dag"] = {"submitdag": self.submit}
+        self.config["pe_dag"] = {"build": "True"}
+        self.config["pe_dag"] = {"submitdag": self.submit}
 
-        self.config["job"] = {}
-        self.config["job"]["getenv"] = str(self.getenv)
+        self.config["pe_job"] = {}
+        self.config["pe_job"]["getenv"] = str(self.getenv)
 
         if self.accountgroup is not None:  # pragma: no cover
-            self.config["job"]["accounting_group"] = self.accountgroup
+            self.config["pe_job"]["accounting_group"] = self.accountgroup
         if self.accountuser is not None:  # pragma: no cover
-            self.config["job"]["accounting_group_user"] = self.accountuser
+            self.config["pe_job"]["accounting_group_user"] = self.accountuser
 
-        self.config["pe"] = {}
-        self.config["pe"]["pulsars"] = str(
+        self.config["ephemerides"] = {}
+        self.config["ephemerides"]["pulsars"] = str(
             [self.pulsars[pname]["file"] for pname in self.pulsars]
         )
-        self.config["pe"]["injections"] = str(
+        self.config["ephemerides"]["injections"] = str(
             [self.pulsars[pname]["injection_file"] for pname in self.pulsars]
         )
+
+        self.config["pe"] = {}
         self.config["pe"]["results"] = self.resultsdir
         self.config["pe"]["numba"] = str(self.numba)
         self.config["pe"]["n_parallel"] = str(self.n_parallel)
