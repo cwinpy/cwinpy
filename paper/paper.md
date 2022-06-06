@@ -26,7 +26,7 @@ frequencies $\gtrsim 10\,$Hz make enticing targets for the current and future ge
 ground-based gravitational-wave observatories such as LIGO, Virgo and KAGRA [@2019ApJ87910A]. The
 detection of gravitational-waves from such a source would reveal information on the size of the
 non-axisymmetry, or more colloquially the "mountain", on the star. This in turn provides valuable
-and novel information on neutron star matter and structure (see, e.g.\ @2015PASA...32...34L).
+and novel information on neutron star matter and structure (see, e.g.\ @2015Lasky).
 
 Detecting the very weak gravitational-wave signal from a pulsar requires the coherent integration of
 long (months-to-years) gravitational-wave data sets from multiple detectors. CWInPy implements an
