@@ -118,6 +118,8 @@ PPUNITS = {
     "HVECTORY_F": u.dimensionless_unscaled,
     "PSIVECTOR_F": u.rad,  # radians
     "PHI0VECTOR_F": u.rad,  # radians
+    "TRANSIENTSTARTTIME": u.s,  # GPS seconds
+    "TRANSIENTTAU": u.s,  # seconds
 }
 
 
@@ -158,6 +160,8 @@ TEMPOUNITS = {
     "START": u.d,  # MJD(TT) (days)
     "FINISH": u.d,  # MJD(TT) (days)
     "TRES": u.us,  # microsecs
+    "TRANSIENTSTARTTIME": u.d,  # MJD(TT) (day)
+    "TRANSIENTTAU": u.d,  # days
 }
 
 
@@ -462,6 +466,7 @@ class PulsarParameters:
             "FINISH",
             "DMEPOCH",
             "GLEP",
+            "TRANSIENTSTARTTIME",
         ]
 
         uname = name.upper()
