@@ -153,6 +153,9 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         "FB",
     ]
 
+    # the set of transient source parameters
+    TRANSIENT_PARAMS = ["TRANSIENTSTARTTIME", "TRANSIENTTAU"]
+
     # the parameters that are held as vectors
     VECTOR_PARAMS = ["F", "GLEP", "GLPH", "GLF0", "GLF1", "GLF2", "GLF0D", "GLTD", "FB"]
 
@@ -207,6 +210,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 + self.BINARY_PARAMS
                 + self.POSITIONAL_PARAMETERS
                 + self.NONGR_AMPLITUDE_PARAM
+                + self.TRANSIENT_PARAMS
             ) and not self._is_vector_param(key.upper()):
                 raise ValueError("Unknown parameter '{}' being used!".format(key))
 
@@ -633,7 +637,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
     ):
         """
         This is a version of the standard inner loop of
-        :meth:`cwinpy.TargetedPulsarLikelihood.log_likelihood` that used the
+        :meth:`cwinpy.TargetedPulsarLikelihood.log_likelihood` that uses the
         `numba <https://numba.pydata.org/>`_ JIT package to provide some
         speed-up.
 
