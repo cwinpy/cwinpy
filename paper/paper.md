@@ -57,7 +57,7 @@ through a SWIG interface to LALSuite [@WETTE2020100634]. The Bayesian inference 
 the [`bilby`](https://lscsoft.docs.ligo.org/bilby/) package [@2019ApJS24127A], which provides a
 convenient interface to a wide variety of packages for using the Markov Chain Monte Carlo (MCMC;
 see, e.g.\ @2017ARA&A55213S for a review of MCMC with particular reference to astronomy) or nested
-sampling algorithms (see, e.g., @2021arXiv210109675B or @nestedsampling for a review). By default
+sampling algorithms (see, e.g., @2021arXiv210109675B or @nestedsampling for a review). By default,
 CWInPy uses the [`dynesty`](https://dynesty.readthedocs.io/) package [@2020MNRAS.493.3132S] for
 inference using nested sampling, producing both posterior probability distributions for the
 parameters of interest and the Bayesian evidence for the signal model given the data.
@@ -66,8 +66,8 @@ parameters of interest and the Bayesian evidence for the signal model given the 
 
 CWInPy is designed to supersede the current analysis pipeline, known as `lalapps_knope`
 [@2017arXiv170508978P], largely based on executables written in `C`, which has been used for several
-searches in LIGO and Virgo data [@2017ApJ83912A; @2019ApJ87910A; @2020ApJ902L21A]. The reasons
-behind CWInPy's development, and its enhancements over existed software, include:
+searches in LIGO and Virgo data [@2017ApJ83912A; @2019ApJ87910A; @2020ApJ902L21A; @2021arXiv211113106T].
+The reasons behind CWInPy's development, and its enhancements over existed software, include:
 
 * the Python API allows easy access to the full range of functionality from data preprocessing to
   source parameter estimation, with greater ability to control various aspects of the analysis;
@@ -93,20 +93,20 @@ behind CWInPy's development, and its enhancements over existed software, include
   a population of pulsars [@2018PhRvD98f3001P];
 * it provides tools for determining the significance of a recovered signal using the sky-shifting
   method [@2020PhRvD.102l3027I];
-* the pulsar phase evolution can be calculated using the standard pulsar timing package TEMPO2
+* the pulsar phase evolution can be calculated using the standard pulsar timing package Tempo2
   [@tempo2] via the [`libstempo`](https://github.com/vallis/libstempo) Python package
   [@2020ascl.soft02017V] in addition to being able to use the independent routines within LALSuite
   [@lalsuite].
 
 # Validation
 
-To validate CWInPy, extensive testing against previous codes has been performed and is provided with
+To validate CWInPy extensive testing against previous codes has been performed and is provided with
 the [documentation](https://cwinpy.readthedocs.io/en/latest/). CWInPy has been used to successfully
 extract simulated signals directly added into the LIGO data [@2017PhRvD95f2002B] as well as multiple
 signals simulated via software.
 
 The inference of source parameters has been validated through the use of simulation-based
-calibration [@2018arXiv180406788T], with the posteriors probability distributions provided
+calibration [@2018arXiv180406788T], with the posteriors probability distributions shown to provide
 well-calibrated [@wellcalibrated] credible intervals.
 
 As evidence for this consistency, \autoref{fig:posteriors} shows the posterior probability
@@ -148,9 +148,9 @@ Both the `cwinpy_knope_pipeline` and the `cwinpy_heterodyne_pipeline` executable
 command line arguments that can be used for quickly setting up analyses using open data from GWOSC.
 These rely on the user having access to a computer, or cluster of computers, with HTCondor installed
 and CVMFS set up with access to the data. To run the analysis the user just needs to have a
-TEMPO2-style pulsar ephemeris files for any pulsars they wish to search for. If one had an ephemeris
-file for, e.g., PSR J0740+6620, called `J0740+6620.par`, then the pipeline could be over all data
-from the first observing run of Advanced LIGO (O1) [@RICHABBOTT2021100658], using
+Tempo2-style pulsar ephemeris files for any pulsars they wish to search for. If one had an ephemeris
+file for, e.g., PSR J0740+6620, called `J0740+6620.par`, then the pipeline could be run over all
+data from the first observing run of Advanced LIGO (O1) [@RICHABBOTT2021100658], using
 
 ```bash
 $ cwinpy_knope_pipeline \
@@ -162,12 +162,12 @@ $ cwinpy_knope_pipeline \
 where `/home/usr/analysis` can be substituted for the required final location of the files output by
 the analysis.
 
-If you do not have access to a pulsar ephemeris file, then an ephemeris from the [ATNF Pulsar
+If you do not have access to a pulsar ephemeris file, an ephemeris from the [ATNF Pulsar
 Catalogue](https://www.atnf.csiro.au/research/pulsar/psrcat/) [@ATNF] can be used by instead just
 specifying the name of the pulsar (you have to trust that the ephemeris provides a coherent timing
 solution over the gravitational-wave data period). The ephemeris is extracted from the catalogue
 using [`psrqpy`](https://psrqpy.readthedocs.io/) [@psrqpy]. For example, to search for PSR
-J0737-3039A using the [ATNF Pulsar Catalogue](https://www.atnf.csiro.au/research/pulsar/psrcat/)
+J0737$-$3039A using the [ATNF Pulsar Catalogue](https://www.atnf.csiro.au/research/pulsar/psrcat/)
 data in LIGO data from the second observing run, one could use:
 
 ```bash
