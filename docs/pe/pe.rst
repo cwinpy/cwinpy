@@ -156,14 +156,15 @@ look at the hardware injection signal named `PULSAR8
 parameter file as given above.
 
 The data we will use in this example is a short segment (between GPS times of 1132444817 and
-1)          from both the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to
+1136398891) from both the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to
 "H1") and the `LIGO Livingston <https://www.ligo.caltech.edu/LA>`_ detector (abbreviated to "L1").
 Both sets of data have been heterodyned using the known phase evolution of the simulated signal (see
 the description :ref:`here<Heterodyned Data>`), and low-pass filtered and down-sampled to a rate of
 one sample per minute. The data files (in a gzipped format) can be downloaded here:
 :download:`fine-H1-PULSAR08.txt.gz <data/fine-H1-PULSAR08.txt.gz>` and
-:download:`fine-L1-PULSAR08.txt.gz <data/fine-L1-PULSAR08.txt.gz>`. We will use an identical prior file
-to that in the first example, but rename it :download:`example2_prior.txt <data/example2_prior.txt>`.
+:download:`fine-L1-PULSAR08.txt.gz <data/fine-L1-PULSAR08.txt.gz>`. We will use an identical prior
+file to that in the first example, but rename it :download:`example2_prior.txt
+<data/example2_prior.txt>`.
 
 The configuration file for this example is shown below, with comments describing the parameter given
 inline:
@@ -217,6 +218,21 @@ The equivalent full command line arguments that could be used are:
 
    cwinpy_pe --detector H1 --detector L1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --data-file fine-L1-PULSAR08.txt.gz --outdir example2 --label example2 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'sample':'rslice','plot':True}" --prior example2_prior.txt --show-truths
 
+Example: a simulated transient-continuous signal
+================================================
+
+It is interesting to consider signals that do not have a constant amplitude, but are transitory on
+time scales of days-to-weeks-months (e.g., [8]_, [9]_); so-called "*transient-continuous*" signals.
+These might occur following a pulsar glitch [10]_. CWInPy is able to simulate and infer the
+parameters of two classes of these signals, which use the normal continuous signal model modulated
+by a particular window function:
+
+1. a rectangular window where the signal abruptly turns on then off;
+2. an exponentially decaying window, where there is an abrupt start followed by an exponential decay.
+
+Both models are defined by a start time, e.g., the time of an observed pulsar glitch, and a
+timescale :math:`\tau`, which defines the duration of the rectangular window model and the decay
+time constant for the exponential window model.
 
 Running on multiple sources
 ---------------------------
@@ -376,3 +392,8 @@ Parameter estimation utilities API
    *PRD*, **89**, 084060 (2014)
 .. [7] `B. P. Abbott et al. <https://ui.adsabs.harvard.edu/abs/2019ApJ...879...10A/abstract>`_,
    *ApJ*, **879**, p. 28 (2019)
+.. [8] `D. Keitel et al. <https://ui.adsabs.harvard.edu/abs/2019PhRvD.100f4058K/abstract>`_,
+   *PRD*, **100**, 064058 (2019)
+.. [9] R. Abbott et al., `arXiv:2112.10990 <https://arxiv.org/abs/2112.10990>`_, 2021.
+.. [10] `G. Yim & D. I. Jones <https://ui.adsabs.harvard.edu/abs/2020MNRAS.498.3138Y/abstract>`_,
+   *MNRAS*, **498**, 3138-3152 (2020)
