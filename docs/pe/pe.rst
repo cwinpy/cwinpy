@@ -234,6 +234,69 @@ Both models are defined by a start time, e.g., the time of an observed pulsar gl
 timescale :math:`\tau`, which defines the duration of the rectangular window model and the decay
 time constant for the exponential window model.
 
+To run simulate a transient signal, the Tempo(2)-style pulsar parameter (``.par``) file needs to
+contain the following parameters:
+
+* ``TRANSIENTWINDOWTYPE``: this can be ``RECT`` (rectangular window) or ``EXP`` (exponential
+  window);
+* ``TRANSIENTSTARTTIME``: the time at which the signal "turns-on". This should be give as in
+  Modified Julian Day (MJD) format, which is how glitch times are defined in Tempo(2);
+* ``TRANSIENTTAU``: the signal duration (rectangular window) or decay time constant (exponential
+  window) in days.
+
+For this example, the ``.par`` file we used defined a model with a rectangular window. It and can
+be downloaded :download:`here <data/TRANSIENT.par>` and is reproduced below.
+
+.. literalinclude:: data/TRANSIENT.par
+
+To estimate the parameters of the transient signal model they must be included in the file defining
+the required prior probability distributions. The prior file we use is reproduced below and can be
+downloaded :download:`here <data/example3_prior.txt>`:
+
+.. literalinclude:: data/example3_prior.txt
+
+Unlike in the ``.par`` file, the ``TRANSIENTSTARTTIME`` parameters in the prior file should be in
+GPS seconds and the ``TRANSIENTTAU`` should also be in seconds. In this case, a Gaussian prior is
+used for the start time with a mean given by the actual simulated start time and a standard
+deviation of 43200 seconds (half a day), and a uniform prior is used for the duration within a range
+from 8640 to 259200 seconds. 
+
+.. note::
+
+   You can use the :class:`astropy.time.Time` class to convert between GPS and MJD, e.g.:
+
+   >>> from astropy.time import Time
+   >>> mjd = Time(1234567890, format="gps", scale="tdb").mjd
+
+   or vice versa:
+
+   >>> gps = Time(1234567890, format="mjd", scale="tdb").gps
+
+A configuration file that can be passed to ``cwinpy_pe`` for this example is shown below, with
+comments describing the parameters given inline:
+
+.. literalinclude:: data/example3_config.ini
+
+This can then be run with:
+
+.. code-block:: bash
+
+   cwinpy_pe --config example3_config.ini
+
+which produces the following posteriors:
+
+.. thumbnail:: data/example3/example3_corner.png
+   :width: 300px
+   :align: center
+
+and the following signal model and noise model log evidence values:
+
+.. code-block:: none
+
+   ln_noise_evidence: 1274081.150
+   ln_evidence: 1274102.482 +/-  0.189
+   ln_bayes_factor: 21.331 +/-  0.189
+
 Running on multiple sources
 ---------------------------
 
