@@ -861,7 +861,7 @@ class PERunner(object):
 
                 if isinstance(fakedata, list):
                     # parse through list. Note: the rather long-winded and
-                    # obtous way of doing this is due to us allowing lists
+                    # obtuse way of doing this is due to us allowing lists
                     # containing ["det:value"]-style inputs.
                     detidx = 0
                     for fdata, start, end, dt, ftime in zip(

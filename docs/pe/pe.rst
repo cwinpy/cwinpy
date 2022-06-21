@@ -234,6 +234,11 @@ Both models are defined by a start time, e.g., the time of an observed pulsar gl
 timescale :math:`\tau`, which defines the duration of the rectangular window model and the decay
 time constant for the exponential window model.
 
+In this example, we will simulate a transient signal with a rectangular window in data from the both
+the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to "H1") and the `LIGO
+Livingston <https://www.ligo.caltech.edu/LA>`_ detector between 01:46:25 on 14th Sept 2011 (a GPS
+time of 1000000000) and 01:46:25 on 18th Sept 2011.
+
 Running on multiple sources
 ---------------------------
 
