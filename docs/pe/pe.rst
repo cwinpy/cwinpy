@@ -222,8 +222,8 @@ Example: a simulated transient-continuous signal
 ================================================
 
 It is interesting to consider signals that do not have a constant amplitude, but are transitory on
-time scales of days-to-weeks-months (e.g., [8]_, [9]_); so-called "*transient-continuous*" signals.
-These might occur following a pulsar glitch [10]_. CWInPy is able to simulate and infer the
+time scales of days-to-weeks-months (e.g., [8]_, [9]_, [10]_); so-called "*transient-continuous*" signals.
+These might occur following a pulsar glitch [11]_. CWInPy is able to simulate and infer the
 parameters of two classes of these signals, which use the normal continuous signal model modulated
 by a particular window function:
 
@@ -455,8 +455,10 @@ Parameter estimation utilities API
    *PRD*, **89**, 084060 (2014)
 .. [7] `B. P. Abbott et al. <https://ui.adsabs.harvard.edu/abs/2019ApJ...879...10A/abstract>`_,
    *ApJ*, **879**, p. 28 (2019)
-.. [8] `D. Keitel et al. <https://ui.adsabs.harvard.edu/abs/2019PhRvD.100f4058K/abstract>`_,
+.. [8] `R. Prix, S. Giampanis, S. & C. Messenger, C. <https://ui.adsabs.harvard.edu/abs/2011PhRvD..84b3007P/abstract>`_,
+   *PRD*, **84**, 023007 (2011)
+.. [9] `D. Keitel et al. <https://ui.adsabs.harvard.edu/abs/2019PhRvD.100f4058K/abstract>`_,
    *PRD*, **100**, 064058 (2019)
-.. [9] R. Abbott et al., `arXiv:2112.10990 <https://arxiv.org/abs/2112.10990>`_, 2021.
-.. [10] `G. Yim & D. I. Jones <https://ui.adsabs.harvard.edu/abs/2020MNRAS.498.3138Y/abstract>`_,
+.. [10] R. Abbott et al., `arXiv:2112.10990 <https://arxiv.org/abs/2112.10990>`_, 2021.
+.. [11] `G. Yim & D. I. Jones <https://ui.adsabs.harvard.edu/abs/2020MNRAS.498.3138Y/abstract>`_,
    *MNRAS*, **498**, 3138-3152 (2020)
