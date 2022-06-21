@@ -783,6 +783,12 @@ class PERunner(object):
             for freq, fakedata, issigma in zip(
                 [1.0, 2.0], [fakeasd1f, fakeasd2f], [issigma1f, issigma2f]
             ):
+                # skip if no fake data required
+                if fakedata is None:
+                    continue
+                elif not len(fakedata):
+                    continue
+
                 self.datakwargs["freqfactor"] = freq
                 self.datakwargs["issigma"] = issigma
 

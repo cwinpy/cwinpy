@@ -222,8 +222,8 @@ Example: a simulated transient-continuous signal
 ================================================
 
 It is interesting to consider signals that do not have a constant amplitude, but are transitory on
-time scales of days-to-weeks-months (e.g., [8]_, [9]_); so-called "*transient-continuous*" signals.
-These might occur following a pulsar glitch [10]_. CWInPy is able to simulate and infer the
+time scales of days-to-weeks-months (e.g., [8]_, [9]_, [10]_); so-called "*transient-continuous*" signals.
+These might occur following a pulsar glitch [11]_. CWInPy is able to simulate and infer the
 parameters of two classes of these signals, which use the normal continuous signal model modulated
 by a particular window function:
 
@@ -238,6 +238,69 @@ In this example, we will simulate a transient signal with a rectangular window i
 the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_ detector (abbreviated to "H1") and the `LIGO
 Livingston <https://www.ligo.caltech.edu/LA>`_ detector between 01:46:25 on 14th Sept 2011 (a GPS
 time of 1000000000) and 01:46:25 on 18th Sept 2011.
+
+To simulate a transient signal, the Tempo(2)-style pulsar parameter (``.par``) file needs to
+contain the following parameters:
+
+* ``TRANSIENTWINDOWTYPE``: this can be ``RECT`` (rectangular window) or ``EXP`` (exponential
+  window);
+* ``TRANSIENTSTARTTIME``: the time at which the signal "turns-on". This should be give as in
+  Modified Julian Day (MJD) format, which is how glitch times are defined in Tempo(2);
+* ``TRANSIENTTAU``: the signal duration (rectangular window) or decay time constant (exponential
+  window) in days.
+
+For this example, the ``.par`` file we used defined a model with a rectangular window. It and can
+be downloaded :download:`here <data/TRANSIENT.par>` and is reproduced below.
+
+.. literalinclude:: data/TRANSIENT.par
+
+To estimate the parameters of the transient signal model they must be included in the file defining
+the required prior probability distributions. The prior file we use is reproduced below and can be
+downloaded :download:`here <data/example3_prior.txt>`:
+
+.. literalinclude:: data/example3_prior.txt
+
+Unlike in the ``.par`` file, the ``TRANSIENTSTARTTIME`` parameters in the prior file should be in
+GPS seconds and the ``TRANSIENTTAU`` should also be in seconds. In this case, a Gaussian prior is
+used for the start time with a mean given by the actual simulated start time and a standard
+deviation of 43200 seconds (half a day), and a uniform prior is used for the duration within a range
+from 8640 to 259200 seconds. 
+
+.. note::
+
+   You can use the :class:`astropy.time.Time` class to convert between GPS and MJD, e.g.:
+
+   >>> from astropy.time import Time
+   >>> mjd = Time(1234567890, format="gps", scale="tdb").mjd
+
+   or vice versa:
+
+   >>> gps = Time(1234567890, format="mjd", scale="tdb").gps
+
+A configuration file that can be passed to ``cwinpy_pe`` for this example is shown below, with
+comments describing the parameters given inline:
+
+.. literalinclude:: data/example3_config.ini
+
+This can then be run with:
+
+.. code-block:: bash
+
+   cwinpy_pe --config example3_config.ini
+
+which produces the following posteriors:
+
+.. thumbnail:: data/example3/example3_corner.png
+   :width: 300px
+   :align: center
+
+and the following signal model and noise model log evidence values:
+
+.. code-block:: none
+
+   ln_noise_evidence: 1274081.150
+   ln_evidence: 1274102.482 +/-  0.189
+   ln_bayes_factor: 21.331 +/-  0.189
 
 Running on multiple sources
 ---------------------------
@@ -397,8 +460,10 @@ Parameter estimation utilities API
    *PRD*, **89**, 084060 (2014)
 .. [7] `B. P. Abbott et al. <https://ui.adsabs.harvard.edu/abs/2019ApJ...879...10A/abstract>`_,
    *ApJ*, **879**, p. 28 (2019)
-.. [8] `D. Keitel et al. <https://ui.adsabs.harvard.edu/abs/2019PhRvD.100f4058K/abstract>`_,
+.. [8] `R. Prix, S. Giampanis, S. & C. Messenger, C. <https://ui.adsabs.harvard.edu/abs/2011PhRvD..84b3007P/abstract>`_,
+   *PRD*, **84**, 023007 (2011)
+.. [9] `D. Keitel et al. <https://ui.adsabs.harvard.edu/abs/2019PhRvD.100f4058K/abstract>`_,
    *PRD*, **100**, 064058 (2019)
-.. [9] R. Abbott et al., `arXiv:2112.10990 <https://arxiv.org/abs/2112.10990>`_, 2021.
-.. [10] `G. Yim & D. I. Jones <https://ui.adsabs.harvard.edu/abs/2020MNRAS.498.3138Y/abstract>`_,
+.. [10] R. Abbott et al., `arXiv:2112.10990 <https://arxiv.org/abs/2112.10990>`_, 2021.
+.. [11] `G. Yim & D. I. Jones <https://ui.adsabs.harvard.edu/abs/2020MNRAS.498.3138Y/abstract>`_,
    *MNRAS*, **498**, 3138-3152 (2020)
