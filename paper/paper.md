@@ -67,7 +67,7 @@ parameters of interest and the Bayesian evidence for the signal model given the 
 CWInPy is designed to supersede the current analysis pipeline, known as `lalapps_knope`
 [@2017arXiv170508978P], largely based on executables written in `C`, which has been used for several
 searches in LIGO and Virgo data [@2017ApJ83912A; @2019ApJ87910A; @2020ApJ902L21A; @2021arXiv211113106T].
-The reasons behind CWInPy's development, and its enhancements over existed software, include:
+The reasons behind CWInPy's development, and its enhancements over existing software, include:
 
 * the Python API allows easy access to the full range of functionality from data preprocessing to
   source parameter estimation, with greater ability to control various aspects of the analysis;
@@ -136,7 +136,7 @@ The main pipelines provided by CWInPy are accessible using command line executab
 configuration file. The full pipeline, which must be run as an [HTCondor directed acyclic
 graph](https://htcondor.readthedocs.io/en/latest/users-manual/dagman-workflows.html) (DAG), can be
 run with the `cwinpy_knope_pipeline` executable. The heterodyne preprocessing stage can be run using
-`cwinpy_heterodyne` or, if running for long stretches of data and multiple pulsars, using an
+`cwinpy_heterodyne` or, if running for long stretches of data and multiple pulsars, using a
 HTCondor DAG via `cwinpy_heterodyne_pipeline`. The parameter estimation stage can be run using
 `cwinpy_pe` or, if running for multiple pulsars, using an HTCondor DAG via `cwinpy_pe_pipeline`.
 Full details of all the required configuration file settings are given in the
