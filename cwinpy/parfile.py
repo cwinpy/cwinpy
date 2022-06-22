@@ -174,6 +174,38 @@ TEMPOERRUNITS = {
 }
 
 
+# for certain binary parameters there is an anomoly that their value
+# may have been rescaled (I think this is a hangover from a TEMPO definition compared to
+# the TEMPO2 definition)
+BINARYUNITS = ["XDOT", "PBDOT", "EPS1DOT", "EPS2DOT", "XPBDOT"]
+
+# the names of epoch parameters that are held as GPS times, but must be converted back to
+# MJD for a TEMPO-style par file
+EPOCHPARS = [
+    "POSEPOCH",
+    "PEPOCH",
+    "WAVEEPOCH",
+    "T0",
+    "TASC",
+    "T0_2",
+    "T0_3",
+    "START",
+    "FINISH",
+    "DMEPOCH",
+    "GLEP",
+    "TRANSIENTSTARTTIME",
+]
+
+# the names of parameters that are held in seconds, but can be converted back into days if required
+TIMESCALEPARS = [
+    "PB",
+    "PB_2",
+    "PB_3",
+    "GLTD",
+    "TRANSIENTSTARTTIME",
+]
+
+
 class PulsarParameters:
     keynames = []  # parameter names in PulsarParameters structure
     length = 0  # number of parameters
@@ -382,7 +414,8 @@ class PulsarParameters:
 
         return getattr(self, "_updated", False)
 
-    def convert_to_units(self, name, value):
+    @staticmethod
+    def convert_to_units(name, value):
         """
         Convert parameter values to equivalent dimensional versions.
 
@@ -447,28 +480,6 @@ class PulsarParameters:
         from astropy.coordinates import ICRS, Angle
         from astropy.time import Time
 
-        # for certain binary parameters there is an anomoly that their value
-        # may have been rescaled (I think this is a hangover from a TEMPO definition compared to
-        # the TEMPO2 definition)
-        binaryunits = ["XDOT", "PBDOT", "EPS1DOT", "EPS2DOT", "XPBDOT"]
-
-        # the names of epoch parameters that are held as GPS times, but must be converted back to
-        # MJD for a TEMPO-style par file
-        epochpars = [
-            "POSEPOCH",
-            "PEPOCH",
-            "WAVEEPOCH",
-            "T0",
-            "TASC",
-            "T0_2",
-            "T0_3",
-            "START",
-            "FINISH",
-            "DMEPOCH",
-            "GLEP",
-            "TRANSIENTSTARTTIME",
-        ]
-
         uname = name.upper()
 
         ppunit = None
@@ -486,7 +497,7 @@ class PulsarParameters:
                     tempounit = TEMPOERRUNITS[uname]
 
         if ppunit is None:
-            if uname in binaryunits:
+            if uname in BINARYUNITS:
                 # for these binary parameters there is a TEMPO2 oddity that has to be corrected for
                 if abs(value) / 1e-12 > 1e-7:
                     value /= 1e-12
@@ -515,16 +526,16 @@ class PulsarParameters:
         elif uname in ["DEC", "DECJ"] and not iserr:
             c = ICRS(0.0 * u.rad, pvalue)
             cvalue = c.dec.to_string(unit=tempounit, sep=":", precision=12, pad=True)
-        elif uname in epochpars and not iserr:
+        elif uname in EPOCHPARS and not iserr:
             if isinstance(pvalue, list):
                 cvalue = []
-                for i, pv in enumerate(pvalue):
+                for pv in pvalue:
                     t = Time(pv, format="gps", scale="tt")
                     cvalue.append(t.mjd * tempounit)
             else:
                 t = Time(pvalue, format="gps", scale="tt")
                 cvalue = t.mjd * tempounit
-        elif uname in binaryunits and not iserr:
+        elif uname in BINARYUNITS and not iserr:
             # for these binary parameters there is a TEMPO2 oddity that has to be corrected for
             if abs(pvalue.value) / 1e-12 > 1e-7:
                 pvalue.value /= 1e-12
@@ -534,7 +545,7 @@ class PulsarParameters:
             if isinstance(pvalue, list):
                 cvalue = []
                 bunit = tempounit
-                for i, pv in enumerate(pvalue):
+                for pv in pvalue:
                     cvalue.append(pv.to(tempounit))
                     if uname in ["F", "FB", "P"]:  # frequency/period values
                         tempounit *= (

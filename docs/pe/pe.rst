@@ -260,11 +260,12 @@ downloaded :download:`here <data/example3_prior.txt>`:
 
 .. literalinclude:: data/example3_prior.txt
 
-Unlike in the ``.par`` file, the ``TRANSIENTSTARTTIME`` parameters in the prior file should be in
-GPS seconds and the ``TRANSIENTTAU`` should also be in seconds. In this case, a Gaussian prior is
-used for the start time with a mean given by the actual simulated start time and a standard
-deviation of 43200 seconds (half a day), and a uniform prior is used for the duration within a range
-from 8640 to 259200 seconds. 
+If setting the ``TRANSIENTSTARTTIME`` and ``TRANSIENTTAU`` to use MJD and days, respectively, in the
+prior file (to be consistent with the ``.par`` file) then the ``unit`` key for each prior must be
+set to ``d`` (for day). Otherwise the values will be expected in GPS seconds and seconds. In this
+case, a Gaussian prior is used for the start time with a mean given by the actual simulated start
+time and a standard deviation of 0.5 days, and a uniform prior is used for the duration within a
+range from 0.1 to 3 days. 
 
 .. note::
 
