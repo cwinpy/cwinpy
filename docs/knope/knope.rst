@@ -500,6 +500,12 @@ had to be generated using the commands:
 and then gzipped. Alternatively, the ``usetempo2`` option could be used, where the latest TEMPO2 version
 will contain these ephemerides.
 
+This would be run with:
+
+.. code-block:: bash
+
+   $ cwinpy_knope_pipeline knope_example_O3_dual.ini
+
 .. note::
 
    If running on open GWOSC data, the O3a and O3b periods need to be treated as separate runs as in
@@ -596,11 +602,10 @@ type, in this case an exponential:
 
 The example also needs a prior file (``vela_transient_prior.txt``) which contains the priors on the
 parameters of the window: the start time (taken to be close to the observed glitch time) and the
-decay time constant. If following the analysis of [2]_ the prior on the signal start time can be
+decay time constant. If following the analysis of [2]_, the prior on the signal start time can be
 ±0.5 days either side of the observed glitch time (this is actually much larger than the uncertainty
-on the glitch time), which is at a GPS time of 1165577920. The signal decay time here is set from to
-be from 1.5 days to 150 days (set in seconds in the prior file). An example of such a prior to use
-is:
+on the glitch time), which is at an MJD of 57734.4849906 (or GPS(TT) time of 1165577852). The signal
+decay time here is set from to be from 1.5 days to 150. An example of such a prior to use is:
 
 .. code-block::
 
@@ -608,8 +613,20 @@ is:
    phi0 = Uniform(minimum=0.0, maximum=pi, name='phi0', latex_label='$\phi_0$', unit='rad')
    iota = Sine(minimum=0.0, maximum=pi, name='iota', latex_label='$\iota$', unit='rad')
    psi = Uniform(name='psi', minimum=0, maximum=np.pi / 2, latex_label='$\psi$', unit='rad')
-   transientstarttime = Uniform(name='transientstarttime', minimum=1165534720, maximum=1165621120, latex_label='$t_0$', unit='s')
-   transienttau = Uniform(name='transienttau', minimum=129600, maximum=12960000, latex_label='$\\tau$', unit='s')
+   transientstarttime = Uniform(name='transientstarttime', minimum=57733.9849906, maximum=57734.9849906, latex_label='$t_0$', unit='d')
+   transienttau = Uniform(name='transienttau', minimum=1.5, maximum=150, latex_label='$\\tau$', unit='d')
+
+.. note::
+
+   If setting the ``transientstarttime`` and ``transienttau`` prior values using MJD and days,
+   respectively, the ``unit`` keyword of the prior must be set to ``'d'``, otherwise the start time
+   will be assumed to be a GPS time and the decay timescale will be assumed to be in seconds.
+
+This would be run with:
+
+.. code-block:: bash
+
+   $ cwinpy_knope_pipeline knope_example_O2_vela_transient.ini
 
 .. _knope Command line arguments:
 
