@@ -26,10 +26,6 @@ jobs:
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
     - name: Install CWInPy
       run: |
         # install in editable mode due to Cython files https://stackoverflow.com/a/48331262/1862861
