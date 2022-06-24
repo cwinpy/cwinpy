@@ -8,21 +8,19 @@ harmonics.
 
 import os
 import subprocess as sp
-from collections import OrderedDict
 
-import corner
 import h5py
 import matplotlib
-import matplotlib.font_manager as font_manager
 import numpy as np
 from astropy.utils.data import download_file
 from bilby.core.prior import Uniform
 from comparitors import comparisons_two_harmonics
 from cwinpy import HeterodynedData
 from cwinpy.pe import pe
+from cwinpy.plot import Plot
 from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 from lalinference.io import read_samples
-from matplotlib.lines import Line2D
+from matplotlib import pyplot as plt
 
 matplotlib.use("Agg")
 
@@ -45,7 +43,7 @@ PHI21    1.8
 PHI22    3.6
 """
 
-injection_parameters = OrderedDict()
+injection_parameters = {}
 injection_parameters["c21"] = 1.1e-25
 injection_parameters["c22"] = 1.6e-25
 injection_parameters["phi21"] = 1.8
@@ -117,7 +115,7 @@ with open(priorfile, "w") as fp:
     )
 
 # set prior for bilby
-priors = OrderedDict()
+priors = {}
 priors["c21"] = Uniform(c21range[0], c21range[1], "c21", latex_label=r"$C_{21}$")
 priors["c22"] = Uniform(c22range[0], c22range[1], "c22", latex_label=r"$C_{22}$")
 priors["phi21"] = Uniform(
@@ -233,31 +231,31 @@ result = runner.result
 # output comparisons
 comparisons_two_harmonics(label, outdir, priors, cred=0.9)
 
-# plot results
-fig = result.plot_corner(save=False, parameters=list(priors.keys()), color="b")
-fig = corner.corner(
-    postsamples,
-    fig=fig,
-    color="r",
+# create results plot
+allresults = {
+    "lalapps_pulsar_parameter_estimation_nested": outpost,
+    "cwinpy_pe": result,
+}
+
+colors = {
+    key: plt.rcParams["axes.prop_cycle"].by_key()["color"][i]
+    for i, key in enumerate(allresults.keys())
+}
+
+plot = Plot(
+    results=allresults,
+    parameters=list(priors.keys()),
+    plottype="corner",
+    pulsar=parfile,
+)
+
+plot.plot(
     bins=50,
     smooth=0.9,
     quantiles=[0.16, 0.84],
     levels=(1 - np.exp(-0.5), 1 - np.exp(-2), 1 - np.exp(-9 / 2.0)),
     fill_contours=True,
-    hist_kwargs={"density": True},
+    colors=colors,
 )
-axes = fig.get_axes()
 
-# custom legend
-legend_elements = [
-    Line2D([], [], color="r", label="lalapps_pulsar_parameter_estimation_nested"),
-    Line2D([], [], color="b", label="cwinpy_pe"),
-]
-font = font_manager.FontProperties(family="monospace")
-leg = axes[3].legend(
-    handles=legend_elements, loc="upper right", frameon=False, prop=font, handlelength=3
-)
-for line in leg.get_lines():
-    line.set_linewidth(1.0)
-
-fig.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=150)
+plot.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=150)

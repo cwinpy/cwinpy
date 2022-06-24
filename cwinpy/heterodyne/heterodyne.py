@@ -831,8 +831,6 @@ class HeterodyneDAGRunner(object):
                         # get GPS seconds
                         timedict[key][i] = strtime
 
-        print(fullstarttimes, fullendtimes)
-
         for det in detectors:
             if len(fullendtimes[det]) != len(fullstarttimes[det]):
                 raise ValueError("Inconsistent numbers of start and end times")

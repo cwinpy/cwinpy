@@ -17,6 +17,8 @@ from argparse import ArgumentParser
 import bilby
 import cwinpy
 import numpy as np
+from astropy.time import Time
+from astropy.units import Quantity
 from htcondor.dags import DAG, write_dag
 
 from ..condor import submit_dag
@@ -24,7 +26,7 @@ from ..condor.penodes import MergePELayer, PulsarPELayer
 from ..cwinpyargparser import CWInPyArgParser
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..likelihood import TargetedPulsarLikelihood
-from ..parfile import PulsarParameters
+from ..parfile import EPOCHPARS, TEMPOUNITS, PulsarParameters
 from ..utils import (
     CHECKPOINT_EXIT_CODE,
     convert_string_to_dict,
@@ -783,6 +785,12 @@ class PERunner(object):
             for freq, fakedata, issigma in zip(
                 [1.0, 2.0], [fakeasd1f, fakeasd2f], [issigma1f, issigma2f]
             ):
+                # skip if no fake data required
+                if fakedata is None:
+                    continue
+                elif not len(fakedata):
+                    continue
+
                 self.datakwargs["freqfactor"] = freq
                 self.datakwargs["issigma"] = issigma
 
@@ -861,7 +869,7 @@ class PERunner(object):
 
                 if isinstance(fakedata, list):
                     # parse through list. Note: the rather long-winded and
-                    # obtous way of doing this is due to us allowing lists
+                    # obtuse way of doing this is due to us allowing lists
                     # containing ["det:value"]-style inputs.
                     detidx = 0
                     for fdata, start, end, dt, ftime in zip(
@@ -1042,7 +1050,24 @@ class PERunner(object):
                 # get "true" values of any parameters in the prior
                 injtruths = {}
                 for key in self.prior:
-                    injtruths[key] = injpartmp[key.upper()]
+                    # convert values if required
+                    if key.upper() in TEMPOUNITS.keys():
+                        if str(TEMPOUNITS[key.upper()]) == self.prior[key].unit:
+                            if key.upper() in EPOCHPARS:
+                                injtruths[key] = Time(
+                                    injpartmp[key.upper()], format="gps", scale="tt"
+                                ).mjd
+                            else:
+                                # convert units as required
+                                injtruths[key] = (
+                                    PulsarParameters.convert_to_units(
+                                        key, injpartmp[key.upper()]
+                                    )
+                                    .to(TEMPOUNITS[key.upper()])
+                                    .value
+                                )
+                    else:
+                        injtruths[key] = injpartmp[key.upper()]
 
                     # check iota and theta
                     if key.lower() in ["iota", "theta"]:
@@ -1153,6 +1178,26 @@ class PERunner(object):
                 "w",
             ) as fp:
                 json.dump(snrs, fp, indent=2)
+
+        # convert parameter units if required
+        for rpar in self.result.posterior.columns:
+            if rpar.upper() in TEMPOUNITS.keys():
+                if str(TEMPOUNITS[rpar.upper()]) == self.prior[rpar].unit:
+                    if rpar.upper() in EPOCHPARS:
+                        self.result.posterior[rpar] = Time(
+                            self.result.posterior[rpar].values, format="gps", scale="tt"
+                        ).mjd
+                    else:
+                        # convert units as required
+                        self.result.posterior[rpar] = (
+                            Quantity(
+                                PulsarParameters.convert_to_units(
+                                    rpar, self.result.posterior[rpar].values
+                                )
+                            )
+                            .to(TEMPOUNITS[rpar.upper()])
+                            .value
+                        )
 
         return self.result
 

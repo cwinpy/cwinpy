@@ -14,13 +14,15 @@ stages:
   - comparisons
   #- deploy
 
-# test on python 3.7
-python-3.7:
+
+# test on python 3.8
+python-3.8:
   stage: test
-  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python37
+  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python38
   script:
     # install in "editable" mode, so pytest runs with Cython code - see https://stackoverflow.com/a/48331262/1862861
     - python -m pip install -e .
+    - pytest
 
     # run tests
     - pytest
@@ -29,18 +31,6 @@ python-3.7:
     - cd docs
     - make clean
     - make html
-
-    #  artifacts:
-    #paths:
-    #  - docs/_build/html/
-
-# test on python 3.8
-python-3.8:
-  stage: test
-  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python38
-  script:
-    - python -m pip install -e .
-    - pytest
 
 
 # test on python 3.9

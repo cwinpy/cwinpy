@@ -1,15 +1,16 @@
 import logging
 
 import numpy as np
+from astropy.time import Time
 from bilby.core.grid import Grid
 from bilby.core.result import Result, read_in_result
-from cwinpy.utils import lalinference_to_bilby_result
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
 from matplotlib.legend_handler import HandlerBase
 from matplotlib.patches import Rectangle
 from pesummary.conf import colorcycle
 
-from .parfile import PulsarParameters
+from .parfile import EPOCHPARS, TEMPOUNITS, PulsarParameters
+from .utils import lalinference_to_bilby_result
 
 #: dictionary of common parameters and equivalent LaTeX format strings
 LATEX_LABELS = {
@@ -36,6 +37,8 @@ LATEX_LABELS = {
     "psitensor": r"$\psi^{\rm{t}}$ (rad)",
     "psivector": r"$\psi^{\rm{v}}$ (rad)",
     "psiscalar": r"$\psi^{\rm{s}}$ (rad)",
+    "transienttau": r"$\tau_{\rm{trans}}$",
+    "transientstarttime": r"$T_0^{\rm{trans}}$",
 }
 
 #: dictionary of default parameter bounds
@@ -380,7 +383,25 @@ class Plot:
                                 self._pulsar[param] = np.arcsin(self._pulsar[p])
                             break
 
+                # convert parameters if required based on prior information
                 self._injection_parameters[param] = self._pulsar[param]
+                if hasattr(list(self._results.values())[0], "priors"):
+                    priors = list(self._results.values())[0].priors
+                    if param.upper() in TEMPOUNITS.keys():
+                        if str(TEMPOUNITS[param.upper()]) == priors[param].unit:
+                            if param.upper() in EPOCHPARS:
+                                self._injection_parameters[param] = Time(
+                                    self._pulsar[param], format="gps", scale="tt"
+                                ).mjd
+                            else:
+                                # convert units as required
+                                self._injection_parameters[param] = (
+                                    PulsarParameters.convert_to_units(
+                                        param, self._pulsar[param]
+                                    )
+                                    .to(TEMPOUNITS[param.upper()])
+                                    .value
+                                )
 
     @property
     def injection_parameters(self):
@@ -1051,7 +1072,6 @@ class Plot:
         ax = fig.axes
 
         quantiles = kwargs.pop("quantiles", None)
-
         grid2d = kwargs.pop("grid2d", False)
 
         for i, (label, grid) in enumerate(self._grids.items()):
