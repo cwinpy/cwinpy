@@ -16,9 +16,9 @@ jobs:
       matrix:
         include:
           - python-version: 3.8
-            container: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python38
+            container: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python38
           - python-version: 3.9
-            container: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python39
+            container: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python39
 
     container: ${{ matrix.container }}
     steps:

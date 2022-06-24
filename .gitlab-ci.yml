@@ -18,7 +18,7 @@ stages:
 # test on python 3.8
 python-3.8:
   stage: test
-  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python38
+  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python38
   script:
     # install in "editable" mode, so pytest runs with Cython code - see https://stackoverflow.com/a/48331262/1862861
     - python -m pip install -e .
@@ -36,7 +36,7 @@ python-3.8:
 # test on python 3.9
 python-3.9:
   stage: test
-  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python39
+  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python39
   script:
     - python -m pip install -e .
     - pytest
@@ -45,7 +45,7 @@ python-3.9:
 # test pre-commit has picked up black/flake8 requirements
 pre-commit-python-3.8:
   stage: test
-  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python38
+  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python38
   script:
     - python -m pip install .[dev]
 
@@ -55,7 +55,7 @@ pre-commit-python-3.8:
 # run comparisons when a new tag is made
 run-comparisons:
   stage: comparisons
-  image: containers.ligo.org/matthew-pitkin/cwinpy-containers/cwinpyci-python38
+  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python38
   only:
     # only run on tags (I'm assuming I'll only tag new versions!)
     - tags
