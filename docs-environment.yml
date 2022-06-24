@@ -3,6 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.8
+  - lintegrate
   - pip:
     - appdirs
     - astropy
@@ -16,7 +17,6 @@ dependencies:
     - healpy
     - htcondor
     - lalsuite>=7.5.1.dev20220614
-    - lintegrate
     - matplotlib
     - numba
     - numpy
