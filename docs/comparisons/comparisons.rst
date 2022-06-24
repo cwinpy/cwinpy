@@ -48,10 +48,10 @@ percentage of true signal values found within that credible interval is known wi
 gravitational-wave community colloquially as a "PP plot" (see, e.g., Section VC of [3]_). This is
 also more generally known as "Simulated-based calibration" [4]_.
 
-These tests have been performed in the output of ``cwinpy_knope`` by generating a set of simulated
+These tests have been performed on the output of ``cwinpy_pe`` by generating a set of simulated
 signals (using the :class:`cwinpy.pe.testing.PEPPPlotsDAG`) to be analysed. After all the
-individual simulations have been analysed a PP plot is generated using :meth:`cwinpy.pe.testing.
-generate_pp_plots` (which itself uses functions from `bilby
+individual simulations have been analysed, a PP plot is generated using
+:meth:`cwinpy.pe.testing.generate_pp_plots` (which itself uses functions from `bilby
 <https://lscsoft.docs.ligo.org/bilby/index.html>`_).
 
 Single harmonic signal
@@ -65,10 +65,10 @@ shows the priors used for the generation of signal parameters and their recovery
 
 .. note::
 
-   When drawing parameters from the :math:`h_0` prior a maximum cut-off (``maxamp`` in the code)
+   When drawing parameters from the :math:`h_0` prior, a maximum cut-off (``maxamp`` in the code)
    that is lower than the upper range of the prior is used. This is to ensure that posteriors are
    not truncated by the upper end of the prior in this case. However, this should not bias the
-   recovered credible intervals due to the :math:`h_0` prior being uniform and extended well above
+   recovered credible intervals due to the :math:`h_0` prior being uniform and extending well above
    the ``maxamp`` value.
 
 .. thumbnail:: ppplot_2f.png
@@ -93,11 +93,11 @@ the generation of signal parameters and their recovery.
 
 .. note::
 
-   When drawing parameters from the :math:`C_{12}` and :math:`C_{22}` priors a maximum cut-off
+   When drawing parameters from the :math:`C_{12}` and :math:`C_{22}` priors, a maximum cut-off
    (``maxamp`` in the code) that is lower than the upper range of the prior is used. This is to
    ensure that posteriors are not truncated by the upper end of the prior in this case. However,
    this should not bias the recovered credible intervals due to the :math:`C_{12}` and
-   :math:`C_{22}` priors being uniform and extended well above the ``maxamp`` value.
+   :math:`C_{22}` priors being uniform and extending well above the ``maxamp`` value.
 
 .. thumbnail:: ppplot_1f2f.png
    :width: 600px
