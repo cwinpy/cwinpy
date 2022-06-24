@@ -47,6 +47,5 @@ run = PEPPPlotsDAG(
     getenv=getenv,
     freqrange=freqrange,
     basedir=basedir,
-    submit=False,  # submit the DAG
-    sampler_kwargs={"sample": "rslice", "Nlive": 1000},
+    submit=True,  # submit the DAG
 )

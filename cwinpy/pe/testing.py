@@ -104,7 +104,7 @@ def generate_pp_plots(**kwargs):  # pragma: no cover
     # get results files
     try:
         resfiles = [
-            rfile for rfile in glob.glob(path) if os.path.splitext(rfile)[1] == ".json"
+            rfile for rfile in glob.glob(path) if os.path.splitext(rfile)[1] == ".hdf5"
         ]
     except Exception as e:
         raise IOError("Problem finding results files: {}".format(e))
