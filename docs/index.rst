@@ -50,8 +50,8 @@ mirrored on `Github <https://github.com/cwinpy/cwinpy>`_. `Issues
 <https://github.com/cwinpy/cwinpy/issues>`_, `discussions
 <https://github.com/cwinpy/cwinpy/discussions>`_ or `pull requests
 <https://github.com/cwinpy/cwinpy/pulls>`_ can be opened in that Github repository, or can be
-emailed directly to `contact+cw-software-cwinpy-3315-issue-@support.ligo.org
-<mailto:contact+cw-software-cwinpy-3315-issue-@support.ligo.org>`_.
+emailed directly to `contact+cwinpy-cwinpy-3315-issue-@support.ligo.org
+<mailto:contact+cwinpy-cwinpy-3315-issue-@support.ligo.org>`_.
 
 Code of conduct
 ~~~~~~~~~~~~~~~
