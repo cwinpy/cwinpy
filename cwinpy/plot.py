@@ -1072,7 +1072,6 @@ class Plot:
         ax = fig.axes
 
         quantiles = kwargs.pop("quantiles", None)
-
         grid2d = kwargs.pop("grid2d", False)
 
         for i, (label, grid) in enumerate(self._grids.items()):
