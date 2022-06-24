@@ -2,28 +2,28 @@
    :widths: auto
    :header: "Method", ":math:`\\ln{(Z)}`", ":math:`\\ln{(Z)}` noise", ":math:`\\ln{}` Odds"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "162990.025", "162989.901", "0.124±0.091"
-   "``cwinpy_pe``", "162989.929", "162989.901", "0.028±0.131"
-   "``cwinpy_pe`` (grid)", "162989.947", "", "0.046"
+   "``lalapps_pulsar_parameter_estimation_nested``", "162932.857", "162939.482", "-6.625±0.080"
+   "``cwinpy_pe``", "162509.197", "162515.649", "-6.452±0.113"
+   "``cwinpy_pe`` (grid)", "162509.238", "", "-6.411"
 
 .. csv-table:: Parameter table
    :widths: auto
    :header: "Method", ":math:`h_0`", ":math:`\\phi_0` (rad)", ":math:`\\psi` (rad)", ":math:`\\cos{\\iota}`"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "3.79±1.42×10\ :sup:`-26`", "1.24±0.52", "0.72±0.50", "0.55±0.24"
-   "90% credible intervals", "[1.91, 6.56]×10\ :sup:`-26`", "[0.40, 1.94]", "[0.06, 1.52]", "[0.18, 0.94]"
-   "``cwinpy_pe``", "3.89±1.49×10\ :sup:`-26`", "1.24±0.52", "0.72±0.50", "0.54±0.24"
-   "90% credible intervals", "[1.88, 6.75]×10\ :sup:`-26`", "[0.40, 1.95]", "[0.05, 1.52]", "[0.17, 0.93]"
+   "``lalapps_pulsar_parameter_estimation_nested``", "9.96±8.70×10\ :sup:`-27`", "1.56±0.98", "0.81±0.48", "0.04±0.49"
+   "90% credible intervals", "[0.83, 26.92]×10\ :sup:`-27`", "[0.10, 3.02]", "[0.07, 1.51]", "[-0.84, 0.84]"
+   "``cwinpy_pe``", "1.12±0.92×10\ :sup:`-26`", "1.48±1.00", "0.80±0.47", "0.10±0.47"
+   "90% credible intervals", "[0.08, 2.98]×10\ :sup:`-26`", "[0.11, 3.03]", "[0.08, 1.50]", "[-0.76, 0.84]"
 
 .. csv-table:: Maximum a-posteriori
    :widths: auto
    :header: "Method", ":math:`h_0`", ":math:`\\phi_0` (rad)", ":math:`\\psi` (rad)", ":math:`\\cos{\\iota}`", ":math:`\\ln{(L)}` max"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "4.87×10\ :sup:`-26`", "1.77", "0.18", "0.41", "162999.90"
-   "``cwinpy_pe``", "4.82×10\ :sup:`-26`", "1.80", "0.16", "0.39", "162999.93"
+   "``lalapps_pulsar_parameter_estimation_nested``", "1.70×10\ :sup:`-26`", "2.81", "1.45", "0.13", "162940.15"
+   "``cwinpy_pe``", "1.98×10\ :sup:`-26`", "2.99", "1.41", "0.25", "162516.69"
 
-| Combined K-S test p-value: 0.0004
-| Maximum Jensen-Shannon divergence: 0.0012
+| Combined K-S test p-value: 0.0000
+| Maximum Jensen-Shannon divergence: 0.0041
 
 | CWInPy version: 0.8.0
 | bilby version: 1.1.5: release

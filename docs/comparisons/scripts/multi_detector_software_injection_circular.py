@@ -8,21 +8,19 @@ with close-to-circular polarisation.
 
 import os
 import subprocess as sp
-from collections import OrderedDict
 
-import corner
 import h5py
 import matplotlib
-import matplotlib.font_manager as font_manager
 import numpy as np
 from astropy.utils.data import download_file
 from bilby.core.prior import Uniform
 from comparitors import comparisons
 from cwinpy import HeterodynedData
 from cwinpy.pe import pe
+from cwinpy.plot import Plot
 from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 from lalinference.io import read_samples
-from matplotlib.lines import Line2D
+from matplotlib import pyplot as plt
 
 matplotlib.use("Agg")
 
@@ -43,7 +41,7 @@ PSI      0.5
 PHI0     1.2
 """
 
-injection_parameters = OrderedDict()
+injection_parameters = {}
 injection_parameters["h0"] = 1.1e-25
 injection_parameters["phi0"] = 1.2
 injection_parameters["psi"] = 0.5
@@ -98,7 +96,7 @@ with open(priorfile, "w") as fp:
     fp.write(priorcontent.format(*(h0range + phi0range + psirange + cosiotarange)))
 
 # set prior for bilby
-priors = OrderedDict()
+priors = {}
 priors["h0"] = Uniform(h0range[0], h0range[1], "h0", latex_label=r"$h_0$")
 priors["phi0"] = Uniform(
     phi0range[0], phi0range[1], "phi0", latex_label=r"$\phi_0$", unit="rad"
@@ -236,40 +234,32 @@ grid = grunner.grid
 # output comparisons
 comparisons(label, outdir, grid, priors, cred=0.9)
 
-# plot results
-fig = result.plot_corner(save=False, parameters=list(priors.keys()), color="b")
-fig = corner.corner(
-    postsamples,
-    fig=fig,
-    color="r",
+# create results plot
+allresults = {
+    "lalapps_pulsar_parameter_estimation_nested": outpost,
+    "cwinpy_pe": result,
+    "cwinpy_pe (grid)": grid,
+}
+
+colors = {
+    key: plt.rcParams["axes.prop_cycle"].by_key()["color"][i]
+    for i, key in enumerate(allresults.keys())
+}
+
+plot = Plot(
+    results=allresults,
+    parameters=list(priors.keys()),
+    plottype="corner",
+    pulsar=parfile,
+)
+
+plot.plot(
     bins=50,
     smooth=0.9,
     quantiles=[0.16, 0.84],
     levels=(1 - np.exp(-0.5), 1 - np.exp(-2), 1 - np.exp(-9 / 2.0)),
     fill_contours=True,
-    hist_kwargs={"density": True},
+    colors=colors,
 )
-axes = fig.get_axes()
-axidx = 0
-for p in priors.keys():
-    axes[axidx].plot(
-        grid.sample_points[p],
-        np.exp(grid.marginalize_ln_posterior(not_parameters=p) - grid.log_evidence),
-        "k--",
-    )
-    axidx += 5
 
-# custom legend
-legend_elements = [
-    Line2D([], [], color="r", label="lalapps_pulsar_parameter_estimation_nested"),
-    Line2D([], [], color="b", label="cwinpy_pe"),
-    Line2D([], [], color="k", ls="--", label="cwinpy_pe (grid)"),
-]
-font = font_manager.FontProperties(family="monospace")
-leg = axes[3].legend(
-    handles=legend_elements, loc="upper right", frameon=False, prop=font, handlelength=3
-)
-for line in leg.get_lines():
-    line.set_linewidth(1.0)
-
-fig.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=150)
+plot.savefig(os.path.join(outdir, "{}_corner.png".format(label)), dpi=150)
