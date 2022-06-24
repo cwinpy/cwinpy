@@ -628,6 +628,52 @@ This would be run with:
 
    $ cwinpy_knope_pipeline knope_example_O2_vela_transient.ini
 
+The results of the parameter estimation stage would be found in the
+``/home/matthew.pitkin/projects/vela/results`` directory. Posteriors parameter distributions for all
+the parameters, including the transient parameters, for each detector and the joint detector
+analysis, could be plotted using:
+
+.. code-block:: python
+
+   from cwinpy.plot import Plot
+
+   plot = Plot(
+       {
+           "Joint": "J0835-4510/cwinpy_pe_H1L1_J0835-4510_result.hdf5",
+           "H1": "J0835-4510/cwinpy_pe_H1_J0835-4510_result.hdf5",
+           "L1": "J0835-4510/cwinpy_pe_L1_J0835-4510_result.hdf5",
+       },
+       parameters=[
+           "h0",
+           "phi0",
+           "iota",
+           "psi",
+           "transientstarttime",
+           "transienttau",
+       ]
+   )
+
+   plot.plot()
+   plot.fig.show()
+
+   # output 95% upper limits on h0
+   plot.upper_limit("h0", 0.95)
+
+.. thumbnail:: examples/knope_example4_pe.png
+   :width: 600px
+   :align: center
+
+The 95% credible upper limits on :math:`h_0` in this case are:
+
+* H1: :math:`6.8\!\times\!10^{-24}`
+* L1: :math:`4.1\!\times\!10^{-24}`
+* Joint (H1 & L1): :math:`5.3\!\times\!10^{-24}`
+
+It is interesting to see that there is a strong correlation between :math:`h_0` and the transient
+decay time constant :math:`\tau_{\rm{trans}}`, with a broader distribution of :math:`h_0` associated
+with smaller values of :math:`\tau_{\rm{trans}}`. This is expected, as you would expect to be more
+sensitive to longer signals.
+
 .. _knope Command line arguments:
 
 *knope* Command line arguments
