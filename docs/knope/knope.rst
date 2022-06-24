@@ -500,6 +500,12 @@ had to be generated using the commands:
 and then gzipped. Alternatively, the ``usetempo2`` option could be used, where the latest TEMPO2 version
 will contain these ephemerides.
 
+This would be run with:
+
+.. code-block:: bash
+
+   $ cwinpy_knope_pipeline knope_example_O3_dual.ini
+
 .. note::
 
    If running on open GWOSC data, the O3a and O3b periods need to be treated as separate runs as in
@@ -564,6 +570,109 @@ using:
    :width: 600px
    :align: center
 
+O2 LIGO (open) data, "transient-continuous" signal following a pulsar glitch
+============================================================================
+
+As described in :ref:`this example<Example: a simulated transient-continuous signal>`, the signal
+model used by CWInPy can be one that is described as "transient-continuous" (see., e.g., [1]_ and
+[2]_). Unlike the standard signal that is assumed to be "always on", the *transient-continuous*
+signal is modulated by a window function; currently this can consist of a rectangular window, i.e.,
+the signal abruptly turns of and then off, or an exponential window, i.e., the signal turns on and
+then the amplitude decays away exponentially. Such a signal might occur after an event such as a
+`pulsar glitch <https://en.wikipedia.org/wiki/Glitch_(astronomy)>`__, which could "raise a mountain"
+on the star that subsequently decays away on a timescale of days-to-weeks-to-months [3]_.
+
+An example configuration file for performing a search for such a signal is given below. In this case
+it uses open LIGO data from the `O2 observing run <https://www.gw-openscience.org/O2/>`__ to search
+for an exponentially decaying signal following a glitch observed in the Vela pulsar on 12 December
+2016.
+
+.. literalinclude:: examples/knope_example_O2_vela_transient.ini
+
+Unlike in the :ref:`O2 example above<O1 & O2 LIGO/Virgo (open) data, multiple pulsars>`, this does
+not use data from the Virgo detector as that only covers the end of the O2 run, which will be well
+past the assumed transient timescale. This example assumes that you have a file (``vela.par``)
+containing the ephemeris for the Vela pulsar from radio observations overlapping the O2 run. To use
+the *transient-continuous* model, this file needs to contain a line defining the transient window
+type, in this case an exponential:
+
+.. code-block:: none
+
+   TRANSIENTWINDOWTYPE EXP
+
+The example also needs a prior file (``vela_transient_prior.txt``) which contains the priors on the
+parameters of the window: the start time (taken to be close to the observed glitch time) and the
+decay time constant. If following the analysis of [2]_, the prior on the signal start time can be
+±0.5 days either side of the observed glitch time (this is actually much larger than the uncertainty
+on the glitch time), which is at an MJD of 57734.4849906 (or GPS(TT) time of 1165577852). The signal
+decay time here is set from to be from 1.5 days to 150. An example of such a prior to use is:
+
+.. code-block::
+
+   h0 = FermiDirac(1.0e-24, mu=1.0e-22, name='h0', latex_label='$h_0$')
+   phi0 = Uniform(minimum=0.0, maximum=pi, name='phi0', latex_label='$\phi_0$', unit='rad')
+   iota = Sine(minimum=0.0, maximum=pi, name='iota', latex_label='$\iota$', unit='rad')
+   psi = Uniform(name='psi', minimum=0, maximum=np.pi / 2, latex_label='$\psi$', unit='rad')
+   transientstarttime = Uniform(name='transientstarttime', minimum=57733.9849906, maximum=57734.9849906, latex_label='$t_0$', unit='d')
+   transienttau = Uniform(name='transienttau', minimum=1.5, maximum=150, latex_label='$\\tau$', unit='d')
+
+.. note::
+
+   If setting the ``transientstarttime`` and ``transienttau`` prior values using MJD and days,
+   respectively, the ``unit`` keyword of the prior must be set to ``'d'``, otherwise the start time
+   will be assumed to be a GPS time and the decay timescale will be assumed to be in seconds.
+
+This would be run with:
+
+.. code-block:: bash
+
+   $ cwinpy_knope_pipeline knope_example_O2_vela_transient.ini
+
+The results of the parameter estimation stage would be found in the
+``/home/matthew.pitkin/projects/vela/results`` directory. Posteriors parameter distributions for all
+the parameters, including the transient parameters, for each detector and the joint detector
+analysis, could be plotted using:
+
+.. code-block:: python
+
+   from cwinpy.plot import Plot
+
+   plot = Plot(
+       {
+           "Joint": "J0835-4510/cwinpy_pe_H1L1_J0835-4510_result.hdf5",
+           "H1": "J0835-4510/cwinpy_pe_H1_J0835-4510_result.hdf5",
+           "L1": "J0835-4510/cwinpy_pe_L1_J0835-4510_result.hdf5",
+       },
+       parameters=[
+           "h0",
+           "phi0",
+           "iota",
+           "psi",
+           "transientstarttime",
+           "transienttau",
+       ]
+   )
+
+   plot.plot()
+   plot.fig.show()
+
+   # output 95% upper limits on h0
+   plot.upper_limit("h0", 0.95)
+
+.. thumbnail:: examples/knope_example4_pe.png
+   :width: 600px
+   :align: center
+
+The 95% credible upper limits on :math:`h_0` in this case are:
+
+* H1: :math:`6.8\!\times\!10^{-24}`
+* L1: :math:`4.1\!\times\!10^{-24}`
+* Joint (H1 & L1): :math:`5.3\!\times\!10^{-24}`
+
+It is interesting to see that there is a strong correlation between :math:`h_0` and the transient
+decay time constant :math:`\tau_{\rm{trans}}`, with a broader distribution of :math:`h_0` associated
+with smaller values of :math:`\tau_{\rm{trans}}`. This is expected, as you would expect to be more
+sensitive to longer signals.
 
 .. _knope Command line arguments:
 
@@ -583,3 +692,15 @@ Knope API
 
 .. automodule:: cwinpy.knope
    :members: knope, knope_pipeline
+
+Knope references
+----------------
+
+.. [1] `R. Prix, S. Giampanis, S. & C. Messenger, C. <https://ui.adsabs.harvard.edu/abs/2011PhRvD..84b3007P/abstract>`_,
+   *PRD*, **84**, 023007 (2011)
+.. [2] `D. Keitel et al. <https://ui.adsabs.harvard.edu/abs/2019PhRvD.100f4058K/abstract>`_,
+   *PRD*, **100**, 064058 (2019)
+.. [3] `G. Yim & D. I. Jones <https://ui.adsabs.harvard.edu/abs/2020MNRAS.498.3138Y/abstract>`_,
+   *MNRAS*, **498**, 3138-3152 (2020)
+.. [4] `J. Palfreyman <https://ui.adsabs.harvard.edu/abs/2016ATel.9847....1P/abstract>_`,
+   *Astron. Telegram*, **9847** (2016)

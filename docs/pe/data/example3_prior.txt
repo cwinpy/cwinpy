@@ -1,0 +1,8 @@
+# define priors on: the gravitational-wave amplitude, inclination angle,
+# initial phase and polarisation angle
+h0 = Uniform(name='h0', minimum=0, maximum=1e-22, latex_label='$h_0$')
+iota = Sine(name='iota', minimum=0., maximum=np.pi, latex_label='$\iota$', unit='rad')
+phi0 = Uniform(name='phi0', minimum=0, maximum=np.pi, latex_label='$\phi_0$', unit='rad')
+psi = Uniform(name='psi', minimum=0, maximum=np.pi / 2, latex_label='$\psi$', unit='rad')
+transientstarttime = Gaussian(name='transientstarttime', mu=55818.573900462965, sigma=0.5, latex_label='$t_0$', unit='d')
+transienttau = Uniform(name='transienttau', minimum=0.1, maximum=3.0, latex_label='$\\tau$', unit='d')

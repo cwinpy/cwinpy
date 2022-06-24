@@ -8,10 +8,12 @@ from copy import deepcopy
 import bilby
 import lal
 import numpy as np
+from astropy.time import Time
 from numba import jit, types
 from numba.typed import Dict as numbadict
 
 from .data import HeterodynedData, MultiHeterodynedData
+from .parfile import EPOCHPARS, PPUNITS, TEMPOUNITS
 from .signal import HeterodynedCWSimulator
 from .utils import logfactorial
 
@@ -153,6 +155,9 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         "FB",
     ]
 
+    # the set of transient source parameters
+    TRANSIENT_PARAMS = ["TRANSIENTSTARTTIME", "TRANSIENTTAU"]
+
     # the parameters that are held as vectors
     VECTOR_PARAMS = ["F", "GLEP", "GLPH", "GLF0", "GLF1", "GLF2", "GLF0D", "GLTD", "FB"]
 
@@ -207,6 +212,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 + self.BINARY_PARAMS
                 + self.POSITIONAL_PARAMETERS
                 + self.NONGR_AMPLITUDE_PARAM
+                + self.TRANSIENT_PARAMS
             ) and not self._is_vector_param(key.upper()):
                 raise ValueError("Unknown parameter '{}' being used!".format(key))
 
@@ -475,8 +481,23 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     name = self._vector_param_name_index(pname.upper())[0]
                     par[name] = self._parse_vector_param(par, pname.upper(), pval)
                 else:
-                    # make sure values are floats
-                    par[pname.upper()] = float(pval)
+                    if pname.upper() in TEMPOUNITS.keys():
+                        if str(TEMPOUNITS[pname.upper()]) == self.priors[pname].unit:
+                            if pname.upper() in EPOCHPARS:
+                                # conversions are required from MJD to GPS seconds for epoch parameters
+                                par[pname.upper()] = Time(
+                                    pval, format="mjd", scale="tt"
+                                ).gps
+                            else:
+                                # convert units as required
+                                par[pname.upper()] = (
+                                    (pval * TEMPOUNITS[pname.upper()])
+                                    .to(PPUNITS[pname.upper()])
+                                    .value
+                                )
+                    else:
+                        # make sure values are floats
+                        par[pname.upper()] = float(pval)
 
             # calculate the model
             m = model.model(
@@ -633,7 +654,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
     ):
         """
         This is a version of the standard inner loop of
-        :meth:`cwinpy.TargetedPulsarLikelihood.log_likelihood` that used the
+        :meth:`cwinpy.TargetedPulsarLikelihood.log_likelihood` that uses the
         `numba <https://numba.pydata.org/>`_ JIT package to provide some
         speed-up.
 
