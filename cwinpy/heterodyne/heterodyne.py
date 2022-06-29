@@ -348,7 +348,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         help=(
             "The number of seconds to crop from the start and end of data "
             "segments to remove filter impulse effects and issues prior to "
-            "lock-loss. Default is 60 seconds."
+            "lock-loss. Default is 600 seconds."
         ),
     )
     heterodyneparser.add(
@@ -1323,7 +1323,7 @@ class HeterodyneDAGRunner(object):
                 )
 
         interpolationstep = config.get("heterodyne", "interpolationstep", fallback=60)
-        crop = config.getint("heterodyne", "crop", fallback=60)
+        crop = config.getint("heterodyne", "crop", fallback=600)
         overwrite = config.getboolean("heterodyne", "overwrite", fallback=False)
 
         merge = config.getboolean("merge", "merge", fallback=True) and joblength > 0
