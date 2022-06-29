@@ -173,7 +173,7 @@ class Heterodyne(object):
     crop: int
         The number of seconds to crop from the start and end of data segments
         to remove filter impulse effects and issues prior to lock-loss.
-        Default is 600 seconds.
+        Default is 60 seconds.
     includessb: bool
         Set this to True to include removing the modulation of the signal due
         to Solar System motion and relativistic effects (e.g., Roemer,
@@ -262,7 +262,7 @@ class Heterodyne(object):
         filterknee=0.5,
         resamplerate=1.0,
         freqfactor=2,
-        crop=600,
+        crop=60,
         includessb=False,
         includebsb=False,
         includeglitch=False,
@@ -2309,8 +2309,8 @@ class Heterodyne(object):
 
         # set initial state
         if self._filter_history[pulsar] is None:
-            ziRe = sosfilt_zi(self._filters[pulsar][0])
-            ziIm = sosfilt_zi(self._filters[pulsar][1])
+            ziRe = sosfilt_zi(self._filters[pulsar][0]) * dr.data[0]
+            ziIm = sosfilt_zi(self._filters[pulsar][1]) * di.data[0]
         else:
             ziRe = self._filter_history[pulsar][0]
             ziIm = self._filter_history[pulsar][1]
