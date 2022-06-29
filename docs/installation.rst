@@ -2,6 +2,12 @@
 Installation
 ############
 
+CWInPy can currently be installed and run on Linux and Mac OSX systems with Python 3.8 or higher,
+but Windows installation is not supported. One of the core package requirements needs the `GNU
+Scientific Library (GSL) <https://www.gnu.org/software/gsl/>`_ to be installed, so this should
+either be installed globally (e.g., via the OS's standard package management system) or could be
+installed within a `conda environment <https://anaconda.org/conda-forge/gsl>`_.
+
 Install CWInPy from source
 ==========================
 
