@@ -1093,12 +1093,12 @@ transientTau = {tau}
             assert het2.resamplerate == 1 / hetdata.dt.value
             assert len(hetdata) == lengthnew
 
-            # check output matches model to within 2%
+            # check output matches model to within 1%
             if psr == "J0000+0000":  # isolated pulsar
-                assert np.all(relative_difference(hetdata.data, models[i]) < 0.02)
+                assert np.all(relative_difference(hetdata.data, models[i]) < 0.01)
             else:
                 # without inclusion of BSB/glitch phase model should not match
-                assert np.any(relative_difference(hetdata.data, models[i]) > 0.02)
+                assert np.any(relative_difference(hetdata.data, models[i]) > 0.01)
 
         # now heterodyne with SSB and BSB
         del het2
@@ -1129,10 +1129,10 @@ transientTau = {tau}
                 "J0000+0000",
                 "J1111+1111",
             ]:  # isolated and binary pulsar (non-glitching)
-                assert np.all(relative_difference(hetdata.data, models[i]) < 0.02)
+                assert np.all(relative_difference(hetdata.data, models[i]) < 0.01)
             else:
                 # without inclusion glitch phase model should not match
-                assert np.any(relative_difference(hetdata.data, models[i]) > 0.02)
+                assert np.any(relative_difference(hetdata.data, models[i]) > 0.01)
 
         # now heterodyne with SSB, BSB and glitch phase
         del het2
@@ -1226,8 +1226,7 @@ transientTau = {tau}
                 updateglphase=(True if psr == "J2222+2222" else False),
             )
 
-            # increase tolerance for acceptance due to small outliers (still
-            # equivalent at the ~2% level)
+            # tolerance of 2%
             assert np.all(relative_difference(hetdata.data, model) < 0.02)
 
     def test_full_heterodyne_tempo2(self):
@@ -1294,10 +1293,9 @@ transientTau = {tau}
                 updateglphase=(True if psr == "J2222+2222" else False),
             )
 
-            # increase tolerance for acceptance due to small outliers (still
-            # equivalent at the ~2% level)
+            # tolerance of 1%
             if psr == "J0000+0000":
-                assert np.all(relative_difference(hetdata.data, model) < 0.02)
+                assert np.all(relative_difference(hetdata.data, model) < 0.01)
 
             # check that the models match to within 1e-5
             assert mismatch(hetdata.data, model) < 1e-5
