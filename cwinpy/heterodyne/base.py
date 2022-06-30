@@ -2282,7 +2282,7 @@ class Heterodyne(object):
             filterIm = butter(n, filterknee, fs=samplerate, btype="low", output="sos")
             self._filters[pulsar] = [filterRe, filterIm]
 
-    def _filter_data(self, pulsar, data, forwardsonly=False):
+    def _filter_data(self, pulsar, data):
         """
         Apply the low pass filters to the data for a particular pulsar.
 
@@ -2292,9 +2292,6 @@ class Heterodyne(object):
             The name of the pulsar who's data is being filtered.
         data: array_like
             The array of complex heterodyned data to be filtered.
-        forwardswonly: bool
-            Set to True to only filter the data in the forwards direction. This
-            means that the filter phase lag will still be present.
         """
 
         from scipy.signal import sosfilt, sosfilt_zi
@@ -2322,16 +2319,13 @@ class Heterodyne(object):
         # set history
         self._filter_history[pulsar] = [z0Re, z0Im]
 
-        if not forwardsonly:
-            # run filter backwards
-            dr.data, _ = sosfilt(self._filters[pulsar][0], dr.data[::-1], zi=z0Re)
-            di.data, _ = sosfilt(self._filters[pulsar][1], di.data[::-1], zi=z0Im)
+        # run filter backwards
+        dr.data, _ = sosfilt(self._filters[pulsar][0], dr.data[::-1], zi=z0Re)
+        di.data, _ = sosfilt(self._filters[pulsar][1], di.data[::-1], zi=z0Im)
 
-            data.value.real = dr.data[::-1]
-            data.value.imag = di.data[::-1]
-        else:
-            data.value.real = dr.data
-            data.value.imag = di.data
+        # flip the data back to the correct way around
+        data.value.real = dr.data[::-1]
+        data.value.imag = di.data[::-1]
 
     @property
     def includessb(self):
