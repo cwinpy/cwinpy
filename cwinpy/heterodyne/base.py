@@ -378,7 +378,7 @@ class Heterodyne(object):
                         )
 
                 gpsstart = strtime
-            elif not (type(gpsstart) is int or type(gpsstart) is float):
+            elif not isinstance(gpsstart, (int, float)):
                 raise TypeError("GPS start time must be a number")
 
             if self.endtime is not None:
@@ -415,7 +415,7 @@ class Heterodyne(object):
                         )
 
                 gpsend = strtime
-            elif not (type(gpsend) is int or type(gpsend) is float):
+            elif not isinstance(gpsend, (int, float)):
                 raise TypeError("GPS end time must be a number")
 
             if self.starttime is not None:
