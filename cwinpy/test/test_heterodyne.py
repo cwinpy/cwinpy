@@ -395,8 +395,8 @@ transientTau = {tau}
         Test for valid start and end times.
         """
 
-        starttime = True
-        endtime = False
+        starttime = {}
+        endtime = []
 
         with pytest.raises(TypeError):
             Heterodyne(starttime, endtime)
