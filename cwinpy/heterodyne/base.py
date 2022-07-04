@@ -150,6 +150,9 @@ class Heterodyne(object):
         heterodyning the data. This should only be given when heterodying raw
         strain data and not if re-heterodyning processed data. Default is 0.5
         Hz.
+    filterorder: int
+        The order of the low-pass Butterworth filter applied after heterodyning
+        the data. Default is 9.
     heterodyneddata: str, dict
         A string or dictionary of strings/lists containing the full file path,
         or directory path, pointing the the location of pre-heterodyned data.
@@ -260,6 +263,7 @@ class Heterodyne(object):
         output=None,
         label=None,
         filterknee=0.5,
+        filterorder=9,
         resamplerate=1.0,
         freqfactor=2,
         crop=60,
@@ -321,6 +325,7 @@ class Heterodyne(object):
         # set heterodyne parameters
         self.resamplerate = resamplerate
         self.filterknee = filterknee
+        self.filterorder = filterorder
         self.freqfactor = freqfactor
         self.crop = crop
         self.includessb = includessb
@@ -373,7 +378,7 @@ class Heterodyne(object):
                         )
 
                 gpsstart = strtime
-            elif not (type(gpsstart) is int or type(gpsstart) is float):
+            elif not isinstance(gpsstart, (int, float)):
                 raise TypeError("GPS start time must be a number")
 
             if self.endtime is not None:
@@ -410,7 +415,7 @@ class Heterodyne(object):
                         )
 
                 gpsend = strtime
-            elif not (type(gpsend) is int or type(gpsend) is float):
+            elif not isinstance(gpsend, (int, float)):
                 raise TypeError("GPS end time must be a number")
 
             if self.starttime is not None:
@@ -1338,6 +1343,26 @@ class Heterodyne(object):
             raise TypeError("Filter knee must be a positive number")
 
     @property
+    def filterorder(self):
+        """
+        The order of the low-pass Butterworth filter.
+        """
+
+        return self._filterorder
+
+    @filterorder.setter
+    def filterorder(self, n):
+        if isinstance(n, int):
+            if n > 0:
+                self._filterorder = n
+            else:
+                raise ValueError("Filter order must be positive")
+        elif n is None:
+            self._filterorder = None
+        else:
+            raise TypeError("Filtrer order must be a positive integer")
+
+    @property
     def freqfactor(self):
         """
         The mutiplicative factor applied to the pulsar rotational phase
@@ -1407,6 +1432,7 @@ class Heterodyne(object):
 
         # heterodyne information
         self.filterknee = kwargs.get("filterknee", self.filterknee)
+        self.filterorder = kwargs.get("filterorder", self.filterorder)
         self.resamplerate = kwargs.get("resamplerate", self.resamplerate)
         self.crop = kwargs.get("crop", self.crop)
         self.freqfactor = kwargs.get("freqfactor", self.freqfactor)
@@ -1740,7 +1766,9 @@ class Heterodyne(object):
 
                     # set up the filters (this will only happen on first pass)
                     if self.filterknee is not None:
-                        self._setup_filters(self.filterknee, data.sample_rate.value)
+                        self._setup_filters(
+                            self.filterknee, data.sample_rate.value, self.filterorder
+                        )
 
                     # convert times to GPS time vector
                     if not self.usetempo2:
@@ -2250,7 +2278,7 @@ class Heterodyne(object):
 
         return hetfiles, isfile
 
-    def _setup_filters(self, filterknee, samplerate, n=9):
+    def _setup_filters(self, filterknee, samplerate, n):
         """
         Set up the nth order low-pass Butterworth filter to apply to the data
         for each pulsars.
@@ -2262,7 +2290,7 @@ class Heterodyne(object):
         samplerate: float
             The data sample rate in Hz
         n: int
-            The filter order
+            The filter order.
         """
 
         from scipy.signal import butter
@@ -2282,7 +2310,7 @@ class Heterodyne(object):
             filterIm = butter(n, filterknee, fs=samplerate, btype="low", output="sos")
             self._filters[pulsar] = [filterRe, filterIm]
 
-    def _filter_data(self, pulsar, data, forwardsonly=False):
+    def _filter_data(self, pulsar, data):
         """
         Apply the low pass filters to the data for a particular pulsar.
 
@@ -2292,9 +2320,6 @@ class Heterodyne(object):
             The name of the pulsar who's data is being filtered.
         data: array_like
             The array of complex heterodyned data to be filtered.
-        forwardswonly: bool
-            Set to True to only filter the data in the forwards direction. This
-            means that the filter phase lag will still be present.
         """
 
         from scipy.signal import sosfilt, sosfilt_zi
@@ -2322,16 +2347,13 @@ class Heterodyne(object):
         # set history
         self._filter_history[pulsar] = [z0Re, z0Im]
 
-        if not forwardsonly:
-            # run filter backwards
-            dr.data, _ = sosfilt(self._filters[pulsar][0], dr.data[::-1], zi=z0Re)
-            di.data, _ = sosfilt(self._filters[pulsar][1], di.data[::-1], zi=z0Im)
+        # run filter backwards
+        dr.data, _ = sosfilt(self._filters[pulsar][0], dr.data[::-1], zi=z0Re)
+        di.data, _ = sosfilt(self._filters[pulsar][1], di.data[::-1], zi=z0Im)
 
-            data.value.real = dr.data[::-1]
-            data.value.imag = di.data[::-1]
-        else:
-            data.value.real = dr.data
-            data.value.imag = di.data
+        # flip the data back to the correct way around
+        data.value.real = dr.data[::-1]
+        data.value.imag = di.data[::-1]
 
     @property
     def includessb(self):

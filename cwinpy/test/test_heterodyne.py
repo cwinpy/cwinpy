@@ -950,6 +950,12 @@ transientTau = {tau}
             het.filterknee = 0
 
         with pytest.raises(TypeError):
+            het.filterorder = 1.2
+
+        with pytest.raises(ValueError):
+            het.filterorder = -1
+
+        with pytest.raises(TypeError):
             het.freqfactor = "ldkme"
 
         with pytest.raises(ValueError):
