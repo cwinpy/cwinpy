@@ -2675,7 +2675,10 @@ class HeterodynedData(TimeSeriesBase):
         ax: Axes
             A :class:`matplotlib.axes.Axes` onto which to add the figure.
         remove_outliers: bool, False
-            Set whether to remove outlier for the plot.
+            Set whether to remove outlier for the plot. If outliers removal
+            was already specified when creating the
+            :class:`~cwinpy.data.HeterodynedData` object they will
+            automatically not be included in the plot.
         thresh: float, 3.5
             The threshold for outlier removal (see
             :meth:`~cwinpy.data.HeterodynedData.find_outliers`).
@@ -2718,8 +2721,14 @@ class HeterodynedData(TimeSeriesBase):
 
         if remove_outliers and self.outlier_mask is None:
             idx = self._not_outliers(thresh=thresh)
+            times = self.times[idx] - (0 if not zero_time else self.times[0])
         else:
-            idx = np.arange(len(self))
+            idx = (
+                np.arange(len(self))
+                if self.outlier_mask is None
+                else np.arange(len(self.outlier_mask))[self.outlier_mask]
+            )
+            times = self.times - (0 if not zero_time else self.times[0])
 
         # set some default plotting styles
         if "ls" not in plotkwargs:
@@ -2730,7 +2739,6 @@ class HeterodynedData(TimeSeriesBase):
             # set marker to a circle
             plotkwargs["marker"] = "o"
 
-        times = self.times[idx] - (0 if not zero_time else self.times[0])
         if "xscale" not in plotkwargs and zero_time:
             # switch from auto-gps to linear scale if zeroing x-axis
             plotkwargs["xscale"] = "linear"
