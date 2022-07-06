@@ -2149,7 +2149,7 @@ class HeterodynedData(TimeSeriesBase):
         # standard devaitions have been provided rather than calculated
         self.input_stds = True
 
-    def bayesian_blocks(self, threshold="default", minlength=5, maxlength=np.inf):
+    def bayesian_blocks(self, **kwargs):
         """
         Apply a Bayesian-Block-style algorithm to cut the data (after
         subtraction of a running median) up into chunks with different
@@ -2190,14 +2190,20 @@ class HeterodynedData(TimeSeriesBase):
         # chop up the data (except if minlength is greater than the data length)
         self._change_point_indices_and_ratios = []
 
-        if self.bbthreshold is None:
-            self.bbthreshold = threshold
+        if kwargs.get("threshold", None) is not None:
+            self.bbthreshold = kwargs.get("threshold")
+        elif self.bbthreshold is None:
+            self.bbthreshold = "default"
 
-        if self.bbminlength is None:
-            self.bbminlength = minlength
+        if kwargs.get("minlength", None) is not None:
+            self.bbminlength = kwargs.get("minlength")
+        elif self.bbminlength is None:
+            self.bbminlength = 5
 
-        if self.bbmaxlength is None:
-            self.bbmaxlength = maxlength
+        if kwargs.get("maxlength", None) is not None:
+            self.bbmaxlength = kwargs.get("maxlength")
+        elif self.bbmaxlength is None:
+            self.bbmaxlength = np.inf
 
         if self.bbminlength < len(self):
             self._chop_data(self.subtract_running_median())
@@ -2516,7 +2522,7 @@ class HeterodynedData(TimeSeriesBase):
 
     def _not_outliers(self, thresh):
         """
-        Get an boolean array of points that are not outliers as identiied
+        Get an array of indexes of points that are not outliers as identified
         by :meth:`cwinpy.data.HeterodynedData.find_outliers`.
         """
 
@@ -3571,6 +3577,7 @@ class HeterodynedData(TimeSeriesBase):
         # create new object (will not contain, e.g., par file, injection info,
         # etc)
         out = type(self)(hetdata, times=times, window=0, bbminlength=len(self))
+        out.bbminlength = None
         out.__array_finalize__(self)
 
         return out
