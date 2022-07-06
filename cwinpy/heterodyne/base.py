@@ -2110,6 +2110,7 @@ class Heterodyne(object):
             het.include_glitch = self.includeglitch
             het.include_fitwaves = self.includefitwaves
             het.heterodyne_arguments = hetargs
+            het.bbminlength = None  # reset to None
 
             if cf is not None:
                 het.cwinpy_heterodyne_pipeline_config = cf
