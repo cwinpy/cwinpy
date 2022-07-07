@@ -217,7 +217,7 @@ def write_ascii_series(series, output, **kwargs):
             output,
             np.column_stack((xarr, yarrr, yarri, stds)),
             header=comments,
-            **kwargs
+            **kwargs,
         )
 
 
