@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 import numpy as np
 from astropy.time import Time
@@ -184,11 +185,11 @@ class Plot:
 
         if isinstance(results, dict):
             for key, value in results.items():
-                if isinstance(value, (Grid, Result, str)):
+                if isinstance(value, (Grid, Result, str, Path)):
                     self._results[key] = Plot._parse_result(value)
                 else:
                     raise TypeError(f"result in '{key}' is not the correct type")
-        elif isinstance(results, (Grid, Result, str)):
+        elif isinstance(results, (Grid, Result, str, Path)):
             self._results["result"] = Plot._parse_result(results)
         else:
             raise TypeError("results is not the correct type")
