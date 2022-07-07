@@ -66,8 +66,11 @@ def read_hdf5_series(
         The desired return type. Defaults to :class:`cwinpy.data.HeterodynedData`.
     """
 
-    dataset = io_hdf5.find_dataset(source, path=path)
-    datasettimesegments = io_hdf5.find_dataset(source, path=path + "TimeSegments")
+    try:
+        dataset = io_hdf5.find_dataset(source, path=path)
+        datasettimesegments = io_hdf5.find_dataset(source, path=path + "TimeSegments")
+    except Exception as e:
+        raise IOError(f"Could not read in HDF5 file '{source}':\n{e}")
 
     try:
         datasetstds = io_hdf5.find_dataset(source, path=path + "Sigmas")

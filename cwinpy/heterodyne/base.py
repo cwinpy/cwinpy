@@ -1671,7 +1671,7 @@ class Heterodyne(object):
                     if os.path.isfile(pfile) and os.path.getsize(pfile) > 0:
                         try:
                             prevdata = HeterodynedData.read(pfile)
-                        except OSError:
+                        except (IOError, OSError):
                             # could not read file, so ignore this pulsar
                             minend = self.starttime
                             continue
