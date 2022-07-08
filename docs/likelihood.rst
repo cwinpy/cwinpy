@@ -6,7 +6,7 @@ Classes defining likelihood functions for use in continuous wave searches.
 These likelihood function should be subclasses of the
 :class:`bilby.core.likelihood.Likelihood` class.
 
-.. autoclass:: cwinpy.likelihood.TargetedPulsarLikelihood
+.. autoclass:: cwinpy.pe.likelihood.TargetedPulsarLikelihood
    :members:
 
 

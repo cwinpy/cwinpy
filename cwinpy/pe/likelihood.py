@@ -12,10 +12,10 @@ from astropy.time import Time
 from numba import jit, types
 from numba.typed import Dict as numbadict
 
-from .data import HeterodynedData, MultiHeterodynedData
-from .parfile import EPOCHPARS, PPUNITS, TEMPOUNITS
-from .signal import HeterodynedCWSimulator
-from .utils import logfactorial
+from ..data import HeterodynedData, MultiHeterodynedData
+from ..parfile import EPOCHPARS, PPUNITS, TEMPOUNITS
+from ..signal import HeterodynedCWSimulator
+from ..utils import logfactorial
 
 
 class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
