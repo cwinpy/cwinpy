@@ -318,8 +318,16 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         help=(
             "The knee frequency (Hz) of the low-pass filter applied after "
             "heterodyning the data. This should only be given when "
-            "heterodying raw strain data and not if re-heterodyning processed "
+            "heterodyning raw strain data and not if re-heterodyning processed "
             "data. Default is 0.5 Hz."
+        ),
+    )
+    heterodyneparser.add(
+        "--filterorder",
+        type=int,
+        help=(
+            "The order of the low-pass Butterworth filter applied after "
+            "heterodyning the data. Default is 9."
         ),
     )
     heterodyneparser.add(
@@ -1207,6 +1215,7 @@ class HeterodyneDAGRunner(object):
 
             # filter knee frequency (default to 0.1 Hz for single stage heterodyne)
             filterknee = config.getfloat("heterodyne", "filterknee", fallback=0.1)
+            filterorder = config.getint("heterodyne", "filterorder", fallback=9)
         else:
             includessb = self.eval(
                 config.get("heterodyne", "includessb", fallback="[False, True]")
@@ -1223,6 +1232,7 @@ class HeterodyneDAGRunner(object):
 
             # filter knee frequency (default to 0.5 Hz for two stage heterodyne)
             filterknee = config.getfloat("heterodyne", "filterknee", fallback=0.5)
+            filterorder = config.getint("heterodyne", "filterorder", fallback=9)
 
         # get whether using Tempo2 or not and check it's availability
         usetempo2 = config.getboolean("heterodyne", "usetempo2", fallback=False)
@@ -1359,6 +1369,7 @@ class HeterodyneDAGRunner(object):
                         configdict["freqfactor"] = ff
                         configdict["resamplerate"] = resamplerate[0]
                         configdict["filterknee"] = filterknee
+                        configdict["filterorder"] = filterorder
                         configdict["crop"] = crop
                         configdict["overwrite"] = overwrite
 

@@ -124,9 +124,9 @@ Pipeline comparison
 
 We can compare the results of the full pipeline produced by the `LALSuite
 <https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalapps_knope`` with that produced using the CWInPy
-code ``cwinpy_knope_pipeline``. We will do this comparison by analysing the set of :ref:`<Hardware
-injections>` and analysis of real pulsar data using open data from the two LIGO detectors during the
-`first advanced LIGO observing run <https://www.gw-openscience.org/O1/>`_ (O1). 
+code ``cwinpy_knope_pipeline``. We will do this comparison by analysing the set of :ref:`hardware
+injections<Hardware Injections>` and analysis of real pulsar data using open data from the two LIGO
+detectors during the `first advanced LIGO observing run <https://www.gw-openscience.org/O1/>`_ (O1). 
 
 O1 hardware injections
 ----------------------
@@ -159,7 +159,7 @@ This has then been submitted (on the `UWM Nemo computing cluster
 
 >>> lalapps_knope lalapps_knope_O1injections.ini
 
-To perform the analysis using CWInPy, the :ref:`<Quick setup>` has been used:
+To perform the analysis using CWInPy, the :ref:`"Quick Setup"<Quick setup>` has been used:
 
 >>> cwinpy_knope_pipeline --run O1 --hwinj --incoherent --output /home/matthew/cwinpy_knope/O1injections --accounting-group-tag ligo.dev.o1.cw.targeted.bayesian
 

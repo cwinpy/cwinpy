@@ -150,6 +150,9 @@ class Heterodyne(object):
         heterodyning the data. This should only be given when heterodying raw
         strain data and not if re-heterodyning processed data. Default is 0.5
         Hz.
+    filterorder: int
+        The order of the low-pass Butterworth filter applied after heterodyning
+        the data. Default is 9.
     heterodyneddata: str, dict
         A string or dictionary of strings/lists containing the full file path,
         or directory path, pointing the the location of pre-heterodyned data.
@@ -260,6 +263,7 @@ class Heterodyne(object):
         output=None,
         label=None,
         filterknee=0.5,
+        filterorder=9,
         resamplerate=1.0,
         freqfactor=2,
         crop=60,
@@ -321,6 +325,7 @@ class Heterodyne(object):
         # set heterodyne parameters
         self.resamplerate = resamplerate
         self.filterknee = filterknee
+        self.filterorder = filterorder
         self.freqfactor = freqfactor
         self.crop = crop
         self.includessb = includessb
@@ -1338,6 +1343,26 @@ class Heterodyne(object):
             raise TypeError("Filter knee must be a positive number")
 
     @property
+    def filterorder(self):
+        """
+        The order of the low-pass Butterworth filter.
+        """
+
+        return self._filterorder
+
+    @filterorder.setter
+    def filterorder(self, n):
+        if isinstance(n, int):
+            if n > 0:
+                self._filterorder = n
+            else:
+                raise ValueError("Filter order must be positive")
+        elif n is None:
+            self._filterorder = None
+        else:
+            raise TypeError("Filtrer order must be a positive integer")
+
+    @property
     def freqfactor(self):
         """
         The mutiplicative factor applied to the pulsar rotational phase
@@ -1407,6 +1432,7 @@ class Heterodyne(object):
 
         # heterodyne information
         self.filterknee = kwargs.get("filterknee", self.filterknee)
+        self.filterorder = kwargs.get("filterorder", self.filterorder)
         self.resamplerate = kwargs.get("resamplerate", self.resamplerate)
         self.crop = kwargs.get("crop", self.crop)
         self.freqfactor = kwargs.get("freqfactor", self.freqfactor)
@@ -1645,7 +1671,7 @@ class Heterodyne(object):
                     if os.path.isfile(pfile) and os.path.getsize(pfile) > 0:
                         try:
                             prevdata = HeterodynedData.read(pfile)
-                        except OSError:
+                        except (IOError, OSError):
                             # could not read file, so ignore this pulsar
                             minend = self.starttime
                             continue
@@ -1740,7 +1766,9 @@ class Heterodyne(object):
 
                     # set up the filters (this will only happen on first pass)
                     if self.filterknee is not None:
-                        self._setup_filters(self.filterknee, data.sample_rate.value)
+                        self._setup_filters(
+                            self.filterknee, data.sample_rate.value, self.filterorder
+                        )
 
                     # convert times to GPS time vector
                     if not self.usetempo2:
@@ -2082,20 +2110,13 @@ class Heterodyne(object):
             het.include_glitch = self.includeglitch
             het.include_fitwaves = self.includefitwaves
             het.heterodyne_arguments = hetargs
+            het.bbminlength = None  # reset to None
 
             if cf is not None:
                 het.cwinpy_heterodyne_pipeline_config = cf
 
             # save filter history from the forward pass
-            history = []
-            for idx in range(len(self._filters[pulsar])):
-                history.append(
-                    (
-                        self._filters[pulsar][idx][0].history.data,
-                        self._filters[pulsar][idx][1].history.data,
-                    )
-                )
-            het.filter_history = history
+            het.filter_history = self._filter_history[pulsar]
 
             het.write(self.outputfiles[pulsar], overwrite=True)
 
@@ -2258,11 +2279,10 @@ class Heterodyne(object):
 
         return hetfiles, isfile
 
-    def _setup_filters(self, filterknee, samplerate):
+    def _setup_filters(self, filterknee, samplerate, n):
         """
-        Set up the 9th order low-pass Butterworth filters to apply to the data
-        for each pulsars. This is performed by applying a 3rd order filter
-        three times.
+        Set up the nth order low-pass Butterworth filter to apply to the data
+        for each pulsars.
 
         Parameters
         ----------
@@ -2270,40 +2290,28 @@ class Heterodyne(object):
             The filter knee frequency in Hz.
         samplerate: float
             The data sample rate in Hz
+        n: int
+            The filter order.
         """
+
+        from scipy.signal import butter
 
         if not hasattr(self, "_filters"):
             self._filters = {}
         else:
             return
 
-        wc = np.tan(np.pi * filterknee / samplerate)
-
-        # set zero pole gain values
-        zpg = lal.CreateCOMPLEX16ZPGFilter(0, 3)
-        zpg.poles.data[0] = (wc * np.sqrt(3.0) / 2.0) + 1j * (wc * 0.5)
-        zpg.poles.data[1] = 1j * wc
-        zpg.poles.data[2] = -(wc * np.sqrt(3.0) / 2.0) + 1j * (wc * 0.5)
-        zpg.gain = 1j * wc * wc * wc
-        lal.WToZCOMPLEX16ZPGFilter(zpg)
+        self._filter_history = {}
 
         for pulsar in self.pulsars:
-            self._filters[pulsar] = []
+            self._filter_history[pulsar] = None
 
-            # create IIR filters
-            for i in range(3):
-                filterRe = lal.CreateREAL8IIRFilter(zpg)
-                filterIm = lal.CreateREAL8IIRFilter(zpg)
+            # create filters in sos format for numerical stability
+            filterRe = butter(n, filterknee, fs=samplerate, btype="low", output="sos")
+            filterIm = butter(n, filterknee, fs=samplerate, btype="low", output="sos")
+            self._filters[pulsar] = [filterRe, filterIm]
 
-                if hasattr(self, "_filter_history"):
-                    if pulsar in self._filter_history:
-                        # set previous history
-                        filterRe.history.data = self._filter_history[pulsar][i][0]
-                        filterIm.history.data = self._filter_history[pulsar][i][1]
-
-                self._filters[pulsar].append((filterRe, filterIm))
-
-    def _filter_data(self, pulsar, data, forwardsonly=False):
+    def _filter_data(self, pulsar, data):
         """
         Apply the low pass filters to the data for a particular pulsar.
 
@@ -2313,10 +2321,9 @@ class Heterodyne(object):
             The name of the pulsar who's data is being filtered.
         data: array_like
             The array of complex heterodyned data to be filtered.
-        forwardswonly: bool
-            Set to True to only filter the data in the forwards direction. This
-            means that the filter phase lag will still be present.
         """
+
+        from scipy.signal import sosfilt, sosfilt_zi
 
         if pulsar not in self._filters:
             raise KeyError("No filter set for pulsar '{}'".format(pulsar))
@@ -2326,26 +2333,28 @@ class Heterodyne(object):
         di = lal.CreateREAL8Vector(len(data))
         di.data = data.value.imag
 
-        # apply filters (3 passes of the third order Butterworth filters)
-        for idx in range(3):
-            # run filter forwards
-            lal.IIRFilterREAL8Vector(dr, self._filters[pulsar][idx][0])
-            lal.IIRFilterREAL8Vector(di, self._filters[pulsar][idx][1])
+        # set initial state
+        if self._filter_history[pulsar] is None:
+            ziRe = sosfilt_zi(self._filters[pulsar][0]) * dr.data[0]
+            ziIm = sosfilt_zi(self._filters[pulsar][1]) * di.data[0]
+        else:
+            ziRe = self._filter_history[pulsar][0]
+            ziIm = self._filter_history[pulsar][1]
 
-            if not forwardsonly:
-                # run filter backwards
-                historyr = self._filters[pulsar][idx][0].history.data.copy()
-                historyi = self._filters[pulsar][idx][1].history.data.copy()
+        # run filter fowards
+        dr.data, z0Re = sosfilt(self._filters[pulsar][0], dr.data, zi=ziRe)
+        di.data, z0Im = sosfilt(self._filters[pulsar][1], di.data, zi=ziIm)
 
-                lal.IIRFilterReverseREAL8Vector(dr, self._filters[pulsar][idx][0])
-                lal.IIRFilterReverseREAL8Vector(di, self._filters[pulsar][idx][1])
+        # set history
+        self._filter_history[pulsar] = [z0Re, z0Im]
 
-                # restore the history to that from the forward pass
-                self._filters[pulsar][idx][0].history.data = historyr
-                self._filters[pulsar][idx][1].history.data = historyi
+        # run filter backwards
+        dr.data, _ = sosfilt(self._filters[pulsar][0], dr.data[::-1], zi=z0Re)
+        di.data, _ = sosfilt(self._filters[pulsar][1], di.data[::-1], zi=z0Im)
 
-        data.value.real = dr.data
-        data.value.imag = di.data
+        # flip the data back to the correct way around
+        data.value.real = dr.data[::-1]
+        data.value.imag = di.data[::-1]
 
     @property
     def includessb(self):
