@@ -7,7 +7,8 @@ import os
 import numpy as np
 import pytest
 from bilby.core.prior import PriorDict, Uniform
-from cwinpy import HeterodynedData, MultiHeterodynedData, TargetedPulsarLikelihood
+from cwinpy import HeterodynedData, MultiHeterodynedData
+from cwinpy.pe.likelihood import TargetedPulsarLikelihood
 
 
 class TestTargetedPulsarLikelihood(object):

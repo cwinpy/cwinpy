@@ -3,7 +3,6 @@ import io
 # register reader/writer
 from . import iostream
 from .data import HeterodynedData, MultiHeterodynedData
-from .likelihood import TargetedPulsarLikelihood
 from .info import *
 from .parfile import PulsarParameters
 from .knope import skyshift

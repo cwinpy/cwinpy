@@ -25,7 +25,6 @@ from ..condor import submit_dag
 from ..condor.penodes import MergePELayer, PulsarPELayer
 from ..cwinpyargparser import CWInPyArgParser
 from ..data import HeterodynedData, MultiHeterodynedData
-from ..likelihood import TargetedPulsarLikelihood
 from ..parfile import EPOCHPARS, TEMPOUNITS, PulsarParameters
 from ..utils import (
     CHECKPOINT_EXIT_CODE,
@@ -34,6 +33,7 @@ from ..utils import (
     parse_args,
     sighandler,
 )
+from .likelihood import TargetedPulsarLikelihood
 
 
 def create_pe_parser():
