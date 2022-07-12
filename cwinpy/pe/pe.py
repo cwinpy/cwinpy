@@ -1465,10 +1465,15 @@ class PEDAGRunner(object):
             raise IOError("Configuration file must have a [pe] section.")
 
         # create configurations for each cwinpy_pe job
-        # get the paths to the pulsar parameter files
+        # get the paths to the pulsar parameter files (try "pulsars" and
+        # "pulsarfiles" options, with the latter being equivalent to the
+        # option used for the heterodyne pipeline
         parfiles = config.get("ephemerides", "pulsars", fallback=None)
+        if parfiles is None:
+            parfiles = config.get("ephemerides", "pulsarfiles", fallback=None)
 
-        # the "pulsars" option in the [ephemerides] section can either be:
+        # the "pulsars"/"pulsarfiles" option in the [ephemerides] section can
+        # either be:
         #  - the path to a single file
         #  - a list of parameter files
         #  - a directory (or glob-able directory pattern) containing parameter files
