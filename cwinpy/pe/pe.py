@@ -1467,7 +1467,7 @@ class PEDAGRunner(object):
         # create configurations for each cwinpy_pe job
         # get the paths to the pulsar parameter files (try "pulsars" and
         # "pulsarfiles" options, with the latter being equivalent to the
-        # option used for the heterodyne pipeline
+        # option used for the heterodyne pipeline)
         parfiles = config.get("ephemerides", "pulsars", fallback=None)
         if parfiles is None:
             parfiles = config.get("ephemerides", "pulsarfiles", fallback=None)
