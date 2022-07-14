@@ -1517,6 +1517,9 @@ class UpperLimitTable(QTable):
 
         # show spin-down limits
         if kwargs.pop("showsdlim", False):
+            # allow y-axis to be rescaled so spin-down limits can be shown
+            ax[0].autoscale(enable=True, axis="y")
+
             if (
                 axisdata["y"]["label"].startswith(("H0", "ELL", "Q22"))
                 and "SDLIM" in self.columns
