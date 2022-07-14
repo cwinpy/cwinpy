@@ -1340,14 +1340,17 @@ class UpperLimitTable(QTable):
             else:
                 colname = acolumn
 
-            axisdata[xy]["data"] = self[colname].value.copy()
+            if hasattr(self[colname], "value"):
+                axisdata[xy]["data"] = self[colname].value.copy()
+            else:
+                axisdata[xy]["data"] = self[colname].copy()
             axisdata[xy]["label"] = colname
 
         # scale rotation frequency to GW frequency if necessary
         if isinstance(column, str) and axisdata["y"]["label"].upper().startswith(
             ("H0", "ELL", "Q22", "C22")
         ):
-            axisdata["x"]["data"] *= 2.0  # GWs ate twice frot
+            axisdata["x"]["data"] *= 2.0  # GWs at twice frot
             axisdata["x"]["label"] = "F0GW"
 
         # start creating figure
@@ -1514,6 +1517,9 @@ class UpperLimitTable(QTable):
 
         # show spin-down limits
         if kwargs.pop("showsdlim", False):
+            # allow y-axis to be rescaled so spin-down limits can be shown
+            ax[0].autoscale(enable=True, axis="y")
+
             if (
                 axisdata["y"]["label"].startswith(("H0", "ELL", "Q22"))
                 and "SDLIM" in self.columns
