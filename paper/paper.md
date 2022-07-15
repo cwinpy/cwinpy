@@ -100,7 +100,7 @@ The reasons behind CWInPy's development, and its enhancements over existing soft
 
 # Validation
 
-To validate CWInPy extensive testing against previous codes has been performed and is provided with
+To validate CWInPy, extensive testing against previous codes has been performed and is provided with
 the [documentation](https://cwinpy.readthedocs.io/en/latest/). CWInPy has been used to successfully
 extract simulated signals directly added into the LIGO data [@2017PhRvD95f2002B] as well as multiple
 signals simulated via software.
@@ -111,7 +111,8 @@ well-calibrated [@wellcalibrated] credible intervals.
 
 As evidence for this consistency, \autoref{fig:posteriors} shows the posterior probability
 distributions (plotted using [matplotlib](https://matplotlib.org/), @matplotlib, and
-[corner.py](https://corner.readthedocs.io/), @corner) for the four unknown parameters of a simulated
+[corner.py](https://corner.readthedocs.io/), @corner, via an interface with PESummary, @pesummary)
+for the four unknown parameters of a simulated
 gravitational-wave signal from a pulsar. The figure compares the posterior samples extracted using
 CWInPy (with the [`dynesty`](https://dynesty.readthedocs.io/) sampler) with those calculated (again
 with CWInPy) over a uniform grid in the parameters space and those produced by the previously used
@@ -167,7 +168,7 @@ Catalogue](https://www.atnf.csiro.au/research/pulsar/psrcat/) [@ATNF] can be use
 specifying the name of the pulsar (you have to trust that the ephemeris provides a coherent timing
 solution over the gravitational-wave data period). The ephemeris is extracted from the catalogue
 using [`psrqpy`](https://psrqpy.readthedocs.io/) [@psrqpy]. For example, to search for PSR
-J0737$-$3039A using the [ATNF Pulsar Catalogue](https://www.atnf.csiro.au/research/pulsar/psrcat/)
+J0737-3039A using the [ATNF Pulsar Catalogue](https://www.atnf.csiro.au/research/pulsar/psrcat/)
 data in LIGO data from the second observing run, one could use:
 
 ```bash
