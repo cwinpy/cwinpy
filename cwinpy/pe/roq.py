@@ -8,7 +8,7 @@ from ..signal import HeterodynedCWSimulator
 
 
 class GenerateROQ:
-    def __init__(self, data, x, priors, det, par, n=1000, **kwargs):
+    def __init__(self, data, x, priors, ntraining=1000, **kwargs):
         """
         Generate the Reduced Order Quadrature for the parameters in the prior.
 
@@ -21,12 +21,10 @@ class GenerateROQ:
         self.x = x
         self.data = data
         self.priors = priors
-        self.det = det
-        self.par = par
         self.kwargs = kwargs
 
         # the number of training examples to use
-        self.n = n
+        self.ntraining = ntraining
 
         # generate training data
         self.generate_training_set()
@@ -67,8 +65,8 @@ class GenerateROQ:
         if len(dataarr.shape) != 1:
             raise ValueError("Data must be a 1d array")
 
-        if dataarr.dtype not in [complex]:
-            raise TypeError("Data must be a complex type")
+        if dataarr.dtype not in [complex, float]:
+            raise TypeError("Data must be a complex or float type")
 
         if len(dataarr) != len(self.x):
             raise ValueError("Data must be the same length as x")
@@ -93,67 +91,100 @@ class GenerateROQ:
 
         self._training_set_model = []
 
-        model = HeterodynedCWSimulator(
-            self.par, self.det, self.x, usetempo2=self.kwargs.get("usetempo2", False)
-        )
+        model = self.kwargs.get("model", HeterodynedCWSimulator)
+        if isinstance(model, HeterodynedCWSimulator):
+            if "par" not in self.kwargs:
+                raise ValueError("'par', parameter file must be in keyword arguments")
 
-        # copy of heterodyned parameters
-        newpar = deepcopy(self.par)
+            if "det" not in self.kwargs:
+                raise ValueError("'det', detector name must be in keyword arguments")
+
+            par = self.kwargs.get("par")
+            det = self.kwargs.get("det")
+            model = HeterodynedCWSimulator(
+                par, det, self.x, usetempo2=self.kwargs.get("usetempo2", False)
+            )
+
+            modelfunc = model.model
+
+            # copy of heterodyned parameters
+            newpar = deepcopy(self.par)
+        else:
+            modelfunc = model
 
         # draw values from prior
-        samples = self.priors.sample(self.n)
+        samples = self.priors.sample(self.ntraining)
         self.samples = []
 
-        for i in range(self.n):
+        for i in range(self.ntraining):
             # update par file
             self.samples.append([])
             for prior in samples:
-                newpar[prior] = samples[prior][i]
                 self.samples[-1].append(samples[prior][i])
 
-            m = model.model(
-                deepcopy(newpar),
-                outputampcoeffs=False,
-                updateSSB=True,
-                updateBSB=True,
-                updateglphase=True,
-                freqfactor=self.kwargs.get("freq_factor", 2),
-            )
+                if isinstance(model, HeterodynedCWSimulator):
+                    newpar[prior] = samples[prior][i]
+
+            if isinstance(model, HeterodynedCWSimulator):
+                m = modelfunc(
+                    deepcopy(newpar),
+                    outputampcoeffs=False,
+                    updateSSB=True,
+                    updateBSB=True,
+                    updateglphase=True,
+                    freqfactor=self.kwargs.get("freq_factor", 2),
+                )
+            else:
+                m = modelfunc(self.x, **{prior: samples[prior][i] for prior in samples})
 
             self._training_set_model.append(m)
 
     def generate_reduced_basis(self):
         """
-        Generate the reduced basis for each training set.
+        Generate the reduced basis for the training set.
         """
 
-        self._rb_model = []
-        self._rb_model_squared = []
+        self._rb_model = {}
+        self._rb_nodes = {}
+        self._rb_model_squared = {}
+        self._rb_squared_nodes = {}
 
-        self._rb_model_real = reduced_basis(
-            training_set=np.array([m.real for m in self._training_set_model]),
-            physical_point=self.x,
-            greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
-            normalize=True,
-        )
+        # reduced basis for the model training set
+        if self._training_set_model[0].dtype == complex:
+            training_m_real = np.array([m.real for m in self._training_set_model])
+            training_m_imag = np.array([m.imag for m in self._training_set_model])
+        else:
+            training_m_real = np.array(self._training_set_model)
+            training_m_imag = None
 
-        self._rb_model_imag = reduced_basis(
-            training_set=np.array([m.imag for m in self._training_set_model]),
-            physical_point=self.x,
-            greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
-            normalize=True,
-        )
+        for t, m in zip(["real", "imag"], [training_m_real, training_m_imag]):
+            if m is not None:
+                self._rb_model[t] = reduced_basis(
+                    training_set=m,
+                    physical_point=self.x,
+                    greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
+                    normalize=True,
+                )
+                self._rb_nodes[t] = self._rb_model[t].basis.eim_.nodes
+            else:
+                self._rb_model[t] = None
 
-        self._rb_model_squared_real = reduced_basis(
-            training_set=np.array([m.real**2 for m in self._training_set_model_real]),
-            physical_point=self.x,
-            greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
-            normalize=True,
-        )
+        # reduced basis for the squared model training set
+        if self._training_set_model[0].dtype == complex:
+            training_m_real = np.array([m.real**2 for m in self._training_set_model])
+            training_m_imag = np.array([m.imag**2 for m in self._training_set_model])
+        else:
+            training_m_real = np.array([m**2 for m in self._training_set_model])
+            training_m_imag = None
 
-        self._rb_model_squared_imag = reduced_basis(
-            training_set=np.array([m.imag**2 for m in self._training_set_model_imag]),
-            physical_point=self.x,
-            greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
-            normalize=True,
-        )
+        for t, m in zip(["real", "imag"], [training_m_real, training_m_imag]):
+            if m is not None:
+                self._rb_model_squared[t] = reduced_basis(
+                    training_set=m,
+                    physical_point=self.x,
+                    greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
+                    normalize=True,
+                )
+                self._rb_squared_nodes[t] = self._rb_model_squared[t].basis.eim_.nodes
+            else:
+                self._rb_model_squared[t] = None
