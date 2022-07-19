@@ -27,10 +27,23 @@ class GenerateROQ:
         self.ntraining = ntraining
 
         # generate training data
-        self.generate_training_set()
+        ts = self.generate_training_set()
+
+        if self.kwargs.get("store_training_data", False):
+            # store training data if needed
+            self.training_data = ts
 
         # generate the reduced basis
-        self.generate_reduced_basis()
+        self.generate_reduced_basis(ts)
+
+        # likelihood term for squared data
+        sigma = self.kwargs.get("sigma", 1.0)
+        if self.data.dtype == complex:
+            self._K = np.sum((self.data.real / sigma) ** 2) + np.sum(
+                (self.data.imag / sigma) ** 2
+            )
+        else:
+            self._K = np.sum((self.data / sigma) ** 2)
 
     @property
     def x(self):
@@ -84,14 +97,12 @@ class GenerateROQ:
 
         self._priors = priors
 
-    def generate_training_set(self):
-        """
-        Generate ``n`` model instances, using values drawn from the prior.
-        """
+    @property
+    def model(self):
+        return self._model
 
-        self._training_set_model = []
-
-        model = self.kwargs.get("model", HeterodynedCWSimulator)
+    @model.setter
+    def model(self, model):
         if isinstance(model, HeterodynedCWSimulator):
             if "par" not in self.kwargs:
                 raise ValueError("'par', parameter file must be in keyword arguments")
@@ -105,12 +116,48 @@ class GenerateROQ:
                 par, det, self.x, usetempo2=self.kwargs.get("usetempo2", False)
             )
 
-            modelfunc = model.model
+            self._initial_par = deepcopy(par)
+            self._par = deepcopy(par)
 
-            # copy of heterodyned parameters
-            newpar = deepcopy(self.par)
+            self._model = model.model
         else:
-            modelfunc = model
+            self._model = model
+
+    def _model_at_nodes(self, xr, xi, x2):
+        if hasattr(self, "_initial_par"):
+            det = self.kwargs.get("det")
+            modelr = HeterodynedCWSimulator(
+                self._initial_par,
+                det,
+                xr,
+                usetempo2=self.kwargs.get("usetempo2", False),
+            )
+            self._interpolated_model_real = modelr.model
+            modeli = HeterodynedCWSimulator(
+                self._initial_par,
+                det,
+                xi,
+                usetempo2=self.kwargs.get("usetempo2", False),
+            )
+            self._interpolated_model_imag = modeli.model
+            model2 = HeterodynedCWSimulator(
+                self._initial_par,
+                det,
+                x2,
+                usetempo2=self.kwargs.get("usetempo2", False),
+            )
+            self._interpolated_model2 = model2.model
+        else:
+            self._interpolated_model = self.model
+
+    def generate_training_set(self):
+        """
+        Generate ``n`` model instances, using values drawn from the prior.
+        """
+
+        training_set_model = []
+
+        self.model = self.kwargs.get("model", HeterodynedCWSimulator)
 
         # draw values from prior
         samples = self.priors.sample(self.ntraining)
@@ -122,12 +169,12 @@ class GenerateROQ:
             for prior in samples:
                 self.samples[-1].append(samples[prior][i])
 
-                if isinstance(model, HeterodynedCWSimulator):
-                    newpar[prior] = samples[prior][i]
+                if hasattr(self, "_par"):
+                    self._par[prior] = samples[prior][i]
 
-            if isinstance(model, HeterodynedCWSimulator):
-                m = modelfunc(
-                    deepcopy(newpar),
+            if hasattr(self, "_par"):
+                m = self.model(
+                    deepcopy(self._par),
                     outputampcoeffs=False,
                     updateSSB=True,
                     updateBSB=True,
@@ -135,26 +182,28 @@ class GenerateROQ:
                     freqfactor=self.kwargs.get("freq_factor", 2),
                 )
             else:
-                m = modelfunc(self.x, **{prior: samples[prior][i] for prior in samples})
+                m = self.model(
+                    self.x, **{prior: samples[prior][i] for prior in samples}
+                )
 
-            self._training_set_model.append(m)
+                training_set_model.append(m)
 
-    def generate_reduced_basis(self):
+        return training_set_model
+
+    def generate_reduced_basis(self, training):
         """
         Generate the reduced basis for the training set.
         """
 
         self._rb_model = {}
         self._rb_nodes = {}
-        self._rb_model_squared = {}
-        self._rb_squared_nodes = {}
 
         # reduced basis for the model training set
-        if self._training_set_model[0].dtype == complex:
-            training_m_real = np.array([m.real for m in self._training_set_model])
-            training_m_imag = np.array([m.imag for m in self._training_set_model])
+        if self.data.dtype == complex:
+            training_m_real = np.array([m.real for m in training])
+            training_m_imag = np.array([m.imag for m in training])
         else:
-            training_m_real = np.array(self._training_set_model)
+            training_m_real = np.array(training)
             training_m_imag = None
 
         for t, m in zip(["real", "imag"], [training_m_real, training_m_imag]):
@@ -166,25 +215,49 @@ class GenerateROQ:
                     normalize=True,
                 )
                 self._rb_nodes[t] = self._rb_model[t].basis.eim_.nodes
-            else:
-                self._rb_model[t] = None
 
         # reduced basis for the squared model training set
-        if self._training_set_model[0].dtype == complex:
-            training_m_real = np.array([m.real**2 for m in self._training_set_model])
-            training_m_imag = np.array([m.imag**2 for m in self._training_set_model])
+        if self.data.dtype == complex:
+            training_m = np.array([(m * np.conj(m)).real for m in training])
         else:
-            training_m_real = np.array([m**2 for m in self._training_set_model])
-            training_m_imag = None
+            training_m = np.array([m**2 for m in training])
 
-        for t, m in zip(["real", "imag"], [training_m_real, training_m_imag]):
-            if m is not None:
-                self._rb_model_squared[t] = reduced_basis(
-                    training_set=m,
-                    physical_point=self.x,
-                    greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
-                    normalize=True,
-                )
-                self._rb_squared_nodes[t] = self._rb_model_squared[t].basis.eim_.nodes
-            else:
-                self._rb_model_squared[t] = None
+        self._rb_model_squared = reduced_basis(
+            training_set=training_m,
+            physical_point=self.x,
+            greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
+            normalize=True,
+        )
+        self._rb_squared_nodes = self._rb_model_squared.basis.eim_.nodes
+
+        # get matrices
+        sigma = self.kwargs.get("sigma", 1.0)
+        if self.data.dtype == complex:
+            self._D = np.einsum(
+                "i,ji->j", self.data.real / sigma, self._rb_model["real"].basis.data
+            ) + 1j * np.einsum(
+                "i,ji->j", self.data.imag / sigma, self._rb_model["imag"].basis.data
+            )
+
+            self._B = (
+                self._rb_model["real"].basis.eim_.interpolant
+                + 1j * self._rb_model["imag"].basis.eim_.interpolant
+            ).T
+            self._B2 = (
+                self._rb_model_squared["real"].basis.eim_.interpolant
+                + 1j * self._rb_model_squared["imag"].basis.eim_.interpolant
+            ).T
+        else:
+            self._D = np.einsum(
+                "i,ji->j", self.data / sigma, self._rb_model["real"].basis.data
+            )
+            self._B = self._rb_model["real"].basis.eim_.interpolant.T
+            self._B2 = self._rb_model_squared["real"].basis.eim_.interpolant
+
+        # set model at the interpolation nodes
+        self._model_at_nodes()
+
+    def log_likelihood(self, **kwargs):
+        """
+        Calculate the log-likelihood using the reduced order basis.
+        """
