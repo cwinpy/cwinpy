@@ -85,7 +85,7 @@ class GenerateROQ:
 
     @x.setter
     def x(self, x):
-        if not isinstance(x, np.ndarray, list):
+        if not isinstance(x, (np.ndarray, list)):
             raise TypeError("x must be an array")
 
         xarr = np.array(x)
