@@ -148,7 +148,7 @@ class GenerateROQ:
 
     @model.setter
     def model(self, model):
-        if isinstance(model, HeterodynedCWSimulator):
+        if model == "HeterodynedCWSimulator":
             if "par" not in self.kwargs:
                 raise ValueError("'par', parameter file must be in keyword arguments")
 
@@ -198,7 +198,7 @@ class GenerateROQ:
 
         training_set_model = []
 
-        self.model = self.kwargs.get("model", HeterodynedCWSimulator)
+        self.model = self.kwargs.get("model", "HeterodynedCWSimulator")
 
         # draw values from prior
         samples = self.priors.sample(self.ntraining)
@@ -240,7 +240,7 @@ class GenerateROQ:
         training = np.array(training)
         rb_model = reduced_basis(
             training_set=training,
-            physical_point=self.x,
+            physical_points=self.x,
             greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
             normalize=True,
         )
@@ -250,7 +250,7 @@ class GenerateROQ:
 
         rb_model_squared = reduced_basis(
             training_set=training_m,
-            physical_point=self.x,
+            physical_points=self.x,
             greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
             normalize=True,
         )
