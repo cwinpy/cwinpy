@@ -260,7 +260,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 HeterodynedCWSimulator(
                     het.par,
                     het.detector,
-                    het.times,
+                    times=het.times,
                     earth_ephem=het.ephemearth,
                     sun_ephem=het.ephemsun,
                 )

@@ -158,7 +158,7 @@ class GenerateROQ:
             par = self.kwargs.get("par")
             det = self.kwargs.get("det")
             model = HeterodynedCWSimulator(
-                par, det, self.x, usetempo2=self.kwargs.get("usetempo2", False)
+                par, det, times=self.x, usetempo2=self.kwargs.get("usetempo2", False)
             )
 
             self._initial_par = deepcopy(par)
@@ -177,14 +177,14 @@ class GenerateROQ:
             model = HeterodynedCWSimulator(
                 self._initial_par,
                 det,
-                self._x_nodes,
+                times=self._x_nodes,
                 usetempo2=self.kwargs.get("usetempo2", False),
             )
-            self._model_short = model
+            self._model_short = model.model
             model2 = HeterodynedCWSimulator(
                 self._initial_par,
                 det,
-                self._x2_nodes,
+                times=self._x2_nodes,
                 usetempo2=self.kwargs.get("usetempo2", False),
             )
             self._model_short2 = model2.model
@@ -202,15 +202,14 @@ class GenerateROQ:
 
         # draw values from prior
         samples = self.priors.sample(self.ntraining)
-        self.samples = []
+
+        minrange = np.inf
+        maxrange = -np.inf
 
         for i in range(self.ntraining):
             # update par file
-            self.samples.append([])
-            for prior in samples:
-                self.samples[-1].append(samples[prior][i])
-
-                if hasattr(self, "_par"):
+            if hasattr(self, "_par"):
+                for prior in samples:
                     self._par[prior] = samples[prior][i]
 
             if hasattr(self, "_par"):
@@ -227,7 +226,18 @@ class GenerateROQ:
                     self.x, **{prior: samples[prior][i] for prior in samples}
                 )
 
-                training_set_model.append(m)
+            # get scaling (arby thinks the training set is null if the values
+            # are too small)
+            if np.min(np.abs(m)) < minrange:
+                minrange = np.min(np.abs(m))
+            if np.max(np.abs(m)) > maxrange:
+                maxrange = np.max(np.abs(m))
+
+            training_set_model.append(m)
+
+        # rescale
+        self._scaling = maxrange - minrange
+        training_set_model = np.array([m / self._scaling for m in training_set_model])
 
         return training_set_model
 
@@ -237,19 +247,16 @@ class GenerateROQ:
         """
 
         # reduced basis for the model training set
-        training = np.array(training)
         rb_model = reduced_basis(
-            training_set=training,
+            training_set=np.array(training),
             physical_points=self.x,
             greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
             normalize=True,
         )
 
         # reduced basis for the squared model training set
-        training_m = np.array([(m * np.conj(m)).real for m in training])
-
         rb_model_squared = reduced_basis(
-            training_set=training_m,
+            training_set=np.array((training * np.conj(training)).real),
             physical_points=self.x,
             greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
             normalize=True,
@@ -269,9 +276,13 @@ class GenerateROQ:
             ]
         )
 
+        self.nbases = len(rb_model.basis.eim_.nodes)
+        self.nbases2 = len(rb_model_squared.basis.eim_.nodes)
+
         # setup model function at the interpolation nodes
-        self._x_nodes = self.x[rb_model.basis.eim_.nodes]
-        self._x2_nodes = self.x[rb_model_squared.basis.eim_.nodes]
+        self._x_nodes = sorted(self.x[rb_model.basis.eim_.nodes])
+        self._x2_nodes = sorted(self.x[rb_model_squared.basis.eim_.nodes])
+
         self._model_at_nodes()
 
     def log_likelihood(self, **kwargs):
@@ -304,7 +315,7 @@ class GenerateROQ:
 
             if "par" not in kwargs:
                 raise KeyError("Arguments must contain a PulsarParameter object")
-            pos = deepcopy(kwargs.get("par"))
+            pos = [deepcopy(kwargs.get("par"))]
             pos2 = pos
         else:
             self.__model_kwargs = {prior: kwargs.get(prior) for prior in self.priors}
