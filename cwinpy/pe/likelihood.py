@@ -703,13 +703,15 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             # likelihood without pre-summed products
             if likelihood == "gaussian":
                 stds = datastds[cpidx : cpidx + cplen]
-            else:
-                stds = np.ones(cplen)
 
             if includephase:
                 # data and model for chunk
-                dd = data[cpidx : cpidx + cplen] / stds
-                mm = model[cpidx : cpidx + cplen] / stds
+                if likelihood == "gaussian":
+                    dd = data[cpidx : cpidx + cplen] / stds
+                    mm = model[cpidx : cpidx + cplen] / stds
+                else:
+                    dd = data[cpidx : cpidx + cplen]
+                    mm = model[cpidx : cpidx + cplen]
 
                 summodel = np.vdot(mm, mm).real
                 sumdatamodel = np.vdot(dd, mm).real
@@ -874,15 +876,16 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         """
 
         intvals = re.findall(r"\d+", name)
+        intval = int(intvals[-1])
 
         # strip out any underscores from name and remove trailing index
         noscores = re.sub("_", "", name)[: -len(intvals[-1])]
 
         # glitch values start from 1 so subtract 1 from pos
         if name[:2] == "GL":
-            intvals[-1] -= 1
+            intval -= 1
 
-        return (noscores, intvals[-1])
+        return (noscores, intval)
 
     def _parse_vector_param(self, par, name, value):
         """
@@ -891,7 +894,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         """
 
         vname, vpos = self._vector_param_name_index(name)
-        vec = par[vname]
+        vec = np.array(par[vname])
         vec[vpos] = value
 
         return vec
