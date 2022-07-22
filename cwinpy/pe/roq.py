@@ -174,20 +174,15 @@ class GenerateROQ:
     def _model_at_nodes(self):
         if hasattr(self, "_initial_par"):
             det = self.kwargs.get("det")
+            dt = 60 if len(self._x_nodes) == 1 else None
             model = HeterodynedCWSimulator(
                 self._initial_par,
                 det,
                 times=self._x_nodes,
                 usetempo2=self.kwargs.get("usetempo2", False),
+                dt=dt,
             )
             self._model_short = model.model
-            model2 = HeterodynedCWSimulator(
-                self._initial_par,
-                det,
-                times=self._x2_nodes,
-                usetempo2=self.kwargs.get("usetempo2", False),
-            )
-            self._model_short2 = model2.model
         else:
             self._model_short = self.model
 
@@ -276,12 +271,19 @@ class GenerateROQ:
             ]
         )
 
-        self.nbases = len(rb_model.basis.eim_.nodes)
-        self.nbases2 = len(rb_model_squared.basis.eim_.nodes)
+        nodes = rb_model.basis.eim_.nodes
+        nodes2 = rb_model_squared.basis.eim_.nodes
+
+        self.nbases = len(nodes)
+        self.nbases2 = len(nodes2)
 
         # setup model function at the interpolation nodes
-        self._x_nodes = sorted(self.x[rb_model.basis.eim_.nodes])
-        self._x2_nodes = sorted(self.x[rb_model_squared.basis.eim_.nodes])
+        self._node_indices = np.union1d(nodes, nodes2)
+
+        self._x_nodes = self.x[self._node_indices]
+
+        self._x_node_indices = np.searchsorted(self._node_indices, np.sort(nodes))
+        self._x2_node_indices = np.searchsorted(self._node_indices, np.sort(nodes))
 
         self._model_at_nodes()
 
@@ -316,15 +318,12 @@ class GenerateROQ:
             if "par" not in kwargs:
                 raise KeyError("Arguments must contain a PulsarParameter object")
             pos = [deepcopy(kwargs.get("par"))]
-            pos2 = pos
         else:
             self.__model_kwargs = {prior: kwargs.get(prior) for prior in self.priors}
             pos = [self._x_nodes]
-            pos2 = [self._x2_nodes]
 
         # generate the model at the interpolation nodes
         model = self._model_short(*pos, **self.__model_kwargs)
-        model2 = self._model_short2(*pos2, **self.__model_kwargs)
 
         if kwargs.get("numba", True):
             return self._log_likelihood_numba(
@@ -333,18 +332,27 @@ class GenerateROQ:
                 self._Bvec,
                 self._Bmat,
                 self._B2mat,
-                model,
-                model2,
+                model[self._x_node_indices],
+                model[self._x2_node_indices],
                 self._sigma,
                 len(self.data),
                 likelihood=likelihood,
             )
         else:
             # square model
-            model2 = (model2 * np.conj(model2)).real
-            dm = np.vdot(np.linalg.solve(self._Bmat.T, model), self._Dvec).real
+            model2 = (
+                model[self._x2_node_indices] * np.conj(model[self._x2_node_indices])
+            ).real
+            dm = np.vdot(
+                np.linalg.solve(self._Bmat.T, model[self._x_node_indices]), self._Dvec
+            ).real
             mm = np.vdot(np.linalg.solve(self._B2mat.T, model2), self._Bvec).real
             chisq = self._K + mm - 2 * dm
+
+            print(
+                np.linalg.solve(self._Bmat.T, model[self._x_node_indices]), self._Dvec
+            )
+            print(dm, mm, self._K)
 
             if likelihood == "studentst":
                 cplen = len(self.data)
@@ -377,6 +385,8 @@ class GenerateROQ:
         dm = np.vdot(np.linalg.solve(Bmat.T, model), Dvec).real
         mm = np.vdot(np.linalg.solve(B2mat.T, model2), Bvec).real
         chisq = K + mm - 2 * dm
+
+        print(dm, mm, K)
 
         if likelihood == "studentst":
             return (
