@@ -281,9 +281,8 @@ class GenerateROQ:
         self._node_indices = np.union1d(nodes, nodes2)
 
         self._x_nodes = self.x[self._node_indices]
-
         self._x_node_indices = np.searchsorted(self._node_indices, np.sort(nodes))
-        self._x2_node_indices = np.searchsorted(self._node_indices, np.sort(nodes))
+        self._x2_node_indices = np.searchsorted(self._node_indices, np.sort(nodes2))
 
         self._model_at_nodes()
 
@@ -349,10 +348,7 @@ class GenerateROQ:
             mm = np.vdot(np.linalg.solve(self._B2mat.T, model2), self._Bvec).real
             chisq = self._K + mm - 2 * dm
 
-            print(
-                np.linalg.solve(self._Bmat.T, model[self._x_node_indices]), self._Dvec
-            )
-            print(dm, mm, self._K)
+            # print(dm, mm, self._K)
 
             if likelihood == "studentst":
                 cplen = len(self.data)
@@ -386,7 +382,7 @@ class GenerateROQ:
         mm = np.vdot(np.linalg.solve(B2mat.T, model2), Bvec).real
         chisq = K + mm - 2 * dm
 
-        print(dm, mm, K)
+        # print(dm, mm, K)
 
         if likelihood == "studentst":
             return (
