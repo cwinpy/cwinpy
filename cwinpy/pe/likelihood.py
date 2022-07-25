@@ -623,6 +623,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     # compute "Chi-squared"
                     chisquare = prods["ddotd"][i] - 2.0 * sumdatamodel + summodel
 
+                    # print(sumdatamodel, summodel, prods["ddotd"][i])
+
                     if self.likelihood == "gaussian":
                         loglikelihood += 0.5 * chisquare
                         # normalisation
@@ -793,8 +795,6 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
             # compute "Chi-squared"
             chisquare = productsreal["ddotd"][i] - 2.0 * sumdatamodel + summodel
-
-            # print(sumdatamodel, summodel, productsreal["ddotd"][i])
 
             if likelihood == "gaussian":
                 loglikelihood += 0.5 * chisquare

@@ -129,6 +129,8 @@ class GenerateROQ:
             if self._sigma <= 0.0:
                 raise ValueError("sigma must be a positive number")
 
+        self.is_complex = True if self._data.dtype == complex else False
+
         self._K = np.vdot(self._data, self._data).real
 
     @property
@@ -242,12 +244,50 @@ class GenerateROQ:
         """
 
         # reduced basis for the model training set
-        rb_model = reduced_basis(
-            training_set=np.array(training),
-            physical_points=self.x,
-            greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
-            normalize=True,
-        )
+        if self.is_complex:
+            rb_model_real = reduced_basis(
+                training_set=np.array(training).real,
+                physical_points=self.x,
+                greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
+                normalize=True,
+            )
+            rb_model_imag = reduced_basis(
+                training_set=np.array(training).imag,
+                physical_points=self.x,
+                greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
+                normalize=True,
+            )
+
+            self._Dvec_real = np.einsum(
+                "i,ji->j", self.data.real, rb_model_real.basis.data
+            )
+            self._Dvec_imag = np.einsum(
+                "i,ji->j", self.data.imag, rb_model_imag.basis.data
+            )
+
+            nodes_real = np.array(sorted(rb_model_real.basis.eim_.nodes))
+            nodes_imag = np.array(sorted(rb_model_imag.basis.eim_.nodes))
+
+            self._node_indices = np.union1d(nodes_real, nodes_imag)
+            self._Bmat_real = np.array(
+                [row[nodes_real] for row in rb_model_real.basis.data]
+            )
+            self._Bmat_imag = np.array(
+                [row[nodes_imag] for row in rb_model_imag.basis.data]
+            )
+        else:
+            rb_model = reduced_basis(
+                training_set=np.array(training),
+                physical_points=self.x,
+                greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
+                normalize=True,
+            )
+
+            self._Dvec = np.einsum("i,ji->j", self.data, rb_model.basis.data)
+
+            nodes = np.array(sorted(rb_model.basis.eim_.nodes))
+            self._node_indices = nodes
+            self._Bmat = np.array([row[nodes] for row in rb_model.basis.data])
 
         # reduced basis for the squared model training set
         rb_model_squared = reduced_basis(
@@ -257,32 +297,26 @@ class GenerateROQ:
             normalize=True,
         )
 
-        # get pre-summed elements
-        self._Dvec = np.einsum("i,ji->j", self.data, rb_model.basis.data)
         self._Bvec = np.einsum("ji->j", rb_model_squared.basis.data)
-
-        self._Bmat = np.array(
-            [row[rb_model.basis.eim_.nodes] for row in rb_model.basis.data]
-        )
-        self._B2mat = np.array(
-            [
-                row[rb_model_squared.basis.eim_.nodes]
-                for row in rb_model_squared.basis.data
-            ]
-        )
-
-        nodes = rb_model.basis.eim_.nodes
-        nodes2 = rb_model_squared.basis.eim_.nodes
-
-        self.nbases = len(nodes)
-        self.nbases2 = len(nodes2)
+        nodes2 = np.array(sorted(rb_model_squared.basis.eim_.nodes))
+        self._B2mat = np.array([row[nodes2] for row in rb_model_squared.basis.data])
 
         # setup model function at the interpolation nodes
-        self._node_indices = np.union1d(nodes, nodes2)
+        self._node_indices = np.union1d(self._node_indices, nodes2)
 
         self._x_nodes = self.x[self._node_indices]
-        self._x_node_indices = np.searchsorted(self._node_indices, np.sort(nodes))
-        self._x2_node_indices = np.searchsorted(self._node_indices, np.sort(nodes2))
+
+        if self.is_complex:
+            self.nbases_real = len(nodes_real)
+            self.nbases_imag = len(nodes_imag)
+            self._x_node_indices_real = np.searchsorted(self._node_indices, nodes_real)
+            self._x_node_indices_imag = np.searchsorted(self._node_indices, nodes_imag)
+        else:
+            self.nbases = len(nodes)
+            self._x_node_indices = np.searchsorted(self._node_indices, nodes)
+
+        self.nbases2 = len(nodes2)
+        self._x2_node_indices = np.searchsorted(self._node_indices, nodes2)
 
         self._model_at_nodes()
 
@@ -325,30 +359,63 @@ class GenerateROQ:
         model = self._model_short(*pos, **self.__model_kwargs)
 
         if kwargs.get("numba", True):
-            return self._log_likelihood_numba(
-                self._K,
-                self._Dvec,
-                self._Bvec,
-                self._Bmat,
-                self._B2mat,
-                model[self._x_node_indices],
-                model[self._x2_node_indices],
-                self._sigma,
-                len(self.data),
-                likelihood=likelihood,
-            )
+            if self.is_complex:
+                return self._complex_log_likelihood_numba(
+                    self._K,
+                    self._Dvec_real,
+                    self._Dvec_imag,
+                    self._Bvec,
+                    self._Bmat_real,
+                    self._Bmat_imag,
+                    self._B2mat,
+                    model[self._x_node_indices_real].real,
+                    model[self._x_node_indices_imag].imag,
+                    model[self._x2_node_indices],
+                    self._sigma,
+                    len(self.data),
+                    likelihood=likelihood,
+                )
+            else:
+                return self._log_likelihood_numba(
+                    self._K,
+                    self._Dvec,
+                    self._Bvec,
+                    self._Bmat,
+                    self._B2mat,
+                    model[self._x_node_indices],
+                    model[self._x2_node_indices],
+                    self._sigma,
+                    len(self.data),
+                    likelihood=likelihood,
+                )
         else:
             # square model
             model2 = (
                 model[self._x2_node_indices] * np.conj(model[self._x2_node_indices])
             ).real
-            dm = np.vdot(
-                np.linalg.solve(self._Bmat.T, model[self._x_node_indices]), self._Dvec
-            ).real
+            if self.is_complex:
+                dm = (
+                    np.vdot(
+                        np.linalg.solve(
+                            self._Bmat_real.T, model[self._x_node_indices_real].real
+                        ),
+                        self._Dvec_real,
+                    ).real
+                    + np.vdot(
+                        np.linalg.solve(
+                            self._Bmat_imag.T, model[self._x_node_indices_imag].imag
+                        ),
+                        self._Dvec_imag,
+                    ).real
+                )
+            else:
+                dm = np.vdot(
+                    np.linalg.solve(self._Bmat.T, model[self._x_node_indices]),
+                    self._Dvec,
+                ).real
+
             mm = np.vdot(np.linalg.solve(self._B2mat.T, model2), self._Bvec).real
             chisq = self._K + mm - 2 * dm
-
-            # print(dm, mm, self._K)
 
             if likelihood == "studentst":
                 cplen = len(self.data)
@@ -379,6 +446,45 @@ class GenerateROQ:
         model2 = (model2 * np.conj(model2)).real
 
         dm = np.vdot(np.linalg.solve(Bmat.T, model), Dvec).real
+        mm = np.vdot(np.linalg.solve(B2mat.T, model2), Bvec).real
+        chisq = K + mm - 2 * dm
+
+        # print(dm, mm, K)
+
+        if likelihood == "studentst":
+            return (
+                logfactorial(cplen - 1)
+                - lal.LN2
+                - cplen * lal.LNPI
+                - cplen * np.log(chisq)
+            )
+        else:
+            return -(0.5 / sigma**2) * (chisq)
+
+    @staticmethod
+    @jit(nopython=True)
+    def _complex_log_likelihood_numba(
+        K,
+        Dvec_real,
+        Dvec_imag,
+        Bvec,
+        Bmat_real,
+        Bmat_imag,
+        B2mat,
+        model_real,
+        model_imag,
+        model2,
+        sigma,
+        cplen,
+        likelihood="studentst",
+    ):
+        # square model
+        model2 = (model2 * np.conj(model2)).real
+
+        dm = (
+            np.vdot(np.linalg.solve(Bmat_real.T, model_real), Dvec_real).real
+            + np.vdot(np.linalg.solve(Bmat_imag.T, model_imag), Dvec_imag).real
+        )
         mm = np.vdot(np.linalg.solve(B2mat.T, model2), Bvec).real
         chisq = K + mm - 2 * dm
 
