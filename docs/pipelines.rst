@@ -22,7 +22,9 @@ one-liner commands. For example, running an analysis on `PSR J0737-3039A
 run in the advanced detector era, `O1 <https://www.gw-openscience.org/O1/>`__, can be performed
 with:
 
->>> cwinpy_knope_pipeline --run O1 --pulsar J0737-3039A
+.. code-block:: bash
+
+   $ cwinpy_knope_pipeline --run O1 --pulsar J0737-3039A
 
 .. note::
 
@@ -32,6 +34,30 @@ with:
    gravitational-wave data <https://www.gw-openscience.org/data/>`_ via `CVMFS
    <https://www.gw-openscience.org/cvmfs/>`__. See the :ref:`Known pulsar analysis pipeline` and
    :ref:`Heterodyning data` sections for more details.
+
+Source parameter specification
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CWInPy relies on having information about a source specified using a Tempo(2)-style [1]_ pulsar
+parameter file. The specifications of such a file can be found in the `Tempo2 manual
+<https://www.jb.man.ac.uk/~pulsar/Resources/tempo2_manual.pdf>`__ [2]_. For CWInPy usage the file
+should contain at least the following parameter keys:
+
+* ``PSRJ``: the source's name in the `J2000 <https://en.wikipedia.org/wiki/Epoch_(astronomy)#Julian_years_and_J2000>`__ epoch coordinate system
+* ``RAJ``: the source's `right ascension <https://en.wikipedia.org/wiki/Right_ascension>`__ in the format ``HH:MM:SS.S``
+* ``DECJ``: the source's `declination <https://en.wikipedia.org/wiki/Declination>`__ in the format ``DD:MM:SS.S``
+* ``F0``: the source's rotation frequency in Hz
+
+in a set of key-value pairs. An example would be:
+
+.. code:: text
+
+   PSRJ J0534+2200
+   RAJ  05:34:23.85482
+   DECJ 22:00:12.95856
+   F0   29.6643629353
+
+The amount of whitespace between keys and values is not important.
 
 IGWN Cluster usage
 ~~~~~~~~~~~~~~~~~~
@@ -115,6 +141,14 @@ Policy Example" section below `here
    PREEMPT    = ($(PREEMPT)) && Owner != "username"
    KILL       = $(KILL)
 
-where ``username`` is your username, or that of the user whos jobs will be run. Then run:
+where ``username`` is your username, or that of the user who's jobs will be run. Then run:
 
 >>> sudo condor_restart
+
+Pipeline references
+~~~~~~~~~~~~~~~~~~~
+
+.. [1] `G. B. Hobbs, R. T. Edwards & R. N. Manchester <https://ui.adsabs.harvard.edu/abs/2006MNRAS.369..655H/abstract>`_,
+   *MNRAS*, **369**, p. 655-672 (2006)
+.. [2] G. Hobbs & R. Edwards, `TEMPO2 user manual <https://www.jb.man.ac.uk/~pulsar/Resources/tempo2_manual.pdf>`_,
+   v2.0.
