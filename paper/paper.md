@@ -30,7 +30,7 @@ and novel information on neutron star matter and structure (see, e.g.\ @2015Lask
 
 Detecting the very weak gravitational-wave signal from a pulsar requires the coherent integration of
 long (months-to-years) gravitational-wave data sets from multiple detectors. CWInPy implements an
-analysis pipeline enabling the user search for and characterise these signals. It implements the
+analysis pipeline enabling the user to search for and characterise these signals. It implements the
 preprocessing of the time-domain strain, $h(t)$, measured by gravitational-wave detectors for a
 user-provided set of pulsars; this entails heterodyning the data with the expected signal phase
 evolution, followed by aggressive filtering and down-sampling of the data [@2005PhRvD72j2002D].
