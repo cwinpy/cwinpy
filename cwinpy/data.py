@@ -2030,6 +2030,18 @@ class HeterodynedData(TimeSeriesBase):
                     "IG": ["IG", "GEO600", "INITIALGEO"],
                     "T1": ["T1", "TAMA", "TAMA300"],
                     "K1": ["K1", "KAGRA", "LCGT"],
+                    "ET": [
+                        "E0",
+                        "E1",
+                        "E2",
+                        "E3",
+                        "ET0",
+                        "ET1",
+                        "ET2",
+                        "ET3",
+                        "ET",
+                        "EINSTEINTELESCOPE",
+                    ],
                 }
 
                 # set mapping of detector names to lalsimulation PSD functions
@@ -2044,6 +2056,7 @@ class HeterodynedData(TimeSeriesBase):
                     "G1": lalsim.SimNoisePSDGEOHF,  # GEOHF
                     "T1": lalsim.SimNoisePSDTAMA,  # TAMA
                     "K1": lalsim.SimNoisePSDKAGRA,  # KAGRA
+                    "ET": PSDwrapper(lalsim.SimNoisePSDEinsteinTelescopeP1600143),  # ET
                 }
 
                 # set detector if not already set
@@ -2064,6 +2077,10 @@ class HeterodynedData(TimeSeriesBase):
                         "G1": ["G1", "GEO", "GEOHF", "IG", "GEO600", "INITIALGEO"],
                         "T1": ["T1", "TAMA", "TAMA300"],
                         "K1": ["K1", "KAGRA", "LCGT"],
+                        "E0": ["E0", "ET0", "EINSTEINTELESCOPE0"],
+                        "E1": ["E1", "ET1", "EINSTEINTELESCOPE1", "ET"],
+                        "E2": ["E2", "ET2", "EINSTEINTELESCOPE2"],
+                        "E3": ["E3", "ET3", "EINSTEINTELESCOPE3"],
                     }
 
                     nameval = None
