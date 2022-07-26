@@ -32,10 +32,12 @@ Detecting the very weak gravitational-wave signal from a pulsar requires the coh
 long (months-to-years) gravitational-wave data sets from multiple detectors. CWInPy implements an
 analysis pipeline enabling the user to search for and characterise these signals. It implements the
 preprocessing of the time-domain strain, $h(t)$, measured by gravitational-wave detectors for a
-user-provided set of pulsars; this entails heterodyning the data with the expected signal phase
-evolution, followed by aggressive filtering and down-sampling of the data [@2005PhRvD72j2002D].
-These much compressed datasets are then used to perform Bayesian inference on the unknown signal
-parameters, including the gravitational-wave amplitude.
+user-provided set of pulsars (defined through Tempo2-style [@tempo2; @tempo2manual] [parameter
+files](https://cwinpy.readthedocs.io/en/latest/pipelines.html#source-parameter-specification)); this
+entails heterodyning the data with the expected signal phase evolution, followed by aggressive
+filtering and down-sampling of the data [@2005PhRvD72j2002D]. These much compressed datasets are
+then used to perform Bayesian inference on the unknown signal parameters, including the
+gravitational-wave amplitude.
 
 CWInPy can be used to perform this full pipeline or implement the data preprocessing stages and
 inferences stages separately. These are all accessible via convenient command line executables
