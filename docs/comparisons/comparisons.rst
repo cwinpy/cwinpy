@@ -161,12 +161,12 @@ This has then been submitted (on the `UWM Nemo computing cluster
 
 To perform the analysis using CWInPy, the :ref:`"Quick Setup"<Quick setup>` has been used:
 
->>> cwinpy_knope_pipeline --run O1 --hwinj --incoherent --output /home/matthew/cwinpy_knope/O1injections --accounting-group-tag ligo.dev.o1.cw.targeted.bayesian
+>>> cwinpy_knope_pipeline --run O1 --hwinj --incoherent --output /home/matthew/cwinpy_knope/O1injections --accounting-group ligo.dev.o1.cw.targeted.bayesian
 
 .. note::
 
    Because these analyses used LVK computing resources the
-   ``accounting_group`` / ``--accounting-group-tag`` inputs have had to be set.
+   ``accounting_group`` / ``--accounting-group`` inputs have had to be set.
 
 In terms of `wall-clock time
 <https://en.wikipedia.org/wiki/Elapsed_real_time#:~:text=Elapsed%20real%20time%2C%20real%20time,at%20which%20the%20task%20started.>`_

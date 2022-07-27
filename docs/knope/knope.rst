@@ -113,12 +113,12 @@ performed in each run, so if you wanted the analyse the these in, say, the LIGO 
 
 Other command line arguments for ``cwinpy_knope_pipeline``, e.g., for setting specific detectors,
 can be found :ref:`below<knope Command line arguments>`. If running on a LIGO Scientific
-Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid `accounting tag
+Collaboration cluster the ``--accounting-group`` flag must be set to a valid `accounting tag
 <https://accounting.ligo.org/user>`_, e.g.,:
 
 .. code-block:: bash
 
-   cwinpy_knope_pipeline --run O1 --hwinj --output /home/user/O1injections --accounting-group-tag ligo.prod.o1.cw.targeted.bayesian
+   cwinpy_knope_pipeline --run O1 --hwinj --output /home/user/O1injections --accounting-group ligo.prod.o1.cw.targeted.bayesian
 
 .. note::
 

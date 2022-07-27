@@ -106,7 +106,7 @@ each of the individual detectors.
 
 .. code-block:: bash
 
-   cwinpy_skyshift_pipeline --run O1 --pulsar PULSAR03 --nshifts 500 --accounting-group-tag aluk.dev.o1.cw.targeted.bayesian
+   cwinpy_skyshift_pipeline --run O1 --pulsar PULSAR03 --nshifts 500 --accounting-group aluk.dev.o1.cw.targeted.bayesian
 
 The above line automatically launches the HTCondor jobs that run the analysis.
 
