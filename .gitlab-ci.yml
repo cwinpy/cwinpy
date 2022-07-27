@@ -31,6 +31,9 @@ python-3.8:
     - cd docs
     - make clean
     - make html
+  except:
+    # exclude paper branch
+    - paper
 
 
 # test on python 3.9
@@ -40,6 +43,9 @@ python-3.9:
   script:
     - python -m pip install -e .
     - pytest
+  except:
+    # exclude paper branch
+    - paper
 
 
 # test pre-commit has picked up black/flake8 requirements
@@ -51,6 +57,9 @@ pre-commit-python-3.8:
 
     # run pre-commit checks
     - pre-commit run --all-files --verbose --show-diff-on-failure
+  except:
+    # exclude paper branch
+    - paper
 
 # run comparisons when a new tag is made
 run-comparisons:
