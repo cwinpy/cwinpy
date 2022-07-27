@@ -18,15 +18,16 @@ bibliography: paper.bib
 # Summary
 
 Continuous quasi-monochromatic gravitational-waves are expected to be emitted from non-axisymmetric
-rapidly rotating neutron stars. There are thought to be on the order of $10^8 - 10^9$ neutron stars
-within the Milky Way [@2010A&A510A23S]. At the time of writing, around 3000 such stars, have been
-found through electromagnetic (primarily radio) observations of their highly regular pulsing
-profiles [@ATNF]. These are known as pulsars. A proportion of these pulsars with rotation
-frequencies $\gtrsim 10\,$Hz make enticing targets for the current and future generation of
-ground-based gravitational-wave observatories such as LIGO, Virgo and KAGRA [@2019ApJ87910A]. The
-detection of gravitational-waves from such a source would reveal information on the size of the
-non-axisymmetry, or more colloquially the "mountain", on the star. This in turn provides valuable
-and novel information on neutron star matter and structure (see, e.g.\ @2015Lasky).
+rapidly rotating neutron stars (see, e.g.\ @2022arXiv220606447R for a review). There are thought to
+be on the order of $10^8 - 10^9$ neutron stars within the Milky Way [@2010A&A510A23S]. At the time
+of writing, around 3000 such stars, have been found through electromagnetic (primarily radio)
+observations of their highly regular pulsing profiles [@ATNF]. These are known as pulsars. A
+proportion of these pulsars with rotation frequencies $\gtrsim 10\,$Hz make enticing targets for the
+current and future generation of ground-based gravitational-wave observatories such as LIGO, Virgo
+and KAGRA [@2019ApJ87910A]. The detection of gravitational-waves from such a source would reveal
+information on the size of the non-axisymmetry, or more colloquially the "mountain", on the star.
+This in turn provides valuable and novel information on neutron star matter and structure (see,
+e.g.\ @2015Lasky).
 
 Detecting the very weak gravitational-wave signal from a pulsar requires the coherent integration of
 long (months-to-years) gravitational-wave data sets from multiple detectors. CWInPy implements an
@@ -47,7 +48,7 @@ generally requires that the preprocessing be parallelised over multiple machines
 will create jobs that can be submitted over a computing cluster running the
 [HTCondor](https://htcondor.readthedocs.io/) job management system [@condor-practice] via the
 [`htcondor`](https://htcondor.readthedocs.io/en/latest/) package. These can also be run over the
-[Open Science Grid](https://opensciencegrid.org/) using open gravitational-wave data provided via
+[Open Science Grid](https://opensciencegrid.org/) [@Pordes_2007] using open gravitational-wave data provided via
 the [Gravitational-wave Open Science Center](https://www.gw-openscience.org/) (GWOSC)
 [@2015JPhCS.610a2021V; @RICHABBOTT2021100658].
 
