@@ -63,7 +63,7 @@ see, e.g.\ @2017ARA&A55213S for a review of MCMC with particular reference to as
 sampling algorithms (see, e.g., @2021arXiv210109675B or @nestedsampling for a review). By default,
 CWInPy uses the [`dynesty`](https://dynesty.readthedocs.io/) package [@2020MNRAS.493.3132S] for
 inference using nested sampling, producing both posterior probability distributions for the
-parameters of interest and the Bayesian evidence for the signal model given the data.
+parameters of interest and the Bayesian evidence for the data given the signal model.
 
 # Statement of need
 
@@ -140,8 +140,9 @@ The main pipelines provided by CWInPy are accessible using command line executab
 configuration file. The full pipeline, which must be run as an [HTCondor directed acyclic
 graph](https://htcondor.readthedocs.io/en/latest/users-manual/dagman-workflows.html) (DAG), can be
 run with the `cwinpy_knope_pipeline` executable. The heterodyne preprocessing stage can be run using
-`cwinpy_heterodyne` or, if running for long stretches of data and multiple pulsars, using a
-HTCondor DAG via `cwinpy_heterodyne_pipeline`. The parameter estimation stage can be run using
+`cwinpy_heterodyne` or, if running for long stretches of data and multiple pulsars, using a HTCondor
+DAG via `cwinpy_heterodyne_pipeline`. The latter should be used for most practical purposes, while
+the former is mainly useful for testing purposes. The parameter estimation stage can be run using
 `cwinpy_pe` or, if running for multiple pulsars, using an HTCondor DAG via `cwinpy_pe_pipeline`.
 Full details of all the required configuration file settings are given in the
 [documentation](https://cwinpy.readthedocs.io/).
