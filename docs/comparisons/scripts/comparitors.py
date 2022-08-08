@@ -1,5 +1,5 @@
 """
-Output various comparitors between lalapps_pulsar_parameter_estimation_nested
+Output various comparitors between lalpulsar_parameter_estimation_nested
 runs and cwinpy runs
 """
 
@@ -21,7 +21,7 @@ FILETEXT = """\
    :widths: auto
    :header: "Method", ":math:`\\\\ln{{(Z)}}`", ":math:`\\\\ln{{(Z)}}` noise", ":math:`\\\\ln{{}}` Odds"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "{0:.3f}", "{1:.3f}", "{2:.3f}±{3:.3f}"
+   "``lalpulsar_parameter_estimation_nested``", "{0:.3f}", "{1:.3f}", "{2:.3f}±{3:.3f}"
    "``cwinpy_pe``", "{4:.3f}", "{5:.3f}", "{6:.3f}±{7:.3f}"
    "``cwinpy_pe`` (grid)", "{8}", "", "{9}"
 
@@ -29,7 +29,7 @@ FILETEXT = """\
    :widths: auto
    :header: "Method", ":math:`h_0`", ":math:`\\\\phi_0` (rad)", ":math:`\\\\psi` (rad)", ":math:`\\\\cos{{\\\\iota}}`"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "{10:.2f}±{11:.2f}×10\ :sup:`{12:d}`", "{13:.2f}±{14:.2f}", "{15:.2f}±{16:.2f}", "{17:.2f}±{18:.2f}"
+   "``lalpulsar_parameter_estimation_nested``", "{10:.2f}±{11:.2f}×10\ :sup:`{12:d}`", "{13:.2f}±{14:.2f}", "{15:.2f}±{16:.2f}", "{17:.2f}±{18:.2f}"
    "{19:d}% credible intervals", "[{20:.2f}, {21:.2f}]×10\ :sup:`{22:d}`", "[{23:.2f}, {24:.2f}]", "[{25:.2f}, {26:.2f}]", "[{27:.2f}, {28:.2f}]"
    "``cwinpy_pe``", "{29:.2f}±{30:.2f}×10\ :sup:`{31:d}`", "{32:.2f}±{33:.2f}", "{34:.2f}±{35:.2f}", "{36:.2f}±{37:.2f}"
    "{38:d}% credible intervals", "[{39:.2f}, {40:.2f}]×10\ :sup:`{41:d}`", "[{42:.2f}, {43:.2f}]", "[{44:.2f}, {45:.2f}]", "[{46:.2f}, {47:.2f}]"
@@ -38,7 +38,7 @@ FILETEXT = """\
    :widths: auto
    :header: "Method", ":math:`h_0`", ":math:`\\\\phi_0` (rad)", ":math:`\\\\psi` (rad)", ":math:`\\\\cos{{\\\\iota}}`", ":math:`\\\\ln{{(L)}}` max"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "{48:.2f}×10\ :sup:`{49:d}`", "{50:.2f}", "{51:.2f}", "{52:.2f}", "{53:.2f}"
+   "``lalpulsar_parameter_estimation_nested``", "{48:.2f}×10\ :sup:`{49:d}`", "{50:.2f}", "{51:.2f}", "{52:.2f}", "{53:.2f}"
    "``cwinpy_pe``", "{54:.2f}×10\ :sup:`{55:d}`", "{56:.2f}", "{57:.2f}", "{58:.2f}", "{59:.2f}"
 
 | Combined K-S test p-value: {60:.4f}
@@ -55,14 +55,14 @@ FILETEXTTWOHARMONICS = """\
    :widths: auto
    :header: "Method", ":math:`\\\\ln{{(Z)}}`", ":math:`\\\\ln{{(Z)}}` noise", ":math:`\\\\ln{{}}` Odds"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "{0:.3f}", "{1:.3f}", "{2:.3f}±{3:.3f}"
+   "``lalpulsar_parameter_estimation_nested``", "{0:.3f}", "{1:.3f}", "{2:.3f}±{3:.3f}"
    "``cwinpy_pe``", "{4:.3f}", "{5:.3f}", "{6:.3f}±{7:.3f}"
 
 .. csv-table:: Parameter table
    :widths: auto
    :header: "Method", ":math:`C_{{21}}`", ":math:`C_{{22}}`", ":math:`\\\\Phi_{{21}}` (rad)", ":math:`\\\\Phi_{{22}}` (rad)", ":math:`\\\\psi` (rad)", ":math:`\\\\cos{{\\\\iota}}`"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "{8:.2f}±{9:.2f}×10\ :sup:`{10:d}`", "{11:.2f}±{12:.2f}×10\ :sup:`{13:d}`", "{14:.2f}±{15:.2f}", "{16:.2f}±{17:.2f}", "{18:.2f}±{19:.2f}", "{20:.2f}±{21:.2f}"
+   "``lalpulsar_parameter_estimation_nested``", "{8:.2f}±{9:.2f}×10\ :sup:`{10:d}`", "{11:.2f}±{12:.2f}×10\ :sup:`{13:d}`", "{14:.2f}±{15:.2f}", "{16:.2f}±{17:.2f}", "{18:.2f}±{19:.2f}", "{20:.2f}±{21:.2f}"
    "{22:d}% credible intervals", "[{23:.2f}, {24:.2f}]×10\ :sup:`{25:d}`", "[{26:.2f}, {27:.2f}]×10\ :sup:`{28:d}`", "[{29:.2f}, {30:.2f}]", "[{31:.2f}, {32:.2f}]", "[{33:.2f}, {34:.2f}]", "[{35:.2f}, {36:.2f}]"
    "``cwinpy_pe``", "{37:.2f}±{38:.2f}×10\ :sup:`{39:d}`", "{40:.2f}±{41:.2f}×10\ :sup:`{42:d}`", "{43:.2f}±{44:.2f}", "{45:.2f}±{46:.2f}", "{47:.2f}±{48:.2f}", "{49:.2f}±{50:.2f}"
    "{51:d}% credible intervals", "[{52:.2f}, {53:.2f}]×10\ :sup:`{54:d}`", "[{55:.2f}, {56:.2f}]×10\ :sup:`{57:d}`", "[{58:.2f}, {59:.2f}]", "[{60:.2f}, {61:.2f}]", "[{62:.2f}, {63:.2f}]", "[{64:.2f}, {65:.2f}]"
@@ -71,7 +71,7 @@ FILETEXTTWOHARMONICS = """\
    :widths: auto
    :header: "Method", ":math:`C_{{21}}`", ":math:`C_{{22}}`", ":math:`\\\\Phi_{{21}}` (rad)", ":math:`\\\\Phi_{{22}}` (rad)", ":math:`\\\\psi` (rad)", ":math:`\\\\cos{{\\\\iota}}`", ":math:`\\\\ln{{(L)}}` max"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "{66:.2f}×10\ :sup:`{67:d}`", "{68:.2f}×10\ :sup:`{69:d}`", "{70:.2f}", "{71:.2f}", "{72:.2f}", "{73:.2f}", "{74:.2f}"
+   "``lalpulsar_parameter_estimation_nested``", "{66:.2f}×10\ :sup:`{67:d}`", "{68:.2f}×10\ :sup:`{69:d}`", "{70:.2f}", "{71:.2f}", "{72:.2f}", "{73:.2f}", "{74:.2f}"
    "``cwinpy_pe``", "{75:.2f}×10\ :sup:`{76:d}`", "{77:.2f}×10\ :sup:`{78:d}`", "{79:.2f}", "{80:.2f}", "{81:.2f}", "{82:.2f}", "{83:.2f}"
 
 | Combined K-S test p-value: {84:.4f}
@@ -91,7 +91,7 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
     """
     Perform comparisons of the evidence, parameter values, confidence
     intervals, and Kolmogorov-Smirnov test between samples produced with
-    lalapps_pulsar_parameter_estimation_nested and cwinpy.
+    lalpulsar_parameter_estimation_nested and cwinpy.
     """
 
     lppenfile = os.path.join(outdir, "{}_post.hdf".format(label))
@@ -143,10 +143,10 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
 
     # output parameter means standard deviations, and credible intervals
     idx = 10
-    for method in ["lalapps", "cwinpy"]:
+    for method in ["lalpulsar", "cwinpy"]:
         values[idx + 9] = int(cred * 100)
         for p in priors.keys():
-            samples = post[p.upper()] if method == "lalapps" else result.posterior[p]
+            samples = post[p.upper()] if method == "lalpulsar" else result.posterior[p]
 
             # convert iota to cos(iota)
             if p == "iota":
@@ -177,11 +177,11 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
         result.posterior["log_likelihood"] + result.posterior["log_prior"]
     ).idxmax()
     maxidxlppen = (post["logL"] + post["logPrior"]).argmax()
-    for method in ["lalapps", "cwinpy"]:
+    for method in ["lalpulsar", "cwinpy"]:
         for p in priors.keys():
             maxpval = (
                 post[p.upper()][maxidxlppen]
-                if method == "lalapps"
+                if method == "lalpulsar"
                 else result.posterior[p][maxidx]
             )
             if p == "h0":
@@ -196,7 +196,7 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
             # convert likelihood ratio back to likelihood
             values[idx] = (
                 post["logL"][maxidxlppen]
-                if method == "lalapps"
+                if method == "lalpulsar"
                 else (
                     result.posterior["log_likelihood"][maxidx]
                     + result.log_noise_evidence
@@ -205,7 +205,7 @@ def comparisons(label, outdir, grid, priors, cred=0.9):
         else:
             values[idx] = (
                 post["logL"][maxidxlppen]
-                if method == "lalapps"
+                if method == "lalpulsar"
                 else result.posterior["log_likelihood"][maxidx]
             )
         idx += 1
@@ -247,7 +247,7 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
     """
     Perform comparisons of the evidence, parameter values, confidence
     intervals, and Kolmogorov-Smirnov test between samples produced with
-    lalapps_pulsar_parameter_estimation_nested and cwinpy.
+    lalpulsar_parameter_estimation_nested and cwinpy.
     """
 
     lppenfile = os.path.join(outdir, "{}_post.hdf".format(label))
@@ -290,10 +290,10 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
 
     # output parameter means standard deviations, and credible intervals
     idx = 8
-    for method in ["lalapps", "cwinpy"]:
+    for method in ["lalpulsar", "cwinpy"]:
         values[idx + 14] = int(cred * 100)
         for p in priors.keys():
-            samples = post[p.upper()] if method == "lalapps" else result.posterior[p]
+            samples = post[p.upper()] if method == "lalpulsar" else result.posterior[p]
 
             # convert iota to cos(iota)
             if p == "iota":
@@ -324,11 +324,11 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
         result.posterior["log_likelihood"] + result.posterior["log_prior"]
     ).idxmax()
     maxidxlppen = (post["logL"] + post["logPrior"]).argmax()
-    for method in ["lalapps", "cwinpy"]:
+    for method in ["lalpulsar", "cwinpy"]:
         for p in priors.keys():
             maxpval = (
                 post[p.upper()][maxidxlppen]
-                if method == "lalapps"
+                if method == "lalpulsar"
                 else result.posterior[p][maxidx]
             )
             if p in ["c21", "c22"]:
@@ -342,7 +342,7 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
         if result.use_ratio:
             values[idx] = (
                 post["logL"][maxidxlppen]
-                if method == "lalapps"
+                if method == "lalpulsar"
                 else (
                     result.posterior["log_likelihood"][maxidx]
                     + result.log_noise_evidence
@@ -351,7 +351,7 @@ def comparisons_two_harmonics(label, outdir, priors, cred=0.9):
         else:
             values[idx] = (
                 post["logL"][maxidxlppen]
-                if method == "lalapps"
+                if method == "lalpulsar"
                 else result.posterior["log_likelihood"][maxidx]
             )
         idx += 1

@@ -494,8 +494,8 @@ had to be generated using the commands:
 
 .. code-block:: bash
 
-   $ lalapps_create_solar_system_ephemeris_python --target SUN --year-start 2000 --interval 20 --num-years 40 --ephemeris DE436 --output-file sun00-40-DE436.dat
-   $ lalapps_create_solar_system_ephemeris_python --target EARTH --year-start 2000 --interval 2 --num-years 40 --ephemeris DE436 --output-file earth00-40-DE436.dat
+   $ lalpulsar_create_solar_system_ephemeris_python --target SUN --year-start 2000 --interval 20 --num-years 40 --ephemeris DE436 --output-file sun00-40-DE436.dat
+   $ lalpulsar_create_solar_system_ephemeris_python --target EARTH --year-start 2000 --interval 2 --num-years 40 --ephemeris DE436 --output-file earth00-40-DE436.dat
 
 and then gzipped. Alternatively, the ``usetempo2`` option could be used, where the latest TEMPO2 version
 will contain these ephemerides.

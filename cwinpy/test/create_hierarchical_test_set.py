@@ -78,7 +78,7 @@ cosiotarange = [-1.0, 1.0]
 q22range = [0.0, 1e38]
 # h0range = [0., 1e-23]
 
-# set prior for lalapps_pulsar_parameter_estimation_nested
+# set prior for lalpulsar_parameter_estimation_nested
 priorfile = os.path.join(outdir, "{}_prior.txt".format(label))
 priorcontent = """Q22 uniform {} {}
 PHI0 uniform {} {}
