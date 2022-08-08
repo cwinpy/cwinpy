@@ -33,7 +33,7 @@ argument:
 
 The examples are based on the outputs of the
 :ref:`Multiple detectors, software injection (circular polarisation)` example comparing CWInPy with
-the ``lalapps_pulsar_parameter_estimation_nested`` code [3]_.
+the ``lalpulsar_parameter_estimation_nested`` code [3]_.
 
 Example: plotting 1D marginal posteriors 
 ----------------------------------------
@@ -67,7 +67,7 @@ samplers) that we want to compare, these can be overplotted on the same figure. 
 pass a dictionary pointing to the various results. In this case we will overplot the
 :math:`\cos{\iota}` posterior results of running on a simulated pulsar signal using CWInPy to
 produce both posterior samples and an evaluation of the posterior on a grid, and using the
-``lalapps_pulsar_parameter_estimation_nested`` code, with:
+``lalpulsar_parameter_estimation_nested`` code, with:
 
 .. code-block:: python
 

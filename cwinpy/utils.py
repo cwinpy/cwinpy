@@ -311,7 +311,7 @@ def q22_to_ellipticity(q22):
 def lalinference_to_bilby_result(postfile):
     """
     Convert LALInference-derived pulsar posterior samples file, as created by
-    ``lalapps_pulsar_parameter_estimation_nested``, into a
+    ``lalpulsar_parameter_estimation_nested``, into a
     :class:`bilby.core.result.Result` object.
 
     Parameters

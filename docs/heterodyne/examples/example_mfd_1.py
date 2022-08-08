@@ -104,4 +104,4 @@ cmds = [
 ]
 
 # run makefakedata
-sp.run([shutil.which("lalapps_Makefakedata_v5")] + cmds)
+sp.run([shutil.which("lalpulsar_Makefakedata_v5")] + cmds)

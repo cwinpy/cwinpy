@@ -1,7 +1,7 @@
 Single detector, noise-only
 ===========================
 
-Here we compare ``lalapps_pulsar_parameter_estimation_nested`` with ``cwinpy`` in the case of
+Here we compare ``lalpulsar_parameter_estimation_nested`` with ``cwinpy`` in the case of
 simulated Gaussian noise from a single detector (H1 in this case). The parameters being
 estimated are :math:`h_0`, :math:`\phi_0`, :math:`\psi` and :math:`\cos{\iota}`, all with uniform priors.
 

@@ -49,10 +49,10 @@ Reading and writing
 
 The :class:`~cwinpy.data.HeterodynedData` object can be written to and read from both ASCII and HDF5
 file formats. The ASCII read/writer is mainly to access legacy data as produced by the
-`lalapps_heterodyne_pulsar` code within `LALSuite <https://doi.org/10.7935/GT1W-FZ16>`_. However, it
-is advisable to use the HDF5 routines if purely using CWInPy for analyses. The
-:class:`~cwinpy.data.HeterodynedData` class has both a :meth:`~cwinpy.data.HeterodynedData.read`
-and :meth:`~cwinpy.data.HeterodynedData.write` method based on those for a GWPy `TimesSeries
+``lalpulsar_heterodyne`` code within `LALSuite <https://doi.org/10.7935/GT1W-FZ16>`_. However, it is
+advisable to use the HDF5 routines if purely using CWInPy for analyses. The
+:class:`~cwinpy.data.HeterodynedData` class has both a :meth:`~cwinpy.data.HeterodynedData.read` and
+:meth:`~cwinpy.data.HeterodynedData.write` method based on those for a GWPy `TimesSeries
 <https://gwpy.github.io/docs/stable/timeseries/io.html>`_ object.
 
 ASCII

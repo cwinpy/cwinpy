@@ -94,7 +94,7 @@ class TestPE(object):
             hd.write(cls.L1fileh5[-1])
 
         # create a pulsar parameter file containing GW signal parameters
-        # (for comparison with lalapps_pulsar_parameter_estimation_nested)
+        # (for comparison with lalpulsar_parameter_estimation_nested)
         parcontent = (
             "PSRJ     J0341-1253\n"
             "F0       {}\n"
@@ -115,7 +115,7 @@ class TestPE(object):
         with open(cls.parfilesig, "w") as fp:
             fp.write(parcontent.format(cls.f0))
 
-        # set data pre-produced using lalapps_pulsar_parameter_estimation_nested
+        # set data pre-produced using lalpulsar_parameter_estimation_nested
         # with the same parameter file
         cls.sigH11f = np.loadtxt(
             os.path.join(
