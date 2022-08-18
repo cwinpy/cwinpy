@@ -159,14 +159,14 @@ class GenerateROQ:
 
             par = self.kwargs.get("par")
             det = self.kwargs.get("det")
-            model = HeterodynedCWSimulator(
+            mmodel = HeterodynedCWSimulator(
                 par, det, times=self.x, usetempo2=self.kwargs.get("usetempo2", False)
             )
 
             self._initial_par = deepcopy(par)
             self._par = deepcopy(par)
 
-            self._model = model.model
+            self._model = mmodel.model
         else:
             if not callable(model):
                 raise TypeError("model must be a callable function")
@@ -204,14 +204,14 @@ class GenerateROQ:
         maxrange = -np.inf
 
         for i in range(self.ntraining):
-            # update par file
             if hasattr(self, "_par"):
+                # update par file
+                newpar = deepcopy(self._par)
                 for prior in samples:
-                    self._par[prior] = samples[prior][i]
+                    newpar[prior] = samples[prior][i]
 
-            if hasattr(self, "_par"):
                 m = self.model(
-                    deepcopy(self._par),
+                    newpar=newpar,
                     outputampcoeffs=False,
                     updateSSB=True,
                     updateBSB=True,

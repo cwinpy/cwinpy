@@ -599,11 +599,10 @@ class PulsarParameters:
 
         thisitem = self._pulsarparameters.head
         self.keynames = []  # clear any previous key names
-        self.length = 0
+        self.length = self._pulsarparameters.nparams
         while thisitem:
             tname = thisitem.name
             self.keynames.append(tname)
-            self.length += 1
 
             thisitem = thisitem.next  # move on to next value
 
