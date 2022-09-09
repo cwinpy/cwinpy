@@ -420,7 +420,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
         # loop over HeterodynedData and model functions
         for data, model in zip(self.data, self.models):
-            if not self.numba:
+            if not self.numba or self.roq:
                 self.products.append(dict())
             else:
                 dreal = numbadict.empty(
@@ -447,7 +447,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                         # for SNR calculations, for when using the Students-t
                         # likelihood
                         if "d" not in [a, b]:
-                            if not self.numba:
+                            if not self.numba or self.roq:
                                 self.products[-1][kname + "White"] = np.zeros(
                                     data.num_chunks, dtype=dtype
                                 )
@@ -456,7 +456,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                                     data.num_chunks, dtype=dtype
                                 )
 
-                    if not self.numba:
+                    if not self.numba or self.roq:
                         self.products[-1][kname] = np.zeros(
                             data.num_chunks, dtype=dtype
                         )
@@ -513,7 +513,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 for j, a in enumerate(knames):
                     for b in knames[::-1][: len(knames) - j]:
                         kname = a + "dot" + b
-                        if not self.numba:
+                        if not self.numba or self.roq:
                             if kname == "ddotd":
                                 # complex conjugate dot product for data
                                 self.products[-1][kname][i] = np.vdot(
@@ -946,7 +946,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 range(data.num_chunks), data.change_point_indices, data.chunk_lengths
             ):
                 # loop over stationary data chunks
-                if self.numba:
+                if self.numba and not self.roq:
                     ddotd = prods[0]["ddotd"][i]
                 else:
                     ddotd = prods["ddotd"][i]
