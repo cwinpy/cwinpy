@@ -4,6 +4,7 @@ Classes providing likelihood functions.
 
 import re
 from copy import deepcopy
+from warnings import warn
 
 import bilby
 import lal
@@ -11,6 +12,7 @@ import numpy as np
 from astropy.time import Time
 from numba import jit, types
 from numba.typed import Dict as numbadict
+from scipy.linalg import lu_solve
 
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..parfile import EPOCHPARS, PPUNITS, TEMPOUNITS
@@ -46,8 +48,10 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         initialised.
     likelihood: str
         A string setting which likelihood function to use. This can either be
-        'studentst' (the default), or 'gaussian' ('roq' should be added in the
-        future).
+        `"studentst"` (the default), or `"gaussian"`.
+    roq: bool
+        Set to True if wanting to use reduced order quadrature for generating
+        the likelihood. Defaults to False.
     numba: bool
         Boolean to set whether to use the `numba` JIT compiled version of the
         likelihood function.
@@ -161,7 +165,9 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
     # the parameters that are held as vectors
     VECTOR_PARAMS = ["F", "GLEP", "GLPH", "GLF0", "GLF1", "GLF2", "GLF0D", "GLTD", "FB"]
 
-    def __init__(self, data, priors, likelihood="studentst", numba=False):
+    def __init__(
+        self, data, priors, likelihood="studentst", roq=False, numba=False, **kwargs
+    ):
 
         super().__init__(dict())  # initialise likelihood class
 
@@ -193,8 +199,11 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         else:
             self.priors = priors
 
+        self.kwargs = kwargs.copy()
+
         # set the likelihood function
         self.likelihood = likelihood
+        self.roq = roq
         self._noise_log_likelihood = -np.inf  # initialise noise log likelihood
         self.numba = numba
 
@@ -255,14 +264,18 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         # set up signal model classes
         self.models = []
         self.basepars = []
-        for het in self.data:
+        for i, het in enumerate(self.data):
+            times = het.times if not self.roq else self.__roq_all_nodes[i]
+            dt = 60 if len(times) == 1 else None
             self.models.append(
                 HeterodynedCWSimulator(
                     het.par,
                     het.detector,
-                    times=het.times,
+                    times=times,
+                    dt=dt,
                     earth_ephem=het.ephemearth,
                     sun_ephem=het.ephemsun,
+                    usetempo2=self.kwargs.get("usetempo2", False),
                 )
             )
             # copy of heterodyned parameters
@@ -297,6 +310,81 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             self.__likelihood = "studentst"
         else:
             self.__likelihood = "gaussian"
+
+    @property
+    def roq(self):
+        """
+        A boolean defining whether to use ROQ for likelihood calculations.
+        """
+
+        return self.__roq
+
+    @roq.setter
+    def roq(self, roq):
+        if not isinstance(roq, bool):
+            raise TypeError("roq must be a boolean")
+
+        self.__roq = roq
+
+        self.__roq_all_nodes = []
+        self.__roq_all_real_node_indices = []
+        self.__roq_all_Bmat_lu_real = []
+        self.__roq_all_Dvec_real = []
+        self.__roq_all_imag_node_indices = []
+        self.__roq_all_Bmat_lu_imag = []
+        self.__roq_all_Dvec_imag = []
+        self.__roq_all_model2_node_indices = []
+        self.__roq_all_B2mat_lu = []
+        self.__roq_all_Bvec = []
+
+        roqkwargs = self.kwargs.copy()
+        roqkwargs["likelihood"] = self.likelihood
+
+        for data in self.data:
+            try:
+                roqchunks = data.generate_roq(self.priors, **roqkwargs)
+            except (ModuleNotFoundError, ImportError):
+                warn(
+                    "ROQ could not be used as Arby is not installed. ROQ will therefore be set to False"
+                )
+                self.__roq = False
+                return
+
+            self.__roq_all_nodes.append(np.concatenate([r._x_nodes for r in roqchunks]))
+
+            # set node indices
+            real_node_indices = []
+            imag_node_indices = []
+            model2_node_indices = []
+            Bmat_lu_real = []
+            Dvec_real = []
+            Bmat_lu_imag = []
+            Dvec_imag = []
+            B2mat_lu = []
+            Bvec = []
+            step = 0
+            for r in roqchunks:
+                real_node_indices.append(r._x_node_indices_real + step)
+                imag_node_indices.append(r._x_node_indices_imag + step)
+                model2_node_indices.append(r._x2_node_indices + step)
+                step += len(r._x_nodes)
+
+                Bmat_lu_real.append(r._Bmat_lu_real)
+                Bmat_lu_imag.append(r._Bmat_lu_imag)
+                B2mat_lu.append(r._B2mat_lu)
+                Dvec_real.append(r._Dvec_real)
+                Dvec_imag.append(r._Dvec_imag)
+                Bvec.append(r._Bvec)
+
+            self.__roq_all_real_node_indices.append(real_node_indices)
+            self.__roq_all_imag_node_indices.append(imag_node_indices)
+            self.__roq_all_model2_node_indices.append(model2_node_indices)
+            self.__roq_all_Bmat_lu_real.append(Bmat_lu_real)
+            self.__roq_all_Bmat_lu_imag.append(Bmat_lu_imag)
+            self.__roq_all_Dvec_real.append(Dvec_real)
+            self.__roq_all_Dvec_imag.append(Dvec_imag)
+            self.__roq_all_B2mat_lu.append(B2mat_lu)
+            self.__roq_all_Bvec.append(Bvec)
 
     def dot_products(self):
         """
@@ -470,6 +558,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
         loglikelihood = 0.0  # the log likelihood value
 
+        didx = 0
         # loop over the data and models
         for data, model, prods, par in zip(
             self.data, self.models, self.products, self.basepars
@@ -502,7 +591,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             # calculate the model
             m = model.model(
                 deepcopy(par),
-                outputampcoeffs=(not self.include_phase),
+                outputampcoeffs=(not self.include_phase and not self.roq),
                 updateSSB=self.update_ssb,
                 updateBSB=self.include_binary,
                 updateglphase=self.include_glitch,
@@ -510,7 +599,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             )
 
             # calculate the likelihood
-            if self.numba:
+            if self.numba and not self.roq:
                 loglikelihood += self._log_likelihood_numba(
                     data.data,
                     data.num_chunks,
@@ -537,13 +626,34 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     else:
                         stds = 1.0
 
-                    if self.include_phase:
+                    if self.include_phase and not self.roq:
                         # data and model for chunk
                         dd = data.data[cpidx : cpidx + cplen] / stds
                         mm = m[cpidx : cpidx + cplen] / stds
 
                         summodel = np.vdot(mm, mm).real
                         sumdatamodel = np.vdot(dd, mm).real
+                    elif self.roq:
+                        m2nodes = self.__roq_all_model2_node_indices[didx][i]
+                        m2 = (m[m2nodes] * np.conj(m[m2nodes])).real
+                        summodel = np.vdot(
+                            lu_solve(self.__roq_all_B2mat_lu[didx][i], m2),
+                            self.__roq_all_Bvec[didx][i],
+                        ).real
+
+                        mr = m[self.__roq_all_real_node_indices[didx][i]].real
+                        mi = m[self.__roq_all_imag_node_indices[didx][i]].imag
+
+                        sumdatamodel = (
+                            np.vdot(
+                                lu_solve(self.__roq_all_Bmat_lu_real[didx][i], mr),
+                                self.__roq_all_Dvec_real,
+                            ).real
+                            + np.vdot(
+                                lu_solve(self.__roq_all_Bmat_lu_imag[didx][i], mi),
+                                self.__roq_all_Dvec_imag,
+                            ).real
+                        )
                     else:
                         # likelihood with pre-summed products
                         mp = m[0]  # tensor plus model component
@@ -636,6 +746,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                             - cplen * lal.LNPI
                             - cplen * np.log(chisquare)
                         )
+
+            didx += 1
 
         return loglikelihood
 
