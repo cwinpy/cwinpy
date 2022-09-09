@@ -335,6 +335,12 @@ continuous gravitational-wave signal from a known pulsar."""
         help=("Set this flag to use disable to likelihood calculation using numba."),
     )
     samplerparser.add(
+        "--usetempo2",
+        action="store_true",
+        default=False,
+        help=("Set this flag to use Tempo2 when generating the source phase model."),
+    )
+    samplerparser.add(
         "--prior",
         type=str,
         required=True,
@@ -359,6 +365,26 @@ continuous gravitational-wave signal from a known pulsar."""
             "a grid. This should be a the format of a standard Python "
             "dictionary, and must be given within quotation marks, "
             "e.g., \"{'grid_size':100}\"."
+        ),
+    )
+
+    roqparser = parser.add_argument_group("Reduced order quadrature inputs")
+    roqparser.add(
+        "--roq",
+        action="store_true",
+        default=False,
+        help=(
+            "Set this flag to generate and use a reduced order quadrature for "
+            "calculating the likelihood."
+        ),
+    )
+    roqparser.add(
+        "--roq-kwargs",
+        help=(
+            "The keyword arguments for generation of the reduced order "
+            "quadrature. This should be a the format of a standard Python "
+            "dictionary, and must be given within quotation marks, "
+            "e.g., \"{'ntraining':2000}\"."
         ),
     )
 
@@ -1014,6 +1040,9 @@ class PERunner(object):
                 raise ValueError("Unable to parse grid keyword arguments")
         self.likelihoodtype = kwargs.get("likelihood", "studentst")
         self.numba = not kwargs.get("disable_numba", False)
+        self.usetempo2 = kwargs.get("usetempo2", False)
+        self.roq = kwargs.get("roq", False)
+        self.roq_kwargs = kwargs.get("roq_kwargs", {})
         self.prior = kwargs.get("prior", None)
         if not isinstance(self.prior, (str, dict, bilby.core.prior.PriorDict)):
             raise ValueError("The prior is not defined")
@@ -1116,11 +1145,16 @@ class PERunner(object):
         Set the likelihood function.
         """
 
+        likelihoodkwargs = self.roq_kwargs.copy()
+        likelihoodkwargs["usetempo2"] = self.usetempo2
+
         self.likelihood = TargetedPulsarLikelihood(
             data=self.hetdata,
             priors=self.prior,
             likelihood=self.likelihoodtype,
             numba=self.numba,
+            roq=self.roq,
+            **likelihoodkwargs,
         )
 
     def run_sampler(self):
@@ -1341,6 +1375,15 @@ def pe(**kwargs):
     disable_numba: bool
         Set whether to use disable running the likelihood with numba. Defaults
         to False.
+    usetempo2: bool
+        Set whether to use Tempo2 when calculating the source phase model.
+        Defaults to False.
+    roq: bool
+        Set this flag to generate and use a reduced order quadrature (ROQ) for
+        calculating the likelihood.
+    roq_kwargs: dict
+        A dictionary of keywords for the :class:`~cwinpy.pe.roq.GenerateROQ`
+        object to use when generating the ROQ.
     show_truths: bool
         If plotting the results, setting this argument will overplot the
         "true" signal values. If adding a simulated signal then these parameter
@@ -1857,6 +1900,10 @@ class PEDAGRunner(object):
         # get whether to use numba (default to True in DAG)
         disablenumba = config.getboolean("pe", "disable-numba", fallback=False)
 
+        # get whether to use a reduced order quadrature for likelihood calculation
+        roq = config.getboolean("pe", "roq", fallback=False)
+        roqkwargs = self.eval(config.get("pe", "roq_kwargs", fallback="{}"))
+
         # get ephemeris files if given
         earthephem = self.eval(config.get("ephemerides", "earth", fallback=None))
         sunephem = self.eval(config.get("ephemerides", "sun", fallback=None))
@@ -1910,6 +1957,8 @@ class PEDAGRunner(object):
                 samplerkwargs["exit_code"] = CHECKPOINT_EXIT_CODE
 
             configdict["sampler_kwargs"] = str(samplerkwargs)
+            configdict["roq"] = roq
+            configdict["roq_kwargs"] = str(roqkwargs)
 
             if outputsnr:
                 configdict["output_snr"] = "True"
