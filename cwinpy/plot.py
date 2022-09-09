@@ -105,6 +105,8 @@ class Plot:
         kde=False,
         pulsar=None,
         untrig=None,
+        include_log_likelihood=False,
+        include_log_prior=False,
     ):
         """
         A class to plot individual or joint posterior distributions using a
@@ -133,8 +135,8 @@ class Plot:
         parameters: list, str
             A list of the parameters that you want to plot. If requesting a
             single parameter this can be a string with the parameter name. If
-            this value is ``None`` (the default) then all parameters will be
-            plotted.
+            this value is ``None`` (the default) then all parameters (except
+            the log likelihood and log prior) will be plotted.
         plottype: str
             The type of plot to produce. For 1d plots, this can be: "hist" -
             produce a histogram of the posterior or "kde" - produce a KDE plot of
@@ -158,8 +160,18 @@ class Plot:
             then those parameters will be inverted, e.g., if ``"cosiota"`` is
             present it will be changed to be "iota". This only works for result
             samples and not grid values. Default is None.
+        include_log_likelihood: bool
+            If ``parameters`` are not specified, and you want to include the
+            log likelihood in the plot then set this flag to True. Default is
+            False.
+        include_log_prior: bool
+            If ``parameters`` are not specified, and you want to include the
+            log prior in the plot then set this flag to True. Default is
+            False.
         """
 
+        self.include_log_likelihood = include_log_likelihood
+        self.include_log_prior = include_log_prior
         self.untrig = untrig
         self.results = results
         self.parameters = parameters
@@ -228,6 +240,18 @@ class Plot:
                     self._results[key].posterior.columns.values
                 )
 
+            if (
+                not self.include_log_likelihood
+                and "log_likelihood" in self._results_parameters[key]
+            ):
+                self._results_parameters[key].remove("log_likelihood")
+
+            if (
+                not self.include_log_prior
+                and "log_prior" in self._results_parameters[key]
+            ):
+                self._results_parameters[key].remove("log_prior")
+
     @staticmethod
     def _parse_result(result):
         # try reading in a results file by iterating over it being a bilby
@@ -265,6 +289,7 @@ class Plot:
         if parameters is None:
             # check for consistent parameters among results
             checkparams = list(self._results_parameters.values())[0]
+
             for params in self._results_parameters.values():
                 if params != checkparams:
                     raise ValueError(
@@ -1001,13 +1026,15 @@ class Plot:
             _make_comparison_corner_plot as plotfunc,
         )
 
+        plotkwargs = kwargs.copy()
+
         args = [self._samples]
-        kwargs["corner_parameters"] = self.parameters
+        plotkwargs["corner_parameters"] = self.parameters
         if "latex_labels" not in kwargs:
-            kwargs["latex_labels"] = self.latex_labels
+            plotkwargs["latex_labels"] = self.latex_labels
 
         if "plot_percentile" not in kwargs:
-            kwargs["plot_percentile"] = False
+            plotkwargs["plot_percentile"] = False
 
         # get ranges for each parameter to set figure axes extents
         if "range" not in kwargs:
@@ -1023,15 +1050,13 @@ class Plot:
                         ),
                     ]
                 )
-            kwargs["range"] = range
+            plotkwargs["range"] = range
 
         # default to not show quantile lines
-        if "quantiles" not in kwargs:
-            kwargs["quantiles"] = None
+        plotkwargs.setdefault("quantiles", None)
 
         # set default injection line color
-        if "truth_color" not in kwargs:
-            kwargs["truth_color"] = "k"
+        plotkwargs.setdefault("truth_color", "k")
 
         # set injection parameter values
         if self.injection_parameters is not None:
@@ -1041,11 +1066,11 @@ class Plot:
                 if self.injection_parameters[p] is not None
             ]
             if len(injpars) == self._num_parameters:
-                kwargs["truths"] = injpars
+                plotkwargs["truths"] = injpars
 
         # create plot
         with DisableLogger():
-            fig = plotfunc(*args, **kwargs)
+            fig = plotfunc(*args, **plotkwargs)
 
         # turn frame off on legend
         fig.legends[0].set_frame_on(False)
