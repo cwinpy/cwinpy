@@ -3645,6 +3645,54 @@ class HeterodynedData(TimeSeriesBase):
 
         self._cwinpy_heterodyne_pipeline_config = config
 
+    def generate_roq(self, priors, **kwargs):
+        """
+        Generate reduced order quadrature interpolators for likelihood
+        calculations for each data chunk. See
+        :class:`~cwinpy.pe.roq.GenerateROQ` for additional keyword arguments.
+        The ``model`` argument is not required as that will always be
+        set to ``"HeterodynedCWSimulator"``, while the ``par`` and ``det``
+        arguments will default to be those in the
+        :class:`~cwinpy.data.HeterodynedData`` object.
+
+        Parameters
+        ----------
+        priors: PriorDict
+            A :class:`~bilby.core.prior.PriorDict` containing the parameters
+            and prior distributions, which will be used to generate the model
+            reduced basis set.
+        """
+
+        try:
+            from .pe.roq import GenerateROQ
+        except (ModuleNotFoundError, ImportError):
+            raise ImportError("Arby must be installed to generate a ROQ")
+
+        roq = []
+
+        roqkwargs = kwargs.copy()
+        roqkwargs.setdefault("model", "HeterodynedCWSimulator")
+        roqkwargs.setdefault("par", self.par)
+        roqkwargs.setdefault("det", self.detector)
+
+        for cpidx, cplen in zip(
+            self.change_point_indices,
+            self.chunk_lengths,
+        ):
+            if roqkwargs.get("likelihood", "studentst") == "gaussian":
+                roqkwargs["sigma"] = self.stds[cpidx : cpidx + cplen]
+
+            chunkroq = GenerateROQ(
+                self.data[cpidx : cpidx + cplen],
+                self.times[cpidx : cpidx + cplen],
+                priors,
+                **roqkwargs,
+            )
+
+            roq.append(chunkroq)
+
+        return roq
+
     def __len__(self):
         return len(self.data)
 
