@@ -2,12 +2,30 @@ from copy import deepcopy
 
 import lal
 import numpy as np
-from arby import reduced_basis
+from arby import reduced_basis as arb
 from bilby.core.prior import PriorDict
 from scipy.linalg import lu_factor, lu_solve
 
 from ..signal import HeterodynedCWSimulator
 from ..utils import logfactorial
+
+
+def reduced_basis(verbose=False, title=None, **kwargs):
+    if verbose:
+        # set progress bar
+        try:
+            from alive_progress import alive_bar
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "You must install alive-progress to use the verbose mode"
+            )
+
+        with alive_bar(title=title, monitor=None, stats=None):
+            rb = arb(**kwargs)
+    else:
+        rb = arb(**kwargs)
+
+    return rb
 
 
 class GenerateROQ:
@@ -61,13 +79,16 @@ class GenerateROQ:
             calculated using Tempo2. Defaults to False.
         """
 
-        self.kwargs = kwargs
+        self.kwargs = kwargs.copy()
         self.x = x
         self.data = data
         self.priors = priors
 
         # the number of training examples to use
         self.ntraining = self.kwargs.get("ntraining", 5000)
+
+        # set verbose mode
+        self.verbose = self.kwargs.pop("verbose", False)
 
         # generate training data
         ts = self.generate_training_set()
@@ -145,6 +166,21 @@ class GenerateROQ:
         self._priors = priors
 
     @property
+    def verbose(self):
+        return self._verbose
+
+    @verbose.setter
+    def verbose(self, verbose):
+        self._verbose = bool(verbose)
+
+        if self._verbose:
+            try:
+                import alive_progress  # noqa: F401
+            except ModuleNotFoundError:
+                print("You must install alive-progress to run in verbose mode")
+                self._verbose = False
+
+    @property
     def model(self):
         return self._model
 
@@ -203,7 +239,14 @@ class GenerateROQ:
         minrange = np.inf
         maxrange = -np.inf
 
-        for i in range(self.ntraining):
+        if self.verbose:
+            from alive_progress import alive_it
+
+            loopiter = alive_it(range(self.ntraining), title="Generating training set")
+        else:
+            loopiter = range(self.ntraining)
+
+        for i in loopiter:
             if hasattr(self, "_par"):
                 # update par file
                 newpar = deepcopy(self._par)
@@ -249,11 +292,15 @@ class GenerateROQ:
                 training_set=np.array(training).real,
                 physical_points=self.x,
                 greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
+                verbose=self.verbose,
+                title="Generate reduced basis (real model)",
             )
             rb_model_imag = reduced_basis(
                 training_set=np.array(training).imag,
                 physical_points=self.x,
                 greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
+                verbose=self.verbose,
+                title="Generate reduced basis (imag model)",
             )
 
             self._Dvec_real = np.einsum(
@@ -278,6 +325,8 @@ class GenerateROQ:
                 training_set=np.array(training),
                 physical_points=self.x,
                 greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
+                verbose=self.verbose,
+                title="Generate reduced basis (model)",
             )
 
             self._Dvec = np.einsum("i,ji->j", self.data, rb_model.basis.data)
@@ -293,6 +342,8 @@ class GenerateROQ:
             training_set=np.array((training * np.conj(training)).real),
             physical_points=self.x,
             greedy_tol=self.kwargs.get("greedy_tol", 1e-12),
+            verbose=self.verbose,
+            title="Generate reduced basis (squared model)",
         )
 
         self._Bvec = np.einsum("ji->j", rb_model_squared.basis.data)

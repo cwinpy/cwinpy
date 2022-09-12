@@ -1043,6 +1043,11 @@ class PERunner(object):
         self.usetempo2 = kwargs.get("usetempo2", False)
         self.roq = kwargs.get("roq", False)
         self.roq_kwargs = kwargs.get("roq_kwargs", {})
+        if isinstance(self.roq_kwargs, str):
+            try:
+                self.roq_kwargs = ast.literal_eval(self.roq_kwargs)
+            except (ValueError, SyntaxError):
+                raise ValueError("Unable to parse ROQ keyword arguments")
         self.prior = kwargs.get("prior", None)
         if not isinstance(self.prior, (str, dict, bilby.core.prior.PriorDict)):
             raise ValueError("The prior is not defined")
