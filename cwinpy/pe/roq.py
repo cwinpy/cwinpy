@@ -133,7 +133,7 @@ class GenerateROQ:
         if len(dataarr.shape) != 1:
             raise ValueError("Data must be a 1d array")
 
-        if dataarr.dtype not in [complex, float]:
+        if dataarr.dtype not in [complex, float, np.complex64, np.float32]:
             raise TypeError("Data must be a complex or float type")
 
         if len(dataarr) != len(self.x):
@@ -150,7 +150,7 @@ class GenerateROQ:
             if self._sigma <= 0.0:
                 raise ValueError("sigma must be a positive number")
 
-        self.is_complex = True if self._data.dtype == complex else False
+        self.is_complex = True if self._data.dtype in [complex, np.complex64] else False
 
         self._K = np.vdot(self._data, self._data).real
 
@@ -196,7 +196,12 @@ class GenerateROQ:
             par = self.kwargs.get("par")
             det = self.kwargs.get("det")
             mmodel = HeterodynedCWSimulator(
-                par, det, times=self.x, usetempo2=self.kwargs.get("usetempo2", False)
+                par,
+                det,
+                times=self.x,
+                usetempo2=self.kwargs.get("usetempo2", False),
+                earth_ephem=self.kwargs.get("earth_ephem", None),
+                sun_ephem=self.kwargs.get("sun_ephem", None),
             )
 
             self._initial_par = deepcopy(par)
@@ -212,13 +217,15 @@ class GenerateROQ:
     def _model_at_nodes(self):
         if hasattr(self, "_initial_par"):
             det = self.kwargs.get("det")
-            dt = 60 if len(self._x_nodes) == 1 else None
+            dt = float(self.x[1] - self.x[0])  # set dt from original times
             model = HeterodynedCWSimulator(
                 self._initial_par,
                 det,
                 times=self._x_nodes,
-                usetempo2=self.kwargs.get("usetempo2", False),
                 dt=dt,
+                usetempo2=self.kwargs.get("usetempo2", False),
+                earth_ephem=self.kwargs.get("earth_ephem", None),
+                sun_ephem=self.kwargs.get("sun_ephem", None),
             )
             self._model_short = model.model
         else:
@@ -429,8 +436,6 @@ class GenerateROQ:
 
         mm = np.vdot(lu_solve(self._B2mat_lu, model2), self._Bvec).real
         chisq = self._K + mm - 2 * dm
-
-        # print(dm, mm, self._K)
 
         if likelihood == "studentst":
             cplen = len(self.data)

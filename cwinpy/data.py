@@ -3675,10 +3675,15 @@ class HeterodynedData(TimeSeriesBase):
         roqkwargs.setdefault("par", self.par)
         roqkwargs.setdefault("det", self.detector)
 
+        count = 1
         for cpidx, cplen in zip(
             self.change_point_indices,
             self.chunk_lengths,
         ):
+            if kwargs.get("verbose", False):
+                print(f"Generating Reduced Basis for chunk {count}")
+                count += 1
+
             if roqkwargs.get("likelihood", "studentst") == "gaussian":
                 roqkwargs["sigma"] = self.stds[cpidx : cpidx + cplen]
 

@@ -266,7 +266,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         self.basepars = []
         for i, het in enumerate(self.data):
             times = het.times if not self.roq else self.__roq_all_nodes[i]
-            dt = 60 if len(times) == 1 else None
+            dt = het.times.value[1] - het.times.value[0]
             self.models.append(
                 HeterodynedCWSimulator(
                     het.par,
@@ -325,6 +325,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             raise TypeError("roq must be a boolean")
 
         self.__roq = roq
+        if not self.__roq:
+            return
 
         self.__roq_all_nodes = []
         self.__roq_all_real_node_indices = []
@@ -341,6 +343,10 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         roqkwargs["likelihood"] = self.likelihood
 
         for data in self.data:
+            roqkwargs["freq_factor"] = data.freq_factor
+            roqkwargs["earth_ephem"] = data.ephemearth
+            roqkwargs["sun_ephem"] = data.ephemsun
+
             try:
                 roqchunks = data.generate_roq(self.priors, **roqkwargs)
             except (ModuleNotFoundError, ImportError):
@@ -647,11 +653,11 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                         sumdatamodel = (
                             np.vdot(
                                 lu_solve(self.__roq_all_Bmat_lu_real[didx][i], mr),
-                                self.__roq_all_Dvec_real,
+                                self.__roq_all_Dvec_real[didx][i],
                             ).real
                             + np.vdot(
                                 lu_solve(self.__roq_all_Bmat_lu_imag[didx][i], mi),
-                                self.__roq_all_Dvec_imag,
+                                self.__roq_all_Dvec_imag[didx][i],
                             ).real
                         )
                     else:
@@ -732,8 +738,6 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
                     # compute "Chi-squared"
                     chisquare = prods["ddotd"][i] - 2.0 * sumdatamodel + summodel
-
-                    # print(sumdatamodel, summodel, prods["ddotd"][i])
 
                     if self.likelihood == "gaussian":
                         loglikelihood -= 0.5 * chisquare
