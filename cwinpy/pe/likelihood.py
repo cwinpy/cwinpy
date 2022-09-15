@@ -955,7 +955,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 else:
                     ddotd = prods["ddotd"][i]
                 if self.likelihood == "gaussian":
-                    self._noise_log_likelihood += 0.5 * ddotd
+                    self._noise_log_likelihood -= 0.5 * ddotd
                     # normalisation
                     self._noise_log_likelihood -= np.log(lal.TWOPI * data.vars[cpidx])
                 else:
