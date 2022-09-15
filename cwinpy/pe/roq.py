@@ -140,9 +140,20 @@ class GenerateROQ:
             raise ValueError("Data must be the same length as x")
 
         self._data = dataarr
+        self.sigma = self.kwargs.get("sigma", 1.0)
+
+        self.is_complex = True if self._data.dtype in [complex, np.complex64] else False
 
         # likelihood term for squared data
-        self._sigma = self.kwargs.get("sigma", 1.0)
+        self._K = np.vdot(self._data, self._data).real
+
+    @property
+    def sigma(self):
+        return self._sigma
+
+    @sigma.setter
+    def sigma(self, sigma):
+        self._sigma = sigma
 
         if not isinstance(self._sigma, (int, float, list, np.ndarray)):
             raise TypeError("sigma must be a number")
@@ -153,10 +164,6 @@ class GenerateROQ:
 
             if self._sigma <= 0.0:
                 raise ValueError("sigma must be a positive number")
-
-        self.is_complex = True if self._data.dtype in [complex, np.complex64] else False
-
-        self._K = np.vdot(self._data, self._data).real / self._sigma**2
 
     @property
     def priors(self):
@@ -417,7 +424,7 @@ class GenerateROQ:
         # generate the model at the interpolation nodes
         model = self._model_short(*pos, **self.__model_kwargs)
 
-        var = 1.0 if likelihood == "studentst" else self._sigma**2
+        var = 1.0 if likelihood == "studentst" else self.sigma**2
 
         # square model
         model2 = (
@@ -433,18 +440,15 @@ class GenerateROQ:
                     lu_solve(self._Bmat_lu_imag, model[self._x_node_indices_imag].imag),
                     self._Dvec_imag,
                 ).real
-            ) / var
-        else:
-            dm = (
-                np.vdot(
-                    lu_solve(self._Bmat_lu, model[self._x_node_indices]),
-                    self._Dvec,
-                ).real
-                / var
             )
+        else:
+            dm = np.vdot(
+                lu_solve(self._Bmat_lu, model[self._x_node_indices]),
+                self._Dvec,
+            ).real
 
-        mm = np.vdot(lu_solve(self._B2mat_lu, model2), self._Bvec).real / var
-        chisq = self._K + mm - 2 * dm
+        mm = np.vdot(lu_solve(self._B2mat_lu, model2), self._Bvec).real
+        chisq = (self._K + mm - 2 * dm) / var
 
         if likelihood == "studentst":
             cplen = len(self.data)
@@ -455,4 +459,5 @@ class GenerateROQ:
                 - cplen * np.log(chisq)
             )
         else:
-            return -(0.5 / self._sigma**2) * chisq
+            N = len(self.data) if self.is_complex else len(self.data) / 2
+            return -0.5 * chisq - N * np.log(lal.TWOPI * var)

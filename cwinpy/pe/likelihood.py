@@ -745,7 +745,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     if self.likelihood == "gaussian":
                         loglikelihood -= 0.5 * chisquare
                         # normalisation
-                        loglikelihood -= np.log(lal.TWOPI * stds[0] ** 2)
+                        loglikelihood -= cplen * np.log(lal.TWOPI * stds[0] ** 2)
                     else:
                         loglikelihood += (
                             logfactorial(cplen - 1)
@@ -918,7 +918,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             if likelihood == "gaussian":
                 loglikelihood -= 0.5 * chisquare
                 # normalisation
-                loglikelihood -= np.log(lal.TWOPI * stds[0] ** 2)
+                loglikelihood -= cplen * np.log(lal.TWOPI * stds[0] ** 2)
             else:
                 loglikelihood += (
                     logfactorial(cplen - 1)
