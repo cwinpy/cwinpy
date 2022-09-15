@@ -11,7 +11,7 @@ from ..utils import logfactorial
 
 
 def reduced_basis(verbose=False, title=None, **kwargs):
-    if verbose:
+    if verbose:  # pragma: no cover
         # set progress bar
         try:
             from alive_progress import alive_bar
@@ -144,15 +144,19 @@ class GenerateROQ:
         # likelihood term for squared data
         self._sigma = self.kwargs.get("sigma", 1.0)
 
-        if not isinstance(self._sigma, (int, float)):
+        if not isinstance(self._sigma, (int, float, list, np.ndarray)):
             raise TypeError("sigma must be a number")
         else:
+            if isinstance(self._sigma, (list, np.ndarray)):
+                # use first value
+                self._sigma = self._sigma[0]
+
             if self._sigma <= 0.0:
                 raise ValueError("sigma must be a positive number")
 
         self.is_complex = True if self._data.dtype in [complex, np.complex64] else False
 
-        self._K = np.vdot(self._data, self._data).real
+        self._K = np.vdot(self._data, self._data).real / self._sigma**2
 
     @property
     def priors(self):
@@ -173,7 +177,7 @@ class GenerateROQ:
     def verbose(self, verbose):
         self._verbose = bool(verbose)
 
-        if self._verbose:
+        if self._verbose:  # pragma: no cover
             try:
                 import alive_progress  # noqa: F401
             except ModuleNotFoundError:
@@ -246,7 +250,7 @@ class GenerateROQ:
         minrange = np.inf
         maxrange = -np.inf
 
-        if self.verbose:
+        if self.verbose:  # pragma: no cover
             from alive_progress import alive_it
 
             loopiter = alive_it(range(self.ntraining), title="Generating training set")
@@ -413,6 +417,8 @@ class GenerateROQ:
         # generate the model at the interpolation nodes
         model = self._model_short(*pos, **self.__model_kwargs)
 
+        var = 1.0 if likelihood == "studentst" else self._sigma**2
+
         # square model
         model2 = (
             model[self._x2_node_indices] * np.conj(model[self._x2_node_indices])
@@ -427,14 +433,17 @@ class GenerateROQ:
                     lu_solve(self._Bmat_lu_imag, model[self._x_node_indices_imag].imag),
                     self._Dvec_imag,
                 ).real
-            )
+            ) / var
         else:
-            dm = np.vdot(
-                lu_solve(self._Bmat_lu, model[self._x_node_indices]),
-                self._Dvec,
-            ).real
+            dm = (
+                np.vdot(
+                    lu_solve(self._Bmat_lu, model[self._x_node_indices]),
+                    self._Dvec,
+                ).real
+                / var
+            )
 
-        mm = np.vdot(lu_solve(self._B2mat_lu, model2), self._Bvec).real
+        mm = np.vdot(lu_solve(self._B2mat_lu, model2), self._Bvec).real / var
         chisq = self._K + mm - 2 * dm
 
         if likelihood == "studentst":

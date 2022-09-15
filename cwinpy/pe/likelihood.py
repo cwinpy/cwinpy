@@ -630,7 +630,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     if self.likelihood == "gaussian":
                         stds = data.stds[cpidx : cpidx + cplen]
                     else:
-                        stds = 1.0
+                        stds = 1.0 if not self.roq else np.array([1.0])
 
                     if self.include_phase and not self.roq:
                         # data and model for chunk
@@ -642,10 +642,13 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     elif self.roq:
                         m2nodes = self.__roq_all_model2_node_indices[didx][i]
                         m2 = (m[m2nodes] * np.conj(m[m2nodes])).real
-                        summodel = np.vdot(
-                            lu_solve(self.__roq_all_B2mat_lu[didx][i], m2),
-                            self.__roq_all_Bvec[didx][i],
-                        ).real
+                        summodel = (
+                            np.vdot(
+                                lu_solve(self.__roq_all_B2mat_lu[didx][i], m2),
+                                self.__roq_all_Bvec[didx][i],
+                            ).real
+                            / stds[0] ** 2
+                        )
 
                         mr = m[self.__roq_all_real_node_indices[didx][i]].real
                         mi = m[self.__roq_all_imag_node_indices[didx][i]].imag
@@ -659,7 +662,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                                 lu_solve(self.__roq_all_Bmat_lu_imag[didx][i], mi),
                                 self.__roq_all_Dvec_imag[didx][i],
                             ).real
-                        )
+                        ) / stds[0] ** 2
                     else:
                         # likelihood with pre-summed products
                         mp = m[0]  # tensor plus model component
