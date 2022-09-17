@@ -750,8 +750,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                         loglikelihood += (
                             logfactorial(cplen - 1)
                             - lal.LN2
-                            - cplen * lal.LNPI
-                            - cplen * np.log(chisquare)
+                            - cplen * (lal.LNPI + np.log(chisquare))
                         )
 
             didx += 1
@@ -923,8 +922,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 loglikelihood += (
                     logfactorial(cplen - 1)
                     - lal.LN2
-                    - cplen * lal.LNPI
-                    - cplen * np.log(chisquare)
+                    - cplen * (lal.LNPI + np.log(chisquare))
                 )
 
         return loglikelihood

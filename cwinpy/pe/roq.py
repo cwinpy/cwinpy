@@ -453,10 +453,7 @@ class GenerateROQ:
         if likelihood == "studentst":
             cplen = len(self.data)
             return (
-                logfactorial(cplen - 1)
-                - lal.LN2
-                - cplen * lal.LNPI
-                - cplen * np.log(chisq)
+                logfactorial(cplen - 1) - lal.LN2 - cplen * (lal.LNPI + np.log(chisq))
             )
         else:
             N = len(self.data) if self.is_complex else len(self.data) / 2
