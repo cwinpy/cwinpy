@@ -8,8 +8,9 @@ import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 from bilby.core.prior import PriorDict, Sine, Uniform
-from cwinpy.data import HeterodynedData
+from cwinpy.data import HeterodynedData, MultiHeterodynedData
 from cwinpy.parfile import PulsarParameters
+from cwinpy.pe.likelihood import TargetedPulsarLikelihood
 from cwinpy.pe.roq import GenerateROQ
 from cwinpy.utils import logfactorial
 
@@ -162,7 +163,7 @@ class TestGenericModelROQ:
         assert roq.nbases2 > 0
 
         # check likelihood calculation
-        Ntests = 50
+        Ntests = 100
 
         for _ in range(Ntests):
             # draw values from prior
@@ -207,7 +208,7 @@ class TestGenericModelROQ:
         assert roq.nbases2 > 0
 
         # check likelihood calculation
-        Ntests = 50
+        Ntests = 100
 
         for _ in range(Ntests):
             # draw values from prior
@@ -249,7 +250,7 @@ class TestHeterodynedCWModelROQ:
         cls.pulsar["RAJ"] = coords.ra.rad
         cls.pulsar["DECJ"] = coords.dec.rad
         cls.pulsar["F"] = [123.456]
-        cls.pulsar["H0"] = 1.2e-23
+        cls.pulsar["H0"] = 9.2e-24
         cls.pulsar["IOTA"] = 0.789
         cls.pulsar["PSI"] = 1.1010101
         cls.pulsar["PHI0"] = 2.87654
@@ -263,7 +264,29 @@ class TestHeterodynedCWModelROQ:
             injpar=cls.pulsar,
             fakeasd=cls.detector,
             inject=True,
+            bbminlength=len(cls.times),  # forced to a single chunk
         )
+
+        # fake multi-detector data with multiple chunks
+        het1chunked = HeterodynedData(
+            times=cls.times,
+            par=cls.pulsar,
+            injpar=cls.pulsar,
+            fakeasd="H1",
+            inject=True,
+            bbmaxlength=int(len(cls.times) / 2),  # forced into multiple chunks
+        )
+
+        het2chunked = HeterodynedData(
+            times=cls.times,
+            par=cls.pulsar,
+            injpar=cls.pulsar,
+            fakeasd="H1",
+            inject=True,
+            bbmaxlength=int(len(cls.times) / 2),  # forced into multiple chunks
+        )
+
+        cls.multihet = MultiHeterodynedData({"H1": het1chunked, "L1": het2chunked})
 
         # set the prior
         cls.priors = PriorDict()
@@ -291,7 +314,7 @@ class TestHeterodynedCWModelROQ:
         assert roq.nbases2 == 3
 
         # check likelihood calculation
-        Ntests = 50
+        Ntests = 100
 
         for _ in range(Ntests):
             # draw values from prior
@@ -312,7 +335,7 @@ class TestHeterodynedCWModelROQ:
             ll = roq.log_likelihood(par=parcopy)
             fullll = full_log_likelihood(model, self.het.data)
 
-            assert np.abs(ll - fullll) < 1e-3
+            assert np.isclose(ll, fullll, rtol=1e-7)
 
             # Gaussian likelihood
             # ll = roq.log_likelihood(par=parcopy, likelihood="gaussian")
@@ -323,4 +346,29 @@ class TestHeterodynedCWModelROQ:
             #    sigma=self.het.stds[0],
             # )
 
-            # assert np.abs(ll - fullll) < 1e-1
+            # assert np.isclose(ll, fullll, 1e-6)
+
+    def test_studentst_log_likelihood(self):
+        ntraining = 500
+
+        # original likelihood
+        like_orig = TargetedPulsarLikelihood(self.multihet, self.priors, numba=False)
+
+        # ROQ likelihood
+        like_roq = TargetedPulsarLikelihood(
+            self.multihet, self.priors, roq=True, ntraining=ntraining
+        )
+
+        # check likelihood calculation
+        Ntests = 100
+        for _ in range(Ntests):
+            parameters = self.priors.sample()
+
+            like_orig.parameters = parameters.copy()
+            like_roq.parameters = parameters.copy()
+
+            # get likelihoods
+            llo = like_orig.log_likelihood()
+            llr = like_roq.log_likelihood()
+
+            assert np.isclose(llo, llr, rtol=1e-7)

@@ -25,7 +25,7 @@ from .parfile import PulsarParameters
 from .utils import allzero, gcd_array, get_psr_name, is_par_file, logfactorial
 
 
-class MultiHeterodynedData(object):
+class MultiHeterodynedData:
     """
     A class to contain time series' of heterodyned data, using the
     :class:`~cwinpy.data.HeterodynedData` class, for multiple detectors/data
