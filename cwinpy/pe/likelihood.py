@@ -265,7 +265,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         self.models = []
         self.basepars = []
         for i, het in enumerate(self.data):
-            times = het.times if not self.roq else self.__roq_all_nodes[i]
+            times = het.times if not self.roq else self._roq_all_nodes[i]
             dt = het.times.value[1] - het.times.value[0]
             self.models.append(
                 HeterodynedCWSimulator(
@@ -328,16 +328,16 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         if not self.__roq:
             return
 
-        self.__roq_all_nodes = []
-        self.__roq_all_real_node_indices = []
-        self.__roq_all_Bmat_lu_real = []
-        self.__roq_all_Dvec_real = []
-        self.__roq_all_imag_node_indices = []
-        self.__roq_all_Bmat_lu_imag = []
-        self.__roq_all_Dvec_imag = []
-        self.__roq_all_model2_node_indices = []
-        self.__roq_all_B2mat_lu = []
-        self.__roq_all_Bvec = []
+        self._roq_all_nodes = []
+        self._roq_all_real_node_indices = []
+        self._roq_all_Bmat_lu_real = []
+        self._roq_all_Dvec_real = []
+        self._roq_all_imag_node_indices = []
+        self._roq_all_Bmat_lu_imag = []
+        self._roq_all_Dvec_imag = []
+        self._roq_all_model2_node_indices = []
+        self._roq_all_B2mat_lu = []
+        self._roq_all_Bvec = []
 
         roqkwargs = self.kwargs.copy()
         roqkwargs["likelihood"] = self.likelihood
@@ -356,7 +356,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 self.__roq = False
                 return
 
-            self.__roq_all_nodes.append(np.concatenate([r._x_nodes for r in roqchunks]))
+            self._roq_all_nodes.append(np.concatenate([r._x_nodes for r in roqchunks]))
 
             # set node indices
             real_node_indices = []
@@ -382,15 +382,15 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                 Dvec_imag.append(r._Dvec_imag)
                 Bvec.append(r._Bvec)
 
-            self.__roq_all_real_node_indices.append(real_node_indices)
-            self.__roq_all_imag_node_indices.append(imag_node_indices)
-            self.__roq_all_model2_node_indices.append(model2_node_indices)
-            self.__roq_all_Bmat_lu_real.append(Bmat_lu_real)
-            self.__roq_all_Bmat_lu_imag.append(Bmat_lu_imag)
-            self.__roq_all_Dvec_real.append(Dvec_real)
-            self.__roq_all_Dvec_imag.append(Dvec_imag)
-            self.__roq_all_B2mat_lu.append(B2mat_lu)
-            self.__roq_all_Bvec.append(Bvec)
+            self._roq_all_real_node_indices.append(real_node_indices)
+            self._roq_all_imag_node_indices.append(imag_node_indices)
+            self._roq_all_model2_node_indices.append(model2_node_indices)
+            self._roq_all_Bmat_lu_real.append(Bmat_lu_real)
+            self._roq_all_Bmat_lu_imag.append(Bmat_lu_imag)
+            self._roq_all_Dvec_real.append(Dvec_real)
+            self._roq_all_Dvec_imag.append(Dvec_imag)
+            self._roq_all_B2mat_lu.append(B2mat_lu)
+            self._roq_all_Bvec.append(Bvec)
 
     def dot_products(self):
         """
@@ -640,27 +640,27 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                         summodel = np.vdot(mm, mm).real
                         sumdatamodel = np.vdot(dd, mm).real
                     elif self.roq:
-                        m2nodes = self.__roq_all_model2_node_indices[didx][i]
+                        m2nodes = self._roq_all_model2_node_indices[didx][i]
                         m2 = (m[m2nodes] * np.conj(m[m2nodes])).real
                         summodel = (
                             np.vdot(
-                                lu_solve(self.__roq_all_B2mat_lu[didx][i], m2),
-                                self.__roq_all_Bvec[didx][i],
+                                lu_solve(self._roq_all_B2mat_lu[didx][i], m2),
+                                self._roq_all_Bvec[didx][i],
                             ).real
                             / stds[0] ** 2
                         )
 
-                        mr = m[self.__roq_all_real_node_indices[didx][i]].real
-                        mi = m[self.__roq_all_imag_node_indices[didx][i]].imag
+                        mr = m[self._roq_all_real_node_indices[didx][i]].real
+                        mi = m[self._roq_all_imag_node_indices[didx][i]].imag
 
                         sumdatamodel = (
                             np.vdot(
-                                lu_solve(self.__roq_all_Bmat_lu_real[didx][i], mr),
-                                self.__roq_all_Dvec_real[didx][i],
+                                lu_solve(self._roq_all_Bmat_lu_real[didx][i], mr),
+                                self._roq_all_Dvec_real[didx][i],
                             ).real
                             + np.vdot(
-                                lu_solve(self.__roq_all_Bmat_lu_imag[didx][i], mi),
-                                self.__roq_all_Dvec_imag[didx][i],
+                                lu_solve(self._roq_all_Bmat_lu_imag[didx][i], mi),
+                                self._roq_all_Dvec_imag[didx][i],
                             ).real
                         ) / stds[0] ** 2
                     else:

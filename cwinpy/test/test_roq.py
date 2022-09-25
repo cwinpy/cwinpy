@@ -316,7 +316,12 @@ class TestHeterodynedCWModelROQ:
         # check likelihood calculation
         Ntests = 100
 
-        for _ in range(Ntests):
+        ll = np.zeros(Ntests)
+        fullll = np.zeros(Ntests)
+        llg = np.zeros(Ntests)
+        fullllg = np.zeros(Ntests)
+
+        for i in range(Ntests):
             # draw values from prior
             parcopy = copy.deepcopy(self.pulsar)
             for key, value in self.priors.sample().items():
@@ -332,23 +337,26 @@ class TestHeterodynedCWModelROQ:
             )
 
             # students-t likelihood
-            ll = roq.log_likelihood(par=parcopy)
-            fullll = full_log_likelihood(model, self.het.data)
-
-            assert np.isclose(ll, fullll, rtol=1e-7)
+            ll[i] = roq.log_likelihood(par=parcopy)
+            fullll[i] = full_log_likelihood(model, self.het.data)
 
             # Gaussian likelihood
-            # ll = roq.log_likelihood(par=parcopy, likelihood="gaussian")
-            # fullll = full_log_likelihood(
-            #    model,
-            #    self.het.data,
-            #    like="gaussian",
-            #    sigma=self.het.stds[0],
-            # )
+            llg[i] = roq.log_likelihood(par=parcopy, likelihood="gaussian")
+            fullllg[i] = full_log_likelihood(
+                model,
+                self.het.data,
+                like="gaussian",
+                sigma=self.het.stds[0],
+            )
 
-            # assert np.isclose(ll, fullll, 1e-6)
+        assert np.all(
+            np.abs(np.exp(ll - ll.max()) - np.exp(fullll - fullll.max())) < 1e-3
+        )
+        assert np.all(
+            np.abs(np.exp(llg - llg.max()) - np.exp(fullllg - fullllg.max())) < 1e-3
+        )
 
-    def test_studentst_log_likelihood(self):
+    def test_studentst_likelihood(self):
         ntraining = 500
 
         # original likelihood
@@ -356,19 +364,75 @@ class TestHeterodynedCWModelROQ:
 
         # ROQ likelihood
         like_roq = TargetedPulsarLikelihood(
-            self.multihet, self.priors, roq=True, ntraining=ntraining
+            self.multihet,
+            self.priors,
+            roq=True,
+            ntraining=ntraining,
+            likelihood="STUDENTS-T",
         )
+
+        assert len(like_roq._roq_all_nodes) == len(self.multihet)
+        for j, het in enumerate(self.multihet):
+            # check ROQ has been calculated for each "chunk"
+            assert len(like_roq._roq_all_real_node_indices[j]) == het.num_chunks
+            assert len(like_roq._roq_all_imag_node_indices[j]) == het.num_chunks
+            assert len(like_roq._roq_all_model2_node_indices[j]) == het.num_chunks
+
+            for k in range(het.num_chunks):
+                # check number of ROQ nodes is as expected
+                assert len(like_roq._roq_all_real_node_indices[j][k]) == 2
+                assert len(like_roq._roq_all_imag_node_indices[j][k]) == 2
+                assert len(like_roq._roq_all_model2_node_indices[j][k]) == 3
 
         # check likelihood calculation
         Ntests = 100
-        for _ in range(Ntests):
+
+        llo = np.zeros(Ntests)
+        llr = np.zeros(Ntests)
+
+        for i in range(Ntests):
             parameters = self.priors.sample()
 
             like_orig.parameters = parameters.copy()
             like_roq.parameters = parameters.copy()
 
             # get likelihoods
-            llo = like_orig.log_likelihood()
-            llr = like_roq.log_likelihood()
+            llo[i] = like_orig.log_likelihood()
+            llr[i] = like_roq.log_likelihood()
 
-            assert np.isclose(llo, llr, rtol=1e-7)
+        assert np.all(np.abs(np.exp(llo - llo.max()) - np.exp(llr - llr.max())) < 1e-3)
+
+    def test_gaussian_likelihood(self):
+        ntraining = 500
+
+        # original likelihood
+        like_orig = TargetedPulsarLikelihood(
+            self.multihet, self.priors, numba=False, likelihood="gaussian"
+        )
+
+        # ROQ likelihood
+        like_roq = TargetedPulsarLikelihood(
+            self.multihet,
+            self.priors,
+            roq=True,
+            ntraining=ntraining,
+            likelihood="Normal",
+        )
+
+        # check likelihood calculation
+        Ntests = 100
+
+        llo = np.zeros(Ntests)
+        llr = np.zeros(Ntests)
+
+        for i in range(Ntests):
+            parameters = self.priors.sample()
+
+            like_orig.parameters = parameters.copy()
+            like_roq.parameters = parameters.copy()
+
+            # get likelihoods
+            llo[i] = like_orig.log_likelihood()
+            llr[i] = like_roq.log_likelihood()
+
+        assert np.all(np.abs(np.exp(llo - llo.max()) - np.exp(llr - llr.max())) < 1e-3)
