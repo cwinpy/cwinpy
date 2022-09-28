@@ -33,8 +33,8 @@ Detecting the very weak gravitational-wave signal from a pulsar requires the coh
 long (months-to-years) gravitational-wave data sets from multiple detectors. CWInPy implements an
 analysis pipeline enabling the user to search for and characterise these signals. It implements the
 preprocessing of the time-domain strain, $h(t)$, measured by gravitational-wave detectors for a
-user-provided set of pulsars [defined through Tempo2-style @tempo2; @tempo2manual [parameter
-files](https://cwinpy.readthedocs.io/en/latest/pipelines.html#source-parameter-specification)]; this
+user-provided set of pulsars [defined through Tempo2-style [parameter
+files](https://cwinpy.readthedocs.io/en/latest/pipelines.html#source-parameter-specification), @tempo2; @tempo2manual]; this
 entails heterodyning the data with the expected signal phase evolution, followed by aggressive
 filtering and down-sampling of the data [@2005PhRvD72j2002D]. These much compressed datasets are
 then used to perform Bayesian inference on the unknown signal parameters, including the
@@ -42,7 +42,7 @@ gravitational-wave amplitude.
 
 CWInPy can be used to perform this full pipeline or implement the data preprocessing stages and
 inferences stages separately. These are all accessible via convenient command line executables
-(making use of configuration files) or equivalently through a Python API. The pipelines provided by
+(making use of configuration files) or, equivalently, through a Python API. The pipelines provided by
 CWInPy can perform analyses on an individual machine, but the amount of data being processed
 generally requires that the preprocessing be parallelised over multiple machines. Therefore, CWInPy
 will create jobs that can be submitted over a computing cluster running the
@@ -60,7 +60,7 @@ through a SWIG interface to LALSuite [@WETTE2020100634]. The Bayesian inference 
 the [`bilby`](https://lscsoft.docs.ligo.org/bilby/) package [@2019ApJS24127A], which provides a
 convenient interface to a wide variety of packages for using the Markov Chain Monte Carlo [MCMC;
 see, e.g., @2017ARA&A55213S for a review of MCMC with particular reference to astronomy] or nested
-sampling algorithms [see, e.g., @2021arXiv210109675B or @nestedsampling for a review]. By default,
+sampling algorithms [see, e.g., @2021arXiv210109675B; @nestedsampling]. By default,
 CWInPy uses the [`dynesty`](https://dynesty.readthedocs.io/) package [@2020MNRAS.493.3132S] for
 inference using nested sampling, producing both posterior probability distributions for the
 parameters of interest and the Bayesian evidence for the data given the signal model.
