@@ -7,10 +7,12 @@ tags:
 authors:
   - name: Matthew Pitkin
     orcid: 0000-0003-4548-526X
-    affiliation: 1
+    affiliation: "1, 2"
 affiliations:
   - name: Department of Physics, Lancaster University, Lancaster, UK, LA1 4YB
     index: 1
+  - name: School of Physics and Astronomy, University of Glasgow, University Avenue, Glasgow, UK, G12 8QQ
+    index: 2
 date: 6 June 2022
 bibliography: paper.bib
 ---
@@ -25,7 +27,7 @@ observations of their highly regular pulsing profiles [@ATNF]. These are known a
 proportion of these pulsars with rotation frequencies $\gtrsim 10\,$Hz make enticing targets for the
 current and future generation of ground-based gravitational-wave observatories such as LIGO, Virgo
 and KAGRA [@2019ApJ87910A]. The detection of gravitational-waves from such a source would reveal
-information on the size of the non-axisymmetry, or more colloquially the "mountain", on the star.
+information on the size of any non-axisymmetry, or more colloquially a "mountain", on the star.
 This in turn provides valuable and novel information on neutron star matter and structure [see,
 e.g., @2015Lasky].
 
@@ -109,7 +111,7 @@ extract simulated signals directly added into the LIGO data [@2017PhRvD95f2002B]
 signals simulated via software.
 
 The inference of source parameters has been validated through the use of simulation-based
-calibration [@2018arXiv180406788T], with the posteriors probability distributions shown to provide
+calibration [@2018arXiv180406788T], with the posterior probability distributions shown to provide
 well-calibrated [@wellcalibrated] credible intervals.
 
 As evidence for this consistency, \autoref{fig:posteriors} shows the posterior probability
@@ -151,7 +153,7 @@ Full details of all the required configuration file settings are given in the
 Both the `cwinpy_knope_pipeline` and the `cwinpy_heterodyne_pipeline` executables have several
 command line arguments that can be used for quickly setting up analyses using open data from GWOSC.
 These rely on the user having access to a computer, or cluster of computers, with HTCondor installed
-and CVMFS set up with access to the data. To run the analysis the user just needs to have a
+and CVMFS set up with access to the data. To run the analysis the user just needs to have
 Tempo2-style pulsar ephemeris files for any pulsars they wish to search for. If one had an ephemeris
 file for, e.g., PSR J0740+6620, called `J0740+6620.par`, then the pipeline could be run over all
 data from the first observing run of Advanced LIGO (O1) [@RICHABBOTT2021100658], using
@@ -207,7 +209,7 @@ forum](https://github.com/cwinpy/cwinpy/discussions), or via
 
 The author acknowledges support from the UK Science & Technology Facilities Council under grant
 number [ST/V001213/1](https://gtr.ukri.org/projects?ref=ST%2FV001213%2F1). The development of this
-package relies on the original work of Rejean Dupuis and Graham Woan and also has benefited
+package relies on the original work of Réjean Dupuis and Graham Woan and also has benefited
 massively from discussions with the LIGO-Virgo-KAGRA continuous waves working group and the
 developers of the bilby software package.
 
