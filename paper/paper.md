@@ -113,9 +113,8 @@ calibration [@2018arXiv180406788T], with the posteriors probability distribution
 well-calibrated [@wellcalibrated] credible intervals.
 
 As evidence for this consistency, \autoref{fig:posteriors} shows the posterior probability
-distributions (plotted using [matplotlib](https://matplotlib.org/), @matplotlib, and
-[corner.py](https://corner.readthedocs.io/), @corner, via an interface with PESummary, @pesummary)
-for the four unknown parameters of a simulated
+distributions—plotted using [matplotlib](https://matplotlib.org/) [@matplotlib], and
+[corner.py](https://corner.readthedocs.io/) [@corner], via an interface with PESummary, [@pesummary]—for the four unknown parameters of a simulated
 gravitational-wave signal from a pulsar. The figure compares the posterior samples extracted using
 CWInPy (with the [`dynesty`](https://dynesty.readthedocs.io/) sampler) with those calculated (again
 with CWInPy) over a uniform grid in the parameters space and those produced by the previously used
