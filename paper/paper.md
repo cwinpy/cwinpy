@@ -60,7 +60,7 @@ through a SWIG interface to LALSuite [@WETTE2020100634]. The Bayesian inference 
 the [`bilby`](https://lscsoft.docs.ligo.org/bilby/) package [@2019ApJS24127A], which provides a
 convenient interface to a wide variety of packages for using the Markov Chain Monte Carlo [MCMC;
 see, e.g., @2017ARA&A55213S for a review of MCMC with particular reference to astronomy] or nested
-sampling algorithms [e.g.; @2021arXiv210109675B; @nestedsampling]. By default,
+sampling algorithms [see, e.g., @nestedsampling; @2021arXiv210109675B for reviews]. By default,
 CWInPy uses the [`dynesty`](https://dynesty.readthedocs.io/) package [@2020MNRAS.493.3132S] for
 inference using nested sampling, producing both posterior probability distributions for the
 parameters of interest and the Bayesian evidence for the data given the signal model.
