@@ -18,7 +18,7 @@ bibliography: paper.bib
 # Summary
 
 Continuous quasi-monochromatic gravitational-waves are expected to be emitted from non-axisymmetric
-rapidly rotating neutron stars (see, e.g.\ @2022arXiv220606447R for a review). There are thought to
+rapidly rotating neutron stars [see, e.g., @2022arXiv220606447R for a review]. There are thought to
 be on the order of $10^8 - 10^9$ neutron stars within the Milky Way [@2010A&A510A23S]. At the time
 of writing, around 3000 such stars, have been found through electromagnetic (primarily radio)
 observations of their highly regular pulsing profiles [@ATNF]. These are known as pulsars. A
@@ -26,8 +26,8 @@ proportion of these pulsars with rotation frequencies $\gtrsim 10\,$Hz make enti
 current and future generation of ground-based gravitational-wave observatories such as LIGO, Virgo
 and KAGRA [@2019ApJ87910A]. The detection of gravitational-waves from such a source would reveal
 information on the size of the non-axisymmetry, or more colloquially the "mountain", on the star.
-This in turn provides valuable and novel information on neutron star matter and structure (see,
-e.g.\ @2015Lasky).
+This in turn provides valuable and novel information on neutron star matter and structure [see,
+e.g., @2015Lasky].
 
 Detecting the very weak gravitational-wave signal from a pulsar requires the coherent integration of
 long (months-to-years) gravitational-wave data sets from multiple detectors. CWInPy implements an
@@ -58,9 +58,9 @@ slowly changing rotation frequency and include Doppler and relativistic effects 
 position and motion of the detector with respect to the pulsar. These are accessible within Python
 through a SWIG interface to LALSuite [@WETTE2020100634]. The Bayesian inference stage makes use of
 the [`bilby`](https://lscsoft.docs.ligo.org/bilby/) package [@2019ApJS24127A], which provides a
-convenient interface to a wide variety of packages for using the Markov Chain Monte Carlo (MCMC;
-see, e.g.\ @2017ARA&A55213S for a review of MCMC with particular reference to astronomy) or nested
-sampling algorithms (see, e.g., @2021arXiv210109675B or @nestedsampling for a review). By default,
+convenient interface to a wide variety of packages for using the Markov Chain Monte Carlo [MCMC;
+see, e.g., @2017ARA&A55213S for a review of MCMC with particular reference to astronomy] or nested
+sampling algorithms [see, e.g., @2021arXiv210109675B or @nestedsampling for a review]. By default,
 CWInPy uses the [`dynesty`](https://dynesty.readthedocs.io/) package [@2020MNRAS.493.3132S] for
 inference using nested sampling, producing both posterior probability distributions for the
 parameters of interest and the Bayesian evidence for the data given the signal model.
