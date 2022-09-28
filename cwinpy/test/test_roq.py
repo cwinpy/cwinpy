@@ -3,16 +3,21 @@ Test script for ROQ usage.
 """
 
 import copy
+import os
+import shutil
+import subprocess as sp
 
 import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 from bilby.core.prior import PriorDict, Sine, Uniform
 from cwinpy.data import HeterodynedData, MultiHeterodynedData
+from cwinpy.heterodyne import heterodyne
 from cwinpy.parfile import PulsarParameters
+from cwinpy.pe import pe
 from cwinpy.pe.likelihood import TargetedPulsarLikelihood
 from cwinpy.pe.roq import GenerateROQ
-from cwinpy.utils import logfactorial
+from cwinpy.utils import LAL_EPHEMERIS_URL, download_ephemeris_file, logfactorial
 
 
 def full_log_likelihood(model, data, like="studentst", sigma=1.0):
@@ -436,3 +441,202 @@ class TestHeterodynedCWModelROQ:
             llr[i] = like_roq.log_likelihood()
 
         assert np.all(np.abs(np.exp(llo - llo.max()) - np.exp(llr - llr.max())) < 1e-3)
+
+
+class TestROQFrequency(object):
+    """
+    Test the generation of an ROQ over frequency parameters.
+    """
+
+    @classmethod
+    def setup_class(cls):
+        # create some fake data frames using lalpulsar_Makefakedata_v5
+        mfd = shutil.which("lalpulsar_Makefakedata_v5")
+
+        cls.fakedatadir = "testing_fake_frame_cache"
+        cls.fakedatadetector = "H1"
+        cls.fakedatachannel = f"{cls.fakedatadetector}:FAKE_DATA"
+
+        cls.fakedatastart = 1000000000
+        cls.fakedataduration = 86400
+
+        os.makedirs(cls.fakedatadir, exist_ok=True)
+
+        cls.fakedatabandwidth = 8  # Hz
+        sqrtSn = 1e-24  # noise amplitude spectral density
+        cls.fakedataname = "FAKEDATA"
+
+        # Create two pulsars to inject: one isolated and one binary
+        cls.fakepulsarpar = []
+
+        # requirements for Makefakedata pulsar input files
+        pulsarstr = """\
+Alpha = {alpha}
+Delta = {delta}
+Freq = {f0}
+f1dot = {f1}
+f2dot = {f2}
+refTime = {pepoch}
+h0 = {h0}
+cosi = {cosi}
+psi = {psi}
+phi0 = {phi0}
+"""
+
+        # pulsar parameters
+        f0 = 6.9456 / 2.0  # source rotation frequency (Hz)
+        f1 = -9.87654e-11 / 2.0  # source rotational frequency derivative (Hz/s)
+        f2 = 2.34134e-18 / 2.0  # second frequency derivative (Hz/s^2)
+        alpha = 0.0  # source right ascension (rads)
+        delta = 0.5  # source declination (rads)
+        pepoch = 1000000000  # frequency epoch (GPS)
+
+        # GW parameters
+        h0 = 3.0e-24  # GW amplitude
+        phi0 = 1.0  # GW initial phase (rads)
+        cosiota = 0.1  # cosine of inclination angle
+        psi = 0.5  # GW polarisation angle (rads)
+
+        mfddic = {
+            "alpha": alpha,
+            "delta": delta,
+            "f0": 2 * f0,
+            "f1": 2 * f1,
+            "f2": 2 * f2,
+            "pepoch": pepoch,
+            "h0": h0,
+            "cosi": cosiota,
+            "psi": psi,
+            "phi0": phi0,
+        }
+
+        cls.fakepulsarpar = PulsarParameters()
+        cls.fakepulsarpar["PSRJ"] = "J0000+0000"
+        cls.fakepulsarpar["H0"] = h0
+        cls.fakepulsarpar["PHI0"] = phi0 / 2.0
+        cls.fakepulsarpar["PSI"] = psi
+        cls.fakepulsarpar["COSIOTA"] = cosiota
+        cls.fakepulsarpar["F"] = [f0, f1, f2]
+        cls.fakepulsarpar["RAJ"] = alpha
+        cls.fakepulsarpar["DECJ"] = delta
+        cls.fakepulsarpar["PEPOCH"] = pepoch
+        cls.fakepulsarpar["EPHEM"] = "DE405"
+        cls.fakepulsarpar["UNITS"] = "TDB"
+
+        cls.fakepardir = "testing_fake_par_dir"
+        os.makedirs(cls.fakepardir, exist_ok=True)
+        cls.fakeparfile = os.path.join(cls.fakepardir, "J0000+0000.par")
+        cls.fakepulsarpar.pp_to_par(cls.fakeparfile)
+
+        injfile = os.path.join(cls.fakepardir, "inj.dat")
+        with open(injfile, "w") as fp:
+            fp.write("[Pulsar 1]\n")
+            fp.write(pulsarstr.format(**mfddic))
+            fp.write("\n")
+
+        # set ephemeris files
+        efile = download_ephemeris_file(
+            LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz")
+        )
+        sfile = download_ephemeris_file(
+            LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz")
+        )
+
+        cmds = [
+            "-F",
+            cls.fakedatadir,
+            f"--outFrChannels={cls.fakedatachannel}",
+            "-I",
+            cls.fakedatadetector,
+            "--sqrtSX={0:.1e}".format(sqrtSn),
+            "-G",
+            str(cls.fakedatastart),
+            f"--duration={cls.fakedataduration}",
+            f"--Band={cls.fakedatabandwidth}",
+            "--fmin",
+            "0",
+            f'--injectionSources="{injfile}"',
+            f"--outLabel={cls.fakedataname}",
+            f'--ephemEarth="{efile}"',
+            f'--ephemSun="{sfile}"',
+            "--randSeed=1234",  # for reproducibiliy
+        ]
+
+        # run makefakedata
+        sp.run([mfd] + cmds)
+
+        # set priors for PE
+        cls.priors = PriorDict()
+        cls.priors["h0"] = Uniform(0, 1e-23, name="h0")
+        cls.priors["f0"] = Uniform(f0 - 0.1, f0 + 0.1, name="f0")
+
+    @classmethod
+    def teardown_class(cls):
+        """
+        Remove test simulation directory.
+        """
+
+        # shutil.rmtree(cls.fakepardir)
+        # shutil.rmtree(cls.fakedatadir)
+
+    def test_heterodyne_exact(self):
+        """
+        Heterodyne with the exact phase parameters
+        """
+
+        segments = [(self.fakedatastart, self.fakedatastart + self.fakedataduration)]
+
+        fulloutdir = os.path.join(self.fakedatadir, "heterodyne_output")
+
+        inputkwargs = dict(
+            starttime=segments[0][0],
+            endtime=segments[-1][-1],
+            pulsarfiles=self.fakeparfile,
+            segmentlist=segments,
+            framecache=self.fakedatadir,
+            channel=self.fakedatachannel,
+            freqfactor=2,
+            stride=86400 // 2,
+            resamplerate=1 / 60,
+            includessb=True,
+            includebsb=True,
+            includeglitch=True,
+            output=fulloutdir,
+            label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+        )
+
+        het = heterodyne(**inputkwargs)
+
+        # PE grid
+        gridspace = {
+            "h0": np.linspace(0, self.priors["h0"].maximum, 50),
+            "f0": np.linspace(self.priors["f0"].minimum, self.priors["f0"].maximum, 50),
+        }
+
+        peoutdir = os.path.join(self.fakedatadir, "pe_output")
+        pelabel = "nonroq"
+
+        # run non-ROQ PE over grid
+        pekwargs = {
+            "grid": True,
+            "grid_kwargs": {"grid_size": gridspace},
+            "outdir": peoutdir,
+            "label": pelabel,
+            "prior": self.priors,
+            "likelihood": "studentst",
+            "detector": self.fakedatadetector,
+            "data_file": list(het.outputfiles.values()),
+            "par_file": copy.deepcopy(self.fakepulsarpar),
+        }
+
+        # pestandard = pe(**pekwargs)
+        _ = pe(**pekwargs)
+
+        # set ROQ likelihood
+        ntraining = 1000
+        pekwargs["roq"] = True
+        pekwargs["roq_kwargs"] = {"ntraining": ntraining}
+        pekwargs["label"] = "roq"
+
+        # peroq = pe(**pekwargs)
+        _ = pe(**pekwargs)

@@ -1067,8 +1067,15 @@ class PERunner(object):
             self.sampler_kwargs.setdefault(
                 "outdir", os.path.abspath(kwargs.get("outdir"))
             )
+            if self.use_grid:
+                self.grid_kwargs.setdefault(
+                    "outdir", os.path.abspath(kwargs.get("outdir"))
+                )
+
         if "label" in kwargs:
             self.sampler_kwargs.setdefault("label", kwargs.get("label"))
+            if self.use_grid:
+                self.grid_kwargs.setdefault("label", kwargs.get("label"))
 
         self.outputsnr = kwargs.get("output_snr", False)
 

@@ -51,8 +51,8 @@ class TestHeterodyne(object):
             with open(dummyfile, "w") as fp:
                 fp.write("blah\n")
 
-        # create some fake data frames using lalapps_Makefakedata_v5
-        mfd = shutil.which("lalapps_Makefakedata_v5")
+        # create some fake data frames using lalpulsar_Makefakedata_v5
+        mfd = shutil.which("lalpulsar_Makefakedata_v5")
 
         cls.fakedatadir = "testing_fake_frame_cache"
         cls.fakedatadetectors = ["H1", "L1"]
