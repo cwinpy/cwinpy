@@ -60,6 +60,75 @@ Contributors to CWInPy and users of any of the discussion forums are expected to
 with respect and abide by the guidelines of the `Python Community Code of Conduct
 <https://www.python.org/psf/conduct/>`_.
 
+Citing CWInPy
+-------------
+
+If you use CWInPy for research that leads to a publication, I would be grateful if you cited the
+`CWInPy paper <https://doi.org/10.21105/joss.04568>`_ in the
+`Journal of Open Source Software <https://joss.theoj.org/>`_:
+
+Pitkin, M., (2022). CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars. *Journal of Open Source Software*, 7(77), 4568, https://doi.org/10.21105/joss.04568
+
+.. tabbed:: BibTeX
+
+   .. code-block:: bibtex
+
+      @article{cwinpy,
+          title = "{CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars}",
+         author = {{Pitkin}, M.},
+        journal = {Journal of Open Source Software},
+         volume = 7,
+         number = 77,
+          pages = 4568,
+           year = 2022,
+            doi = {10.21105/joss.04568},
+            url = {https://doi.org/10.21105/joss.04568},
+      }
+
+.. tabbed:: RIS
+
+   .. code-block::
+
+      TY  - JOUR
+      T1  - CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars
+      AU  - Pitkin, Matthew
+      JO  - Journal of Open Source Software
+      VL  - 7
+      IS  - 77
+      SP  - 4568
+      PY  - 2022
+      DA  - 2022/09/29/
+      DO  - 10.21105/joss.04568
+      UR  - https://doi.org/10.21105/joss.04568
+      ER  - 
+
+.. tabbed:: EndNode
+
+   .. code-block::
+
+      %0 Journal Article
+      %T CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars
+      %A Pitkin, Matthew
+      %J Journal of Open Source Software
+      %V 7
+      %N 77
+      %P 4568
+      %D 2022
+      %R 10.21105/joss.04568
+
+.. tabbed:: RefWorks
+
+   .. code-block::
+
+      RT Journal
+      T1 CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars
+      A1 Pitkin, Matthew
+      JF Journal of Open Source Software
+      VO 7
+      SP 4568
+      YR 2022
+      DO DOI: 10.21105/joss.04568
+
 .. automodule:: cwinpy
    :members:
 
