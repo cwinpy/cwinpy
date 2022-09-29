@@ -78,6 +78,9 @@ to access proprietary frame files, e.g.,:
 
    ligo-proxy-init -p albert.einstein
 
+The ``cwinpy_heterodyne_pipeline`` should be used for most practical purposes, while
+``cwinpy_heterodyne`` is generally useful for short tests.
+
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
 data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
 <https://cvmfs.readthedocs.io/>`__. To find out more about accessing this data see the instructions

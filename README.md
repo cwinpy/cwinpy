@@ -13,3 +13,4 @@ A Python module for performing Bayesian inference on continuous gravitational-wa
 [![codecov](https://codecov.io/gh/cwinpy/cwinpy/branch/master/graph/badge.svg)](https://codecov.io/gh/cwinpy/cwinpy)
 [![PyPI version](https://badge.fury.io/py/cwinpy.svg)](https://badge.fury.io/py/cwinpy)
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/cwinpy/badges/version.svg)](https://anaconda.org/conda-forge/cwinpy)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.04568/status.svg)](https://doi.org/10.21105/joss.04568)
