@@ -91,6 +91,7 @@ class HeterodynedCWSimulator(object):
             )
 
         self.__hetpar, self.__parfile = self._read_par(par)
+
         self.detector = det
         self.times = times
 
