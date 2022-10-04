@@ -453,7 +453,7 @@ class TestROQFrequency(object):
         # create some fake data frames using lalpulsar_Makefakedata_v5
         mfd = shutil.which("lalpulsar_Makefakedata_v5")
 
-        cls.fakedatadir = "testing_fake_frame_cache"
+        cls.fakedatadir = "testing_fake_data"
         cls.fakedatadetector = "H1"
         cls.fakedatachannel = f"{cls.fakedatadetector}:FAKE_DATA"
 
@@ -463,7 +463,7 @@ class TestROQFrequency(object):
         os.makedirs(cls.fakedatadir, exist_ok=True)
 
         cls.fakedatabandwidth = 8  # Hz
-        sqrtSn = 1e-24  # noise amplitude spectral density
+        sqrtSn = 3e-23  # noise amplitude spectral density
         cls.fakedataname = "FAKEDATA"
 
         # Create two pulsars to inject: one isolated and one binary
@@ -565,10 +565,13 @@ phi0 = {phi0}
         # run makefakedata
         sp.run([mfd] + cmds)
 
+        # resolution
+        res = 1 / cls.fakedataduration
+
         # set priors for PE
         cls.priors = PriorDict()
         cls.priors["h0"] = Uniform(0, 1e-23, name="h0")
-        cls.priors["f0"] = Uniform(f0 - 0.1, f0 + 0.1, name="f0")
+        cls.priors["f0"] = Uniform(f0 - 100 * res, f0 + 100 * res, name="f0")
 
     @classmethod
     def teardown_class(cls):
@@ -609,8 +612,10 @@ phi0 = {phi0}
 
         # PE grid
         gridspace = {
-            "h0": np.linspace(0, self.priors["h0"].maximum, 50),
-            "f0": np.linspace(self.priors["f0"].minimum, self.priors["f0"].maximum, 50),
+            "h0": np.linspace(0, self.priors["h0"].maximum, 100),
+            "f0": np.linspace(
+                self.priors["f0"].minimum, self.priors["f0"].maximum, 500
+            ),
         }
 
         peoutdir = os.path.join(self.fakedatadir, "pe_output")
@@ -619,7 +624,7 @@ phi0 = {phi0}
         # run non-ROQ PE over grid
         pekwargs = {
             "grid": True,
-            "grid_kwargs": {"grid_size": gridspace},
+            "grid_kwargs": {"grid_size": gridspace, "save": True},
             "outdir": peoutdir,
             "label": pelabel,
             "prior": self.priors,
@@ -630,10 +635,10 @@ phi0 = {phi0}
         }
 
         # pestandard = pe(**pekwargs)
-        _ = pe(**pekwargs)
+        _ = pe(**copy.deepcopy(pekwargs))
 
         # set ROQ likelihood
-        ntraining = 1000
+        ntraining = 5000
         pekwargs["roq"] = True
         pekwargs["roq_kwargs"] = {"ntraining": ntraining}
         pekwargs["label"] = "roq"

@@ -3,11 +3,14 @@ from copy import deepcopy
 import lal
 import numpy as np
 from arby import reduced_basis as arb
+from astropy.time import Time
 from bilby.core.prior import PriorDict
 from scipy.linalg import lu_factor, lu_solve
 
+from ..parfile import EPOCHPARS, PPUNITS, TEMPOUNITS
 from ..signal import HeterodynedCWSimulator
 from ..utils import logfactorial
+from .likelihood import TargetedPulsarLikelihood
 
 
 def reduced_basis(verbose=False, title=None, **kwargs):
@@ -269,7 +272,33 @@ class GenerateROQ:
                 # update par file
                 newpar = deepcopy(self._par)
                 for prior in samples:
-                    newpar[prior] = samples[prior][i]
+                    if TargetedPulsarLikelihood._is_vector_param(prior.upper()):
+                        name = TargetedPulsarLikelihood._vector_param_name_index(
+                            prior.upper()
+                        )[0]
+                        newpar[name] = TargetedPulsarLikelihood._parse_vector_param(
+                            newpar, prior.upper(), samples[prior][i]
+                        )
+                    else:
+                        if prior.upper() in TEMPOUNITS.keys():
+                            if (
+                                str(TEMPOUNITS[prior.upper()])
+                                == self.priors[prior].unit
+                            ):
+                                if prior.upper() in EPOCHPARS:
+                                    # conversions are required from MJD to GPS seconds for epoch parameters
+                                    newpar[prior.upper()] = Time(
+                                        samples[prior][i], format="mjd", scale="tt"
+                                    ).gps
+                            else:
+                                # convert units as required
+                                newpar[prior.upper()] = (
+                                    (samples[prior][i] * TEMPOUNITS[prior.upper()])
+                                    .to(PPUNITS[prior.upper()])
+                                    .value
+                                )
+                        else:
+                            newpar[prior.upper()] = float(samples[prior][i])
 
                 m = self.model(
                     newpar=newpar,

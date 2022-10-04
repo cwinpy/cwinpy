@@ -392,6 +392,10 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             self._roq_all_B2mat_lu.append(B2mat_lu)
             self._roq_all_Bvec.append(Bvec)
 
+            # print(len(real_node_indices))
+            # print(len(imag_node_indices))
+            # print(len(model2_node_indices))
+
     def dot_products(self):
         """
         Calculate the (noise-weighted) dot products of the data and the
@@ -969,7 +973,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
         return self._noise_log_likelihood
 
-    def _is_vector_param(self, name):
+    @staticmethod
+    def _is_vector_param(name):
         """
         Check if a parameter is a vector parameter.
         """
@@ -982,12 +987,13 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         # strip out any underscores from name and remove trailing index
         noscores = re.sub("_", "", name)[: -len(intvals[-1])]
 
-        if noscores in self.VECTOR_PARAMS:
+        if noscores in TargetedPulsarLikelihood.VECTOR_PARAMS:
             return True
         else:
             return False
 
-    def _vector_param_name_index(self, name):
+    @staticmethod
+    def _vector_param_name_index(name):
         """
         Get the vector parameter name (stripped of the position)
         """
@@ -1004,13 +1010,14 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
         return (noscores, intval)
 
-    def _parse_vector_param(self, par, name, value):
+    @staticmethod
+    def _parse_vector_param(par, name, value):
         """
         Set a vector parameter with the given single value at the place
         specified in the `name`.
         """
 
-        vname, vpos = self._vector_param_name_index(name)
+        vname, vpos = TargetedPulsarLikelihood._vector_param_name_index(name)
         vec = np.array(par[vname])
         vec[vpos] = value
 
