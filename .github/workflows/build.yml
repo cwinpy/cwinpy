@@ -38,3 +38,10 @@ jobs:
     - name: Run codecov
       run: |
         codecov
+    - name: Full coverage
+      if: startsWith(github.ref, 'refs/tags')
+      run: |
+        # include all test for a release
+        export INCLUDE_SKIPPED_TESTS=1
+        pytest --cov=cwinpy
+        codecov
