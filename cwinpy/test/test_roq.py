@@ -571,8 +571,8 @@ phi0 = {phi0}
         # set priors for PE
         cls.priors = PriorDict()
         cls.priors["h0"] = Uniform(0, 1e-23, name="h0")
-        cls.priors["f0"] = Uniform(f0 - 10 * res, f0 + 10 * res, name="f0")
-        cls.priors["f1"] = Uniform(f1 - 10 * res**2, f1 + 10 * res**2, name="f1")
+        cls.priors["f0"] = Uniform(f0 - 5 * res, f0 + 5 * res, name="f0")
+        cls.priors["f1"] = Uniform(f1 - 5 * res**2, f1 + 5 * res**2, name="f1")
 
     @classmethod
     def teardown_class(cls):
@@ -580,8 +580,8 @@ phi0 = {phi0}
         Remove test simulation directory.
         """
 
-        # shutil.rmtree(cls.fakepardir)
-        # shutil.rmtree(cls.fakedatadir)
+        shutil.rmtree(cls.fakepardir)
+        shutil.rmtree(cls.fakedatadir)
 
     def test_heterodyne_exact(self):
         """
@@ -614,8 +614,8 @@ phi0 = {phi0}
         # PE grid
         gridspace = {
             "h0": np.linspace(0, self.priors["h0"].maximum, 50),
-            "f0": np.linspace(self.priors["f0"].minimum, self.priors["f0"].maximum, 75),
-            "f1": np.linspace(self.priors["f1"].minimum, self.priors["f1"].maximum, 75),
+            "f0": np.linspace(self.priors["f0"].minimum, self.priors["f0"].maximum, 50),
+            "f1": np.linspace(self.priors["f1"].minimum, self.priors["f1"].maximum, 50),
         }
 
         peoutdir = os.path.join(self.fakedatadir, "pe_output")
@@ -634,8 +634,7 @@ phi0 = {phi0}
             "par_file": copy.deepcopy(self.fakepulsarpar),
         }
 
-        # pestandard = pe(**pekwargs)
-        _ = pe(**copy.deepcopy(pekwargs))
+        gridstandard = pe(**copy.deepcopy(pekwargs)).grid
 
         # set ROQ likelihood
         ntraining = 2000
@@ -643,5 +642,11 @@ phi0 = {phi0}
         pekwargs["roq_kwargs"] = {"ntraining": ntraining}
         pekwargs["label"] = "roq"
 
-        # peroq = pe(**pekwargs)
-        _ = pe(**pekwargs)
+        gridroq = pe(**pekwargs).grid
+
+        # compare marginalised likelihoods for each parameter
+        for par in gridspace:
+            assert np.allclose(
+                gridstandard.marginalize_ln_likelihood(not_parameters=par),
+                gridroq.marginalize_ln_likelihood(not_parameters=par),
+            )

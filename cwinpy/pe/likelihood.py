@@ -392,10 +392,6 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             self._roq_all_B2mat_lu.append(B2mat_lu)
             self._roq_all_Bvec.append(Bvec)
 
-            # print(len(real_node_indices[0]))
-            # print(len(imag_node_indices[0]))
-            # print(len(model2_node_indices[0]))
-
     def dot_products(self):
         """
         Calculate the (noise-weighted) dot products of the data and the
