@@ -180,6 +180,4 @@ PHI0     2.4
 
         logl2 = like2.log_likelihood()
 
-        print(f"{logl1:.15f} {logl2:.15f}")
-
         assert np.allclose([logl1], [logl2], atol=1e-10, rtol=0.0)
