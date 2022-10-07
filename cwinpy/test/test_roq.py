@@ -463,7 +463,7 @@ class TestROQFrequency(object):
         os.makedirs(cls.fakedatadir, exist_ok=True)
 
         cls.fakedatabandwidth = 8  # Hz
-        sqrtSn = 3e-23  # noise amplitude spectral density
+        sqrtSn = 2e-23  # noise amplitude spectral density
         cls.fakedataname = "FAKEDATA"
 
         # Create two pulsars to inject: one isolated and one binary
@@ -571,7 +571,8 @@ phi0 = {phi0}
         # set priors for PE
         cls.priors = PriorDict()
         cls.priors["h0"] = Uniform(0, 1e-23, name="h0")
-        cls.priors["f0"] = Uniform(f0 - 100 * res, f0 + 100 * res, name="f0")
+        cls.priors["f0"] = Uniform(f0 - 10 * res, f0 + 10 * res, name="f0")
+        cls.priors["f1"] = Uniform(f1 - 10 * res**2, f1 + 10 * res**2, name="f1")
 
     @classmethod
     def teardown_class(cls):
@@ -612,10 +613,9 @@ phi0 = {phi0}
 
         # PE grid
         gridspace = {
-            "h0": np.linspace(0, self.priors["h0"].maximum, 100),
-            "f0": np.linspace(
-                self.priors["f0"].minimum, self.priors["f0"].maximum, 500
-            ),
+            "h0": np.linspace(0, self.priors["h0"].maximum, 50),
+            "f0": np.linspace(self.priors["f0"].minimum, self.priors["f0"].maximum, 75),
+            "f1": np.linspace(self.priors["f1"].minimum, self.priors["f1"].maximum, 75),
         }
 
         peoutdir = os.path.join(self.fakedatadir, "pe_output")
@@ -638,7 +638,7 @@ phi0 = {phi0}
         _ = pe(**copy.deepcopy(pekwargs))
 
         # set ROQ likelihood
-        ntraining = 5000
+        ntraining = 2000
         pekwargs["roq"] = True
         pekwargs["roq_kwargs"] = {"ntraining": ntraining}
         pekwargs["label"] = "roq"
