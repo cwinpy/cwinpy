@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Compare cwinpy with lalapps_pulsar_parameter_estimation_nested for data from a
+Compare cwinpy with lalpulsar_parameter_estimation_nested for data from a
 single detector containing a software injection with components at two
 harmonics.
 """
@@ -98,7 +98,7 @@ cosiotarange = [-1.0, 1.0]
 c21range = [0.0, 1e-23]
 c22range = [0.0, 1e-23]
 
-# set prior for lalapps_pulsar_parameter_estimation_nested
+# set prior for lalpulsar_parameter_estimation_nested
 priorfile = os.path.join(outdir, "{}_prior.txt".format(label))
 priorcontent = """C21 uniform {} {}
 C22 uniform {} {}
@@ -131,7 +131,7 @@ priors["cosiota"] = Uniform(
     cosiotarange[0], cosiotarange[1], "cosiota", latex_label=r"$\cos{\iota}$"
 )
 
-# run lalapps_pulsar_parameter_estimation_nested
+# run lalpulsar_parameter_estimation_nested
 try:
     execpath = os.environ["CONDA_PREFIX"]
 except KeyError:
@@ -141,7 +141,7 @@ except KeyError:
 
 execpath = os.path.join(execpath, "bin")
 
-lppen = os.path.join(execpath, "lalapps_pulsar_parameter_estimation_nested")
+lppen = os.path.join(execpath, "lalpulsar_parameter_estimation_nested")
 n2p = os.path.join(execpath, "lalinference_nest2pos")
 
 Nlive = 1000  # number of nested sampling live points
@@ -233,7 +233,7 @@ comparisons_two_harmonics(label, outdir, priors, cred=0.9)
 
 # create results plot
 allresults = {
-    "lalapps_pulsar_parameter_estimation_nested": outpost,
+    "lalpulsar_parameter_estimation_nested": outpost,
     "cwinpy_pe": result,
 }
 

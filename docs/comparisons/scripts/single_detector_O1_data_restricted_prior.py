@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Compare cwinpy with lalapps_pulsar_parameter_estimation_nested for O1 data
+Compare cwinpy with lalpulsar_parameter_estimation_nested for O1 data
 from a single detector (H1). This uses data for the Crab pulsar, but restricts
 the prior ranges on iota and psi based on observational constraints from the
 pulsar wind nebula.
@@ -52,7 +52,7 @@ phi0range = [0.0, np.pi]
 psimeansigma = [2.1844, 1.6e-3]  # mean and standard deviation of Gaussian prior
 h0range = [0.0, 1e-23]
 
-# set prior for lalapps_pulsar_parameter_estimation_nested
+# set prior for lalpulsar_parameter_estimation_nested
 priorfile = os.path.join(outdir, "{}_prior.txt".format(label))
 priorcontent = """H0 uniform {} {}
 PHI0 uniform {} {}
@@ -92,7 +92,7 @@ priors["iota"] = MultivariateGaussian(
     iotadist, "iota", latex_label=r"$\iota$", unit="rad"
 )
 
-# run lalapps_pulsar_parameter_estimation_nested
+# run lalpulsar_parameter_estimation_nested
 try:
     execpath = os.environ["CONDA_PREFIX"]
 except KeyError:
@@ -102,7 +102,7 @@ except KeyError:
 
 execpath = os.path.join(execpath, "bin")
 
-lppen = os.path.join(execpath, "lalapps_pulsar_parameter_estimation_nested")
+lppen = os.path.join(execpath, "lalpulsar_parameter_estimation_nested")
 n2p = os.path.join(execpath, "lalinference_nest2pos")
 
 Nlive = 1000  # number of nested sampling live points
@@ -220,7 +220,7 @@ comparisons(label, outdir, grid, priors, cred=0.9)
 
 # create results plot
 allresults = {
-    "lalapps_pulsar_parameter_estimation_nested": outpost,
+    "lalpulsar_parameter_estimation_nested": outpost,
     "cwinpy_pe": result,
     "cwinpy_pe (grid)": grid,
 }

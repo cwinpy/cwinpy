@@ -52,6 +52,7 @@ pre-commit-python-3.8:
     # run pre-commit checks
     - pre-commit run --all-files --verbose --show-diff-on-failure
 
+
 # run comparisons when a new tag is made
 run-comparisons:
   stage: comparisons

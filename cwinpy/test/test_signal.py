@@ -3,9 +3,9 @@ Test the HeterodynedCWSimulator in the signal module.
 
 
 For comparison quasi-independent model heterodyned signals have been produced
-using the heterodyned_pulsar_signal function in lalapps:
+using the heterodyned_pulsar_signal function in lalpulsar:
 
-from lalapps.pulsarpputils import heterodyned_pulsar_signal
+from lalpulsar.pulsarpputils import heterodyned_pulsar_signal
 from astropy.coordinates import SkyCoord
 import numpy as np
 

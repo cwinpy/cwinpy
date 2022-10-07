@@ -88,7 +88,7 @@ def skyshift_pipeline(**kwargs):
         The length of data (in seconds) into which to split the individual
         heterodyne jobs. By default this is set to 86400, i.e., one day. If
         this is set to 0, then the whole dataset is treated as a single job.
-    accounting_group_tag: str
+    accounting_group: str
         For LVK users this sets the computing accounting group tag.
     usetempo2: bool
         Set this flag to use Tempo2 (if installed) for calculating the signal
@@ -245,7 +245,7 @@ def skyshift_pipeline(**kwargs):
             ),
         )
         optional.add_argument(
-            "--accounting-group-tag",
+            "--accounting-group",
             dest="accgroup",
             help=("For LVK users this sets the computing accounting group tag"),
         )
@@ -325,10 +325,10 @@ def skyshift_pipeline(**kwargs):
             peconfigfile["pe_job"]["getenv"] = "True"
             if args.accgroup is not None:
                 hetconfigfile["heterodyne_job"]["accounting_group"] = kwargs.get(
-                    "accounting_group_tag", args.accgroup
+                    "accounting_group", args.accgroup
                 )
                 peconfigfile["pe_job"]["accounting_group"] = kwargs.get(
-                    "accounting_group_tag", args.accgroup
+                    "accounting_group", args.accgroup
                 )
 
             # add heterodyne settings

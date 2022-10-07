@@ -1,7 +1,7 @@
 Multiple detectors, software injection (linear polarisation)
 ==============================================================
 
-Here we compare ``lalapps_pulsar_parameter_estimation_nested`` with ``cwinpy`` in the case of
+Here we compare ``lalpulsar_parameter_estimation_nested`` with ``cwinpy`` in the case of
 simulated Gaussian noise from multiple detectors (H1, L1 and V1) containing a software injected signal with close-to linear polarisation. The parameters being
 estimated are :math:`h_0`, :math:`\phi_0`, :math:`\psi` and :math:`\cos{\iota}`, all with uniform priors.
 

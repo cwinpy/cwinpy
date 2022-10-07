@@ -50,7 +50,8 @@ heterodyne, CWInPy can either use functions within `LALSuite
 
 CWInPy comes with an executable, ``cwinpy_heterodyne``, for implementing this, which closely (but
 not identically) emulates the functionality from the `LALSuite
-<https://lscsoft.docs.ligo.org/lalsuite/>`_ code ``lalapps_heterodyne_pulsar``.
+<https://lscsoft.docs.ligo.org/lalsuite/>`_ code ``lalpulsar_heterodyne`` (formerly
+``lalapps_heterodyne_pulsar``).
 
 There is also an API for running this analysis from within a Python shell or script as described
 :ref:`below<heterodyne API>`.
@@ -76,6 +77,9 @@ to access proprietary frame files, e.g.,:
 .. code:: bash
 
    ligo-proxy-init -p albert.einstein
+
+The ``cwinpy_heterodyne_pipeline`` should be used for most practical purposes, while
+``cwinpy_heterodyne`` is generally useful for short tests.
 
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
 data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
@@ -106,8 +110,8 @@ Generating the data
 -------------------
 
 To generate the data we will use the LALSuite `programme
-<https://lscsoft.docs.ligo.org/lalsuite/lalapps/makefakedata__v5_8c.html>`_
-``lalapps_Makefakedata_v5`` (you can skip straight to the heterodyning description
+<https://lscsoft.docs.ligo.org/lalsuite/lalpulsar/makefakedata__v5_8c.html>`_
+``lalpulsar_Makefakedata_v5`` (you can skip straight to the heterodyning description
 :ref:`here<Heterodyning the data>`). The two fake pulsars have parameters defined in Tempo(2)-style
 parameter files (where frequencies, frequency derivatives and phases are the rotational values
 rather than the gravitational-wave values), as follows:
@@ -250,7 +254,7 @@ case and all delay corrections will be included.
    heterodyned using the default `LALSuite <https://lscsoft.docs.ligo.org/lalsuite/>`_  functions
    and those heterodyned using Tempo2. This offset is not present for non-binary sources. In general
    this is not problematic, but will mean that the if heterodyning data containing a simulated
-   binary signal created using, e.g., ``lalapps_Makefakedata_v5``, the recovered initial phase will
+   binary signal created using, e.g., ``lalpulsar_Makefakedata_v5``, the recovered initial phase will
    not be consistent with the expected value.
 
 Comparisons between heterodyning as described in the previous section and that using Tempo2 are
@@ -358,7 +362,7 @@ As described in, e.g., [1]_, the heterodyne can be performed in two stages. For 
 stage could account for the signal's phase evolution, but neglect Doppler and relativistic
 solar/binary system effects while still low-pass filtering and heavily downsampling the data. The
 second stage would then apply the solar/binary system effects at the lower sample rate. In the past,
-with ``lalapps_heterodyne_pulsar``, this two stage approach provided speed advantages, although with
+with ``lalpulsar_heterodyne``, this two stage approach provided speed advantages, although with
 CWInPy that advantage is negligible. However, the two stage approach can be useful if you want to
 analyse data with a preliminary source ephemeris, and then re-heterodyne the same data with an
 updated source ephemeris. In most cases it is recommended to heterodyne in a single stage, which
@@ -537,7 +541,7 @@ will have these all as ``False`` and the second stage will have them all as ``Tr
 
    By default, if running the the two stage approach, the knee frequency of the low-pass filter will
    be 0.5 Hz compared to 0.1 Hz if running a single stage. This differs from the default used by
-   ``lalapps_heterodyne_pulsar``, which uses 0.25 Hz.
+   ``lalpulsar_heterodyne``, which uses 0.25 Hz.
 
 Re-heterodyning data
 ^^^^^^^^^^^^^^^^^^^^
@@ -593,12 +597,12 @@ performed in each run, so if you wanted the analyse the these in, say, the LIGO 
 
 Other command line arguments for ``cwinpy_heterodyne_pipeline``, e.g., for setting specific detectors,
 can be found :ref:`below<heterodyne Command line arguments>`. If running on a LIGO Scientific
-Collaboration cluster the ``--accounting-group-tag`` flag must be set to a valid `accounting tag
+Collaboration cluster the ``--accounting-group`` flag must be set to a valid `accounting tag
 <https://accounting.ligo.org/user>`_, e.g.,:
 
 .. code-block:: bash
 
-   cwinpy_heterodyne_pipeline --run O1 --hwinj --output /home/user/O1injections --accounting-group-tag ligo.prod.o1.cw.targeted.bayesian
+   cwinpy_heterodyne_pipeline --run O1 --hwinj --output /home/user/O1injections --accounting-group ligo.prod.o1.cw.targeted.bayesian
 
 .. note::
 

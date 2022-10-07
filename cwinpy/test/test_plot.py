@@ -247,6 +247,7 @@ class TestPlotting(object):
         fig.close()
         del plot
 
+    @pytest.mark.slow
     def test_plot_2d(self):
         """
         Test 2D plots.

@@ -1,7 +1,7 @@
 Single detector, noise-only, two harmonics
 ==========================================
 
-Here we compare ``lalapps_pulsar_parameter_estimation_nested`` with ``cwinpy`` in the case of
+Here we compare ``lalpulsar_parameter_estimation_nested`` with ``cwinpy`` in the case of
 simulated Gaussian noise from a single detector (H1 in this case) where the signal is composed of
 two harmonics: one at the source rotation frequency and one at twice the rotation frequency. The
 parameters being estimated are :math:`C_{21}`, :math:`C_{22}`, :math:`\Phi_{21}`, :math:`\Phi_{22}`

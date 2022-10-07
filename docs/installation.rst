@@ -2,11 +2,25 @@
 Installation
 ############
 
-CWInPy can currently be installed and run on Linux and Mac OSX systems with Python 3.8 or higher,
-but Windows installation is not supported. One of the core package requirements needs the `GNU
-Scientific Library (GSL) <https://www.gnu.org/software/gsl/>`_ to be installed, so this should
-either be installed globally (e.g., via the OS's standard package management system) or could be
-installed within a `conda environment <https://anaconda.org/conda-forge/gsl>`_.
+CWInPy can currently be installed and run on Linux and Mac OS systems with Python 3.8 or higher,
+but Windows installation is not supported (although installation though `WSL
+<https://docs.microsoft.com/en-us/windows/wsl/install>`__ can be successful). One of the core
+package requirements needs the `GNU Scientific Library (GSL) <https://www.gnu.org/software/gsl/>`_
+to be installed, so this should either be installed globally (e.g., via the OS's standard package
+management system) or could be installed within a `conda environment
+<https://anaconda.org/conda-forge/gsl>`_.
+
+.. note::
+
+   If planning to use the `Tempo2 <https://bitbucket.org/psrsoft/tempo2/src/master/>`__ pulsar
+   timing package within CWInPy for phases calculations, it must already be installed on you system
+   (this will be done by default if installing CWInPy through its conda package). The easiest way to
+   install Tempo2 is within a conda environment and installing the `libstempo
+   <https://vallis.github.io/libstempo/>`_ package:
+
+   .. code-block:: console
+
+      $ conda install -c conda-forge libstempo
 
 Install CWInPy from source
 ==========================
@@ -44,6 +58,22 @@ then install CWInPy along with all its requirements using:
 
       $ cd cwinpy/
       $ pip install .
+
+      .. note::
+
+         If installing on Mac OS, the required htcondor package is not installable via pip. Either
+         install htcondor as described `here
+         <https://htcondor.readthedocs.io/en/v9_0/getting-htcondor/install-macos-as-root.html>`__,
+         or install it in a conda environment with:
+
+         .. code-block:: console
+
+            $ conda install -c conda-forge htcondor
+
+         before attempting to install CWInPy.
+
+      If wanting to be able to run the CWInPy test suite see the installation instructions in the
+      "Developer" tab.
 
 .. tabbed:: Developer
 
@@ -117,7 +147,7 @@ CWInPy is available through the `PyPI <https://pypi.org/project/cwinpy/>`_ and `
 
 CWInPy is also available within the Conda environment supplied via the `International
 Gravitational-Wave Observatory Network <https://computing.docs.ligo.org/conda/>`_ (IGWN) over CVMFS.
-To install CVMFS (for Linux and macOS only) you can follow the instructions `here
+To install CVMFS (for Linux and Mac OS only) you can follow the instructions `here
 <https://computing.docs.ligo.org/guide/cvmfs/>`__. Once this is installed you can enter a Conda
 environment, e.g., ``igwn-py38``, from a terminal using:
 
@@ -155,7 +185,7 @@ To run these tests first install CWInPy with the additional required dependencie
 
 .. code-block:: bash
 
-   $ pip install .[test]
+   $ pip install -e .[test]
 
 and then run `pytest <https://docs.pytest.org/en/latest/>`_ with:
 

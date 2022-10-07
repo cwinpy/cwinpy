@@ -2,11 +2,10 @@
 Code comparison
 ###############
 
-Here we document comparisons between the analysis produced using CWInPy compared with the
-`LALSuite
-<https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalapps_pulsar_parameter_estimation_nested``,
-and the full pipeline generation code ``lalapps_knope``, which
-are described in [1]_.
+Here we document comparisons between the analysis produced using CWInPy compared with the `LALSuite
+<https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalpulsar_parameter_estimation_nested`` (formerly
+``lalapps_pulsar_parameter_estimation_nested``), and the full pipeline generation code
+``lalpulsar_knope`` (formerly ``lalapps_knope``), which are described in [1]_.
 
 The codes will be run on identical data and in configurations that are as close as possible.
 
@@ -123,7 +122,7 @@ Pipeline comparison
 ===================
 
 We can compare the results of the full pipeline produced by the `LALSuite
-<https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalapps_knope`` with that produced using the CWInPy
+<https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalpulsar_knope`` with that produced using the CWInPy
 code ``cwinpy_knope_pipeline``. We will do this comparison by analysing the set of :ref:`hardware
 injections<Hardware Injections>` and analysis of real pulsar data using open data from the two LIGO
 detectors during the `first advanced LIGO observing run <https://www.gw-openscience.org/O1/>`_ (O1). 
@@ -131,10 +130,10 @@ detectors during the `first advanced LIGO observing run <https://www.gw-openscie
 O1 hardware injections
 ----------------------
 
-To analyse the 15 hardware injections in O1 using the ``lalapps_knope`` pipeline the following
-configuration file (named ``lalapps_knope_O1injections.ini``) has been used:
+To analyse the 15 hardware injections in O1 using the ``lalpulsar_knope`` pipeline the following
+configuration file (named ``lalpulsar_knope_O1injections.ini``) has been used:
 
-.. literalinclude:: knope/lalapps_knope_O1injections.ini
+.. literalinclude:: knope/lalpulsar_knope_O1injections.ini
 
 In this case the included segment lists have been made using the following code:
 
@@ -157,22 +156,22 @@ In this case the included segment lists have been made using the following code:
 This has then been submitted (on the `UWM Nemo computing cluster
 <https://cgca.uwm.edu/datacenter.html>`_) with:
 
->>> lalapps_knope lalapps_knope_O1injections.ini
+>>> lalpulsar_knope lalpulsar_knope_O1injections.ini
 
 To perform the analysis using CWInPy, the :ref:`"Quick Setup"<Quick setup>` has been used:
 
->>> cwinpy_knope_pipeline --run O1 --hwinj --incoherent --output /home/matthew/cwinpy_knope/O1injections --accounting-group-tag ligo.dev.o1.cw.targeted.bayesian
+>>> cwinpy_knope_pipeline --run O1 --hwinj --incoherent --output /home/matthew/cwinpy_knope/O1injections --accounting-group ligo.dev.o1.cw.targeted.bayesian
 
 .. note::
 
    Because these analyses used LVK computing resources the
-   ``accounting_group`` / ``--accounting-group-tag`` inputs have had to be set.
+   ``accounting_group`` / ``--accounting-group`` inputs have had to be set.
 
 In terms of `wall-clock time
 <https://en.wikipedia.org/wiki/Elapsed_real_time#:~:text=Elapsed%20real%20time%2C%20real%20time,at%20which%20the%20task%20started.>`_
-the ``lalapps_knope`` and ``cwinpy_knope_pipeline`` pipelines took 32 hours 8 mins and 13 hours 1
+the ``lalpulsar_knope`` and ``cwinpy_knope_pipeline`` pipelines took 32 hours 8 mins and 13 hours 1
 min, respectively (differences here could in part relate to availability of cluster nodes at the
-time of running). In terms of total CPU hours used by all the jobs for the ``lalapps_knope`` and
+time of running). In terms of total CPU hours used by all the jobs for the ``lalpulsar_knope`` and
 ``cwinpy_knope_pipeline`` pipelines these took approximately 43.4 days and 27.9 days, respectively.
 
 .. note::
@@ -188,7 +187,7 @@ time of running). In terms of total CPU hours used by all the jobs for the ``lal
 Heterodyned data comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To compare the heterodyned data we can look at the power spectra obtained using ``lalapps_knope``
+To compare the heterodyned data we can look at the power spectra obtained using ``lalpulsar_knope``
 and ``cwinpy_knope_pipeline``. The following code has been used to produce these spectra:
 
 .. code-block:: python
@@ -242,7 +241,7 @@ and L1:
 Injection parameter comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To compare the final parameter estimation between the ``lalapps_knope`` and
+To compare the final parameter estimation between the ``lalpulsar_knope`` and
 ``cwinpy_knope_pipeline`` to following code has been used:
 
 .. code-block:: python
@@ -442,8 +441,8 @@ which produces the following plots:
 
 These show very consistent posteriors produced by both codes, which extract the parameters as
 expected. They would not be expected to be identical due to a range of differences including:
-``lalapps_knope`` performed the heterodyne in two stages rather than the one used by
-``cwinpy_knope_pipeline``; ``lalapps_knope`` uses a low-pass filter with knee frequency of 0.25 Hz
+``lalpulsar_knope`` performed the heterodyne in two stages rather than the one used by
+``cwinpy_knope_pipeline``; ``lalpulsar_knope`` uses a low-pass filter with knee frequency of 0.25 Hz
 rather than the default 0.1 Hz used by ``cwinpy_knope_pipeline``; the outlier vetoing for the two
 codes is different; the default "chunking" of the heterodyned data into stationary segments used
 during parameter estimation is different between the codes.

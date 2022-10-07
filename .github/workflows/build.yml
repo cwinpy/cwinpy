@@ -38,3 +38,9 @@ jobs:
     - name: Run codecov
       run: |
         codecov
+    - name: Full coverage
+      if: startsWith(github.ref, 'refs/tags')
+      run: |
+        # include all test for a release
+        pytest --cov=cwinpy --run-slow
+        codecov

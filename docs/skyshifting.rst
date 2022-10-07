@@ -106,7 +106,7 @@ each of the individual detectors.
 
 .. code-block:: bash
 
-   cwinpy_skyshift_pipeline --run O1 --pulsar PULSAR03 --nshifts 500 --accounting-group-tag aluk.dev.o1.cw.targeted.bayesian
+   cwinpy_skyshift_pipeline --run O1 --pulsar PULSAR03 --nshifts 500 --accounting-group aluk.dev.o1.cw.targeted.bayesian
 
 The above line automatically launches the HTCondor jobs that run the analysis.
 
@@ -347,10 +347,10 @@ Example: analysis outlier
 
 In the search for gravitational-wave signals from pulsars using LIGO O1 data [6]_, the coherent
 versus incoherent signal odds for pulsar J1932+17 was an outlier when compared to these for the rest
-of the pulsars in the search sample. The sky-shifting method can be used to see assess the
-significance of the outlier. In this case, as in [3]_, a log-uniform prior will be used on the
-gravitational-wave amplitude :math:`h_0` (this is the uninformative Jeffreys prior for a scale
-parameter such as :math:`h_0`), and therefore a configuration file must be used to set up the
+of the pulsars in the search sample. The sky-shifting method can be used to assess the significance
+of the outlier. In this case, as in [3]_, a log-uniform prior will be used on the gravitational-wave
+amplitude :math:`h_0` (this is the uninformative Jeffreys prior for a scale parameter such as
+:math:`h_0`), and therefore a configuration file must be used to set up the
 ``cwinpy_skyshift_pipeline`` rather than just using the "quick setup" options. The following
 configuration file, called ``outlier.ini``, is used to run on O1 data for both LIGO detectors:
 
@@ -392,8 +392,6 @@ values. To get a histogram with the
        plot="invcdf",
        kde=True,
    )
-   fig.show()
-
    fig.show()
 
 .. thumbnail:: skyshifting/oddshistoutlier.png
@@ -443,11 +441,11 @@ can calculate the SNRs using the (default) maximum a-posteriori sample:
    :align: center
 
 In the above plots, we've used a log-scale for the SNR axis due to the odd-looking SNR distribution.
-This SNR distribution is a product of using the log-uniform prior on the signal amplitude :math:`h_0`, causing
-most of the maximum a-posteriori values to be peaked close to zero. Even so, we see that the outlier
-signal is within a cluster of cases with SNR values above around 3, although it is not a unique
-outlier. We can instead switch to plotting the SNR generated using the maximum likelihood sample to
-give:
+This SNR distribution is a product of using the log-uniform prior on the signal amplitude
+:math:`h_0`, causing most of the maximum a-posteriori values to be peaked close to zero. Even so, we
+see that the outlier signal is within a cluster of cases with SNR values above around 3, although it
+is not a unique outlier. We can instead switch to plotting the SNR generated using the maximum
+likelihood sample to give:
 
 .. code-block:: python
    

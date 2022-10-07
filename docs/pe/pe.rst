@@ -10,8 +10,8 @@ methods.
 
 CWInPy comes with an executable, ``cwinpy_pe``, for performing this analysis, which tries to
 emulate, as much as possible, the functionality from the `LALSuite
-<https://lscsoft.docs.ligo.org/lalsuite/>`_ code ``lalapps_pulsar_parameter_estimation_nested``
-described in [1]_.
+<https://lscsoft.docs.ligo.org/lalsuite/>`_ code ``lalpulsar_parameter_estimation_nested`` (formerly
+``lalapps_pulsar_parameter_estimation_nested``) described in [1]_.
 
 There is also an API for running this analysis from within a Python shell or script as described
 :ref:`below<Parameter estimation API>`.

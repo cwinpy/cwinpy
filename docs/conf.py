@@ -170,7 +170,7 @@ html_theme_options = {
         },
         {
             "name": "GitLab",
-            "url": "https://git.ligo.org/CW/software/cwinpy",
+            "url": "https://git.ligo.org/cwinpy/cwinpy",
             "icon": "fab fa-gitlab",
         },
     ],

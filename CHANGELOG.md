@@ -1,5 +1,18 @@
 # Notable changes between versions
 
+## [0.9.0] 2022-09-28
+
+Major changes for this release:
+
+- Allow the use of a "transient-continuous" signal model (!108)
+- Fix how the minimum Bayesian Block chunk length is set in `HeterodynedData` (!114)
+- Use SciPy filter functions for performing filtering during the heterodyne stage (!112)
+- Move `likelihood.py` into the `pe` submodule (!116)
+- Allow `pulsarfiles` configuration file option for `cwinpy_pe_pipeline` that is consistent with the `knope` and `heterodyne` pipeline (!117)
+- Fix bug that now mean that PE will work for frequency/frequency derivative parameters (!120)
+- Add the ability to use the Einstein Telescope (ET) detector ASD for simulated noise (!121)
+- Exclude the log likelihood and log prior from the `Plot` posterior plots by default (!126)
+
 ## [0.8.0] 2022-05-27
 
 The release has major changes, including some that are backwards incompatible. The major changes are:
