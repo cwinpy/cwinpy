@@ -247,10 +247,7 @@ class TestPlotting(object):
         fig.close()
         del plot
 
-    @pytest.mark.skipif(
-        not int(os.environ.get("INCLUDE_SKIPPED_TESTS", "0")),
-        reason="Test takes a long time, so only run for a release",
-    )
+    @pytest.mark.slow
     def test_plot_2d(self):
         """
         Test 2D plots.
