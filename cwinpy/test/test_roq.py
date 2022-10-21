@@ -650,3 +650,91 @@ phi0 = {phi0}
                 gridstandard.marginalize_ln_likelihood(not_parameters=par),
                 gridroq.marginalize_ln_likelihood(not_parameters=par),
             )
+
+    def test_heterodyne_offset(self):
+        """
+        Heterodyne with offset phase parameters
+        """
+
+        segments = [(self.fakedatastart, self.fakedatastart + self.fakedataduration)]
+
+        fulloutdir = os.path.join(self.fakedatadir, "heterodyne_output")
+
+        # create par file with offset frequency and frequency derivative
+        offsetpar = copy.deepcopy(self.fakepulsarpar)
+        res = 1 / self.fakedataduration
+        offsetpar["F"] = [
+            self.fakepulsarpar["F0"] - 2.3 * res,
+            self.fakepulsarpar["F1"] + 1.8 * res**2,
+        ]
+        offsetparfile = os.path.join(self.fakepardir, "J0001+0001.par")
+        offsetpar.pp_to_par(offsetparfile)
+
+        inputkwargs = dict(
+            starttime=segments[0][0],
+            endtime=segments[-1][-1],
+            pulsarfiles=offsetparfile,
+            segmentlist=segments,
+            framecache=self.fakedatadir,
+            channel=self.fakedatachannel,
+            freqfactor=2,
+            stride=86400 // 2,
+            resamplerate=1 / 60,
+            includessb=True,
+            includebsb=True,
+            includeglitch=True,
+            output=fulloutdir,
+            label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+        )
+
+        het = heterodyne(**inputkwargs)
+
+        # PE grid
+        gridspace = {
+            "h0": np.linspace(0, self.priors["h0"].maximum, 50),
+            "f0": np.linspace(self.priors["f0"].minimum, self.priors["f0"].maximum, 60),
+            "f1": np.linspace(self.priors["f1"].minimum, self.priors["f1"].maximum, 60),
+        }
+
+        peoutdir = os.path.join(self.fakedatadir, "pe_output")
+        pelabel = "nonroqoffset"
+
+        # run non-ROQ PE over grid
+        pekwargs = {
+            "grid": True,
+            "grid_kwargs": {"grid_size": gridspace, "save": True},
+            "outdir": peoutdir,
+            "label": pelabel,
+            "prior": self.priors,
+            "likelihood": "studentst",
+            "detector": self.fakedatadetector,
+            "data_file": list(het.outputfiles.values()),
+            "par_file": copy.deepcopy(offsetpar),
+        }
+
+        gridstandard = pe(**copy.deepcopy(pekwargs)).grid
+
+        # set ROQ likelihood
+        ntraining = 2000
+        pekwargs["roq"] = True
+        pekwargs["roq_kwargs"] = {"ntraining": ntraining}
+        pekwargs["label"] = "roqoffset"
+
+        gridroq = pe(**pekwargs).grid
+
+        # compare marginalised likelihoods for each parameter
+        for par in gridspace:
+            assert np.allclose(
+                gridstandard.marginalize_ln_likelihood(not_parameters=par),
+                gridroq.marginalize_ln_likelihood(not_parameters=par),
+            )
+
+        # check frequency and frequency derivative posterior peak at the
+        # correct place
+        f0idx = gridroq.marginalize_ln_posterior(not_parameters="f0").argmax()
+        f0val = gridroq.sample_points["f0"][f0idx]
+        assert f0val - res < self.fakepulsarpar["F0"] < f0val + res
+
+        f1idx = gridroq.marginalize_ln_posterior(not_parameters="f1").argmax()
+        f1val = gridroq.sample_points["f1"][f1idx]
+        assert f1val - res**2 < self.fakepulsarpar["F1"] < f1val + res**2
