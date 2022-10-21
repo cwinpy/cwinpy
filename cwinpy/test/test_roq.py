@@ -466,7 +466,7 @@ class TestROQFrequency(object):
         sqrtSn = 2e-23  # noise amplitude spectral density
         cls.fakedataname = "FAKEDATA"
 
-        # Create two pulsars to inject: one isolated and one binary
+        # Create one pulsars to inject
         cls.fakepulsarpar = []
 
         # requirements for Makefakedata pulsar input files
