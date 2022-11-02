@@ -10,6 +10,7 @@ from bilby.core.prior import PriorDict, Sine, Uniform
 from cwinpy.heterodyne import heterodyne
 from cwinpy.parfile import PulsarParameters
 from cwinpy.pe import pe
+from cwinpy.plot import Plot
 from cwinpy.utils import LAL_EPHEMERIS_URL, download_ephemeris_file
 
 # generate some fake data using lalpulsar_Makefakedata_v5
@@ -20,7 +21,7 @@ fakedatadetector = "H1"
 fakedatachannel = f"{fakedatadetector}:FAKE_DATA"
 
 fakedatastart = 1000000000
-fakedataduration = 86400
+fakedataduration = 864000
 
 os.makedirs(fakedatadir, exist_ok=True)
 
@@ -54,9 +55,10 @@ delta = 0.5  # source declination (rads)
 pepoch = 1000000000  # frequency epoch (GPS)
 
 # GW parameters
-h0 = 3.0e-24  # GW amplitude
+h0 = 5.5e-25  # GW amplitude
 phi0 = 1.0  # GW initial phase (rads)
-cosiota = 0.1  # cosine of inclination angle
+iota = 1.47
+cosiota = np.cos(iota)  # cosine of inclination angle
 psi = 0.5  # GW polarisation angle (rads)
 
 mfddic = {
@@ -77,7 +79,7 @@ fakepulsarpar["PSRJ"] = "J0000+0000"
 fakepulsarpar["H0"] = h0
 fakepulsarpar["PHI0"] = phi0 / 2.0
 fakepulsarpar["PSI"] = psi
-fakepulsarpar["COSIOTA"] = cosiota
+fakepulsarpar["IOTA"] = iota
 fakepulsarpar["F"] = [f0, f1, f2]
 fakepulsarpar["RAJ"] = alpha
 fakepulsarpar["DECJ"] = delta
@@ -128,13 +130,21 @@ res = 1 / fakedataduration
 
 # set priors for PE
 priors = PriorDict()
-priors["h0"] = Uniform(0, 1e-23, name="h0")
-priors["phi0"] = Uniform(0, np.pi, name="phi0")
-priors["psi"] = Uniform(0, np.pi / 2, name="psi")
-priors["iota"] = Sine(name="iota")
+priors["h0"] = Uniform(0, 1e-23, name="h0", latex_label="$h_0$")
+priors["phi0"] = Uniform(0, np.pi, name="phi0", latex_label=r"$\phi_0$", unit="rad")
+priors["psi"] = Uniform(0, np.pi / 2, name="psi", latex_label=r"$\psi$", unit="rad")
+priors["iota"] = Sine(name="iota", latex_label=r"$\iota$")
 
-priors["f0"] = Uniform(f0 - 5 * res, f0 + 5 * res, name="f0")
-priors["f1"] = Uniform(f1 - 5 * res**2, f1 + 5 * res**2, name="f1")
+priors["f0"] = Uniform(
+    f0 - 5 * res, f0 + 5 * res, name="f0", latex_label=r"$f$", unit="Hz"
+)
+priors["f1"] = Uniform(
+    f1 - 5 * res**2,
+    f1 + 5 * res**2,
+    name="f1",
+    latex_label=r"$\dot{f}$",
+    unit="Hz/s",
+)
 
 # perform heterodyne with f0 and f1 offset from true values
 segments = [(fakedatastart, fakedatastart + fakedataduration)]
@@ -179,8 +189,6 @@ pekwargs = {
     "detector": fakedatadetector,
     "data_file": list(het.outputfiles.values()),
     "par_file": copy.deepcopy(offsetpar),
-    "sampler_kwargs": {"plot": True},
-    "show_thruths": True,
 }
 
 # run PE without ROQ
@@ -194,3 +202,12 @@ pekwargs["label"] = "roqoffset"
 
 # run PE with ROQ
 peroq = pe(**pekwargs)
+
+# plot results
+plot = Plot(
+    {"Standard likelihood": pestandard.result, "ROQ likelihood": peroq.result},
+    pulsar=fakeparfile,
+)
+
+plot.plot()
+plot.save(os.path.join(peoutdir, "posteriors.png"), dpi=200)
