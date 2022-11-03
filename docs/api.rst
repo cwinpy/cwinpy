@@ -19,6 +19,7 @@ Bayesian inference
    :maxdepth: 2
 
    Likelihood function <likelihood>
+   Reduced Order Quadrature <pe/roq/roq>
    Hierarchical inference <hierarchical>
 
 Plotting

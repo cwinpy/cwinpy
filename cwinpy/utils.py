@@ -512,10 +512,7 @@ def initialise_ephemeris(
     a ``LAL_DATA_PATH`` environment variable), and if not present will then
     attempt to download the files from a repository.
 
-    To do
-    -----
-
-    Add the ability to create ephemeris files using astropy.
+    To do: Add the ability to create ephemeris files using astropy.
 
     Parameters
     ----------
