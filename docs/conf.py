@@ -39,7 +39,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.autosectionlabel",
     "sphinxcontrib.programoutput",
-    "sphinx_panels",
+    "sphinx_design",
     "myst_parser",
     "sphinx.ext.todo",
     "sphinxcontrib.images",
