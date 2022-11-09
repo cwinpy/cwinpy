@@ -67,7 +67,15 @@ from the true values. We will then attempt to estimate the source parameters inc
 and frequency derivative using both the standard likelihood and the ROQ likelihood. The script for
 this is shown below.
 
+To view the code that generates the simulated signal click the hidden dropdown below. 
+
+.. dropdown:: Signal generation
+
+    .. literalinclude:: example1.py
+       :lines: 4-8,11,14-126
+
 .. literalinclude:: example1.py
+   :lines: 3,8-13,127-
 
 ROQ API
 -------
