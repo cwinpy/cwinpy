@@ -70,6 +70,10 @@ this is shown below.
 To view the code that generates the simulated signal click the hidden dropdown below. 
 
 .. dropdown:: Signal generation
+    :icon: code
+    :animate: fade-in
+    :color: secondary
+    :margin: 0
 
     .. literalinclude:: example1.py
        :lines: 4-8,11,14-126
