@@ -69,65 +69,67 @@ If you use CWInPy for research that leads to a publication, I would be grateful 
 
 Pitkin, M., (2022). CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars. *Journal of Open Source Software*, 7(77), 4568, https://doi.org/10.21105/joss.04568
 
-.. tabbed:: BibTeX
+.. tab-set::
 
-   .. code-block:: bibtex
+   .. tab-item:: BibTeX
 
-      @article{cwinpy,
-          title = "{CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars}",
-         author = {{Pitkin}, M.},
-        journal = {Journal of Open Source Software},
-         volume = 7,
-         number = 77,
-          pages = 4568,
-           year = 2022,
-            doi = {10.21105/joss.04568},
-            url = {https://doi.org/10.21105/joss.04568},
-      }
+      .. code-block:: bibtex
 
-.. tabbed:: RIS
+         @article{cwinpy,
+             title = "{CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars}",
+            author = {{Pitkin}, M.},
+           journal = {Journal of Open Source Software},
+            volume = 7,
+            number = 77,
+             pages = 4568,
+              year = 2022,
+               doi = {10.21105/joss.04568},
+               url = {https://doi.org/10.21105/joss.04568},
+         }
 
-   .. code-block::
+   .. tab-item:: RIS
 
-      TY  - JOUR
-      T1  - CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars
-      AU  - Pitkin, Matthew
-      JO  - Journal of Open Source Software
-      VL  - 7
-      IS  - 77
-      SP  - 4568
-      PY  - 2022
-      DA  - 2022/09/29/
-      DO  - 10.21105/joss.04568
-      UR  - https://doi.org/10.21105/joss.04568
-      ER  - 
+      .. code-block:: text
 
-.. tabbed:: EndNode
+         TY  - JOUR
+         T1  - CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars
+         AU  - Pitkin, Matthew
+         JO  - Journal of Open Source Software
+         VL  - 7
+         IS  - 77
+         SP  - 4568
+         PY  - 2022
+         DA  - 2022/09/29/
+         DO  - 10.21105/joss.04568
+         UR  - https://doi.org/10.21105/joss.04568
+         ER  - 
 
-   .. code-block::
+   .. tab-item:: EndNode
 
-      %0 Journal Article
-      %T CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars
-      %A Pitkin, Matthew
-      %J Journal of Open Source Software
-      %V 7
-      %N 77
-      %P 4568
-      %D 2022
-      %R 10.21105/joss.04568
+      .. code-block:: text
 
-.. tabbed:: RefWorks
+         %0 Journal Article
+         %T CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars
+         %A Pitkin, Matthew
+         %J Journal of Open Source Software
+         %V 7
+         %N 77
+         %P 4568
+         %D 2022
+         %R 10.21105/joss.04568
 
-   .. code-block::
+   .. tab-item:: RefWorks
 
-      RT Journal
-      T1 CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars
-      A1 Pitkin, Matthew
-      JF Journal of Open Source Software
-      VO 7
-      SP 4568
-      YR 2022
-      DO DOI: 10.21105/joss.04568
+      .. code-block:: text
+
+         RT Journal
+         T1 CWInPy: A Python package for inference with continuous gravitational-wave signals from pulsars
+         A1 Pitkin, Matthew
+         JF Journal of Open Source Software
+         VO 7
+         SP 4568
+         YR 2022
+         DO DOI: 10.21105/joss.04568
 
 .. automodule:: cwinpy
    :members:
