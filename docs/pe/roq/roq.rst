@@ -58,14 +58,68 @@ shorter blocks of data. Unlike the use of ROQs for parameter estimation with Com
 Coalescences [2]_, the same set of basis vectors cannot generally be used for different sources, so
 need to be calculated individually for each source and dataset.
 
-ROQ comparison
-==============
+Usage
+=====
 
-In a first example of using the ROQ likelihood we will generate a simulate continuous signal and
+The usage of the ROQ likelihood can be specified by using keyword arguments to the
+:func:`cwinpy.pe.pe` functions, e.g., 
+
+.. code-block:: python
+
+    pe(
+        ...
+        roq=True,
+        roq_kwargs={"ntraining": 5000, "greedy_tol": 1e-12},
+    )
+
+where the ``roq_kwargs`` dictionary contains keywords for the :class:`~cwinpy.pe.roq.GenerateROQ`
+class.
+
+These keywords can also be used in the ``cwinpy_pe``, ``cwinpy_pe_pipeline``, ``cwinpy_knope`` and
+``cwinpy_knope_pipeline`` configuration files or APIs. For example, to use the ROQ likelihood a
+``cwinpy_pe`` configuration file would contain:
+
+.. code-block:: ini
+
+   roq = True
+   roq_kwargs = {'ntraining': 5000, 'greedy_tol': 1e-12}
+
+.. note::
+
+    When generating the reduced order model, a training set of ``ntraining`` models is produced. If
+    this number is large and the data set is long, this can potentially run into computer memory
+    constraints. To avoid this, the ``bbmaxlength`` keyword of the
+    :class:`~cwinpy.data.HeterodynedData` can be passed to ensure that the data is broken up into
+    smaller chunks on which the model can be individually trained. This would be achieved through
+    the ``data_kwargs`` keyword of :func:`cwinpy.pe.pe`, e.g., using
+
+    .. code-block:: python
+
+        pe(
+            ...
+            roq=True,
+            roq_kwargs={"ntraining": 5000, "greedy_tol": 1e-12},
+            data_kwargs={"bbmaxlength": 10000},
+        )
+
+    if using :func:`cwinpy.pe.pe` directly, or
+
+    .. code-block:: ini
+
+       roq = True
+       roq_kwargs = {'ntraining': 5000, 'greedy_tol': 1e-12}
+       data_kwargs = {'bbmaxlength': 10000}
+
+    in a configuration file.
+
+ROQ comparison example
+======================
+
+In a first example of using the ROQ likelihood, we will generate a simulated continuous signal and
 then purposely heterodyne it using frequency and frequency derivative parameters that are offset
-from the true values. We will then attempt to estimate the source parameters including the frequency
-and frequency derivative using both the standard likelihood and the ROQ likelihood. The script for
-this is shown below.
+from the "true" values. We will then attempt to estimate the source parameters including the
+frequency and frequency derivative using both the standard likelihood and the ROQ likelihood. The
+:download:`script <example1_roq.py>` for this is shown below.
 
 To view the code that generates the simulated signal click the hidden dropdown below. 
 
@@ -75,16 +129,31 @@ To view the code that generates the simulated signal click the hidden dropdown b
     :color: secondary
     :margin: 0
 
-    .. literalinclude:: example1.py
+    .. literalinclude:: example1_roq.py
        :lines: 4-8,11,14-126
 
-.. literalinclude:: example1.py
+.. literalinclude:: example1_roq.py
    :lines: 3,8-13,127-
+
+In this case, when running without the ROQ likelihood a single likelihood evaluation takes about 3.6
+ms and the inference takes nearly 21 minutes in total. For the ROQ likelihood, a single likelihood
+evaluation takes about 0.6 ms and the inference takes just over three minutes. So, we see a
+significant speed advantage with the ROQ.
+
+The posteriors from both cases can be see below and show very good agreement.
+
+.. thumbnail:: example1_roq_posteriors.png
+   :width: 450px
+   :align: center
 
 ROQ API
 -------
 
-The API for the ROQ generation class is given below.
+The API for the ROQ generation class is given below. In general, direct use of this class is not
+required and generation of ROQ for likelihoods will be performed via the
+:class:`~cwinpy.pe.likelihood.TargetedPulsarLikelihood` class and the
+:meth:`~cwinpy.data.HeterodynedData.generate_roq` method of the
+:class:`~cwinpy.data.HeterodynedData` class.
 
 .. autoclass:: cwinpy.pe.roq.GenerateROQ
     :members:
@@ -95,10 +164,10 @@ ROQ References
 .. [1] `H. Antil et al. <https://ui.adsabs.harvard.edu/abs/2012arXiv1210.0577A/abstract>`_,
    *Journal of Scientific Computing*, **57**, 604-637 (2013).
 
-.. [2] `P. Canizares, S. E. Field, J. R. Gair & M. Tiglio <https://ui.adsabs.harvard.edu/abs/2013PhRvD..87l4005C/abstract>`,
+.. [2] `P. Canizares, S. E. Field, J. R. Gair & M. Tiglio <https://ui.adsabs.harvard.edu/abs/2013PhRvD..87l4005C/abstract>`_,
    *PRD*, **87**, 124005 (2013).
 
-.. [3] `M. Tiglio & A. Villanueva <https://ui.adsabs.harvard.edu/abs/2022LRR....25....2T/abstract>`,
+.. [3] `M. Tiglio & A. Villanueva <https://ui.adsabs.harvard.edu/abs/2022LRR....25....2T/abstract>`_,
    *LRR*, **25**, 2 (2022).
 
 .. [4] M. Pitkin, M. Isi, J. Veitch & G. Woan, `arXiv:1705.08978v1

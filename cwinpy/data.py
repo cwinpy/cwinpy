@@ -3670,7 +3670,7 @@ class HeterodynedData(TimeSeriesBase):
         The ``model`` argument is not required as that will always be
         set to ``"HeterodynedCWSimulator"``, while the ``par`` and ``det``
         arguments will default to be those in the
-        :class:`~cwinpy.data.HeterodynedData`` object.
+        :class:`~cwinpy.data.HeterodynedData` object.
 
         Parameters
         ----------
