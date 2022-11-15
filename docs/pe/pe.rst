@@ -62,7 +62,7 @@ these parameters. We can define the priors in a file as described in the documen
 be downloaded :download:`here <data/example1_prior.txt>`:
 
 .. literalinclude:: data/example1_prior.txt
-   :language: text
+   :language: python
 
 Here we have set the prior on :math:`h_0` to be uniform between 0 and 10\ :sup:`-22`, where in this
 case the maximum has been chosen to be large compared to the expected signal strength. The
@@ -264,7 +264,7 @@ the required prior probability distributions. The prior file we use is reproduce
 downloaded :download:`here <data/example3_prior.txt>`:
 
 .. literalinclude:: data/example3_prior.txt
-   :language: text
+   :language: python
 
 If setting the ``TRANSIENTSTARTTIME`` and ``TRANSIENTTAU`` to use MJD and days, respectively, in the
 prior file (to be consistent with the ``.par`` file) then the ``unit`` key for each prior must be
@@ -288,7 +288,7 @@ A configuration file that can be passed to ``cwinpy_pe`` for this example is sho
 comments describing the parameters given inline:
 
 .. literalinclude:: data/example3_config.ini
-   :language: text
+   :language: ini
 
 This can then be run with:
 
