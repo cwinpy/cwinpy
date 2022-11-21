@@ -206,6 +206,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         self.include_glitch = False
         self.update_ssb = False
         for key in self.priors:
+            if isinstance(self.priors[key], bilby.core.prior.Constraint):
+                continue
             if (
                 key.upper()
                 not in self.AMPLITUDE_PARAMS
@@ -477,6 +479,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
 
             # update parameters in the base par
             for pname, pval in self.parameters.items():
+                if isinstance(self.priors[pname], bilby.core.prior.Constraint):
+                    continue
                 if self._is_vector_param(pname.upper()):
                     name = self._vector_param_name_index(pname.upper())[0]
                     par[name] = self._parse_vector_param(par, pname.upper(), pval)
