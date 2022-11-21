@@ -38,6 +38,5 @@ for e in ext_modules:
     e.cython_directives = {"language_level": "3"}
 
 setup(
-    use_scm_version=True,
     ext_modules=ext_modules,
 )
