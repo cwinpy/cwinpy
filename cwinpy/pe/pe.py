@@ -1051,7 +1051,7 @@ class PERunner(object):
         self.prior = kwargs.get("prior", None)
         if not isinstance(self.prior, (str, dict, bilby.core.prior.PriorDict)):
             raise ValueError("The prior is not defined")
-        else:
+        elif not isinstance(self.prior, bilby.core.prior.PriorDict):
             try:
                 self.prior = bilby.core.prior.PriorDict.from_json(self.prior)
             except Exception as e1:

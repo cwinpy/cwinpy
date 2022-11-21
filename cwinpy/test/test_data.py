@@ -1112,9 +1112,9 @@ PHI0     2.4
         idxs = het.find_outliers()
 
         assert len(np.where(idxs == True)[0]) >= 2  # noqa: E712
-        assert (10 in np.where(idxs == True)[0]) and (
-            20 in np.where(idxs == True)[0]
-        )  # noqa: E712
+        assert (10 in np.where(idxs == True)[0]) and (  # noqa: E712
+            20 in np.where(idxs == True)[0]  # noqa: E712
+        )
 
         # test removing the outlier automatically
         newhet = HeterodynedData(data, times=times, remove_outliers=True)
