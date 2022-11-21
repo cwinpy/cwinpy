@@ -1,5 +1,11 @@
 # Notable changes between versions
 
+## [0.9.1] 2022-11-21
+
+Changes for this release:
+
+- Added checks for `Constraint` objects in priors and resolved duplicate construction of `PriorDict` (!130)
+
 ## [0.9.0] 2022-09-28
 
 Major changes for this release:
