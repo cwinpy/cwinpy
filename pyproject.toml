@@ -1,3 +1,7 @@
+# to build a release of cwinpy requires the "build" package:
+# pip install build
+# python -m build --sdist --outdir .
+
 [build-system]
 requires = [
     "cython",
