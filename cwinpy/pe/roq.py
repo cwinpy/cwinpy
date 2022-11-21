@@ -1,4 +1,5 @@
 from copy import deepcopy
+from pathlib import Path
 
 import lal
 import numpy as np
@@ -174,6 +175,12 @@ class GenerateROQ:
 
     @priors.setter
     def priors(self, priors):
+        if isinstance(priors, (str, Path)):
+            try:
+                priors = PriorDict(filename=priors)
+            except Exception as e:
+                raise IOError(f"Could not read prior file:\n{e}")
+
         if not isinstance(priors, PriorDict):
             raise TypeError("Prior must be a bilby PriorDict")
 

@@ -84,9 +84,11 @@ These keywords can also be used in the ``cwinpy_pe``, ``cwinpy_pe_pipeline``, ``
    roq = True
    roq_kwargs = {'ntraining': 5000, 'greedy_tol': 1e-12}
 
-.. note::
+.. attention::
 
-    When generating the reduced order model, a training set of ``ntraining`` models is produced. If
+    There are several things to be aware of when using the ROQ likelihood:
+
+    1. When generating the reduced order model, a training set of ``ntraining`` models is produced. If
     this number is large and the data set is long, this can potentially run into computer memory
     constraints. To avoid this, the ``bbmaxlength`` keyword of the
     :class:`~cwinpy.data.HeterodynedData` can be passed to ensure that the data is broken up into
@@ -111,6 +113,37 @@ These keywords can also be used in the ``cwinpy_pe``, ``cwinpy_pe_pipeline``, ``
        data_kwargs = {'bbmaxlength': 10000}
 
     in a configuration file.
+
+    2. To give the reduced order model the best chance of producing a reduced basis that is not too
+    large, it is best (if possible) to try and update the pulsar parameter file being used to have
+    its epoch, i.e., the ``PEPOCH`` to being at the start or the centre of the dataset that is being
+    analysed. This may require updating frequencies, frequency derivatives and sky locations to that
+    epoch, as applicable.
+
+    3. If wanting to use the ROQ as part of a pipeline running on multiple pulsars, you will most
+    likely have to specify different prior files for each pulsar. This can be done by making sure
+    that the ``priors`` option in the configuration file or passed directly to :func:`cwinpy.pe.pe`,
+    is either:
+    
+    * the path to a directory that contains individual prior file for each pulsar, where the files
+      are identified by containing the pulsar's ``PSRJ`` name in the filename;
+    * a list of paths to individual prior files for each pulsar, where the files
+      are identified by containing the pulsar's ``PSRJ`` name in the filename;
+    * or, a dictionary with keys being the pulsar ``PSRJ`` names and values being paths to the prior
+      file for that pulsar.
+
+    For example, the configuration file could contain:
+
+    .. code-block:: ini
+
+       priors = ['/home/user/parfiles/J0534+2200.prior', '/home/user/parfiles/J0835-4510.par']
+
+       # or alternatively (if the prior files are in the same directory)
+       priors = /home/user/parfiles
+
+       # or using a dictionary (if, say, the prior files do not contain the
+       # pulsar name in the file name)
+       priors = {'J0534+2200': '/home/user/parfiles/crab.prior', 'J0835-4510': '/home/user/parfiles/vela.par'}
 
 ROQ comparison example
 ======================
