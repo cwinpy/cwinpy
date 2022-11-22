@@ -7,7 +7,7 @@ requires = [
     "cython",
     "oldest-supported-numpy",
     "setuptools>=61",
-    "setuptools_scm>=6.2",
+    "setuptools_scm[toml]>=6.2",
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
@@ -120,13 +120,15 @@ license-files = [ "LICENSE" ]
 include-package-data = true
 
 [tool.setuptools.packages.find]
-where = ["cwinpy"]
+include = [
+    "cwinpy*",
+]
 
 [tool.setuptools_scm]
 write_to = "cwinpy/_version.py"
 
 [tool.coverage.run]
-source = [ "cwinpy " ]
+source = [ "cwinpy" ]
 omit = [
     "*/_version.py",
 ]

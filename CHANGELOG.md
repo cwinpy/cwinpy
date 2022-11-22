@@ -1,5 +1,9 @@
 # Notable changes between versions
 
+## [0.9.2] 2022-11-22
+
+This release fixes a broken build in the previous release.
+
 ## [0.9.1] 2022-11-21
 
 Changes for this release:
