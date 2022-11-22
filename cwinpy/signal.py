@@ -455,6 +455,7 @@ class HeterodynedCWSimulator(object):
             else:
                 # use TEMPO2 for phase calculation
                 import sys
+
                 from astropy.time import Time
                 from libstempo import tempopulsar
 

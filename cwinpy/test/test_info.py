@@ -2,6 +2,7 @@ import os
 from urllib.error import HTTPError
 
 import pytest
+
 from cwinpy.heterodyne import remote_frame_cache
 from cwinpy.info import (
     CVMFS_GWOSC_DATA_SERVER,
@@ -15,6 +16,7 @@ from cwinpy.info import (
 
 def check_connection():
     from socket import create_connection
+
     from cwinpy.info import CVMFS_GWOSC_DATA_SERVER
 
     try:

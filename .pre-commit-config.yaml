@@ -20,4 +20,4 @@ repos:
     rev: 5.10.1
     hooks:
       - id: isort # sort imports alphabetically and separates import into sections
-        args: [-tc, -sp=setup.cfg, --filter-files]
+        args: [--filter-files]
