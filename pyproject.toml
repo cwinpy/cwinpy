@@ -133,16 +133,17 @@ omit = [
     "*/_version.py",
 ]
 
-[tool.flake8]
-exclude = "__pycache__,.git,docs,build,dist,test,*__init__.py,docs/comparisons/scripts/comparitors.py,cwinpy/_version.py"
-max-line-length = 120
-ignore = [
-    "E129",
-    "W503",
-    "W504",
-    "W605",
-    "E203",
-]
+# flake8 is not supported in pyproject.toml (yet!?)
+#[tool.flake8]
+#exclude = "__pycache__,.git,docs,build,dist,test,*__init__.py,docs/comparisons/scripts/comparitors.py,cwinpy/_version.py"
+#max-line-length = 120
+#ignore = [
+#    "E129",
+#    "W503",
+#    "W504",
+#    "W605",
+#    "E203",
+#]
 
 [tool.isort]
 line_length = 88
