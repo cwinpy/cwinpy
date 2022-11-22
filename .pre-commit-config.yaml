@@ -3,7 +3,10 @@ repos:
     rev: v2.5.0
     hooks:
       - id: check-merge-conflict # prevent committing files with merge conflicts
-#        - id: flake8  # checks for flake8 errors
+  - repo: https://github.com/PyCQA/flake8
+    rev: 5.0.4
+    hooks:
+      - id: flake8  # checks for flake8 errors
   - repo: https://github.com/psf/black
     rev: 22.3.0
     hooks:
