@@ -9,9 +9,10 @@ import numpy as np
 import pytest
 from bilby.core.grid import Grid
 from bilby.core.result import Result, read_in_result
+from matplotlib.figure import Figure
+
 from cwinpy import PulsarParameters
 from cwinpy.plot import DEFAULT_BOUNDS, Plot
-from matplotlib.figure import Figure
 
 
 class TestPlotting(object):

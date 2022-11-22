@@ -27,6 +27,7 @@ import numpy as np
 import pytest
 from astropy import units as u
 from bilby.core.result import read_in_result
+
 from cwinpy import HeterodynedData, MultiHeterodynedData
 from cwinpy.data import PSDwrapper
 from cwinpy.pe.peutils import (

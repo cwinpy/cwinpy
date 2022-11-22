@@ -15,11 +15,12 @@ import warnings
 from argparse import ArgumentParser
 
 import bilby
-import cwinpy
 import numpy as np
 from astropy.time import Time
 from astropy.units import Quantity
 from htcondor.dags import DAG, write_dag
+
+import cwinpy
 
 from ..condor import submit_dag
 from ..condor.penodes import MergePELayer, PulsarPELayer

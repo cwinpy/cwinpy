@@ -949,7 +949,7 @@ def skyshift_results(
         elif plot.lower() in ["hammer", "lambert", "mollweide", "cart", "aitoff"]:
             try:
                 import healpy as hp
-                from healpy.newvisufunc import projview, newprojplot
+                from healpy.newvisufunc import newprojplot, projview
             except (ModuleNotFoundError, ImportError):
                 raise ImportError(
                     "You can only use 'hammer', 'lambert', 'mollweide', "

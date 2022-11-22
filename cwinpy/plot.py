@@ -1022,9 +1022,7 @@ class Plot:
         Create ND (where N > 2) plots from posterior samples.
         """
 
-        from pesummary.core.plots.plot import (
-            _make_comparison_corner_plot as plotfunc,
-        )
+        from pesummary.core.plots.plot import _make_comparison_corner_plot as plotfunc
 
         plotkwargs = kwargs.copy()
 

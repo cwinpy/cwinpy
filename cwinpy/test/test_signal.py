@@ -41,6 +41,7 @@ import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
+
 from cwinpy import PulsarParameters
 from cwinpy.signal import HeterodynedCWSimulator
 

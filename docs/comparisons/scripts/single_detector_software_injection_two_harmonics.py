@@ -15,12 +15,13 @@ import numpy as np
 from astropy.utils.data import download_file
 from bilby.core.prior import Uniform
 from comparitors import comparisons_two_harmonics
-from cwinpy import HeterodynedData
-from cwinpy.pe import pe
-from cwinpy.plot import Plot
 from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 from lalinference.io import read_samples
 from matplotlib import pyplot as plt
+
+from cwinpy import HeterodynedData
+from cwinpy.pe import pe
+from cwinpy.plot import Plot
 
 matplotlib.use("Agg")
 

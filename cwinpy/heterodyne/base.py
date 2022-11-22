@@ -2604,9 +2604,9 @@ def remote_frame_cache(
         detector prefix.
     """
 
-    from gwpy.time import to_gps
-    from gwpy.io import datafind as io_datafind
     from gwpy.detector import ChannelList
+    from gwpy.io import datafind as io_datafind
+    from gwpy.time import to_gps
     from gwpy.utils import gprint
 
     start = to_gps(start)

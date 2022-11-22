@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 from warnings import warn
 
-import cwinpy
 import lal
 import lalpulsar
 import numpy as np
@@ -20,6 +19,8 @@ from gwpy.timeseries import TimeSeries, TimeSeriesBase
 from gwpy.types import Series
 from numba import jit
 from scipy.ndimage import median_filter
+
+import cwinpy
 
 from .parfile import PulsarParameters
 from .utils import allzero, gcd_array, get_psr_name, is_par_file, logfactorial

@@ -4,7 +4,7 @@ import os
 import shutil
 from subprocess import call
 
-from htcondor import Submit, Schedd
+from htcondor import Schedd, Submit
 
 
 class CondorLayer:

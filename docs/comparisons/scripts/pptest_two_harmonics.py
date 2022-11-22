@@ -8,6 +8,7 @@ rotation frequency: c21, c22, iota, psi, phi21, and phi22.
 
 import bilby
 import numpy as np
+
 from cwinpy.pe.testing import PEPPPlotsDAG
 
 # set the priors
