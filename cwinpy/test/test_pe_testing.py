@@ -9,8 +9,9 @@ import shutil
 import bilby
 import numpy as np
 import pytest
-from cwinpy.pe.testing import PEPPPlotsDAG
 from htcondor import dags
+
+from cwinpy.pe.testing import PEPPPlotsDAG
 
 
 class TestPEPP(object):

@@ -7,9 +7,10 @@ pulsar-type search.
 
 import numpy as np
 from bilby.core.prior import PriorDict, Uniform
+from matplotlib import pyplot as pl
+
 from cwinpy import HeterodynedData
 from cwinpy.pe.likelihood import TargetedPulsarLikelihood
-from matplotlib import pyplot as pl
 
 # create a fake pulsar parameter file
 parcontent = """\

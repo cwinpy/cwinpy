@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pytest
 from bilby.core.prior import PriorDict
+
 from cwinpy.data import HeterodynedData
 from cwinpy.pe.pe import PERunner, pe
 

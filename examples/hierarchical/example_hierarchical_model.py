@@ -21,8 +21,9 @@ import numpy as np
 import pandas as pd
 from bilby.core.prior import Uniform
 from bilby.core.result import Result, ResultList
-from cwinpy.hierarchical import MassQuadrupoleDistribution
 from matplotlib import pyplot as plt
+
+from cwinpy.hierarchical import MassQuadrupoleDistribution
 
 # values from https://github.com/JohannesBuchner/PosteriorStacker/blob/main/tutorial/gendata.py
 # (+100 to make positive)

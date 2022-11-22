@@ -7,8 +7,9 @@ pulsar-type search using the pe interface.
 
 import numpy as np
 from bilby.core.prior import Uniform
-from cwinpy.pe import pe
 from matplotlib import pyplot as pl
+
+from cwinpy.pe import pe
 
 # create a fake pulsar parameter file
 parcontent = """\

@@ -9,6 +9,7 @@ import subprocess as sp
 import numpy as np
 import pytest
 from bilby.core.prior import PriorDict, Uniform
+
 from cwinpy import HeterodynedData, PulsarParameters
 from cwinpy.knope import knope
 from cwinpy.utils import LAL_EPHEMERIS_URL, download_ephemeris_file

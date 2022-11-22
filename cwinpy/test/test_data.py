@@ -4,13 +4,14 @@ Test script for data.py classes.
 
 import os
 
-import cwinpy
 import lal
 import numpy as np
 import pytest
+from matplotlib.figure import Figure
+
+import cwinpy
 from cwinpy import HeterodynedData, MultiHeterodynedData, PulsarParameters
 from cwinpy.data import PSDwrapper
-from matplotlib.figure import Figure
 
 
 class TestHeterodynedData(object):

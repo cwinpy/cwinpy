@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+
 from cwinpy import PulsarParameters
 from cwinpy.utils import (
     draw_ra_dec,
