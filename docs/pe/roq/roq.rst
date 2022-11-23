@@ -179,6 +179,140 @@ The posteriors from both cases can be see below and show very good agreement.
    :width: 450px
    :align: center
 
+ROQ on a hardware injection
+===========================
+
+As another example, we will use data containing a continuous hardware injection signal to show the
+ROQ likelihood in action. In particular, we will follow the `example
+<#example-single-detector-data>`_ given in the :ref:`parameter estimation documentation<Known pulsar
+parameter estimation>`. The heterodyned data file containing the signal can be downloaded here
+:download:`fine-H1-PULSAR08.txt.gz <../data/fine-H1-PULSAR08.txt.gz>` and the Tempo(2)-style pulsar
+parameter (``.par``) file containing the parameters for this simulated signal can be downloaded
+:download:`here <../data/PULSAR08.par>`. It is worth noting that in this case the frequency epoch
+(``PEPOCH`` in the ``.par`` file) of MJD 52944, i.e., a GPS time of 751680013, is about 12 years
+before the start of the heterodyned data (GPS 1132477888).
+
+We will attempt to perform parameter estimation over the unknown amplitude parameters and over a
+small range of rotational frequency and frequency derivative. In the prior file shown below (which
+can be downloaded :download:`here <../data/roq_example_prior.txt>`) the a prior spans 20 nHz in
+rotation frequency and 0.002 nHz/s in rotation frequency derivative:
+
+.. literalinclude:: ../data/roq_example_prior.txt
+   :language: python
+
+To show that having the frequency epoch and data epoch being considerably different can be
+problematic for the ROQ, we will build a reduced order model for this case:
+
+.. code-block:: python
+
+   from cwinpy import HeterodynedData
+
+   # read in the data
+   het = HeterodynedData("fine-H1-PULSAR08.txt.gz", par="PULSAR08.par", detector="H1")
+
+   # generate the reduced order model using the prior
+   roq = het.generate_roq("roq_example_prior.txt")
+
+   # show number of model basis vectors
+   print(f"Data length: {len(het)}\nNumber of training data: {roq[0].ntraining}\nNumber of model bases: {len(roq[0]._x_nodes)}")
+
+.. code-block:: text
+
+   Data length: 7979
+   Number of training data: 5000
+   Number of model bases: 2133
+
+We can see that the number of model bases is only a factor of about 4 less than the length of the
+data, meaning that the speed advantage may not be very significant. Also, the number is only a
+factor of about two less than the number of training models input, which runs that risk that parts
+of the parameter space are not well covered and that that basis is therefore `overfitted
+<https://en.wikipedia.org/wiki/Overfitting>`_` to the training set.
+
+We will therefore instead update the ``.par`` file parameters and priors to the middle of the
+data epoch and see the effect (will will keep the overall prior ranges the same).
+
+.. warning::
+
+    In this case we know the true parameters of the signal, so there's no risk in updating both the
+    ``.par`` file and while keeping the prior ranges that same, but in a real situation it may not
+    be possible to update the ``.par`` file without expanding the prior ranges to the new epoch.
+
+.. code-block:: python
+
+   from astropy.time import Time
+   from bilby.core.prior import PriorDict
+   from cwinpy import HeterodynedData
+   from cwinpy.parfile import PulsarParameters
+
+   het = HeterodynedData("fine-H1-PULSAR08.txt.gz")
+   par = PulsarParameters("PULSAR08.par")
+
+   # time to new epoch
+   dt = het.times.value[int(len(het) // 2)] - par["PEPOCH"]
+
+   # update rotation frequency
+   f0new = par["F0"] + par["F1"] * dt
+   par["F"] = [f0new, par["F1"]]
+
+   # update epoch
+   par["PEPOCH"] = het.times.value[int(len(het) // 2)]
+
+   # output new par (for later use!)
+   par.pp_to_par("PULSAR08_updated.par")
+
+   # read in prior
+   prior = PriorDict(filename="roq_example_prior.txt")
+
+   # update frequency prior
+   prior["f0"].minimum = f0new - 1e-7
+   prior["f0"].maximum = f0new + 1e-7
+
+   # output new prior (for later use!)
+   prior.to_file(outdir=".", label="roq_example_prior_update")
+
+   # read in data with updated parameters
+   hetnew = HeterodynedData("fine-H1-PULSAR08.txt.gz", par=par, detector="H1")
+
+   # generate ROQ
+   roq = hetnew.generate_roq(prior)
+
+   print(f"Data length: {len(hetnew)}\nNumber of training data: {roq[0].ntraining}\nNumber of model bases: {len(roq[0]._x_nodes)}")
+
+.. code-block:: text
+
+   Data length: 7979
+   Number of training data: 5000
+   Number of model bases: 110
+
+We see that the number of model bases is considerably reduced, so a significant speed up should
+occur when using the ROQ likelihood.
+
+We will now run parameter estimation using the ROQ likelihood using the update ``.par`` file and prior:
+
+.. code-block:: bash
+
+   cwinpy_pe --par-file PULSAR08_updated.par --data-file fine-H1-PULSAR08.txt.gz --detector H1 -o roq -l PULSAR08 --prior roq_example_prior_update.prior --roq
+
+In this case, a single likelihood evaluation takes just over 0.3 ms and the analysis finishes in
+just over 4 minutes.
+
+Plotting the results gives:
+
+.. code-block:: python
+
+   from cwinpy.plot import Plot
+
+   plot = Plot("PULSAR08_result.hdf5", pulsar="../PULSAR08_updated.par", untrig="cosiota")
+   plot.plot()
+   plot.save("example2_roq_posteriors.png", dpi=200)
+
+.. thumbnail:: ../data/roq/example2_roq_posteriors.png
+   :width: 450px
+   :align: center
+
+which shows that the frequency and frequency derivatives are found at the correct values well within
+the prior ranges.
+
 ROQ API
 -------
 

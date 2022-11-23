@@ -40,9 +40,9 @@ LATEX_LABELS = {
     "psiscalar": r"$\psi^{\rm{s}}$ (rad)",
     "transienttau": r"$\tau_{\rm{trans}}$",
     "transientstarttime": r"$T_0^{\rm{trans}}$",
-    "f0": r"$f$",
-    "f1": r"$\dot{f}$",
-    "f2": r"$\ddot{f}$",
+    "f0": r"$f$ (Hz)",
+    "f1": r"$\dot{f}$ (Hz/s)",
+    "f2": r"$\ddot{f}$ (Hz/s$^2$)",
 }
 
 #: dictionary of default parameter bounds
