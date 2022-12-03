@@ -32,6 +32,9 @@ There may also be cases where the parameter space is too uncorrelated (maybe jus
 large) to mean that the number of basis vectors is less than the overall length of the data. In such
 cases, it would just revert back to calculating the full likelihood.
 
+CWInPy uses the `arby <https://arby.readthedocs.io/>`_ package for the generation of the reduced
+order model, reduced basis vectors and interpolants for the likelihood function components.
+
 ROQ in CWInPy
 -------------
 
@@ -39,14 +42,14 @@ Within CWInPy, if performing parameter estimation in the case where the heterody
 to perfectly remove the signal's phase evolution (i.e., no parameters that cause the phase to
 evolve, such as frequency or sky location parameters, are to be estimated) then the likelihood
 function is already efficient and uses pre-summed terms (see
-:meth:`~cwinpy.pe.likelihood.TargetedPulsarLikelihood.dot_products` and Appendix C of [4]_. However,
-if the phase is potentially evolving (i.e., the observed electromagnetic pulse timing solution does
-not exactly match the gravitational-wave evolution and a residual phase evolution is left in the
-heterodyned data), and as such parameter estimation needs to be performed over some phase parameters
-(e.g., frequency) then these pre-summations cannot be done and each likelihood evaluation for
-different phase parameter values must re-calculate the model at all time stamps in the data. Along
-with the generally larger parameter space to explore, this will considerably slow down the
-inference.
+:meth:`~cwinpy.pe.likelihood.TargetedPulsarLikelihood.dot_products` and Appendix C of [4]_).
+However, if the phase is potentially evolving (i.e., the observed electromagnetic pulse timing
+solution does not exactly match the gravitational-wave evolution and a residual phase evolution is
+left in the heterodyned data), and as such parameter estimation needs to be performed over some
+phase parameters (e.g., frequency) then these pre-summations cannot be done and each likelihood
+evaluation for different phase parameter values must re-calculate the model at all time stamps in
+the data. Along with the generally larger parameter space to explore, this will considerably slow
+down the inference.
 
 While CWInPy's likelihood evaluations will operate in this mode by default, in these cases it can be
 useful to instead use *Reduced Order Quadrature* to help speed things up. There are several caveats
@@ -90,10 +93,11 @@ These keywords can also be used in the ``cwinpy_pe``, ``cwinpy_pe_pipeline``, ``
 
     1. When generating the reduced order model, a training set of ``ntraining`` models is produced. If
     this number is large and the data set is long, this can potentially run into computer memory
-    constraints. To avoid this, the ``bbmaxlength`` keyword of the
-    :class:`~cwinpy.data.HeterodynedData` can be passed to ensure that the data is broken up into
-    smaller chunks on which the model can be individually trained. This would be achieved through
-    the ``data_kwargs`` keyword of :func:`cwinpy.pe.pe`, e.g., using
+    constraints, due to the full matrix of training models needing to be stored in memory. To avoid
+    this, the ``bbmaxlength`` keyword of the :class:`~cwinpy.data.HeterodynedData` can be passed to
+    ensure that the data is broken up into smaller chunks on which the model can be individually
+    trained. This would be achieved through the ``data_kwargs`` keyword of :func:`cwinpy.pe.pe`,
+    e.g., using
 
     .. code-block:: python
 

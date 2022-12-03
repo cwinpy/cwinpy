@@ -528,6 +528,39 @@ class Plot:
             if isinstance(value, Grid)
         }
 
+        # apply offsets for slightly nicer plots axes
+        if len(self._grids) == 0 and len(self._samples) == 1:
+            for label in self._samples:
+                for parameter in self.parameters:
+                    srange = [
+                        np.min(self._samples[label][parameter]),
+                        np.max(self._samples[label][parameter]),
+                    ]
+                    label_suffix = ""
+
+                    # offset values
+                    median = np.median(self._samples[label][parameter])
+                    relwidth = np.abs((srange[1] - srange[0]) / median)
+
+                    if relwidth < 1e-4:
+                        offsetstr = f"{median:.4e}"
+                        a, b = offsetstr.split("e")
+
+                        if np.abs(int(b)) < 3:
+                            offsetstr = f"{median:.4f}"
+                            offset = float(offsetstr)
+                        else:
+                            offset = float(offsetstr)
+                            offsetstr = a + rf"\!\times\!10^{{{int(b)}}}"
+
+                        self._samples[label][parameter] -= offset
+                        label_suffix = rf" [${{\scriptstyle {offsetstr}}}$]"
+
+                        if parameter in self.injection_parameters:
+                            self.injection_parameters[parameter] -= offset
+
+                    self.latex_labels[parameter] += label_suffix
+
         colordicts = []
         for j, res in enumerate([self._samples, self._grids]):
             colordicts.append({})
