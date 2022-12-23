@@ -355,15 +355,18 @@ amplitude :math:`h_0` (this is the uninformative Jeffreys prior for a scale para
 configuration file, called ``outlier.ini``, is used to run on O1 data for both LIGO detectors:
 
 .. literalinclude:: skyshifting/exampleconfig.ini
+   :language: ini
 
 which points to a ``prior.txt`` file containing:
 
 .. literalinclude:: skyshifting/prior.txt
+   :language: text
 
 and a pulsar parameter file, as used by the O1 analysis based on observations from the `Jodrell Bank
 Observatory <https://www.jodrellbank.manchester.ac.uk/research/groups/pulsars/>`__, containing:
 
 .. literalinclude:: skyshifting/J1932+17.par
+   :language: text
 
 The analysis was the set up to run 500 sky-shifts with:
 

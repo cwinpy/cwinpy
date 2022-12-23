@@ -23,7 +23,7 @@ ROQ itself refers to a further neat trick that reduces the need to sum terms in 
 function over the full :math:`M` values and instead only sum over :math:`N` values. The basis
 vectors allow the construction of pre-calculated interpolants for the :math:`(d \cdot m)` and
 :math:`(m \cdot m)` terms in the likelihood (where :math:`d` and :math:`m` are the data and the
-model, respectively) that again only rely on the model being calculated to :math:`N` values to
+model, respectively) that again only rely on the model being calculated at :math:`N` values to
 accurately reconstruct the full terms.
 
 There is, of course, some initial overhead to calculating the basis vectors, but this is often
@@ -53,7 +53,7 @@ down the inference.
 
 While CWInPy's likelihood evaluations will operate in this mode by default, in these cases it can be
 useful to instead use *Reduced Order Quadrature* to help speed things up. There are several caveats
-to this, in particular, different frequency bins are highly uncorrelated, so it is unlikely that an
+to this, in particular, different frequency bins are highly uncorrelated, so it is unlikely that a
 small reduced basis set will be found if the frequency offset of many tens of frequency bins. Also,
 for the length of dataset often found in practice (or order a million data points over a year of
 observations), computer memory constraints may make it necessary to build the reduced basis on
@@ -120,16 +120,18 @@ These keywords can also be used in the ``cwinpy_pe``, ``cwinpy_pe_pipeline``, ``
 
     2. To give the reduced order model the best chance of producing a reduced basis that is not too
     large, it is best (if possible) to try and update the pulsar parameter file being used to have
-    its epoch, i.e., the ``PEPOCH`` to being at the start or the centre of the dataset that is being
-    analysed. This may require updating frequencies, frequency derivatives and sky locations to that
-    epoch, as applicable.
+    its epoch, i.e., the ``PEPOCH`` value, being at the start or the centre of the dataset that is
+    being analysed. This may require updating frequencies, frequency derivatives and sky locations
+    to that epoch, as applicable. This may be more necessary if using the ROQ likelihood for known
+    pulsars with an older observation epoch, but should not be problematic if following up CW
+    candidates from other wider parameter CW signal searches.
 
     3. If wanting to use the ROQ as part of a pipeline running on multiple pulsars, you will most
     likely have to specify different prior files for each pulsar. This can be done by making sure
-    that the ``priors`` option in the configuration file or passed directly to :func:`cwinpy.pe.pe`,
-    is either:
+    that the ``priors`` option in the configuration file, or passed directly to
+    :func:`cwinpy.pe.pe`, is either:
     
-    * the path to a directory that contains individual prior file for each pulsar, where the files
+    * the path to a directory that contains individual prior files for each pulsar, where the files
       are identified by containing the pulsar's ``PSRJ`` name in the filename;
     * a list of paths to individual prior files for each pulsar, where the files
       are identified by containing the pulsar's ``PSRJ`` name in the filename;
@@ -172,10 +174,10 @@ To view the code that generates the simulated signal click the hidden dropdown b
 .. literalinclude:: example1_roq.py
    :lines: 3,8-13,127-
 
-In this case, when running without the ROQ likelihood a single likelihood evaluation takes about 3.6
-ms and the inference takes nearly 21 minutes in total. For the ROQ likelihood, a single likelihood
-evaluation takes about 0.6 ms and the inference takes just over three minutes. So, we see a
-significant speed advantage with the ROQ.
+In this case, when running *without* the ROQ likelihood a single likelihood evaluation takes about
+3.6 ms and the inference takes nearly 21 minutes in total. For the ROQ likelihood, a single
+likelihood evaluation takes about 0.6 ms and the inference takes just over three minutes. So, we see
+a significant speed advantage with the ROQ.
 
 The posteriors from both cases can be see below and show very good agreement.
 
@@ -187,9 +189,9 @@ ROQ on a hardware injection
 ===========================
 
 As another example, we will use data containing a continuous hardware injection signal to show the
-ROQ likelihood in action. In particular, we will follow the `example
-<#example-single-detector-data>`_ given in the :ref:`parameter estimation documentation<Known pulsar
-parameter estimation>`. The heterodyned data file containing the signal can be downloaded here
+ROQ likelihood in action. In particular, we will follow the :ref:`example<Example: single detector
+data>`_ given in the :ref:`parameter estimation documentation<Known pulsar parameter estimation>`.
+The heterodyned data file containing the signal can be downloaded here
 :download:`fine-H1-PULSAR08.txt.gz <../data/fine-H1-PULSAR08.txt.gz>` and the Tempo(2)-style pulsar
 parameter (``.par``) file containing the parameters for this simulated signal can be downloaded
 :download:`here <../data/PULSAR08.par>`. It is worth noting that in this case the frequency epoch
@@ -237,9 +239,10 @@ data epoch and see the effect (will will keep the overall prior ranges the same)
 
 .. warning::
 
-    In this case we know the true parameters of the signal, so there's no risk in updating both the
-    ``.par`` file and while keeping the prior ranges that same, but in a real situation it may not
-    be possible to update the ``.par`` file without expanding the prior ranges to the new epoch.
+   In this case, we know the true parameters of the signal so there's no risk in updating both the
+   ``.par`` file while keeping the prior ranges that same, but in a real situation it may not
+   be possible to update the ``.par`` file without expanding the prior ranges to reflect the
+   uncertainty at the new epoch.
 
 .. code-block:: python
 
@@ -291,7 +294,8 @@ data epoch and see the effect (will will keep the overall prior ranges the same)
 We see that the number of model bases is considerably reduced, so a significant speed up should
 occur when using the ROQ likelihood.
 
-We will now run parameter estimation using the ROQ likelihood using the update ``.par`` file and prior:
+We will now run parameter estimation using the ROQ likelihood using the update ``.par`` file and
+prior:
 
 .. code-block:: bash
 
@@ -300,7 +304,7 @@ We will now run parameter estimation using the ROQ likelihood using the update `
 In this case, a single likelihood evaluation takes just over 0.3 ms and the analysis finishes in
 just over 4 minutes.
 
-Plotting the results gives:
+Plotting the results (after moving into the ``roq`` directory given as the output location) gives:
 
 .. code-block:: python
 
@@ -316,6 +320,50 @@ Plotting the results gives:
 
 which shows that the frequency and frequency derivatives are found at the correct values well within
 the prior ranges.
+
+Using ROQ with a search pipeline
+--------------------------------
+
+The ROQ likelihood can be used within a search pipeline, i.e., when running
+``cwinpy_knope_pipeline`` or ``cwinpy_pe_pipeline``. This will required individual prior files be
+specified for each source being searched for as the default priors will not require an ROQ (it will
+work will an ROQ, but is not necessary). We will perform a search for two pulsars in LIGO O1 data:
+
+* the hardware injection, ``PULSAR01``, for which we will "accidentally" heterodyne using a slightly
+  offset sky location and then perform parameter estimation over a small sky patch including the
+  true location;
+* the pulsar PSR J1932+17, which was an :ref:`outlier<Example: analysis outlier>`_ in the O1
+  analysis, for which we will search over a small frequency and frequency derivative range based on
+  expanding the uncertainty given by the electromagnetic timing solution by a factor of 5.
+
+For the ``PULSAR01`` hardware injection, we will use a ``.par`` file containing
+
+.. literalinclude:: ../data/PULSAR01_offset.par
+   :language: text
+
+where the right ascension and declination have been shifted by 0.01 mrad (0.138 seconds) and -0.01 mrad
+(-2.063 arcsec), respectively, compared to their actual values. We will use a prior file that
+searches over right ascension and declination over a uniform patch spanning ±0.02 mrad in each
+coordinate:
+
+.. literalinclude:: ../data/PULSAR01_prior.txt
+   :language: python
+
+For PSR J1932+17, the ``.par`` file we will use (as can be found :ref:`here<Example: analysis outlier>`_)
+contains:
+
+.. literalinclude:: ../../skyshifting/J1932+17.par
+   :language: text
+
+and the prior file is:
+
+.. literalinclude:: ../data/ROQ_J1932+17_prior.txt
+   :language: python
+
+The configuration file used is:
+
+.. literalinclude:: ../data/roq_pipeline_example.ini
+   :language: ini
 
 ROQ API
 -------
