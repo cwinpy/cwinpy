@@ -190,7 +190,7 @@ ROQ on a hardware injection
 
 As another example, we will use data containing a continuous hardware injection signal to show the
 ROQ likelihood in action. In particular, we will follow the :ref:`example<Example: single detector
-data>`_ given in the :ref:`parameter estimation documentation<Known pulsar parameter estimation>`.
+data>` given in the :ref:`parameter estimation documentation<Known pulsar parameter estimation>`.
 The heterodyned data file containing the signal can be downloaded here
 :download:`fine-H1-PULSAR08.txt.gz <../data/fine-H1-PULSAR08.txt.gz>` and the Tempo(2)-style pulsar
 parameter (``.par``) file containing the parameters for this simulated signal can be downloaded
@@ -232,7 +232,7 @@ We can see that the number of model bases is only a factor of about 4 less than 
 data, meaning that the speed advantage may not be very significant. Also, the number is only a
 factor of about two less than the number of training models input, which runs that risk that parts
 of the parameter space are not well covered and that that basis is therefore `overfitted
-<https://en.wikipedia.org/wiki/Overfitting>`_` to the training set.
+<https://en.wikipedia.org/wiki/Overfitting>`_ to the training set.
 
 We will therefore instead update the ``.par`` file parameters and priors to the middle of the
 data epoch and see the effect (will will keep the overall prior ranges the same).
@@ -322,7 +322,7 @@ which shows that the frequency and frequency derivatives are found at the correc
 the prior ranges.
 
 Using ROQ with a search pipeline
---------------------------------
+================================
 
 The ROQ likelihood can be used within a search pipeline, i.e., when running
 ``cwinpy_knope_pipeline`` or ``cwinpy_pe_pipeline``. This will required individual prior files be
@@ -332,7 +332,7 @@ work will an ROQ, but is not necessary). We will perform a search for two pulsar
 * the hardware injection, ``PULSAR01``, for which we will "accidentally" heterodyne using a slightly
   offset sky location and then perform parameter estimation over a small sky patch including the
   true location;
-* the pulsar PSR J1932+17, which was an :ref:`outlier<Example: analysis outlier>`_ in the O1
+* the pulsar PSR J1932+17, which was an :ref:`outlier<Example: analysis outlier>` in the O1
   analysis, for which we will search over a small frequency and frequency derivative range based on
   expanding the uncertainty given by the electromagnetic timing solution by a factor of 5.
 
@@ -349,7 +349,7 @@ coordinate:
 .. literalinclude:: ../data/PULSAR01_prior.txt
    :language: python
 
-For PSR J1932+17, the ``.par`` file we will use (as can be found :ref:`here<Example: analysis outlier>`_)
+For PSR J1932+17, the ``.par`` file we will use (as can be found :ref:`here<Example: analysis outlier>`)
 contains:
 
 .. literalinclude:: ../../skyshifting/J1932+17.par
