@@ -1533,46 +1533,58 @@ class PEDAGRunner(object):
         #  - a list of parameter files
         #  - a directory (or glob-able directory pattern) containing parameter files
         #  - a combination of a list of directories and/or files
+        #  - a dictionary of parameter files keyed to the pulsar name
         # All files must have the extension '.par'
         pulsardict = {}
         if parfiles is not None:
             parfiles = self.eval(parfiles)
-            if not isinstance(parfiles, list):
-                parfiles = [parfiles]
-
-            pulsars = []
-            for parfile in parfiles:
-                # add "*.par" wildcard to any directories
-                if os.path.isdir(parfile):
-                    parfile = os.path.join(parfile, "*.par")
-
-                # get all parameter files
-                pulsars.extend(
-                    [
-                        par
-                        for par in glob.glob(parfile)
-                        if os.path.splitext(par)[1] == ".par"
-                    ]
-                )
-
-            # get names of all the pulsars
-            for pulsar in list(pulsars):
-                if is_par_file(pulsar):
-                    psr = PulsarParameters(pulsar)
-
-                    # try names with order of precedence
-                    names = [
-                        psr[name]
-                        for name in ["PSRJ", "PSRB", "PSR", "NAME"]
-                        if psr[name] is not None
-                    ]
-                    if len(names) > 0:
-                        pulsardict[names[0]] = pulsar
+            if isinstance(parfiles, dict):
+                for pname, pfile in parfiles.items():
+                    # add from dictionary
+                    if is_par_file(pfile):
+                        pulsardict[pname] = pfile
                     else:
                         warnings.warn(
-                            f"Parameter file '{pulsar}' has no name, so it will be "
-                            "ignored"
+                            f"'{pfile}' is not a pulsar parameter file, so it "
+                            "will be ignored"
                         )
+            else:
+                if not isinstance(parfiles, list):
+                    parfiles = [parfiles]
+
+                pulsars = []
+                for parfile in parfiles:
+                    # add "*.par" wildcard to any directories
+                    if os.path.isdir(parfile):
+                        parfile = os.path.join(parfile, "*.par")
+
+                    # get all parameter files
+                    pulsars.extend(
+                        [
+                            par
+                            for par in glob.glob(parfile)
+                            if os.path.splitext(par)[1] == ".par"
+                        ]
+                    )
+
+                # get names of all the pulsars
+                for pulsar in list(pulsars):
+                    if is_par_file(pulsar):
+                        psr = PulsarParameters(pulsar)
+
+                        # try names with order of precedence
+                        names = [
+                            psr[name]
+                            for name in ["PSRJ", "PSRB", "PSR", "NAME"]
+                            if psr[name] is not None
+                        ]
+                        if len(names) > 0:
+                            pulsardict[names[0]] = pulsar
+                        else:
+                            warnings.warn(
+                                f"Parameter file '{pulsar}' has no name, so it will be "
+                                "ignored"
+                            )
 
         # the "injections" option in the [ephemerides] section can be specified
         # in the same way as the "pulsars" option
