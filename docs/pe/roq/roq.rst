@@ -365,6 +365,12 @@ The configuration file used is:
 .. literalinclude:: ../data/roq_pipeline_example.ini
    :language: ini
 
+which is run with:
+
+.. code-block:: bash
+
+   $ cwinpy_knope_pipeline roq_pipeline_example.ini
+
 ROQ API
 -------
 

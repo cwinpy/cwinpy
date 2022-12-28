@@ -580,20 +580,22 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     name = self._vector_param_name_index(pname.upper())[0]
                     par[name] = self._parse_vector_param(par, pname.upper(), pval)
                 else:
-                    if pname.upper() in TEMPOUNITS.keys():
-                        if str(TEMPOUNITS[pname.upper()]) == self.priors[pname].unit:
-                            if pname.upper() in EPOCHPARS:
-                                # conversions are required from MJD to GPS seconds for epoch parameters
-                                par[pname.upper()] = Time(
-                                    pval, format="mjd", scale="tt"
-                                ).gps
-                            else:
-                                # convert units as required
-                                par[pname.upper()] = (
-                                    (pval * TEMPOUNITS[pname.upper()])
-                                    .to(PPUNITS[pname.upper()])
-                                    .value
-                                )
+                    if (
+                        pname.upper() in TEMPOUNITS.keys()
+                        and str(TEMPOUNITS[pname.upper()]) == self.priors[pname].unit
+                    ):
+                        if pname.upper() in EPOCHPARS:
+                            # conversions are required from MJD to GPS seconds for epoch parameters
+                            par[pname.upper()] = Time(
+                                pval, format="mjd", scale="tt"
+                            ).gps
+                        else:
+                            # convert units as required
+                            par[pname.upper()] = (
+                                (pval * TEMPOUNITS[pname.upper()])
+                                .to(PPUNITS[pname.upper()])
+                                .value
+                            )
                     else:
                         # make sure values are floats
                         par[pname.upper()] = float(pval)

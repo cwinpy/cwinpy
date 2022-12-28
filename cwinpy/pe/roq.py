@@ -97,12 +97,16 @@ class GenerateROQ:
         # generate training data
         ts = self.generate_training_set()
 
+        print("Generated training set")
+
         if self.kwargs.get("store_training_data", False):
             # store training data if needed
             self.training_data = ts
 
         # generate the reduced basis
         self.generate_reduced_basis(ts)
+
+        print("Generated reduced basis")
 
     @property
     def x(self):
@@ -287,16 +291,15 @@ class GenerateROQ:
                             newpar, prior.upper(), samples[prior][i]
                         )
                     else:
-                        if prior.upper() in TEMPOUNITS.keys():
-                            if (
-                                str(TEMPOUNITS[prior.upper()])
-                                == self.priors[prior].unit
-                            ):
-                                if prior.upper() in EPOCHPARS:
-                                    # conversions are required from MJD to GPS seconds for epoch parameters
-                                    newpar[prior.upper()] = Time(
-                                        samples[prior][i], format="mjd", scale="tt"
-                                    ).gps
+                        if (
+                            prior.upper() in TEMPOUNITS.keys()
+                            and str(TEMPOUNITS[prior.upper()])
+                            == self.priors[prior].unit
+                        ):
+                            if prior.upper() in EPOCHPARS:
+                                newpar[prior.upper()] = Time(
+                                    samples[prior][i], format="mjd", scale="tt"
+                                ).gps
                             else:
                                 # convert units as required
                                 newpar[prior.upper()] = (
