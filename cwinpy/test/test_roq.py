@@ -663,6 +663,7 @@ phi0 = {phi0}
         # create par file with offset frequency and frequency derivative
         offsetpar = copy.deepcopy(self.fakepulsarpar)
         res = 1 / self.fakedataduration
+        offsetpar["PSRJ"] = "J0001+0001"  # make sure name is consistent with par file
         offsetpar["F"] = [
             self.fakepulsarpar["F0"] - 2.3 * res,
             self.fakepulsarpar["F1"] + 1.8 * res**2,
@@ -709,7 +710,6 @@ phi0 = {phi0}
             "likelihood": "studentst",
             "detector": self.fakedatadetector,
             "data_file": list(het.outputfiles.values()),
-            "par_file": copy.deepcopy(offsetpar),
         }
 
         gridstandard = pe(**copy.deepcopy(pekwargs)).grid
@@ -760,7 +760,7 @@ class TestROQBinary(object):
         os.makedirs(cls.fakedatadir, exist_ok=True)
 
         cls.fakedatabandwidth = 8  # Hz
-        sqrtSn = 2e-23  # noise amplitude spectral density
+        sqrtSn = 5e-24  # noise amplitude spectral density
         cls.fakedataname = "FAKEDATA"
 
         # create one pulsar to inject
@@ -882,16 +882,11 @@ phi0 = {phi0}
             "--randSeed=5678",  # for reproducibiliy
         ]
 
-        print([mfd] + cmds)
-
         # run makefakedata
         sp.run([mfd] + cmds)
 
-        print("Made fake data")
-
         # set priors for PE
         cls.priors = PriorDict()
-        # cls.priors["h0"] = Uniform(0, 1e-23, name="h0")
         cls.priors["t0"] = Uniform(tp - 5, tp + 5, name="t0")
         cls.priors["a1"] = Uniform(asini - 0.5, asini + 0.5, name="asini")
 
@@ -954,11 +949,7 @@ phi0 = {phi0}
             "par_file": copy.deepcopy(self.fakepulsarpar),
         }
 
-        print("Running over grid")
-
         gridstandard = pe(**copy.deepcopy(pekwargs)).grid
-
-        print("Run over grid")
 
         # set ROQ likelihood
         ntraining = 2000
@@ -966,11 +957,7 @@ phi0 = {phi0}
         pekwargs["roq_kwargs"] = {"ntraining": ntraining}
         pekwargs["label"] = "roq"
 
-        print("Running ROQ")
-
         gridroq = pe(**pekwargs).grid
-
-        print("Run ROQ")
 
         # compare marginalised likelihoods for each parameter
         for par in gridspace:
@@ -988,8 +975,9 @@ phi0 = {phi0}
 
         fulloutdir = os.path.join(self.fakedatadir, "heterodyne_output")
 
-        # create par file with offset frequency and frequency derivative
+        # create par file with offset t0 and asini
         offsetpar = copy.deepcopy(self.fakepulsarpar)
+        offsetpar["PSRJ"] = "J0001+0001"  # make sure name is consistent with par file
         offsetpar["T0"] = self.fakepulsarpar["T0"] - 1.5
         offsetpar["A1"] = self.fakepulsarpar["A1"] + 0.2
 
@@ -1034,7 +1022,6 @@ phi0 = {phi0}
             "likelihood": "studentst",
             "detector": self.fakedatadetector,
             "data_file": list(het.outputfiles.values()),
-            "par_file": copy.deepcopy(offsetpar),
         }
 
         gridstandard = pe(**copy.deepcopy(pekwargs)).grid

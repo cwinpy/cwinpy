@@ -97,16 +97,12 @@ class GenerateROQ:
         # generate training data
         ts = self.generate_training_set()
 
-        print("Generated training set")
-
         if self.kwargs.get("store_training_data", False):
             # store training data if needed
             self.training_data = ts
 
         # generate the reduced basis
         self.generate_reduced_basis(ts)
-
-        print("Generated reduced basis")
 
     @property
     def x(self):
