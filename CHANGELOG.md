@@ -1,5 +1,16 @@
 # Notable changes between versions
 
+## [0.9.2] 2022-11-22
+
+This release fixes a broken build in the previous release.
+
+## [0.9.1] 2022-11-21
+
+Changes for this release:
+
+- Added checks for `Constraint` objects in priors and resolved duplicate construction of `PriorDict` (!130)
+- Move project build metadata from `setup.cfg` to `pyproject.toml` (!131)
+
 ## [0.9.0] 2022-09-28
 
 Major changes for this release:

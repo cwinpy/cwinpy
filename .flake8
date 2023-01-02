@@ -1,0 +1,19 @@
+[flake8]
+exclude =
+    __pycache__,
+    .git,
+    docs/,
+    build/,
+    dist/,
+    *__init__.py,
+    docs/comparisons/scripts/comparitors.py,
+    cwinpy/_version.py,
+max-line-length = 120
+ignore =
+    E129,
+    W503,
+    W504,
+    W605,
+    E203,
+per-file-ignores = 
+    __init__.py:F401,

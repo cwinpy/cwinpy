@@ -326,7 +326,6 @@ def lalinference_to_bilby_result(postfile):
     """
 
     import h5py
-
     from bilby.core.result import Result
     from lalinference import bayespputils as bppu
     from pandas import DataFrame

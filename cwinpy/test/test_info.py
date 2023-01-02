@@ -15,6 +15,7 @@ from cwinpy.info import (
 
 def check_connection():
     from socket import create_connection
+
     from cwinpy.info import CVMFS_GWOSC_DATA_SERVER
 
     try:

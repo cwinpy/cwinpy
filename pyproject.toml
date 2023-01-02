@@ -1,12 +1,141 @@
+# to build a release of cwinpy requires the "build" package:
+# pip install build
+# python -m build --sdist --outdir .
+
 [build-system]
 requires = [
     "cython",
     "oldest-supported-numpy",
-    "setuptools>=45",
-    "setuptools_scm>=6.2",
+    "setuptools>=61",
+    "setuptools_scm[toml]>=6.2",
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "cwinpy"
+description = "A Python module for Bayesian inference with continuous gravitational-wave sources"
+authors = [
+    { name = "Matthew Pitkin", email = "matthew.pitkin@ligo.org" },
+]
+license = { text = "MIT" }
+readme = "README.md"
+
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+# requirements
+requires-python = ">=3.7, <4"
+dependencies = [
+    "appdirs",
+    "astropy",
+    "bilby >= 1.2.1",
+    "configargparse",
+    "corner >= 2.2.1",
+    "gwosc >= 0.5.4",
+    "gwpy >= 2.1.1",
+    "healpy",
+    "htcondor >= 9.0.6",
+    "lalsuite >= 7.8",
+    "lintegrate >= 0.1.7",
+    "matplotlib",
+    "numba >= 0.5.0",
+    "numpy >= 1.17.0",
+    "pesummary >= 0.13.0",
+    "psrqpy >= 1.1.7",
+    "requests",
+    "scipy",
+]
+
+dynamic = [
+    "version",
+]
+
+[project.optional-dependencies]
+# test suite
+test = [
+    "arby",
+    "codecov",
+    "coverage",
+    "coverage-badge",
+    "cweqgen >= 0.4.3",
+    "libstempo >= 2.4.2",
+    "pytest >= 4.6",
+    "pytest_socket",
+    "pytest-astropy",
+    "pytest-coverage",
+    "pytest-runner",
+    "seaborn",
+]
+# documentation
+docs = [
+    "autodoc",
+    "myst-parser",
+    "nbsphinx",
+    "numpydoc",
+    "pydata-sphinx-theme",
+    "sphinx >= 2.0",
+    "sphinx-design",
+    "sphinxcontrib-images >= 0.9.1",
+    "sphinxcontrib-napoleon",
+    "sphinxcontrib-programoutput",
+]
+# development
+dev = [
+    "black",
+    "codespell >= 1.3.0",
+    "isort >= 4.3.21",
+    "flake8",
+    "pre-commit",
+    "seed-isort-config",
+]
+
+[project.urls]
+"Source Code" = "https://git.ligo.org/cwinpy/cwinpy"
+"Documentation" = "https://cwinpy.readthedocs.io/"
+
+[project.scripts]
+cwinpy_knope = "cwinpy.knope.knope:knope_cli"
+cwinpy_knope_pipeline = "cwinpy.knope.knope:knope_pipeline_cli"
+cwinpy_heterodyne = "cwinpy.heterodyne.heterodyne:heterodyne_cli"
+cwinpy_heterodyne_merge = "cwinpy.heterodyne.heterodyne:heterodyne_merge_cli"
+cwinpy_heterodyne_pipeline = "cwinpy.heterodyne.heterodyne:heterodyne_pipeline_cli"
+cwinpy_pe = "cwinpy.pe.pe:pe_cli"
+cwinpy_pe_generate_pp_plots = "cwinpy.pe.testing:generate_pp_plots"
+cwinpy_pe_pipeline = "cwinpy.pe.pe:pe_pipeline_cli"
+cwinpy_skyshift_pipeline = "cwinpy.knope.skyshift:skyshift_pipeline_cli"
+
+[tool.setuptools]
+license-files = [ "LICENSE" ]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = [
+    "cwinpy*",
+]
+
 [tool.setuptools_scm]
 write_to = "cwinpy/_version.py"
+
+[tool.coverage.run]
+source = [ "cwinpy" ]
+omit = [
+    "*/_version.py",
+]
+
+[tool.isort]
+line_length = 88
+multi_line_output = 3
+skip_glob = "setup.py,*/__init__.py"
+profile = "black"

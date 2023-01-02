@@ -4,8 +4,8 @@ import io
 from . import iostream
 from .data import HeterodynedData, MultiHeterodynedData
 from .info import *
-from .parfile import PulsarParameters
 from .knope import skyshift
+from .parfile import PulsarParameters
 
 try:
     from ._version import version as __version__
