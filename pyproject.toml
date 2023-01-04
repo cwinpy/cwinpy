@@ -98,7 +98,6 @@ dev = [
     "isort >= 4.3.21",
     "flake8",
     "pre-commit",
-    "seed-isort-config",
 ]
 
 [project.urls]
