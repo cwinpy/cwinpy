@@ -39,9 +39,7 @@ then be used to infer the unknown signal parameters.
     parser.add(
         "--pe-config",
         type=str,
-        help=(
-            "A configuration file for the Bayesian inference stage using " "cwinpy_pe."
-        ),
+        help=("A configuration file for the Bayesian inference stage using cwinpy_pe."),
         required=True,
     )
     parser.add(

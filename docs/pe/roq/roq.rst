@@ -9,10 +9,10 @@ Stochastic sampling methods often required hundreds of thousands or millions of 
 evaluations to properly characterise the posterior probability distribution, so a slow likelihood
 means slow inference.
 
-A method of speeding up the likelihood evaluation is to use *Reduced Order Quadrature* (ROQ) [1]_
-[2]_ [3]_. This works well if the source model has strong correlations within the required parameter
-space. In such a case, a set of orthonormal basis vectors can be found that when linearly combined
-with appropriate weights gives an accurate representation of the original model anywhere in
+A method for speeding up the likelihood evaluation is to use *Reduced Order Quadrature* (ROQ) [1]_
+[2]_ [3]_. This works well if the source model has some strong correlations within the required
+parameter space. In such a case, a set of orthonormal basis vectors can be found that when linearly
+combined with appropriate weights gives an accurate representation of the original model anywhere in
 parameter space. The basis vectors can be precomputed before any inference and used to generate an
 interpolant for the model. If there are :math:`N` basis vectors, the original model only needs to be
 calculated at :math:`N` points to work out the weights for combining the basis vectors to reproduce
@@ -30,7 +30,7 @@ There is, of course, some initial overhead to calculating the basis vectors, but
 relatively small compared to the overall savings over the course of the full parameter estimation.
 There may also be cases where the parameter space is too uncorrelated (maybe just due to being too
 large) to mean that the number of basis vectors is less than the overall length of the data. In such
-cases, it would just revert back to calculating the full likelihood.
+cases, you can just revert back to calculating the full likelihood.
 
 CWInPy uses the `arby <https://arby.readthedocs.io/>`_ package for the generation of the reduced
 order model, reduced basis vectors and interpolants for the likelihood function components.
@@ -52,14 +52,14 @@ the data. Along with the generally larger parameter space to explore, this will 
 down the inference.
 
 While CWInPy's likelihood evaluations will operate in this mode by default, in these cases it can be
-useful to instead use *Reduced Order Quadrature* to help speed things up. There are several caveats
-to this, in particular, different frequency bins are highly uncorrelated, so it is unlikely that a
-small reduced basis set will be found if the frequency offset of many tens of frequency bins. Also,
-for the length of dataset often found in practice (or order a million data points over a year of
-observations), computer memory constraints may make it necessary to build the reduced basis on
-shorter blocks of data. Unlike the use of ROQs for parameter estimation with Compact Binary
-Coalescences [2]_, the same set of basis vectors cannot generally be used for different sources, so
-need to be calculated individually for each source and dataset.
+useful to instead use *Reduced Order Quadrature* to potentially help speed things up. There are
+several caveats to this, in particular, different frequency bins are highly uncorrelated, so it is
+unlikely that a small reduced basis set will be found if the frequency offset is many tens of
+frequency bins. Also, for the length of dataset often found in practice (of order a million data
+points over a year of observations), computer memory constraints may make it necessary to build the
+reduced basis on shorter blocks of data. Unlike the use of ROQs for parameter estimation with
+Compact Binary Coalescences [2]_, the same set of basis vectors cannot generally be used for
+different sources, so they need to be calculated individually for each source and dataset.
 
 Usage
 =====
@@ -94,10 +94,10 @@ These keywords can also be used in the ``cwinpy_pe``, ``cwinpy_pe_pipeline``, ``
     1. When generating the reduced order model, a training set of ``ntraining`` models is produced. If
     this number is large and the data set is long, this can potentially run into computer memory
     constraints, due to the full matrix of training models needing to be stored in memory. To avoid
-    this, the ``bbmaxlength`` keyword of the :class:`~cwinpy.data.HeterodynedData` can be passed to
-    ensure that the data is broken up into smaller chunks on which the model can be individually
-    trained. This would be achieved through the ``data_kwargs`` keyword of :func:`cwinpy.pe.pe`,
-    e.g., using
+    this, the ``bbmaxlength`` keyword of the :class:`~cwinpy.data.HeterodynedData` class can be
+    passed to ensure that the data is broken up into smaller chunks on which the model can be
+    individually trained. This would be achieved through the ``data_kwargs`` keyword of
+    :func:`cwinpy.pe.pe`, e.g., using
 
     .. code-block:: python
 
@@ -157,8 +157,8 @@ ROQ comparison example
 In a first example of using the ROQ likelihood, we will generate a simulated continuous signal and
 then purposely heterodyne it using frequency and frequency derivative parameters that are offset
 from the "true" values. We will then attempt to estimate the source parameters including the
-frequency and frequency derivative using both the standard likelihood and the ROQ likelihood. The
-:download:`script <example1_roq.py>` for this is shown below.
+frequency and frequency derivative using (for comparison) both the standard likelihood and the ROQ
+likelihood. The :download:`script <example1_roq.py>` for this is shown below.
 
 To view the code that generates the simulated signal click the hidden dropdown below. 
 
@@ -179,7 +179,7 @@ In this case, when running *without* the ROQ likelihood a single likelihood eval
 likelihood evaluation takes about 0.6 ms and the inference takes just over three minutes. So, we see
 a significant speed advantage with the ROQ.
 
-The posteriors from both cases can be see below and show very good agreement.
+The posteriors from both cases can be seen below and show very good agreement.
 
 .. thumbnail:: example1_roq_posteriors.png
    :width: 450px
@@ -206,8 +206,9 @@ rotation frequency and 0.002 nHz/s in rotation frequency derivative:
 .. literalinclude:: ../data/roq_example_prior.txt
    :language: python
 
-To show that having the frequency epoch and data epoch being considerably different can be
-problematic for the ROQ, we will build a reduced order model for this case:
+To show that it can be problematic for the ROQ when the frequency epoch and data epoch are
+considerably different, we will build a reduced order model for this case as a check (this is not
+required for the inference, which will build the model automatically):
 
 .. code-block:: python
 
