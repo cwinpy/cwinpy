@@ -40,7 +40,7 @@ requires-python = ">=3.7, <4"
 dependencies = [
     "appdirs",
     "astropy",
-    "bilby >= 1.2.1",
+    "bilby >= 2.0.0",
     "configargparse",
     "corner >= 2.2.1",
     "gwosc >= 0.5.4",
