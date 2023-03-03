@@ -372,6 +372,23 @@ which is run with:
 
    $ cwinpy_knope_pipeline roq_pipeline_example.ini
 
+Once complete, the posteriors for the J1932+17 analysis can be plotted with:
+
+.. code-block:: python
+
+   from cwinpy.plot import Plot
+   plot = Plot("cwinpy_pe_H1L1_J1932+17_result.hdf5")
+   plot.plot(bins=25)
+   plot.savefig("cwinpy_pe_J1932+17.png", dpi=200)
+
+.. thumbnail:: ../data/roq/cwinpy_pe_J1932+17.png
+   :width: 450px
+   :align: center
+
+We can see that the posterior has a strong peak in the frequency derivative, which is primarily
+responsible for :math:`h_0` peaking away from zero, although the posterior over frequency is rather
+unconstrained.
+
 ROQ API
 -------
 

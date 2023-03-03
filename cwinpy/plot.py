@@ -556,8 +556,9 @@ class Plot:
                         self._samples[label][parameter] -= offset
                         label_suffix = rf" [${{\scriptstyle {offsetstr}}}$]"
 
-                        if parameter in self.injection_parameters:
-                            self.injection_parameters[parameter] -= offset
+                        if self.injection_parameters is not None:
+                            if parameter in self.injection_parameters:
+                                self.injection_parameters[parameter] -= offset
 
                     self.latex_labels[parameter] += label_suffix
 
