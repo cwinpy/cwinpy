@@ -1,5 +1,11 @@
 # Notable changes between versions
 
+## [0.9.3] 2023-03-17
+
+Changes for this release:
+
+- Update the bilby requirement to v2.0.1 or greater (!133) 
+
 ## [0.9.2] 2022-11-22
 
 This release fixes a broken build in the previous release.
