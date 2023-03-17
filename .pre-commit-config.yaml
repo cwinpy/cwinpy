@@ -20,4 +20,4 @@ repos:
     rev: 5.11.4
     hooks:
       - id: isort # sort imports alphabetically and separates import into sections
-        args: [--filter-files]
+        args: ["--filter-files", "--profile", "black"]
