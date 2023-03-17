@@ -1,14 +1,14 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.5.0
+    rev: v4.4.0
     hooks:
       - id: check-merge-conflict # prevent committing files with merge conflicts
   - repo: https://github.com/PyCQA/flake8
-    rev: 5.0.4
+    rev: 6.0.0
     hooks:
       - id: flake8  # checks for flake8 errors
   - repo: https://github.com/psf/black
-    rev: 22.3.0
+    rev: 22.12.0
     hooks:
       - id: black  # runs black formatting
 #  - repo: https://github.com/codespell-project/codespell
@@ -17,7 +17,7 @@ repos:
 #      - id: codespell # Spellchecker
 #        args: [-L, nd, --skip, "*ipynb,*.html,*.png,*.gz,./build,./__pycache__,./cwinpy.egg-info,./dist,./htmlcov,./docs/_build,./docs/_images,./docs/comparisons/scripts/data,./docs/comparisons/scripts/outputs,./docs/comparisons/scripts/__pycache__,./cwinpy/_version.py,./logo,./.git", --ignore-words=.dictionary.txt]
   - repo: https://github.com/pycqa/isort
-    rev: 5.10.1
+    rev: 5.11.4
     hooks:
       - id: isort # sort imports alphabetically and separates import into sections
         args: [--filter-files]
