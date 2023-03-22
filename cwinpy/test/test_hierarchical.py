@@ -3,6 +3,7 @@ Test script for the hierarchical classes.
 """
 
 import os
+import shutil
 
 import numpy as np
 import pytest
@@ -421,6 +422,16 @@ class TestMassQuadrupoleDistribution(object):
     Test the MassQuadrupoleDistribution object.
     """
 
+    @classmethod
+    def setup_class(cls):
+        # create output directory
+        cls.outdir = "hierarchical_output"
+        os.makedirs(cls.outdir, exist_ok=True)
+
+    @classmethod
+    def teardown_class(cls):
+        shutil.rmtree(cls.outdir)
+
     def test_mass_quadrupole_distribution(self):
         # test data sets from bilby
         testdata1 = os.path.join(
@@ -496,7 +507,9 @@ class TestMassQuadrupoleDistribution(object):
         with pytest.raises(RuntimeError):
             _ = [_ for _ in mdist.posterior_predictive([0, 1])]
 
-        res = mdist.sample(**{"Nlive": 100, "save": False, "label": "test1"})
+        res = mdist.sample(
+            **{"Nlive": 100, "save": False, "label": "test1", "outdir": self.outdir}
+        )
 
         assert isinstance(res, Result)
         assert np.all((res.posterior["mu"] > 0.0) & (res.posterior["mu"] < 1e32))
@@ -585,7 +598,9 @@ class TestMassQuadrupoleDistribution(object):
         assert len(mdist._posterior_samples[1]) == nsamples
 
         # try sampler
-        res = mdist.sample(**{"Nlive": 100, "save": False, "label": "test2"})
+        res = mdist.sample(
+            **{"Nlive": 100, "save": False, "label": "test2", "outdir": self.outdir}
+        )
 
         assert isinstance(res, Result)
         assert np.all((res.posterior["mu"] > 0.0) & (res.posterior["mu"] < 1e32))
@@ -626,7 +641,9 @@ class TestMassQuadrupoleDistribution(object):
         mdist = MassQuadrupoleDistribution(
             data=[testdata1, testdata2], distribution=pdist, use_ellipticity=True
         )
-        res = mdist.sample(**{"Nlive": 100, "save": False, "label": "test3"})
+        res = mdist.sample(
+            **{"Nlive": 100, "save": False, "label": "test3", "outdir": self.outdir}
+        )
 
         assert isinstance(res, Result)
         assert "mu" in res.posterior.columns

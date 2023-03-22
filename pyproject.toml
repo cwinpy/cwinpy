@@ -40,7 +40,7 @@ requires-python = ">=3.7, <4"
 dependencies = [
     "appdirs",
     "astropy",
-    "bilby >= 2.0.0",
+    "bilby >= 2.0.1",
     "configargparse",
     "corner >= 2.2.1",
     "gwosc >= 0.5.4",
@@ -49,7 +49,7 @@ dependencies = [
     "htcondor >= 9.0.6",
     "lalsuite >= 7.8",
     "lintegrate >= 0.1.7",
-    "matplotlib",
+    "matplotlib < 3.7",
     "numba >= 0.5.0",
     "numpy >= 1.17.0",
     "pesummary >= 0.13.0",
