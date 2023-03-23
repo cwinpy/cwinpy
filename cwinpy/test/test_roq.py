@@ -443,7 +443,7 @@ class TestHeterodynedCWModelROQ:
         assert np.all(np.abs(np.exp(llo - llo.max()) - np.exp(llr - llr.max())) < 1e-3)
 
 
-class TestROQFrequency(object):
+class TestROQFrequency:
     """
     Test the generation of an ROQ over frequency parameters.
     """
@@ -740,7 +740,7 @@ phi0 = {phi0}
         assert f1val - res**2 < self.fakepulsarpar["F1"] < f1val + res**2
 
 
-class TestROQBinary(object):
+class TestROQBinary:
     """
     Test the generation of an ROQ over binary parameters.
     """
@@ -1049,3 +1049,317 @@ phi0 = {phi0}
         a1idx = gridroq.marginalize_ln_posterior(not_parameters="a1").argmax()
         a1val = gridroq.sample_points["a1"][a1idx]
         assert a1val - 0.025 < self.fakepulsarpar["A1"] < a1val + 0.025
+
+
+class TestROQSkyPosition:
+    """
+    Test the generation of an ROQ over sky position parameters.
+    """
+
+    @classmethod
+    def setup_class(cls):
+        # create some fake data frames using lalpulsar_Makefakedata_v5
+        mfd = shutil.which("lalpulsar_Makefakedata_v5")
+
+        cls.fakedatadir = "testing_fake_data"
+        cls.fakedatadetector = "H1"
+        cls.fakedatachannel = f"{cls.fakedatadetector}:FAKE_DATA"
+
+        cls.fakedatastart = 1000000000
+        cls.fakedataduration = 864000
+
+        os.makedirs(cls.fakedatadir, exist_ok=True)
+
+        cls.fakedatabandwidth = 4  # Hz
+        sqrtSn = 2e-23  # noise amplitude spectral density
+        cls.fakedataname = "FAKEDATA"
+
+        # create one pulsar to inject
+        cls.fakepulsarpar = []
+
+        # requirements for Makefakedata pulsar input files
+        pulsarstr = """\
+Alpha = {alpha}
+Delta = {delta}
+Freq = {f0}
+f1dot = {f1}
+f2dot = {f2}
+refTime = {pepoch}
+h0 = {h0}
+cosi = {cosi}
+psi = {psi}
+phi0 = {phi0}
+"""
+
+        # pulsar parameters
+        f0 = 2.9456 / 2.0  # source rotation frequency (Hz)
+        f1 = -3.873254e-13 / 2.0  # source rotational frequency derivative (Hz/s)
+        f2 = 5.04134e-21 / 2.0  # second frequency derivative (Hz/s^2)
+        alpha = 3.4  # source right ascension (rads)
+        delta = 0.0  # source declination (rads)
+        pepoch = 1000000000  # frequency epoch (GPS)
+
+        # GW parameters
+        h0 = 2.3e-24  # GW amplitude
+        phi0 = 1.9  # GW initial phase (rads)
+        cosiota = -0.45  # cosine of inclination angle
+        psi = 0.98  # GW polarisation angle (rads)
+
+        mfddic = {
+            "alpha": alpha,
+            "delta": delta,
+            "f0": 2 * f0,
+            "f1": 2 * f1,
+            "f2": 2 * f2,
+            "pepoch": pepoch,
+            "h0": h0,
+            "cosi": cosiota,
+            "psi": psi,
+            "phi0": phi0,
+        }
+
+        cls.fakepulsarpar = PulsarParameters()
+        cls.fakepulsarpar["PSRJ"] = "J0000+0000"
+        cls.fakepulsarpar["H0"] = h0
+        cls.fakepulsarpar["PHI0"] = phi0 / 2.0
+        cls.fakepulsarpar["PSI"] = psi
+        cls.fakepulsarpar["COSIOTA"] = cosiota
+        cls.fakepulsarpar["F"] = [f0, f1, f2]
+        cls.fakepulsarpar["RAJ"] = alpha
+        cls.fakepulsarpar["DECJ"] = delta
+        cls.fakepulsarpar["PEPOCH"] = pepoch
+        cls.fakepulsarpar["EPHEM"] = "DE421"
+        cls.fakepulsarpar["UNITS"] = "TCB"
+
+        cls.fakepardir = "testing_fake_par_dir"
+        os.makedirs(cls.fakepardir, exist_ok=True)
+        cls.fakeparfile = os.path.join(cls.fakepardir, "J0000+0000.par")
+        cls.fakepulsarpar.pp_to_par(cls.fakeparfile)
+
+        injfile = os.path.join(cls.fakepardir, "inj.dat")
+        with open(injfile, "w") as fp:
+            fp.write("[Pulsar 1]\n")
+            fp.write(pulsarstr.format(**mfddic))
+            fp.write("\n")
+
+        # set ephemeris files
+        efile = download_ephemeris_file(
+            LAL_EPHEMERIS_URL.format("earth00-40-DE421.dat.gz")
+        )
+        sfile = download_ephemeris_file(
+            LAL_EPHEMERIS_URL.format("sun00-40-DE421.dat.gz")
+        )
+
+        cmds = [
+            "-F",
+            cls.fakedatadir,
+            f"--outFrChannels={cls.fakedatachannel}",
+            "-I",
+            cls.fakedatadetector,
+            "--sqrtSX={0:.1e}".format(sqrtSn),
+            "-G",
+            str(cls.fakedatastart),
+            f"--duration={cls.fakedataduration}",
+            f"--Band={cls.fakedatabandwidth}",
+            "--fmin",
+            "0",
+            f'--injectionSources="{injfile}"',
+            f"--outLabel={cls.fakedataname}",
+            f'--ephemEarth="{efile}"',
+            f'--ephemSun="{sfile}"',
+            "--randSeed=1234",  # for reproducibiliy
+        ]
+
+        # run makefakedata
+        sp.run([mfd] + cmds)
+
+        # resolution
+        wl = 3e8 / (2 * f0)
+        baseline = (2 * np.pi * 1.5e11) * cls.fakedataduration / (86400 * 365.25)
+        cls.res = wl / baseline
+
+        # set priors for PE
+        cls.priors = PriorDict()
+        cls.priors["h0"] = Uniform(0, 1e-23, name="h0")
+        cls.priors["raj"] = Uniform(
+            alpha - 5 * cls.res, alpha + 5 * cls.res, name="raj"
+        )
+        cls.priors["decj"] = Uniform(
+            delta - 5 * cls.res, delta + 5 * cls.res, name="decj"
+        )
+
+    @classmethod
+    def teardown_class(cls):
+        """
+        Remove test simulation directory.
+        """
+
+        shutil.rmtree(cls.fakepardir)
+        shutil.rmtree(cls.fakedatadir)
+
+    @pytest.mark.slow
+    def test_heterodyne_exact(self):
+        """
+        Heterodyne with the exact phase parameters
+        """
+
+        segments = [(self.fakedatastart, self.fakedatastart + self.fakedataduration)]
+
+        fulloutdir = os.path.join(self.fakedatadir, "heterodyne_output")
+
+        inputkwargs = dict(
+            starttime=segments[0][0],
+            endtime=segments[-1][-1],
+            pulsarfiles=self.fakeparfile,
+            segmentlist=segments,
+            framecache=self.fakedatadir,
+            channel=self.fakedatachannel,
+            freqfactor=2,
+            stride=86400 // 2,
+            resamplerate=1 / 60,
+            includessb=True,
+            includebsb=True,
+            includeglitch=True,
+            output=fulloutdir,
+            label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+        )
+
+        het = heterodyne(**inputkwargs)
+
+        # PE grid
+        gridspace = {
+            "h0": np.linspace(0, self.priors["h0"].maximum, 50),
+            "raj": np.linspace(
+                self.priors["raj"].minimum, self.priors["raj"].maximum, 50
+            ),
+            "decj": np.linspace(
+                self.priors["decj"].minimum, self.priors["decj"].maximum, 50
+            ),
+        }
+
+        peoutdir = os.path.join(self.fakedatadir, "pe_output")
+        pelabel = "nonroq"
+
+        # run non-ROQ PE over grid
+        pekwargs = {
+            "grid": True,
+            "grid_kwargs": {"grid_size": gridspace, "save": True},
+            "outdir": peoutdir,
+            "label": pelabel,
+            "prior": self.priors,
+            "likelihood": "studentst",
+            "detector": self.fakedatadetector,
+            "data_file": list(het.outputfiles.values()),
+            "par_file": copy.deepcopy(self.fakepulsarpar),
+        }
+
+        gridstandard = pe(**copy.deepcopy(pekwargs)).grid
+
+        # set ROQ likelihood
+        ntraining = 2000
+        pekwargs["roq"] = True
+        pekwargs["roq_kwargs"] = {"ntraining": ntraining}
+        pekwargs["label"] = "roq"
+
+        gridroq = pe(**pekwargs).grid
+
+        # compare marginalised likelihoods for each parameter
+        for par in gridspace:
+            assert np.allclose(
+                gridstandard.marginalize_ln_likelihood(not_parameters=par),
+                gridroq.marginalize_ln_likelihood(not_parameters=par),
+            )
+
+    @pytest.mark.slow
+    def test_heterodyne_offset(self):
+        """
+        Heterodyne with offset phase parameters
+        """
+
+        segments = [(self.fakedatastart, self.fakedatastart + self.fakedataduration)]
+
+        fulloutdir = os.path.join(self.fakedatadir, "heterodyne_output")
+
+        # create par file with offset RA and dec
+        offsetpar = copy.deepcopy(self.fakepulsarpar)
+
+        offsetpar["PSRJ"] = "J0001+0001"  # make sure name is consistent with par file
+        offsetpar["RAJ"] = self.fakepulsarpar["RAJ"] - 2.3 * self.res
+        offsetpar["DECJ"] = self.fakepulsarpar["DECJ"] + 1.8 * self.res
+        offsetparfile = os.path.join(self.fakepardir, "J0001+0001.par")
+        offsetpar.pp_to_par(offsetparfile)
+
+        inputkwargs = dict(
+            starttime=segments[0][0],
+            endtime=segments[-1][-1],
+            pulsarfiles=offsetparfile,
+            segmentlist=segments,
+            framecache=self.fakedatadir,
+            channel=self.fakedatachannel,
+            freqfactor=2,
+            stride=86400 // 2,
+            resamplerate=1 / 60,
+            includessb=True,
+            includebsb=True,
+            includeglitch=True,
+            output=fulloutdir,
+            label="heterodyne_{psr}_{det}_{freqfactor}.hdf5",
+        )
+
+        het = heterodyne(**inputkwargs)
+
+        # PE grid
+        gridspace = {
+            "h0": np.linspace(0, self.priors["h0"].maximum, 50),
+            "raj": np.linspace(
+                self.priors["raj"].minimum, self.priors["raj"].maximum, 60
+            ),
+            "decj": np.linspace(
+                self.priors["decj"].minimum, self.priors["decj"].maximum, 60
+            ),
+        }
+
+        peoutdir = os.path.join(self.fakedatadir, "pe_output")
+        pelabel = "nonroqoffset"
+
+        # run non-ROQ PE over grid
+        pekwargs = {
+            "grid": True,
+            "grid_kwargs": {"grid_size": gridspace, "save": True},
+            "outdir": peoutdir,
+            "label": pelabel,
+            "prior": self.priors,
+            "likelihood": "studentst",
+            "detector": self.fakedatadetector,
+            "data_file": list(het.outputfiles.values()),
+        }
+
+        gridstandard = pe(**copy.deepcopy(pekwargs)).grid
+
+        gridstandard.save_to_file(filename="skypos_standard.json")
+
+        # set ROQ likelihood
+        ntraining = 2000
+        pekwargs["roq"] = True
+        pekwargs["roq_kwargs"] = {"ntraining": ntraining}
+        pekwargs["label"] = "roqoffset"
+
+        gridroq = pe(**pekwargs).grid
+
+        gridroq.save_to_file(filename="skypos_roq.json")
+
+        # compare marginalised likelihoods for each parameter
+        for par in gridspace:
+            assert np.allclose(
+                gridstandard.marginalize_ln_likelihood(not_parameters=par),
+                gridroq.marginalize_ln_likelihood(not_parameters=par),
+            )
+
+        # check RA and dec posteriors peak at the correct place
+        raidx = gridroq.marginalize_ln_posterior(not_parameters="raj").argmax()
+        raval = gridroq.sample_points["raj"][raidx]
+        assert raval - self.res < self.fakepulsarpar["RAJ"] < raval + self.res
+
+        decidx = gridroq.marginalize_ln_posterior(not_parameters="decj").argmax()
+        decval = gridroq.sample_points["decj"][decidx]
+        assert decval - self.res < self.fakepulsarpar["DECJ"] < decval + self.res
