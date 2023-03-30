@@ -12,13 +12,12 @@ import sys
 import tempfile
 from argparse import ArgumentParser
 
+import cwinpy
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
-
-import cwinpy
 
 from ..condor import submit_dag
 from ..condor.hetnodes import HeterodyneLayer, MergeLayer
@@ -308,7 +307,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             'frequency scale factor used, "gpsstart" for the GPS start '
             'time, and "gpsend" for the GPS end time. The extension should '
             'be given as ".hdf", ".h5", or ".hdf5". E.g., the default '
-            'is "heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf".'
+            'is "heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf5".'
         ),
     )
 
