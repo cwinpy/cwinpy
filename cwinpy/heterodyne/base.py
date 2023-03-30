@@ -128,7 +128,7 @@ class Heterodyne(object):
         factor used, ``gpsstart`` for the GPS start time, and ``gpsend`` for
         the GPS end time. The extension should be given as ".hdf", ".h5", or
         ".hdf5". E.g., the default is
-        ``"heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf"``.
+        ``"heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf5"``.
     pulsarfiles: str, list, dict
         This specifies the pulsars for which to heterodyne the data. It can be
         either i) a string giving the path to an individual pulsar
