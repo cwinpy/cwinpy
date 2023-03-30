@@ -1129,7 +1129,6 @@ phi0 = {phi0}
         cls.fakepulsarpar["DECJ"] = delta
         cls.fakepulsarpar["PEPOCH"] = pepoch
         cls.fakepulsarpar["EPHEM"] = "DE421"
-        cls.fakepulsarpar["UNITS"] = "TCB"
 
         cls.fakepardir = "testing_fake_par_dir"
         os.makedirs(cls.fakepardir, exist_ok=True)
