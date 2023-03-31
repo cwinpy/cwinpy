@@ -1129,6 +1129,7 @@ phi0 = {phi0}
         cls.fakepulsarpar["DECJ"] = delta
         cls.fakepulsarpar["PEPOCH"] = pepoch
         cls.fakepulsarpar["EPHEM"] = "DE421"
+        cls.fakepulsarpar["UNITS"] = "TDB"
 
         cls.fakepardir = "testing_fake_par_dir"
         os.makedirs(cls.fakepardir, exist_ok=True)
@@ -1179,12 +1180,11 @@ phi0 = {phi0}
 
         # set priors for PE
         cls.priors = PriorDict()
-        cls.priors["h0"] = Uniform(0, 1e-23, name="h0")
         cls.priors["raj"] = Uniform(
-            alpha - 5 * cls.res, alpha + 5 * cls.res, name="raj"
+            alpha - 0.5 * cls.res, alpha + 0.5 * cls.res, name="raj"
         )
         cls.priors["decj"] = Uniform(
-            delta - 5 * cls.res, delta + 5 * cls.res, name="decj"
+            delta - 0.5 * cls.res, delta + 0.5 * cls.res, name="decj"
         )
 
     @classmethod
@@ -1227,7 +1227,6 @@ phi0 = {phi0}
 
         # PE grid
         gridspace = {
-            "h0": np.linspace(0, self.priors["h0"].maximum, 50),
             "raj": np.linspace(
                 self.priors["raj"].minimum, self.priors["raj"].maximum, 50
             ),
@@ -1309,12 +1308,11 @@ phi0 = {phi0}
 
         # PE grid
         gridspace = {
-            "h0": np.linspace(0, self.priors["h0"].maximum, 50),
             "raj": np.linspace(
-                self.priors["raj"].minimum, self.priors["raj"].maximum, 60
+                self.priors["raj"].minimum, self.priors["raj"].maximum, 35
             ),
             "decj": np.linspace(
-                self.priors["decj"].minimum, self.priors["decj"].maximum, 60
+                self.priors["decj"].minimum, self.priors["decj"].maximum, 35
             ),
         }
 
@@ -1335,8 +1333,6 @@ phi0 = {phi0}
 
         gridstandard = pe(**copy.deepcopy(pekwargs)).grid
 
-        gridstandard.save_to_file(filename="skypos_standard.json")
-
         # set ROQ likelihood
         ntraining = 2000
         pekwargs["roq"] = True
@@ -1345,20 +1341,20 @@ phi0 = {phi0}
 
         gridroq = pe(**pekwargs).grid
 
-        gridroq.save_to_file(filename="skypos_roq.json")
-
-        # compare marginalised likelihoods for each parameter
-        for par in gridspace:
-            assert np.allclose(
-                gridstandard.marginalize_ln_likelihood(not_parameters=par),
-                gridroq.marginalize_ln_likelihood(not_parameters=par),
-            )
+        # compare posteriors
+        assert np.allclose(gridstandard.ln_posterior, gridroq.ln_posterior)
 
         # check RA and dec posteriors peak at the correct place
         raidx = gridroq.marginalize_ln_posterior(not_parameters="raj").argmax()
         raval = gridroq.sample_points["raj"][raidx]
-        assert raval - self.res < self.fakepulsarpar["RAJ"] < raval + self.res
+        assert (
+            raval - 0.1 * self.res < self.fakepulsarpar["RAJ"] < raval + 0.1 * self.res
+        )
 
         decidx = gridroq.marginalize_ln_posterior(not_parameters="decj").argmax()
         decval = gridroq.sample_points["decj"][decidx]
-        assert decval - self.res < self.fakepulsarpar["DECJ"] < decval + self.res
+        assert (
+            decval - 0.1 * self.res
+            < self.fakepulsarpar["DECJ"]
+            < decval + 0.1 * self.res
+        )
