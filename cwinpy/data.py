@@ -3698,7 +3698,10 @@ class HeterodynedData(TimeSeriesBase):
             self.chunk_lengths,
         ):
             if kwargs.get("verbose", False):
-                print(f"Generating Reduced Basis for chunk {count}")
+                print(
+                    f"Generating Reduced Basis for chunk {count} "
+                    f"[PSR: {get_psr_name(self.par)}, detector: {self.detector}]"
+                )
                 count += 1
 
             if roqkwargs.get("likelihood", "studentst") == "gaussian":
@@ -3712,6 +3715,16 @@ class HeterodynedData(TimeSeriesBase):
             )
 
             roq.append(chunkroq)
+
+            if kwargs.get("verbose", False):
+                # print out ROQ basis sizes
+                print(f"No. real basis nodes: {len(chunkroq._x_node_indices_real)}")
+                print(
+                    f"No. imaginary basis nodes: {len(chunkroq._x_node_indices_imag)}"
+                )
+                print(
+                    f"No. squared model basis nodes: {len(chunkroq._x2_node_indices)}"
+                )
 
         return roq
 
