@@ -529,6 +529,7 @@ class Plot:
         }
 
         # apply offsets for slightly nicer plots axes
+        self.parameter_offsets = {parameter: 0.0 for parameter in self.parameters}
         if len(self._grids) == 0 and len(self._samples) == 1:
             for label in self._samples:
                 for parameter in self.parameters:
@@ -553,12 +554,10 @@ class Plot:
                             offset = float(offsetstr)
                             offsetstr = a + rf"\!\times\!10^{{{int(b)}}}"
 
+                        self.parameter_offsets[parameter] = offset
+
                         self._samples[label][parameter] -= offset
                         label_suffix = rf" [${{\scriptstyle {offsetstr}}}$]"
-
-                        if self.injection_parameters is not None:
-                            if parameter in self.injection_parameters:
-                                self.injection_parameters[parameter] -= offset
 
                     self.latex_labels[parameter] += label_suffix
 
@@ -617,7 +616,10 @@ class Plot:
             if self.injection_parameters is not None:
                 if self.injection_parameters[self.parameters[0]] is not None:
                     ax.axvline(
-                        self.injection_parameters[self.parameters[0]],
+                        (
+                            self.injection_parameters[self.parameters[0]]
+                            - self.parameter_offsets[self.parameters[0]]
+                        ),
                         color=kwargs.get("injection_color", "k"),
                         linewidth=1,
                     )
@@ -891,8 +893,10 @@ class Plot:
             ):
                 kwargname = "truths" if self.plottype == "corner" else "truth"
                 kwargs[kwargname] = [
-                    self.injection_parameters[self.parameters[0]],
-                    self.injection_parameters[self.parameters[1]],
+                    self.injection_parameters[self.parameters[0]]
+                    - self.parameter_offsets[self.parameters[0]],
+                    self.injection_parameters[self.parameters[1]]
+                    - self.parameter_offsets[self.parameters[1]],
                 ]
 
         # create plot
@@ -1096,7 +1100,7 @@ class Plot:
         # set injection parameter values
         if self.injection_parameters is not None:
             injpars = [
-                self.injection_parameters[p]
+                self.injection_parameters[p] - self.parameter_offsets[p]
                 for p in self.parameters
                 if self.injection_parameters[p] is not None
             ]
