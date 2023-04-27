@@ -157,7 +157,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "The server name for finding the gravitational-wave data files. "
             'Use "datafind.ligo.org:443" for open data available via CVMFS. '
             "To use open data available from the GWOSC use "
-            '"https://www.gw-openscience.org".'
+            '"https://gwosc.org".'
         ),
     )
     dataparser.add(

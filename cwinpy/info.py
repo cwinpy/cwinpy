@@ -242,7 +242,7 @@ ANALYSIS_SEGMENTS = {
 CVMFS_GWOSC_BASE = "/cvmfs/gwosc.osgstorage.org/gwdata"
 
 #: GWOSC data server URL
-CVMFS_GWOSC_DATA_SERVER = "datafind.gw-openscience.org"
+CVMFS_GWOSC_DATA_SERVER = "datafind.gwosc.org"
 
 #: GWOSC data types for different runs
 CVMFS_GWOSC_DATA_TYPES = {

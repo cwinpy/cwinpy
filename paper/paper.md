@@ -51,7 +51,7 @@ will create jobs that can be submitted over a computing cluster running the
 [HTCondor](https://htcondor.readthedocs.io/) job management system [@condor-practice] via the
 [`htcondor`](https://htcondor.readthedocs.io/en/latest/) package. These can also be run over the
 [Open Science Grid](https://opensciencegrid.org/) [@Pordes_2007] using open gravitational-wave data provided via
-the [Gravitational-wave Open Science Center](https://www.gw-openscience.org/) (GWOSC)
+the [Gravitational-wave Open Science Center](https://gwosc.org/) (GWOSC)
 [@2015JPhCS.610a2021V; @RICHABBOTT2021100658].
 
 For the heterodyne preprocessing stage, CWInPy makes use of algorithms written in `C` within
@@ -90,8 +90,8 @@ The reasons behind CWInPy's development, and its enhancements over existing soft
 * the pipeline can be run over the Open Science Grid, allowing a wider range of computing resources
   to be used;
 * the pipeline can make use of open gravitational-wave data provided over
-  [CVMFS](https://www.gw-openscience.org/cvmfs/) from the [Gravitational-wave Open Science Center
-  (GWOSC)](https://www.gw-openscience.org/) [@2015JPhCS.610a2021V; @RICHABBOTT2021100658];
+  [CVMFS](https://gwosc.org/cvmfs/) from the [Gravitational-wave Open Science Center
+  (GWOSC)](https://gwosc.org/) [@2015JPhCS.610a2021V; @RICHABBOTT2021100658];
 * it provides tools to generate simulated signals injected in real or fake data for individual
   sources, or for user specified populations of sources;
 * it provides tools to perform hierarchical inference on the underlying ellipticity distribution of

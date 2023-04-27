@@ -32,11 +32,11 @@ Example: single detector data
 In the first example we will show how to perform parameter estimation on some real
 gravitational-wave data. We will use a short segment of data from the O1 run of the LIGO detectors
 (the whole of which can be found on the `GWOSC website
-<https://www.gw-openscience.org/archive/O1/>`_) between GPS times of 1132444817 and 1136419217. The
+<https://gwosc.org/archive/O1/>`_) between GPS times of 1132444817 and 1136419217. The
 O1 dataset contains a set of simulated pulsar signals that have been `"injected"
-<https://www.gw-openscience.org/o1_inj/>`_ into it. We will look at the injected signal named
+<https://gwosc.org/o1_inj/>`_ into it. We will look at the injected signal named
 ``PULSAR8``, the parameters of which can be found at `this link
-<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`_.
+<https://gwosc.org/static/injections/o1/cw_injections.html>`_.
 
 The data we will use in this example is from the `LIGO Hanford <https://www.ligo.caltech.edu/WA>`_
 detector (abbreviated to "H1") and has been heterodyned using the known phase evolution of the
@@ -152,7 +152,7 @@ Example: multi-detector data
 In this example we will replicate the analysis from the first `example
 <#example-single-detector-data>`_, but will use O1 data from more than one detector. It will again
 look at the hardware injection signal named `PULSAR8
-<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`_ and use the same
+<https://gwosc.org/static/injections/o1/cw_injections.html>`_ and use the same
 parameter file as given above.
 
 The data we will use in this example is a short segment (between GPS times of 1132444817 and
