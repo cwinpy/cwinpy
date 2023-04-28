@@ -125,7 +125,7 @@ We can compare the results of the full pipeline produced by the `LALSuite
 <https://git.ligo.org/lscsoft/lalsuite>`_ code ``lalpulsar_knope`` with that produced using the CWInPy
 code ``cwinpy_knope_pipeline``. We will do this comparison by analysing the set of :ref:`hardware
 injections<Hardware Injections>` and analysis of real pulsar data using open data from the two LIGO
-detectors during the `first advanced LIGO observing run <https://www.gw-openscience.org/O1/>`_ (O1). 
+detectors during the `first advanced LIGO observing run <https://gwosc.org/O1/>`_ (O1). 
 
 O1 hardware injections
 ----------------------

@@ -82,7 +82,7 @@ The ``cwinpy_heterodyne_pipeline`` should be used for most practical purposes, w
 ``cwinpy_heterodyne`` is generally useful for short tests.
 
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
-data available from the `GWOSC <https://www.gw-openscience.org/>`_ via `CVMFS
+data available from the `GWOSC <https://gwosc.org/>`_ via `CVMFS
 <https://cvmfs.readthedocs.io/>`__. To find out more about accessing this data see the instructions
 `here <https://computing.docs.ligo.org/guide/cvmfs/>`__. If using GWOSC data sampled at 4 kHz it
 should be noted that that this has a low-pass filter applied that causes a sharp drop-off above
@@ -279,13 +279,13 @@ Example: hardware injections in LIGO O1 data
 ============================================
 
 In this example we will heterodyne the data for several `hardware injection
-<https://www.gw-openscience.org/o1_inj/>`_ signals in LIGO Handford (H1) data during a day of the
-first observing run `O1 <https://www.gw-openscience.org/O1/>`_. This will require access to the data
-via `CVMFS <https://www.gw-openscience.org/cvmfs/>`__. The data time span will be from 1132478127 to
+<https://gwosc.org/o1_inj/>`_ signals in LIGO Handford (H1) data during a day of the
+first observing run `O1 <https://gwosc.org/O1/>`_. This will require access to the data
+via `CVMFS <https://gwosc.org/cvmfs/>`__. The data time span will be from 1132478127 to
 1132564527.
 
 The example will look for the hardware injection signals ``5`` and ``6`` from the table `here
-<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`__ (note that the table
+<https://gwosc.org/static/injections/o1/cw_injections.html>`__ (note that the table
 contains the gravitational-wave signal frequency and frequency derivative, which must be halved to
 give equivalent "rotational" values in the parameter files). Files containing the parameters for all
 these injections for each observing run are packaged with CWInPy with locations given in the
@@ -298,7 +298,7 @@ For this we can use the following configuration file:
 In the above file the base CVMFS directory containing the strain data files has been specified,
 which will be recursively searched for corresponding data. The ``includeflags`` and ``excludeflags``
 values have been used to set the valid `time segments
-<https://www.gw-openscience.org/archive/dataset/O1/>`_ of data to use, with ``H1_DATA`` specifying
+<https://gwosc.org/archive/dataset/O1/>`_ of data to use, with ``H1_DATA`` specifying
 to use all available valid science quality data for the H1 detector, and ``H1_NO_CW_HW_INJ``
 specifying the exclusion of times when no continuous-wave hardware injections were being carried
 out.
@@ -564,7 +564,7 @@ via CVMFS. It is also recommended that you run CWInPy from within an `IGWN conda
 <https://computing.docs.ligo.org/conda/>`_ 
 
 For example, if you have a Tempo(2)-style pulsar parameter file, e.g., ``J0740+6620.par``, and you
-want to analyse the open `O1 data <https://www.gw-openscience.org/O1/>`_ for the two LIGO detectors
+want to analyse the open `O1 data <https://gwosc.org/O1/>`_ for the two LIGO detectors
 you can simply run:
 
 .. code-block:: bash
@@ -589,7 +589,7 @@ from `psrqpy <https://psrqpy.readthedocs.io/en/latest/>`_.
 
 CWInPy also contains information on the continuous :ref:`hardware injections<Hardware Injections>`
 performed in each run, so if you wanted the analyse the these in, say, the LIGO `sixth science run
-<https://www.gw-openscience.org/archive/S6/>`_, you could do:
+<https://gwosc.org/archive/S6/>`_, you could do:
 
 .. code-block:: bash
 
