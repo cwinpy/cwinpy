@@ -206,6 +206,66 @@ TIMESCALEPARS = [
 ]
 
 
+# parameter aliases; entries are ``aliaspar: (realpar, getfunc, setfunc)``
+_aliases = {}
+
+
+def is_alias_param(name):
+    """
+    Check if ``name`` is an alias parameter name.
+    """
+
+    return name.startswith("ALIAS_")
+
+
+def add_alias(aliaspar, getfunc, realpar, setfunc):
+    """
+    Add an alias for a PulsarParameters paramter.
+
+    Parameters
+    ----------
+    aliaspar: str
+        Name of the alias parameter; must start with ``ALIAS_``.
+    getfunc: (pp: PulsarParameters) -> float
+        Function which returns the value of the alias parameter,
+        computed from real parameters in a PulsarParameters instance.
+    realpar: str
+        Name of the real parameter being aliased.
+    setfunc: (aliasval: float, pp: PulsarParameters) -> float
+        Function which returns the value of the real parameter,
+        computed from the alias parameter value and other real
+        parameters in a PulsarParameters instance.
+    """
+
+    if not is_alias_param(aliaspar):
+        raise ValueError(
+            "Alias parameter name '{}' must start with 'ALIAS_'".format(aliaspar)
+        )
+
+    _aliases[aliaspar.upper()] = (realpar, getfunc, setfunc)
+
+
+def get_real_param_from_alias(name):
+    """
+    Return the real parameter name being aliases by ``name``. If not an alias, return ``name``.
+    """
+
+    if is_alias_param(name):
+        realpar, getfunc, setfunc = _aliases[name.upper()]
+        return realpar
+    else:
+        return name
+
+
+# standard parameter aliases
+add_alias(
+    "ALIAS_N",
+    lambda pp: pp["F0"] * pp["F2"] / pp["F1"] ** 2,
+    "F2",
+    lambda n, pp: n * pp["F1"] ** 2 / pp["F0"],
+)
+
+
 class PulsarParameters:
     keynames = []  # parameter names in PulsarParameters structure
     length = 0  # number of parameters
@@ -289,6 +349,12 @@ class PulsarParameters:
 
         if self._pulsarparameters is None:
             return None
+
+        # check if the key is asking for an aliased parameter;
+        # if so, get value of aliased parameter from real parameters
+        if is_alias_param(key.upper()):
+            realpar, getfunc, setfunc = _aliases[key.upper()]
+            return getfunc(self)
 
         # check if key finishes with "_ERR", in which case check for error value
         geterr = False
@@ -378,6 +444,13 @@ class PulsarParameters:
         """
         Set the value of a key
         """
+
+        # check if the key is asking for an aliased parameter;
+        # if so, set value of real parameter from aliased parameter
+        if is_alias_param(key.upper()):
+            realpar, getfunc, setfunc = _aliases[key.upper()]
+            self.__setitem__(realpar, setfunc(value, self))
+            return
 
         # if parameter exists remove it
         if lalpulsar.PulsarCheckParam(self._pulsarparameters, key):
