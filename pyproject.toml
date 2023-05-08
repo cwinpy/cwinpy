@@ -56,6 +56,7 @@ dependencies = [
     "psrqpy >= 1.1.7",
     "requests",
     "scipy",
+    "simpleeval",
 ]
 
 dynamic = [
