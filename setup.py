@@ -6,9 +6,7 @@ sources.
 """
 
 import numpy as np
-from setuptools import setup
-from setuptools import Extension
-
+from setuptools import Extension, setup
 
 ext_modules = [
     Extension(
