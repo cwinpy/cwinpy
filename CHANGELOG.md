@@ -1,5 +1,14 @@
 # Notable changes between versions
 
+## [0.10.0] 2023-05-11
+
+Changes for this release:
+
+- Unpinned matplotlib version, but require `pesummary` to be v1.0.0 or greater (!139)
+- Switched from using `eval` to [`simpleeval`](https://github.com/danthedeckie/simpleeval) for safe configuration parsing (!138)
+- Added the ability to add aliases to `PulsarParameters` values (!136)
+- Update references to `gw-openscience.org` to be `gwosc.org` (!135)
+
 ## [0.9.3] 2023-03-17
 
 Changes for this release:
