@@ -1675,11 +1675,9 @@ class HeterodyneDAGRunner(object):
 
         try:
             seval = EvalWithCompoundTypes()
-            newobj = seval.eval(newobj)
+            return seval.eval(newobj)
         except (ValueError, SyntaxError):
-            raise ValueError(f"{newobj} could not be evaluated.")
-
-        return newobj
+            return newobj
 
 
 def heterodyne_pipeline(**kwargs):
