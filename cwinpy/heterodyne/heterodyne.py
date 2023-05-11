@@ -17,6 +17,7 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
+from simpleeval import EvalWithCompoundTypes
 
 import cwinpy
 
@@ -1656,7 +1657,7 @@ class HeterodyneDAGRunner(object):
 
     def eval(self, arg):
         """
-        Try and evaluate a string using :func:`ast.literal_eval`.
+        Evaluate a string using simpleeval.
 
         Parameters
         ----------
@@ -1673,33 +1674,10 @@ class HeterodyneDAGRunner(object):
         newobj = str(arg)
 
         try:
-            newobj = ast.literal_eval(newobj)
+            seval = EvalWithCompoundTypes()
+            newobj = seval.eval(newobj)
         except (ValueError, SyntaxError):
-            # try evaluating expressions such as "1/60" or "[1., 1./60.]"",
-            # which fail for recent versions of ast in Python 3.7+
-
-            # if expression contains a list strip the brackets to start
-            objlist = newobj.strip("[").strip("]").split(",")
-            issafe = False
-            for obj in objlist:
-                try:
-                    # check if value is just a number
-                    _ = float(obj)
-                    issafe = True
-                except ValueError:
-                    issafe = False
-                    for op in ["/", "*", "+", "-"]:
-                        if op in obj:
-                            if len(obj.split(op)) == 2:
-                                try:
-                                    _ = [float(val) for val in obj.split(op)]
-                                    issafe = True
-                                except ValueError:
-                                    break
-
-            # object is "safe", use eval
-            if issafe:
-                newobj = eval(newobj)
+            raise ValueError(f"{newobj} could not be evaluated.")
 
         return newobj
 
