@@ -95,11 +95,12 @@ def read_hdf5_series(
                 fp.write(kwargs[par])
             kwargs[par] = parfiles[par]
 
-    # make sure certain values are integers
-    for key in kwargs:
-        if key in ["window", "bbminlength", "bbmaxlength"]:
-            if np.isfinite(kwargs[key]):
-                kwargs[key] = int(kwargs[key])
+    # don't perform Bayesian Block or outlier removal on initial read from file
+    # (this will happen later)
+    kwargs["bbminlength"] = np.inf
+    kwargs["remove_outliers"] = False
+    if "window" in kwargs:
+        kwargs.pop("window")
 
     # complex time series data
     data = dataset[()]
@@ -248,13 +249,17 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
     slots = tuple()
     origslots = tuple(series._metadata_slots)
     badslots = [
-        "par",
+        "bbmaxlength",
+        "bbminlength",
+        "bbthreshold",
+        "heterodyne_arguments",
         "injpar",
         "laldetector",
+        "par",
         "running_median",
         "vars",
+        "window",
         "xindex",
-        "heterodyne_arguments",
     ]
 
     if series.input_stds:
