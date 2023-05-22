@@ -99,6 +99,8 @@ def read_hdf5_series(
     # (this will happen later)
     kwargs["bbminlength"] = np.inf
     kwargs["remove_outliers"] = False
+    if "window" in kwargs:
+        kwargs.pop("window")
 
     # complex time series data
     data = dataset[()]
