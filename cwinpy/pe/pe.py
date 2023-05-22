@@ -1701,6 +1701,9 @@ class PEDAGRunner(object):
         else:
             fakeseed = None
 
+        # get keyword arguments to pass to HeterodynedData
+        datakwargs = self.eval(config.get("pe", "data_kwargs", fallback="{}"))
+
         # set some default bilby-style priors
         DEFAULTPRIORS2F = (
             "h0 = Uniform(minimum=0.0, maximum=1.0e-21, name='h0', latex_label='$h_0$')\n"
@@ -1910,6 +1913,8 @@ class PEDAGRunner(object):
             if "exit_code" not in samplerkwargs:
                 samplerkwargs["exit_code"] = CHECKPOINT_EXIT_CODE
 
+            configdict["data_kwargs"] = str(datakwargs)
+
             configdict["sampler_kwargs"] = str(samplerkwargs)
 
             if outputsnr:
@@ -1939,9 +1944,7 @@ class PEDAGRunner(object):
                     elif isinstance(ephem, str):
                         configdict[ephemname] = ephem
                     else:
-                        raise TypeError(
-                            "Ephemeris file for {} is not a string".format(pname)
-                        )
+                        raise TypeError(f"Ephemeris file for {pname} is not a string")
 
             seeddict = None
             if (
