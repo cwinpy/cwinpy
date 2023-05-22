@@ -342,10 +342,10 @@ For the ``PULSAR01`` hardware injection, we will use a ``.par`` file containing
 .. literalinclude:: ../data/PULSAR01_offset.par
    :language: text
 
-where the right ascension and declination have been shifted by 0.01 mrad (0.138 seconds) and -0.01 mrad
-(-2.063 arcsec), respectively, compared to their actual values. We will use a prior file that
-searches over right ascension and declination over a uniform patch spanning ±0.02 mrad in each
-coordinate:
+where the right ascension and declination have been shifted by 0.001 mrad (0.0138 seconds) and
+-0.001 mrad (-0.2063 arcsec), respectively, compared to their actual values. We will use a prior
+file that searches over right ascension and declination over a uniform patch spanning ±0.002 mrad in
+each coordinate (around the true values):
 
 .. literalinclude:: ../data/PULSAR01_prior.txt
    :language: python
@@ -388,6 +388,12 @@ Once complete, the posteriors for the J1932+17 analysis can be plotted with:
 We can see that the posterior has a strong peak in the frequency derivative, which is primarily
 responsible for :math:`h_0` peaking away from zero, although the posterior over frequency is rather
 unconstrained.
+
+Using ROQ with a search pipeline on a hardware injection
+========================================================
+
+Run on PULSAR08 in O1 with heterodyning with an offset sky position - offset by 3e-4 rads in RA and
+-3e-4 rads in DEC. Just use 4 days of data. Priors of +/-1e-3 rads around the true values.
 
 ROQ API
 -------
