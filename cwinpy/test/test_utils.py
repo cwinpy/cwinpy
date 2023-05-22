@@ -9,6 +9,7 @@ import pytest
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from cwinpy import PulsarParameters
+from cwinpy.parfile import add_alias, get_real_param_from_alias, is_alias_param
 from cwinpy.utils import (
     draw_ra_dec,
     ellipticity_to_q22,
@@ -287,3 +288,40 @@ def test_overlap():
     pos2 = SkyCoord(2.3 + 0.1, 0.4 - 0.1, unit="rad")
 
     assert overlap(pos1, pos2, f0, T, det=det, dt=dt) < 1e-3
+
+
+def test_PulsarParameters_aliases():
+    """
+    Test PulsarParameters aliases and related functions
+    """
+
+    # test is_alias_param()
+    assert is_alias_param("ALIAS_PAR")
+    assert not is_alias_param("PAR")
+
+    # test add_alias() and get_real_param_from_alias()
+    # - ALIAS_HF0 is an alias for half the value of F0
+    add_alias("ALIAS_HF0", lambda pp: 0.5 * pp["F0"], "F0", lambda hf0, pp: 2 * hf0)
+    assert get_real_param_from_alias("ALIAS_HF0") == "F0"
+    assert get_real_param_from_alias("F0") == "F0"
+
+    # test getting and setting alias parameters
+    pp = PulsarParameters()
+    # - F0 has not been set yet, should raise an error
+    with pytest.raises(TypeError):
+        pp["ALIAS_HF0"]
+    # - test setting alias and getting real parameter
+    pp["ALIAS_HF0"] = 50
+    assert pp["F0"] == 100
+    # - test setting real parameter and getting alias
+    pp["F0"] = 1000
+    assert pp["ALIAS_HF0"] == 500
+
+    # test braking index alias
+    # - required real parameters have not been set yet, should raise an error
+    with pytest.raises(TypeError):
+        pp["ALIAS_N"]
+    # - check definition is correct
+    pp["F1"] = -1e-8
+    pp["ALIAS_N"] = 5
+    assert np.isclose(pp["F2"], pp["ALIAS_N"] * pp["F1"] ** 2 / pp["F0"])

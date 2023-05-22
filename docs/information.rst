@@ -3,13 +3,13 @@ Run information
 ###############
 
 In CWInPy you can extract information on the observing run start and end times and the parameters of
-`continuous-wave hardware injections <https://www.gw-openscience.org/O3/o3a_inj/>`_.
+`continuous-wave hardware injections <https://gwosc.org/O3/o3a_inj/>`_.
 
 Run times
 ---------
 
 The start and end GPS times of the LIGO and Virgo observation runs available as open data via `GWOSC
-<https://www.gw-openscience.org/data/>`__ can be found by in the :obj:`~cwinpy.info.RUNTIMES`
+<https://gwosc.org/data/>`__ can be found by in the :obj:`~cwinpy.info.RUNTIMES`
 :class:`~cwinpy.info.Runtimes` dictionary. This dictionary has methods to convert the start and end
 times to ISO format (or Modified Julian Data format), extract times for a single observing run, or a
 single detector. The available run names currently are: ``S5``, ``S6``, ``O1``, ``O2`` and ``O3a``.
@@ -57,7 +57,7 @@ the S5 run being::
 In these files the ``F0`` and ``F1`` values are equivalent to a pulsar's rotation frequency (Hz) and
 frequency derivative (Hz/s), and therefore are half the signal frequency/frequency derivative values
 (as given in the `GWOSC tables
-<https://www.gw-openscience.org/static/injections/cw/S5_injections/S5_injection_params_s5try3.html>`_)
+<https://gwosc.org/static/injections/cw/S5_injections/S5_injection_params_s5try3.html>`_)
 in the data. The initial phase ``PHI0`` value is also the equivalent rotational phase (rads) and is
 therefore half the signal phase. The right ascension ``RA`` is given in "HH:MM:SS" format and the
 declination ``DEC`` is given in "DD:MM:SS" format. The ``PEPOCH`` value is the epoch at which the
@@ -83,20 +83,20 @@ S5
 In S5 there were 10 continuous injections labeled ``PULSAR00``-``PULSAR09``. There were several
 epochs of injections with different amplitudes, but the values stored here represent those from
 `"s5try3"
-<https://www.gw-openscience.org/static/injections/cw/S5_injections/S5_injection_params_s5try3.html>`_
+<https://gwosc.org/static/injections/cw/S5_injections/S5_injection_params_s5try3.html>`_
 that were present between GPS times of 829412600 and 875301345 as given in
 :obj:`~cwinpy.info.HW_INJ_RUNTIMES`. These injections used the DE200 solar system ephemeris.
 
 S6
 ~~
 
-In S6 the same `10 injectons <https://www.gw-openscience.org/s6hwcw/>`_ as :ref:`S5` were used.
+In S6 the same `10 injectons <https://gwosc.org/s6hwcw/>`_ as :ref:`S5` were used.
 
 O1
 ~~
 
 In O1 there were `15 continuous injections
-<https://www.gw-openscience.org/static/injections/o1/cw_injections.html>`__ labeled
+<https://gwosc.org/static/injections/o1/cw_injections.html>`__ labeled
 ``PULSAR00``-``PULSAR14``. The first 10 are the same as those in :ref:`S5` and :ref:`S6`, but with
 adjusted amplitudes. All injections now use the DE405 solar system ephemeris.
 
@@ -104,14 +104,14 @@ O2
 ~~
 
 In O2 there were the same `15 continuous injections
-<https://www.gw-openscience.org/O2_injection_params/>`__ as in :ref:`O1`, although a subset have
+<https://gwosc.org/O2_injection_params/>`__ as in :ref:`O1`, although a subset have
 different amplitudes.
 
 O3
 ~~
 
 In O3 there were `18 continuous injections
-<https://www.gw-openscience.org/O3/O3April1_injection_parameters/>`_ labeled
+<https://gwosc.org/O3/O3April1_injection_parameters/>`_ labeled
 ``PULSAR00``-``PULSAR17``. The first 15 are the same as those in :ref:`O1` and :ref:`O2`, but with
 adjusted amplitudes. The injection labeled ``PULSAR15`` is a very high frequency source, with a
 signal frequency of 2991 Hz. The injections labeled ``PULSAR16`` and ``PULSAR17`` are simulated to

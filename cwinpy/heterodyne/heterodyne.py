@@ -18,6 +18,7 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
+from simpleeval import EvalWithCompoundTypes
 
 from ..condor import submit_dag
 from ..condor.hetnodes import HeterodyneLayer, MergeLayer
@@ -157,7 +158,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "The server name for finding the gravitational-wave data files. "
             'Use "datafind.ligo.org:443" for open data available via CVMFS. '
             "To use open data available from the GWOSC use "
-            '"https://www.gw-openscience.org".'
+            '"https://gwosc.org".'
         ),
     )
     dataparser.add(
@@ -307,7 +308,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             'frequency scale factor used, "gpsstart" for the GPS start '
             'time, and "gpsend" for the GPS end time. The extension should '
             'be given as ".hdf", ".h5", or ".hdf5". E.g., the default '
-            'is "heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf".'
+            'is "heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf5".'
         ),
     )
 
@@ -1655,7 +1656,7 @@ class HeterodyneDAGRunner(object):
 
     def eval(self, arg):
         """
-        Try and evaluate a string using :func:`ast.literal_eval`.
+        Evaluate a string using simpleeval.
 
         Parameters
         ----------
@@ -1672,35 +1673,10 @@ class HeterodyneDAGRunner(object):
         newobj = str(arg)
 
         try:
-            newobj = ast.literal_eval(newobj)
+            seval = EvalWithCompoundTypes()
+            return seval.eval(newobj)
         except (ValueError, SyntaxError):
-            # try evaluating expressions such as "1/60" or "[1., 1./60.]"",
-            # which fail for recent versions of ast in Python 3.7+
-
-            # if expression contains a list strip the brackets to start
-            objlist = newobj.strip("[").strip("]").split(",")
-            issafe = False
-            for obj in objlist:
-                try:
-                    # check if value is just a number
-                    _ = float(obj)
-                    issafe = True
-                except ValueError:
-                    issafe = False
-                    for op in ["/", "*", "+", "-"]:
-                        if op in obj:
-                            if len(obj.split(op)) == 2:
-                                try:
-                                    _ = [float(val) for val in obj.split(op)]
-                                    issafe = True
-                                except ValueError:
-                                    break
-
-            # object is "safe", use eval
-            if issafe:
-                newobj = eval(newobj)
-
-        return newobj
+            return newobj
 
 
 def heterodyne_pipeline(**kwargs):

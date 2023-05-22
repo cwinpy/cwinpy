@@ -15,7 +15,13 @@ from numba.typed import Dict as numbadict
 from scipy.linalg import lu_solve
 
 from ..data import HeterodynedData, MultiHeterodynedData
-from ..parfile import EPOCHPARS, PPUNITS, TEMPOUNITS
+from ..parfile import (
+    EPOCHPARS,
+    PPUNITS,
+    TEMPOUNITS,
+    get_real_param_from_alias,
+    is_alias_param,
+)
 from ..signal import HeterodynedCWSimulator
 from ..utils import logfactorial
 
@@ -218,17 +224,21 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             if isinstance(self.priors[key], bilby.core.prior.Constraint):
                 continue
             if (
-                key.upper()
-                not in self.AMPLITUDE_PARAMS
-                + self.BINARY_PARAMS
-                + self.POSITIONAL_PARAMETERS
-                + self.NONGR_AMPLITUDE_PARAM
-                + self.TRANSIENT_PARAMS
-            ) and not self._is_vector_param(key.upper()):
+                (
+                    key.upper()
+                    not in self.AMPLITUDE_PARAMS
+                    + self.BINARY_PARAMS
+                    + self.POSITIONAL_PARAMETERS
+                    + self.NONGR_AMPLITUDE_PARAM
+                    + self.TRANSIENT_PARAMS
+                )
+                and not self._is_vector_param(key.upper())
+                and not is_alias_param(key.upper())
+            ):
                 raise ValueError("Unknown parameter '{}' being used!".format(key))
 
             if key.upper() not in self.AMPLITUDE_PARAMS:
-                if self.priors[key].is_fixed:
+                if not is_alias_param(key.upper()) and self.priors[key].is_fixed:
                     # check if it's the same value as the par files
                     for het in self.data:
                         if self._is_vector_param(key.upper()):
@@ -249,6 +259,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                             break
                 else:
                     self.include_phase = True
+                    key = get_real_param_from_alias(key.upper())
                     if key.upper() in self.BINARY_PARAMS:
                         self.include_binary = True
                     elif key.upper() in self.POSITIONAL_PARAMETERS:
@@ -260,6 +271,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         # check if any non-GR "amplitude" parameters are set
         self.nonGR = False
         for key in self.priors:
+            key = get_real_param_from_alias(key.upper())
             if key.upper() in self.NONGR_AMPLITUDE_PARAM:
                 self.nonGR = True
 
@@ -573,7 +585,13 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         ):
 
             # update parameters in the base par
-            for pname, pval in self.parameters.items():
+            # - set non-alias (real) parameters first, then alias parameters
+            #   (since alias parameters may depend on real parameter values)
+            # - set parameters alphabetically to permit ordering e.g. of aliases-of-aliases
+            for pname, pval in sorted(
+                self.parameters.items(),
+                key=lambda item: (is_alias_param(item[0].upper()), item[0].upper()),
+            ):
                 if isinstance(self.priors[pname], bilby.core.prior.Constraint):
                     continue
                 if self._is_vector_param(pname.upper()):

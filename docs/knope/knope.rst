@@ -44,9 +44,9 @@ the analysis scripts to access frame files, e.g.,:
    ligo-proxy-init -p albert.einstein
 
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
-data available from the `GWOSC <https://www.gw-openscience.org/>`__ via `CVMFS
+data available from the `GWOSC <https://gwosc.org/>`__ via `CVMFS
 <https://cvmfs.readthedocs.io/>`__. To find out more about accessing this data see the instructions
-`here <https://www.gw-openscience.org/cvmfs/>`__.
+`here <https://gwosc.org/cvmfs/>`__.
 
 Configuration file
 ------------------
@@ -80,7 +80,7 @@ via CVMFS. It is also recommended that you run CWInPy from within an `IGWN conda
 <https://computing.docs.ligo.org/conda/>`_ 
 
 For example, if you have a TEMPO(2)-style pulsar parameter file, e.g., ``J0740+6620.par``, and you
-want to analyse the open `O1 data <https://www.gw-openscience.org/O1/>`_ for the two LIGO detectors
+want to analyse the open `O1 data <https://gwosc.org/O1/>`_ for the two LIGO detectors
 you can simply run:
 
 .. code-block:: bash
@@ -105,7 +105,7 @@ from `psrqpy <https://psrqpy.readthedocs.io/en/latest/>`_.
 
 CWInPy also contains information on the continuous :ref:`hardware injections<Hardware Injections>`
 performed in each run, so if you wanted the analyse the these in, say, the LIGO `sixth science run
-<https://www.gw-openscience.org/archive/S6/>`_, you could do:
+<https://gwosc.org/archive/S6/>`_, you could do:
 
 .. code-block:: bash
 
@@ -583,7 +583,7 @@ then the amplitude decays away exponentially. Such a signal might occur after an
 on the star that subsequently decays away on a timescale of days-to-weeks-to-months [3]_.
 
 An example configuration file for performing a search for such a signal is given below. In this case
-it uses open LIGO data from the `O2 observing run <https://www.gw-openscience.org/O2/>`__ to search
+it uses open LIGO data from the `O2 observing run <https://gwosc.org/O2/>`__ to search
 for an exponentially decaying signal following a glitch observed in the Vela pulsar on 12 December
 2016.
 

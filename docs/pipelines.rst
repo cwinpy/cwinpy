@@ -19,7 +19,7 @@ Quick start
 The data processing stage and the full analysis pipeline can be set up and run using simple
 one-liner commands. For example, running an analysis on `PSR J0737-3039A
 <https://en.wikipedia.org/wiki/PSR_J0737%E2%88%923039>`_ using LIGO data from the first observing
-run in the advanced detector era, `O1 <https://www.gw-openscience.org/O1/>`__, can be performed
+run in the advanced detector era, `O1 <https://gwosc.org/O1/>`__, can be performed
 with:
 
 .. code-block:: bash
@@ -31,8 +31,8 @@ with:
    This will use default settings for all parts of the pipeline including outputting results in the
    current working directory. It also assumes you are running on a submit node of a machine running
    the `HTCondor <https://htcondor.readthedocs.io/>`__ job scheduler and have access to `open
-   gravitational-wave data <https://www.gw-openscience.org/data/>`_ via `CVMFS
-   <https://www.gw-openscience.org/cvmfs/>`__. See the :ref:`Known pulsar analysis pipeline` and
+   gravitational-wave data <https://gwosc.org/data/>`_ via `CVMFS
+   <https://gwosc.org/cvmfs/>`__. See the :ref:`Known pulsar analysis pipeline` and
    :ref:`Heterodyning data` sections for more details.
 
 Source parameter specification

@@ -22,7 +22,6 @@ python-3.8:
   script:
     # install in "editable" mode, so pytest runs with Cython code - see https://stackoverflow.com/a/48331262/1862861
     - python -m pip install -e .
-    - pytest
 
     # run tests
     - pytest

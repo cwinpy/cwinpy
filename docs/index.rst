@@ -20,7 +20,7 @@ available through command line executables and through a Python API. The pipelin
 <https://htcondor.readthedocs.io/en/latest/users-manual/dagman-workflows.html>`_ to run analyses
 over long observing runs for multiple detectors and multiple sources on a computer cluster or via
 the Open Science Grid. The pipelines can be used on both open data (as hosted by the
-`Gravitational-wave Open Science Center <https://www.gw-openscience.org/data/>`_) and proprietary
+`Gravitational-wave Open Science Center <https://gwosc.org/data/>`_) and proprietary
 data from the LIGO and Virgo detectors.
 
 In addition to these main functions, CWInPy enables users to:

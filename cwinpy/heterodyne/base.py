@@ -73,8 +73,8 @@ class Heterodyne(object):
     host: str
         The server name for finding the gravitational-wave data files. Use
         ``datafind.ligo.org:443`` for open data available via CVMFS. To use
-        open data available from the `GWOSC <https://www.gw-openscience.org>`__
-        use ``https://www.gw-openscience.org``. See also
+        open data available from the `GWOSC <https://gwosc.org>`__
+        use ``https://gwosc.org``. See also
         :func:`gwpy.timeseries.TimeSeries.get`.
     outputframecache: str
         If a string is given it should give a file path to which a list of
@@ -128,7 +128,7 @@ class Heterodyne(object):
         factor used, ``gpsstart`` for the GPS start time, and ``gpsend`` for
         the GPS end time. The extension should be given as ".hdf", ".h5", or
         ".hdf5". E.g., the default is
-        ``"heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf"``.
+        ``"heterodyne_{psr}_{det}_{freqfactor}_{gpsstart}-{gpsend}.hdf5"``.
     pulsarfiles: str, list, dict
         This specifies the pulsars for which to heterodyne the data. It can be
         either i) a string giving the path to an individual pulsar
@@ -2564,7 +2564,7 @@ def remote_frame_cache(
     >>> cache = remote_frame_cache(start, end, channels, frametype=frametype)
 
     To instead generate CVMFS locations of GWOSC open data set the host
-    argument to be `"datafind.gw-openscience.org"`.
+    argument to be `"datafind.gwosc.org"`.
 
     Parameters
     ----------

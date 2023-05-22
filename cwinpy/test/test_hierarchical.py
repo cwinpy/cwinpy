@@ -10,6 +10,7 @@ import pytest
 from bilby.core.grid import Grid
 from bilby.core.prior import DirichletPriorDict, Uniform
 from bilby.core.result import Result, ResultList
+
 from cwinpy.hierarchical import (
     BaseDistribution,
     BoundedGaussianDistribution,

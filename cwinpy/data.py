@@ -1015,6 +1015,11 @@ class HeterodynedData(TimeSeriesBase):
 
         new.window = window  # set the window size
 
+        # set Bayesian Block parameters
+        new.bbminlength = bbminlength
+        new.bbmaxlength = bbmaxlength
+        new.bbthreshold = bbthreshold
+
         # remove outliers
         new.outlier_mask = None
         if remove_outliers:
@@ -1032,11 +1037,9 @@ class HeterodynedData(TimeSeriesBase):
                 warn("Your data is only one data point long!")
                 new.dt = None
 
-        # don't recompute values on data that has been read in or have had outliers
-        # removed (the remove method already does this). Note: if data was a list
-        # of files then this does get run to compute the running median/change points
-        # for any merged data files.
-        if not isinstance(data, str) or remove_outliers:
+        # don't recompute values on data that has had outliers removed (the
+        # remove method already does this).
+        if not remove_outliers:
             # initialise the running median
             _ = new.compute_running_median(N=new.window)
 
