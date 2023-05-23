@@ -1131,7 +1131,7 @@ class HeterodynedData(TimeSeriesBase):
             moredata = read_multi(lambda x: x[0], cls, dfile, *args, **kwargs)
             hetdata.merge(moredata)
 
-        return hetdata
+        return cls(data=hetdata, **kwargs)
 
     def write(self, target, *args, **kwargs):
         """
