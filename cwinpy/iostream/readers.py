@@ -97,10 +97,14 @@ def read_hdf5_series(
 
     # don't perform Bayesian Block or outlier removal on initial read from file
     # (this will happen later)
+    bbminlength = kwargs.pop("bbminlength", None)
     kwargs["bbminlength"] = np.inf
     kwargs["remove_outliers"] = False
+
     if "window" in kwargs:
-        kwargs.pop("window")
+        if not kwargs["window"]:
+            # remove window if it is zero
+            kwargs.pop("window")
 
     # complex time series data
     data = dataset[()]
@@ -156,6 +160,9 @@ def read_hdf5_series(
     array.include_bsb = kwargs.get("include_bsb", False)
     array.include_glitch = kwargs.get("include_glitch", False)
     array.include_fitwaves = kwargs.get("include_fitwaves", False)
+
+    # reset bbminlength
+    array.bbminlength = bbminlength
 
     # extract any Heterodyne arguments
     try:
@@ -249,16 +256,12 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
     slots = tuple()
     origslots = tuple(series._metadata_slots)
     badslots = [
-        "bbmaxlength",
-        "bbminlength",
-        "bbthreshold",
         "heterodyne_arguments",
         "injpar",
         "laldetector",
         "par",
         "running_median",
         "vars",
-        "window",
         "xindex",
     ]
 
