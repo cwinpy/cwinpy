@@ -584,7 +584,7 @@ transientTau = {tau}
         Test reading of local frame data.
         """
 
-        het = Heterodyne()
+        het = Heterodyne(strictdatarequirement=True)
 
         with pytest.raises(ValueError):
             # no start or end time set
@@ -706,6 +706,20 @@ transientTau = {tau}
         del het
         del data
 
+        # allow trying to read outside range
+        het = Heterodyne(strictdatarequirement=False)
+        data = het.get_frame_data(
+            starttime=900000000,
+            endtime=900000000 + 2 * 86400,
+            framecache=cachefile,
+            site="H1",
+            channel=self.fakedatachannels[0],
+        )
+        assert len(data) == 0
+
+        del het
+        del data
+
         # test reading from GWOSC
         het = Heterodyne()
         data = het.get_frame_data(
@@ -715,6 +729,17 @@ transientTau = {tau}
         assert int(data.t0.value) == 1126259460
         assert data.dt.value == 1 / 4096
         assert len(data) == 16384
+
+        del het
+        del data
+
+        # test reading from GWOSC for invalid time
+        het = Heterodyne(strictdatarequirement=False)
+        data = het.get_frame_data(
+            starttime=90000000, endtime=99000000, host=GWOSC_DEFAULT_HOST, site="H1"
+        )
+
+        assert data is None
 
     @pytest.mark.disable_socket
     def test_get_frame_data_no_internet(self):

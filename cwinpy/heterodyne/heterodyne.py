@@ -192,6 +192,20 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         ),
     )
     dataparser.add(
+        "--strictdatarequirement",
+        help=(
+            "Set this to True to strictly require that all frame data files "
+            "that are requested can be read in and used. In the case that a "
+            "frame cannot be read (i.e., it is corrupted or unavailable) then "
+            "the code will raise an exception and exit. If this is False, "
+            "which is the default, the code will just ignore that frame and "
+            "move on the next, while printing out a message about the ignored "
+            "data."
+        ),
+        action="store_true",
+        default=False,
+    )
+    dataparser.add(
         "--heterodyneddata",
         help=(
             "A string, or dictionary of strings, containing the full file "
@@ -893,6 +907,11 @@ class HeterodyneDAGRunner(object):
                     else:
                         raise TypeError("{} should be a dictionary".format(fname))
 
+        # set whether to allow unreadable frames to be ignored
+        strictdatarequirement = config.get(
+            "heterodyne", "strictdatarequirement", fallback=False
+        )
+
         # get segment information
         segmentserver = config.get("heterodyne", "segmentserver", fallback=None)
         segmentlists = self.eval(
@@ -1383,6 +1402,7 @@ class HeterodyneDAGRunner(object):
                             if heterodyneddata is None
                             else {psr: hets[det].heterodyneddata[psr] for psr in pgroup}
                         )
+                        configdict["strictdatarequirement"] = strictdatarequirement
 
                         # set segment data info
                         configdict.update(segmentdata[det][idx])
