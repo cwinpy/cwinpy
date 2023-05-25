@@ -90,6 +90,13 @@ class Heterodyne(object):
         recursively for frame files (first it will try to find ".gwf" file
         extension files then ".hdf5" files). This should be used in conjunction
         with the ``frametype`` argument.
+    strictdatarequirement: bool
+        Set this to True to strictly require that all frame data files that are
+        requested can be read in and used. In the case that a frame cannot be
+        read (i.e., it is corrupted or unavailable) then the code will raise an
+        exception and exit. If this is False, which is the default, the code
+        will just ignore that frame and move on the next, while printing out a
+        message about the ignored data.
     segmentlist: str, list
         A list of data segment start and end times (stored as list/tuple pairs)
         in the list. Or, an ascii text file containing segment start and end
@@ -251,6 +258,7 @@ class Heterodyne(object):
         outputframecache=None,
         appendframecache=False,
         framecache=None,
+        strictdatarequirement=False,
         segmentlist=None,
         includeflags=None,
         excludeflags=None,
@@ -287,6 +295,8 @@ class Heterodyne(object):
 
         # set detector
         self.detector = detector
+
+        self.strictdatarequirement = bool(strictdatarequirement)
 
         # set frame type and channel
         self.channel = channel
@@ -814,9 +824,12 @@ class Heterodyne(object):
                 # extract channel from dictionary
                 data = data[channel]
             except Exception as e:
-                raise IOError(
-                    f"Could not read in frame data '{frfile}' from cache: {e}"
-                )
+                if self.strictdatarequirement:
+                    raise IOError(
+                        f"Could not read in frame data '{frfile}' from cache: {e}"
+                    )
+                else:
+                    print(f"Could not read in frame data '{frfile}' from cache.")
         else:
             # download data
             if host == GWOSC_DEFAULT_HOST:
@@ -862,7 +875,11 @@ class Heterodyne(object):
                             pad=kwargs.get("pad", 0.0),  # fill gaps with zeros
                         )
                 except Exception as e:
-                    raise IOError("Could not download frame data: {}".format(e))
+                    if self.strictdatarequirement:
+                        raise IOError("Could not download frame data: {}".format(e))
+                    else:
+                        print("Could not download frame data.")
+                        data = None
 
         return data
 
@@ -1758,6 +1775,11 @@ class Heterodyne(object):
                     )
 
                     data = self.get_frame_data(**datakwargs)
+
+                    # continue if no data was obtained (i.e., frames could not be read in)
+                    if data is None or len(data) == 0:
+                        counter += 1
+                        continue
 
                     # check for consistent sample rate
                     samplerates.append(data.sample_rate.value)
