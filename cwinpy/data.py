@@ -929,17 +929,7 @@ class HeterodynedData(TimeSeriesBase):
             if new.detector is None:
                 new.detector = detector
         else:
-            if isinstance(data, (TimeSeriesBase, HeterodynedData)):
-                dataarray = data.value
-                hettimes = data.times
-
-                if detector is None:
-                    detector = data.detector
-
-                if type(data) is HeterodynedData:
-                    if data.stds is not None:
-                        stds = data.stds
-            else:
+            if type(data) is not HeterodynedData:
                 # use data
                 hettimes = times
                 if hettimes is None and data is None:
@@ -982,44 +972,53 @@ class HeterodynedData(TimeSeriesBase):
                 else:
                     raise ValueError("Supplied data array is the wrong shape")
 
-            if len(hettimes) != dataarray.shape[0]:
-                raise ValueError("Supplied times is not that same length as the data")
-
-            if hettimes is not None and times is not None:
-                if not np.array_equal(hettimes, times):
+                if len(hettimes) != dataarray.shape[0]:
                     raise ValueError(
-                        "Supplied times and times in data file are not the same"
+                        "Supplied times is not that same length as the data"
                     )
 
-            # check for and remove any duplicate time stamps
-            utimes, uidx = np.unique(hettimes, return_index=True)
+                if hettimes is not None and times is not None:
+                    if not np.array_equal(hettimes, times):
+                        raise ValueError(
+                            "Supplied times and times in data file are not the same"
+                        )
 
-            if len(utimes) < len(hettimes):
-                warn(
-                    "Data contained duplicate time stamps. Any duplicates will be removed."
+                # check for and remove any duplicate time stamps
+                utimes, uidx = np.unique(hettimes, return_index=True)
+
+                if len(utimes) < len(hettimes):
+                    warn(
+                        "Data contained duplicate time stamps. Any duplicates will be removed."
+                    )
+
+                # generate TimeSeriesBase
+                new = super(HeterodynedData, cls).__new__(
+                    cls, dataarray[uidx], times=utimes
                 )
 
-            # generate TimeSeriesBase
-            new = super(HeterodynedData, cls).__new__(
-                cls, dataarray[uidx], times=utimes
-            )
+                new.stds = None
+                if stds is not None:
+                    # set pre-calculated data standard deviations
+                    new.stds = stds[uidx]
+                    new.input_stds = True
+                else:
+                    new.input_stds = False
 
-            new.stds = None
-            if stds is not None:
-                # set pre-calculated data standard deviations
-                new.stds = stds[uidx]
-                new.input_stds = True
+                new.detector = detector
             else:
-                new.input_stds = False
+                new = data  # already a HeterodyneData class
 
-            new.detector = detector
-
-        new.window = window  # set the window size
+        # set the window size
+        if new.window is None or window != new.window:
+            new.window = window
 
         # set Bayesian Block parameters
-        new.bbminlength = bbminlength
-        new.bbmaxlength = bbmaxlength
-        new.bbthreshold = bbthreshold
+        if new.bbminlength is None or bbminlength != new.bbminlength:
+            new.bbminlength = bbminlength
+        if new.bbmaxlength is None or bbmaxlength != new.bbmaxlength:
+            new.bbmaxlength = bbmaxlength
+        if new.bbthreshold is None or bbthreshold != new.bbthreshold:
+            new.bbthreshold = bbthreshold
 
         # remove outliers
         new.outlier_mask = None
@@ -1045,9 +1044,7 @@ class HeterodynedData(TimeSeriesBase):
             _ = new.compute_running_median(N=new.window)
 
             # calculate change points (and variances)
-            new.bayesian_blocks(
-                threshold=bbthreshold, minlength=bbminlength, maxlength=bbmaxlength
-            )
+            new.bayesian_blocks()
 
         # set the parameter file
         if par is not None:
@@ -1058,26 +1055,37 @@ class HeterodynedData(TimeSeriesBase):
                 new.par = None
 
         # set the frequency scale factor
-        new.freq_factor = freqfactor
+        if new.freq_factor is None or freqfactor != new.freq_factor:
+            # note: if reading from an ascii text file, the new object will
+            # default to containing a freq_factor of 2, so this needs to be
+            # overwritten if a different value is passed. Hence, the
+            # "freqfactor != new.freq_factor"
+            new.freq_factor = freqfactor
 
         # add noise, or create data containing noise
         if fakeasd is not None:
             new.add_noise(fakeasd, issigma=issigma, seed=fakeseed)
 
         # set solar system ephemeris files if provided
-        try:
-            earthephemeris = ast.literal_eval(earthephemeris)
-        except ValueError:
-            pass
-        try:
-            sunephemeris = ast.literal_eval(sunephemeris)
-        except ValueError:
-            pass
-        try:
-            timeephemeris = ast.literal_eval(timeephemeris)
-        except ValueError:
-            pass
-        new.set_ephemeris(earthephemeris, sunephemeris, timeephemeris)
+        if (
+            not hasattr(new, "ephemearth")
+            and not hasattr(new, "ephemsun")
+            and not hasattr(new, "ephemtime")
+        ):
+            try:
+                earthephemeris = ast.literal_eval(earthephemeris)
+            except ValueError:
+                pass
+            try:
+                sunephemeris = ast.literal_eval(sunephemeris)
+            except ValueError:
+                pass
+            try:
+                timeephemeris = ast.literal_eval(timeephemeris)
+            except ValueError:
+                pass
+
+            new.set_ephemeris(earthephemeris, sunephemeris, timeephemeris)
 
         # set and add a simulated signal
         if bool(inject):
@@ -1284,11 +1292,11 @@ class HeterodynedData(TimeSeriesBase):
 
     @window.setter
     def window(self, window):
-        if isinstance(window, int):
+        if isinstance(window, (int, np.int64)):
             if window < 2 and window != 0:
                 raise ValueError("Window length must be greater than 2")
             else:
-                self._window = window
+                self._window = int(window)
         else:
             raise TypeError("Window must be an integer")
 
@@ -2303,14 +2311,16 @@ class HeterodynedData(TimeSeriesBase):
             self._bbminlength = None
             return
 
-        if not isinstance(minlength, int) and not np.isinf(minlength):
+        if not isinstance(minlength, (int, np.int64)) and not np.isinf(minlength):
             raise TypeError("Minimum chunk length must be an integer")
 
         if not np.isinf(minlength):
             if minlength < 1:
                 raise ValueError("Minimum chunk length must be a positive integer")
 
-        self._bbminlength = minlength
+        self._bbminlength = (
+            minlength if not isinstance(minlength, np.int64) else int(minlength)
+        )
 
     @property
     def bbmaxlength(self):
