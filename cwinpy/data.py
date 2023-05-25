@@ -1055,7 +1055,11 @@ class HeterodynedData(TimeSeriesBase):
                 new.par = None
 
         # set the frequency scale factor
-        if new.freq_factor is None:
+        if new.freq_factor is None or freqfactor != new.freq_factor:
+            # note: if reading from an ascii text file, the new object will
+            # default to containing a freq_factor of 2, so this needs to be
+            # overwritten if a different value is passed. Hence, the
+            # "freqfactor != new.freq_factor"
             new.freq_factor = freqfactor
 
         # add noise, or create data containing noise
