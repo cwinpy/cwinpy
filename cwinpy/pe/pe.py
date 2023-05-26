@@ -1097,9 +1097,10 @@ class PERunner(object):
             self.sampler_kwargs["use_ratio"] = False
 
         if self.sampler == "dynesty":
-            # set the default sampling method to "rslice"
+            # explicitly set the default sampling method to "rwalk" (althougth
+            # this is the default used by bilby for dynesty)
             if "sample" not in self.sampler_kwargs:
-                self.sampler_kwargs["sample"] = "rslice"
+                self.sampler_kwargs["sample"] = "rwalk"
 
             # turn off check_point_plot for dynesty by default
             if "check_point_plot" not in self.sampler_kwargs:
