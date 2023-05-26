@@ -1097,8 +1097,7 @@ class PERunner(object):
             self.sampler_kwargs["use_ratio"] = False
 
         if self.sampler == "dynesty":
-            # explicitly set the default sampling method to "rwalk" (althougth
-            # this is the default used by bilby for dynesty)
+            # explicitly set the default sampling method to "rwalk"
             if "sample" not in self.sampler_kwargs:
                 self.sampler_kwargs["sample"] = "rwalk"
 
