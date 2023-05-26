@@ -17,7 +17,7 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
-from simpleeval import EvalWithCompoundTypes
+from simpleeval import EvalWithCompoundTypes, NameNotDefined
 
 import cwinpy
 
@@ -1696,7 +1696,7 @@ class HeterodyneDAGRunner(object):
         try:
             seval = EvalWithCompoundTypes()
             return seval.eval(newobj)
-        except (ValueError, SyntaxError):
+        except (ValueError, SyntaxError, NameNotDefined):
             return newobj
 
 
