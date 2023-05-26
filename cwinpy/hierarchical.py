@@ -1726,8 +1726,8 @@ class MassQuadrupoleDistribution(object):
         # ratio
         run_kwargs.setdefault("use_ratio", False)
 
-        # use "rslice" as the default sample method
-        run_kwargs.setdefault("sample", "rslice")
+        # use "rwalk" as the default sample method
+        run_kwargs.setdefault("sample", "rwalk")
 
         if self._use_grid:
             self._grid_result = bilby.core.grid.Grid(
