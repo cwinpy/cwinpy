@@ -350,6 +350,10 @@ each coordinate (around the true values):
 .. literalinclude:: ../data/PULSAR01_prior.txt
    :language: python
 
+
+``PULSAR05`` with the right ascension and declination have been shifted by 0.02 mrad (0.275 seconds) and
+-0.03 mrad (-6.188 arcsec). Prior ±0.05 mrad around true position.
+
 For PSR J1932+17, the ``.par`` file we will use (as can be found :ref:`here<Example: analysis outlier>`)
 contains:
 
@@ -388,6 +392,34 @@ Once complete, the posteriors for the J1932+17 analysis can be plotted with:
 We can see that the posterior has a strong peak in the frequency derivative, which is primarily
 responsible for :math:`h_0` peaking away from zero, although the posterior over frequency is rather
 unconstrained.
+
+.. code-block:: python
+
+   from cwinpy import HeterodynedData
+   from cwinpy.info import HW_INJ
+   from cwinpy.plot import Plot
+   plot = Plot(
+      "cwinpy_pe_H1_JPULSAR05_result.hdf5",
+      pulsar=HW_INJ["O1"]["hw_inj_parameters"][5]
+   )
+
+   # read in heterodyned data to extract heteroydne parameters
+   het = HeterodynedData.read("../../heterodyne_JPULSAR05_H1_2_1129136736-1137253524.hdf5")
+
+   # plot showing full prior range over RA/DEC and original heterodyne position
+   fig = plot.plot()
+   ax = fig.axes
+
+   for axs in ax[::6]:
+       axs.set_xlim([plot.pulsar["DEC"] - 0.05e-3, plot.pulsar["DEC"] + 0.05e-3])
+       axs.axvline(het.par["DEC"], color="tab:orange")
+
+   for axs in ax[-6:-1]:
+       axs.set_ylim([plot.pulsar["RA"] - 0.05e-3, plot.pulsar["RA"] + 0.05e-3])
+       axs.axhline(het.par["RA"], color="tab:orange")
+
+   ax[-1].set_xlim([plot.pulsar["RA"] - 0.05e-3, plot.pulsar["RA"] + 0.05e-3])
+   ax[-1].axvline(het.par["RA"], color="tab:orange")
 
 Using ROQ with a search pipeline on a hardware injection
 ========================================================
