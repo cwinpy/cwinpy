@@ -88,9 +88,11 @@ comments describing the parameters given inline:
 .. note::
 
    When using the `dynesty <https://dynesty.readthedocs.io/en/latest/>`_ sampler (as wrapped through
-   `bilby <https://lscsoft.docs.ligo.org/bilby/>`_) it will default to use the ``rslice`` sampling
+   `bilby <https://lscsoft.docs.ligo.org/bilby/>`_) it will default to use the ``rwalk`` sampling
    method. This has been found to work well and be the quickest option for normal running. A
-   discussion of the different sampling options in dynesty can be found
+   discussion of the bilby-specific different dynesty sampling options can be found
+   `here <https://lscsoft.docs.ligo.org/bilby/dynesty-guide.html#bilby-specific-implementation-details>`__,
+   while discussion of the options in dynesty itself can be found
    `here <https://dynesty.readthedocs.io/en/latest/quickstart.html#sampling-options>`__.
 
 The analysis can then be run using:
@@ -144,7 +146,7 @@ Rather than using the configuration file, all the arguments could be given on th
 
 .. code-block:: bash
 
-   cwinpy_pe --detector H1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --outdir example1 --label example1 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'sample':'rslice','plot':True}" --prior example1_prior.txt --show-truths
+   cwinpy_pe --detector H1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --outdir example1 --label example1 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'sample':'rwalk','plot':True}" --prior example1_prior.txt --show-truths
 
 where it should be noted that the ``--sampler-kwargs`` dictionary argument must be given within
 quotation marks.
@@ -220,7 +222,7 @@ The equivalent full command line arguments that could be used are:
 
 .. code-block:: bash
 
-   cwinpy_pe --detector H1 --detector L1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --data-file fine-L1-PULSAR08.txt.gz --outdir example2 --label example2 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'sample':'rslice','plot':True}" --prior example2_prior.txt --show-truths
+   cwinpy_pe --detector H1 --detector L1 --par-file PULSAR08.par --data-file fine-H1-PULSAR08.txt.gz --data-file fine-L1-PULSAR08.txt.gz --outdir example2 --label example2 --sampler dynesty --sampler-kwargs "{'Nlive':1000,'sample':'rwalk','plot':True}" --prior example2_prior.txt --show-truths
 
 Example: a simulated transient-continuous signal
 ================================================
