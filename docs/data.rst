@@ -10,8 +10,8 @@ Heterodyned Data
 
 The data product used for source parameter inference in the Bayesian targeted pulsar searches
 perform by the `LIGO Scientific Collaboration <https://www.ligo.org/>`_ and `Virgo Collaboration
-<http://www.virgo-gw.eu/>`_ (e.g., [1]_, [2]_) is a filtered and band-passed complex time series
-[3]_.
+<http://www.virgo-gw.eu/>`_ (e.g., [1]_, [2]_) is a heavily filtered and downsampled complex time
+series [3]_.
 
 In forming the data it assumes that the source phase evolution is described by a Taylor expansion of
 the form:
