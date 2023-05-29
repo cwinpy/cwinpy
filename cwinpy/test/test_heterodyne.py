@@ -9,11 +9,12 @@ import subprocess as sp
 import lal
 import numpy as np
 import pytest
+from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
+
 from cwinpy import HeterodynedData, PulsarParameters
 from cwinpy.heterodyne import Heterodyne, heterodyne, local_frame_cache
 from cwinpy.signal import HeterodynedCWSimulator
 from cwinpy.utils import LAL_EPHEMERIS_URL, download_ephemeris_file
-from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 
 
 def relative_difference(data, model):

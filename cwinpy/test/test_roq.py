@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 from bilby.core.prior import PriorDict, Sine, Uniform
+
 from cwinpy.data import HeterodynedData, MultiHeterodynedData
 from cwinpy.heterodyne import heterodyne
 from cwinpy.parfile import PulsarParameters

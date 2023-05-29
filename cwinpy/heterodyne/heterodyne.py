@@ -12,13 +12,14 @@ import sys
 import tempfile
 from argparse import ArgumentParser
 
-import cwinpy
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
 from simpleeval import EvalWithCompoundTypes, NameNotDefined
+
+import cwinpy
 
 from ..condor import submit_dag
 from ..condor.hetnodes import HeterodyneLayer, MergeLayer

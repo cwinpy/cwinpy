@@ -11,6 +11,7 @@ from collections import OrderedDict
 import bilby
 import numpy as np
 from bilby.core.prior import PriorDict, Uniform
+
 from cwinpy import HeterodynedData, TargetedPulsarLikelihood
 
 # create a two fake pulsar parameter files

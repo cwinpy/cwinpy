@@ -10,6 +10,7 @@ import bilby
 import numpy as np
 import pytest
 from astropy import units as u
+
 from cwinpy import HeterodynedData, PulsarParameters
 from cwinpy.hierarchical import DeltaFunctionDistribution
 from cwinpy.pe.simulation import PEPulsarSimulationDAG

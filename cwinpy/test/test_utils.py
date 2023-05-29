@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+
 from cwinpy import PulsarParameters
 from cwinpy.parfile import add_alias, get_real_param_from_alias, is_alias_param
 from cwinpy.utils import (

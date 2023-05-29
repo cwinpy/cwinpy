@@ -2,6 +2,7 @@ import os
 from urllib.error import HTTPError
 
 import pytest
+
 from cwinpy.heterodyne import remote_frame_cache
 from cwinpy.info import (
     CVMFS_GWOSC_DATA_SERVER,
