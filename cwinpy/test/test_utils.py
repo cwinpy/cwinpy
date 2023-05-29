@@ -176,21 +176,20 @@ def test_initialise_ephemeris():
     Test reading of ephemeris files.
     """
 
-    with pytest.raises(ValueError):
+    with pytest.raises(IOError):
         initialise_ephemeris(units="lhfld")
 
     with pytest.raises(IOError):
         initialise_ephemeris(
-            earthfile="jksgdksg", sunfile="lhlbca", timefile="lshdldgls"
+            earthfile="jksgdksg",
+            sunfile="lhlbca",
         )
 
     with pytest.raises(IOError):
         initialise_ephemeris(
-            earthfile="jksgdksg", sunfile="lhlbca", timefile="lshdldgls"
+            earthfile="jksgdksg",
+            sunfile="lhlbca",
         )
-
-    with pytest.raises(IOError):
-        initialise_ephemeris(timefile="lshdldgls")
 
     edat, tdat = initialise_ephemeris()
 
