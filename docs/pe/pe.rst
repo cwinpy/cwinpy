@@ -51,6 +51,7 @@ of the putative pulsar, so they are **half** those of the simulated gravitationa
 data.
 
 .. literalinclude:: data/PULSAR08.par
+   :language: text
 
 Here we will try and estimate four of the signal's parameters: the gravitational-wave amplitude
 :math:`h_0`; the inclination angle :math:`\iota` of the rotation axis to the line-of-sight; the
@@ -61,6 +62,7 @@ these parameters. We can define the priors in a file as described in the documen
 be downloaded :download:`here <data/example1_prior.txt>`:
 
 .. literalinclude:: data/example1_prior.txt
+   :language: python
 
 Here we have set the prior on :math:`h_0` to be uniform between 0 and 10\ :sup:`-22`, where in this
 case the maximum has been chosen to be large compared to the expected signal strength. The
@@ -81,6 +83,7 @@ individual cases on the command line). A configuration file for this example is 
 comments describing the parameters given inline:
 
 .. literalinclude:: data/example1_config.ini
+   :language: ini
 
 .. note::
 
@@ -172,6 +175,7 @@ The configuration file for this example is shown below, with comments describing
 inline:
 
 .. literalinclude:: data/example2_config.ini
+   :language: ini
 
 The analysis can then be run using:
 
@@ -255,12 +259,14 @@ For this example, the ``.par`` file we used defined a model with a rectangular w
 be downloaded :download:`here <data/TRANSIENT.par>` and is reproduced below.
 
 .. literalinclude:: data/TRANSIENT.par
+   :language: text
 
 To estimate the parameters of the transient signal model they must be included in the file defining
 the required prior probability distributions. The prior file we use is reproduced below and can be
 downloaded :download:`here <data/example3_prior.txt>`:
 
 .. literalinclude:: data/example3_prior.txt
+   :language: python
 
 If setting the ``TRANSIENTSTARTTIME`` and ``TRANSIENTTAU`` to use MJD and days, respectively, in the
 prior file (to be consistent with the ``.par`` file) then the ``unit`` key for each prior must be
@@ -284,6 +290,7 @@ A configuration file that can be passed to ``cwinpy_pe`` for this example is sho
 comments describing the parameters given inline:
 
 .. literalinclude:: data/example3_config.ini
+   :language: ini
 
 This can then be run with:
 

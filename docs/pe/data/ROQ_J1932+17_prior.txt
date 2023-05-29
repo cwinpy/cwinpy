@@ -1,0 +1,6 @@
+h0 = Uniform(minimum=0.0, maximum=1.0e-21, name='h0', latex_label='$h_0$')
+phi0 = Uniform(minimum=0.0, maximum=3.141592653589793, name='phi0', latex_label='$\phi_0$', unit='rad')
+iota = Sine(minimum=0.0, maximum=3.141592653589793, name='iota', latex_label='$\iota$', unit='rad')
+psi = Uniform(minimum=0.0, maximum=1.5707963267948966, name='psi', latex_label='$\psi$', unit='rad')
+f0 = Uniform(minimum=23.905550843513122, maximum=23.905550851789005, name='f0', latex_label='$f_0$', unit='Hz')
+f1 = Uniform(minimum=-4.821908796340633e-15, maximum=1.930255295523179e-15, name='f1', latex_label='$\dot{f}$', unit='Hz/s')

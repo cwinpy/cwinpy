@@ -26,7 +26,7 @@ from .parfile import PulsarParameters
 from .utils import allzero, gcd_array, get_psr_name, is_par_file, logfactorial
 
 
-class MultiHeterodynedData(object):
+class MultiHeterodynedData:
     """
     A class to contain time series' of heterodyned data, using the
     :class:`~cwinpy.data.HeterodynedData` class, for multiple detectors/data
@@ -3675,6 +3675,72 @@ class HeterodynedData(TimeSeriesBase):
             raise TypeError("Configuration file is not valid")
 
         self._cwinpy_heterodyne_pipeline_config = config
+
+    def generate_roq(self, priors, **kwargs):
+        """
+        Generate reduced order quadrature interpolators for likelihood
+        calculations for each data chunk. See
+        :class:`~cwinpy.pe.roq.GenerateROQ` for additional keyword arguments.
+        The ``model`` argument is not required as that will always be
+        set to ``"HeterodynedCWSimulator"``, while the ``par`` and ``det``
+        arguments will default to be those in the
+        :class:`~cwinpy.data.HeterodynedData` object.
+
+        Parameters
+        ----------
+        priors: PriorDict
+            A :class:`~bilby.core.prior.PriorDict` containing the parameters
+            and prior distributions, which will be used to generate the model
+            reduced basis set.
+        """
+
+        try:
+            from .pe.roq import GenerateROQ
+        except (ModuleNotFoundError, ImportError):
+            raise ImportError("Arby must be installed to generate a ROQ")
+
+        roq = []
+
+        roqkwargs = kwargs.copy()
+        roqkwargs.setdefault("model", "HeterodynedCWSimulator")
+        roqkwargs.setdefault("par", self.par)
+        roqkwargs.setdefault("det", self.detector)
+
+        count = 1
+        for cpidx, cplen in zip(
+            self.change_point_indices,
+            self.chunk_lengths,
+        ):
+            if kwargs.get("verbose", False):
+                print(
+                    f"Generating Reduced Basis for chunk {count} "
+                    f"[PSR: {get_psr_name(self.par)}, detector: {self.detector}]"
+                )
+                count += 1
+
+            if roqkwargs.get("likelihood", "studentst") == "gaussian":
+                roqkwargs["sigma"] = self.stds[cpidx : cpidx + cplen]
+
+            chunkroq = GenerateROQ(
+                self.data[cpidx : cpidx + cplen],
+                self.times[cpidx : cpidx + cplen],
+                priors,
+                **roqkwargs,
+            )
+
+            roq.append(chunkroq)
+
+            if kwargs.get("verbose", False):
+                # print out ROQ basis sizes
+                print(f"No. real basis nodes: {len(chunkroq._x_node_indices_real)}")
+                print(
+                    f"No. imaginary basis nodes: {len(chunkroq._x_node_indices_imag)}"
+                )
+                print(
+                    f"No. squared model basis nodes: {len(chunkroq._x2_node_indices)}"
+                )
+
+        return roq
 
     def __len__(self):
         return len(self.data)

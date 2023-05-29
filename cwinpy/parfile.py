@@ -205,6 +205,9 @@ TIMESCALEPARS = [
     "TRANSIENTSTARTTIME",
 ]
 
+# names of parameters that are actually stored as integers (otherwise store as float)
+INTPARAMS = ["NTOA"]
+
 
 # parameter aliases; entries are ``aliaspar: (realpar, getfunc, setfunc)``
 _aliases = {}
@@ -456,20 +459,18 @@ class PulsarParameters:
         if lalpulsar.PulsarCheckParam(self._pulsarparameters, key):
             lalpulsar.PulsarRemoveParam(self._pulsarparameters, key)
 
-        if isinstance(value, float):
-            lalpulsar.PulsarAddREAL8Param(self._pulsarparameters, key, value)
+        if isinstance(value, (float, int)):
+            if value in INTPARAMS:
+                lalpulsar.PulsarAddUINT4Param(self._pulsarparameters, key, int(value))
+            else:
+                lalpulsar.PulsarAddREAL8Param(self._pulsarparameters, key, float(value))
         elif isinstance(value, str):
             lalpulsar.PulsarAddStringParam(self._pulsarparameters, key, value)
-        elif isinstance(value, int):
-            if value < 0.0:  # store negative integers as floats
-                lalpulsar.PulsarAddREAL8Param(self._pulsarparameters, key, float(value))
-            else:
-                lalpulsar.PulsarAddUINT4Param(self._pulsarparameters, key, value)
         elif isinstance(value, list) or isinstance(value, np.ndarray):
             tarray = lal.CreateREAL8Vector(len(value))
             for i, tv in enumerate(value):
-                if isinstance(tv, float):
-                    tarray.data[i] = tv
+                if isinstance(tv, (float, int)):
+                    tarray.data[i] = float(tv)
                 else:
                     raise ValueError("Non-float value in list or array")
             lalpulsar.PulsarAddREAL8VectorParam(self._pulsarparameters, key, tarray)
@@ -672,11 +673,10 @@ class PulsarParameters:
 
         thisitem = self._pulsarparameters.head
         self.keynames = []  # clear any previous key names
-        self.length = 0
+        self.length = self._pulsarparameters.nparams
         while thisitem:
             tname = thisitem.name
             self.keynames.append(tname)
-            self.length += 1
 
             thisitem = thisitem.next  # move on to next value
 

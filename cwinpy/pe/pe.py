@@ -336,6 +336,12 @@ continuous gravitational-wave signal from a known pulsar."""
         help=("Set this flag to use disable to likelihood calculation using numba."),
     )
     samplerparser.add(
+        "--usetempo2",
+        action="store_true",
+        default=False,
+        help=("Set this flag to use Tempo2 when generating the source phase model."),
+    )
+    samplerparser.add(
         "--prior",
         type=str,
         required=True,
@@ -360,6 +366,26 @@ continuous gravitational-wave signal from a known pulsar."""
             "a grid. This should be a the format of a standard Python "
             "dictionary, and must be given within quotation marks, "
             "e.g., \"{'grid_size':100}\"."
+        ),
+    )
+
+    roqparser = parser.add_argument_group("Reduced order quadrature inputs")
+    roqparser.add(
+        "--roq",
+        action="store_true",
+        default=False,
+        help=(
+            "Set this flag to generate and use a reduced order quadrature for "
+            "calculating the likelihood."
+        ),
+    )
+    roqparser.add(
+        "--roq-kwargs",
+        help=(
+            "The keyword arguments for generation of the reduced order "
+            "quadrature. This should be a the format of a standard Python "
+            "dictionary, and must be given within quotation marks, "
+            "e.g., \"{'ntraining':2000}\"."
         ),
     )
 
@@ -1015,6 +1041,14 @@ class PERunner(object):
                 raise ValueError("Unable to parse grid keyword arguments")
         self.likelihoodtype = kwargs.get("likelihood", "studentst")
         self.numba = not kwargs.get("disable_numba", False)
+        self.usetempo2 = kwargs.get("usetempo2", False)
+        self.roq = kwargs.get("roq", False)
+        self.roq_kwargs = kwargs.get("roq_kwargs", {})
+        if isinstance(self.roq_kwargs, str):
+            try:
+                self.roq_kwargs = ast.literal_eval(self.roq_kwargs)
+            except (ValueError, SyntaxError):
+                raise ValueError("Unable to parse ROQ keyword arguments")
         self.prior = kwargs.get("prior", None)
         if not isinstance(self.prior, (str, dict, bilby.core.prior.PriorDict)):
             raise ValueError("The prior is not defined")
@@ -1034,8 +1068,15 @@ class PERunner(object):
             self.sampler_kwargs.setdefault(
                 "outdir", os.path.abspath(kwargs.get("outdir"))
             )
+            if self.use_grid:
+                self.grid_kwargs.setdefault(
+                    "outdir", os.path.abspath(kwargs.get("outdir"))
+                )
+
         if "label" in kwargs:
             self.sampler_kwargs.setdefault("label", kwargs.get("label"))
+            if self.use_grid:
+                self.grid_kwargs.setdefault("label", kwargs.get("label"))
 
         self.outputsnr = kwargs.get("output_snr", False)
 
@@ -1117,11 +1158,16 @@ class PERunner(object):
         Set the likelihood function.
         """
 
+        likelihoodkwargs = self.roq_kwargs.copy()
+        likelihoodkwargs["usetempo2"] = self.usetempo2
+
         self.likelihood = TargetedPulsarLikelihood(
             data=self.hetdata,
             priors=self.prior,
             likelihood=self.likelihoodtype,
             numba=self.numba,
+            roq=self.roq,
+            **likelihoodkwargs,
         )
 
     def run_sampler(self):
@@ -1342,6 +1388,15 @@ def pe(**kwargs):
     disable_numba: bool
         Set whether to use disable running the likelihood with numba. Defaults
         to False.
+    usetempo2: bool
+        Set whether to use Tempo2 when calculating the source phase model.
+        Defaults to False.
+    roq: bool
+        Set this flag to generate and use a reduced order quadrature (ROQ) for
+        calculating the likelihood.
+    roq_kwargs: dict
+        A dictionary of keywords for the :class:`~cwinpy.pe.roq.GenerateROQ`
+        object to use when generating the ROQ.
     show_truths: bool
         If plotting the results, setting this argument will overplot the
         "true" signal values. If adding a simulated signal then these parameter
@@ -1479,46 +1534,58 @@ class PEDAGRunner(object):
         #  - a list of parameter files
         #  - a directory (or glob-able directory pattern) containing parameter files
         #  - a combination of a list of directories and/or files
+        #  - a dictionary of parameter files keyed to the pulsar name
         # All files must have the extension '.par'
         pulsardict = {}
         if parfiles is not None:
             parfiles = self.eval(parfiles)
-            if not isinstance(parfiles, list):
-                parfiles = [parfiles]
-
-            pulsars = []
-            for parfile in parfiles:
-                # add "*.par" wildcard to any directories
-                if os.path.isdir(parfile):
-                    parfile = os.path.join(parfile, "*.par")
-
-                # get all parameter files
-                pulsars.extend(
-                    [
-                        par
-                        for par in glob.glob(parfile)
-                        if os.path.splitext(par)[1] == ".par"
-                    ]
-                )
-
-            # get names of all the pulsars
-            for pulsar in list(pulsars):
-                if is_par_file(pulsar):
-                    psr = PulsarParameters(pulsar)
-
-                    # try names with order of precedence
-                    names = [
-                        psr[name]
-                        for name in ["PSRJ", "PSRB", "PSR", "NAME"]
-                        if psr[name] is not None
-                    ]
-                    if len(names) > 0:
-                        pulsardict[names[0]] = pulsar
+            if isinstance(parfiles, dict):
+                for pname, pfile in parfiles.items():
+                    # add from dictionary
+                    if is_par_file(pfile):
+                        pulsardict[pname] = pfile
                     else:
                         warnings.warn(
-                            f"Parameter file '{pulsar}' has no name, so it will be "
-                            "ignored"
+                            f"'{pfile}' is not a pulsar parameter file, so it "
+                            "will be ignored"
                         )
+            else:
+                if not isinstance(parfiles, list):
+                    parfiles = [parfiles]
+
+                pulsars = []
+                for parfile in parfiles:
+                    # add "*.par" wildcard to any directories
+                    if os.path.isdir(parfile):
+                        parfile = os.path.join(parfile, "*.par")
+
+                    # get all parameter files
+                    pulsars.extend(
+                        [
+                            par
+                            for par in glob.glob(parfile)
+                            if os.path.splitext(par)[1] == ".par"
+                        ]
+                    )
+
+                # get names of all the pulsars
+                for pulsar in list(pulsars):
+                    if is_par_file(pulsar):
+                        psr = PulsarParameters(pulsar)
+
+                        # try names with order of precedence
+                        names = [
+                            psr[name]
+                            for name in ["PSRJ", "PSRB", "PSR", "NAME"]
+                            if psr[name] is not None
+                        ]
+                        if len(names) > 0:
+                            pulsardict[names[0]] = pulsar
+                        else:
+                            warnings.warn(
+                                f"Parameter file '{pulsar}' has no name, so it will be "
+                                "ignored"
+                            )
 
         # the "injections" option in the [ephemerides] section can be specified
         # in the same way as the "pulsars" option
@@ -1861,6 +1928,10 @@ class PEDAGRunner(object):
         # get whether to use numba (default to True in DAG)
         disablenumba = config.getboolean("pe", "disable-numba", fallback=False)
 
+        # get whether to use a reduced order quadrature for likelihood calculation
+        roq = config.getboolean("pe", "roq", fallback=False)
+        roqkwargs = self.eval(config.get("pe", "roq_kwargs", fallback="{}"))
+
         # get ephemeris files if given
         earthephem = self.eval(config.get("ephemerides", "earth", fallback=None))
         sunephem = self.eval(config.get("ephemerides", "sun", fallback=None))
@@ -1916,6 +1987,8 @@ class PEDAGRunner(object):
             configdict["data_kwargs"] = str(datakwargs)
 
             configdict["sampler_kwargs"] = str(samplerkwargs)
+            configdict["roq"] = roq
+            configdict["roq_kwargs"] = str(roqkwargs)
 
             if outputsnr:
                 configdict["output_snr"] = "True"
