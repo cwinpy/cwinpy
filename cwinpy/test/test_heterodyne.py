@@ -10,11 +10,11 @@ import lal
 import numpy as np
 import pytest
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
+from solar_system_ephemerides.paths import body_ephemeris_path
 
 from cwinpy import HeterodynedData, PulsarParameters
 from cwinpy.heterodyne import Heterodyne, heterodyne, local_frame_cache
 from cwinpy.signal import HeterodynedCWSimulator
-from cwinpy.utils import LAL_EPHEMERIS_URL, download_ephemeris_file
 
 
 def relative_difference(data, model):
@@ -343,12 +343,8 @@ transientTau = {tau}
         cls.fakepulsarpar[2].pp_to_par(cls.fakeparfile[-1])
 
         # set ephemeris files
-        efile = download_ephemeris_file(
-            LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz")
-        )
-        sfile = download_ephemeris_file(
-            LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz")
-        )
+        efile = body_ephemeris_path(body="earth", jplde="DE405", string=True)
+        sfile = body_ephemeris_path(body="sun", jplde="DE405", string=True)
 
         for j, datastart in enumerate(cls.fakedatastarts):
             for i in range(len(cls.fakedatachannels)):

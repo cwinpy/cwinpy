@@ -408,15 +408,6 @@ continuous gravitational-wave signal from a known pulsar."""
             "the appropriate file."
         ),
     )
-    ephemparser.add(
-        "--timeephemeris",
-        type=str,
-        help=(
-            "The path to a file providing the time correction "
-            "ephemeris. If not supplied, the code will attempt to "
-            "automatically find the appropriate file."
-        ),
-    )
 
     return parser
 
@@ -487,7 +478,6 @@ class PERunner(object):
         # get solar system ephemeris information if provided
         self.datakwargs.setdefault("earthephemeris", kwargs.get("earthephemeris", None))
         self.datakwargs.setdefault("sunephemeris", kwargs.get("sunephemeris", None))
-        self.datakwargs.setdefault("timeephemeris", kwargs.get("timeephemeris", None))
 
         # data parameters
         if "detector" in kwargs:
@@ -1423,10 +1413,6 @@ def pe(**kwargs):
     sunephemeris: str, dict
         The path to a file providing the Sun ephemeris. If not supplied, the
         code will attempt to automatically find the appropriate file.
-    timeephemeris: str, dict
-        The path to a file providing the time delay (TDB or TCB) ephemeris. If
-        not supplied, the code will attempt to automatically find the
-        appropriate file.
     """
 
     if "cli" in kwargs or "config" in kwargs:
@@ -1935,7 +1921,6 @@ class PEDAGRunner(object):
         # get ephemeris files if given
         earthephem = self.eval(config.get("ephemerides", "earth", fallback=None))
         sunephem = self.eval(config.get("ephemerides", "sun", fallback=None))
-        timeephem = self.eval(config.get("ephemerides", "time", fallback=None))
 
         # get whether to perform PE coherently for multiple detectors and/or
         # for each detector independently
@@ -1951,12 +1936,10 @@ class PEDAGRunner(object):
             configdict = {}
 
             ephemtype = None
-            units = None
             if is_par_file(pulsardict[pname]):
                 configdict["par_file"] = pulsardict[pname]
                 psrpar = PulsarParameters(pulsardict[pname])
                 ephemtype = psrpar["EPHEM"]
-                units = psrpar["UNIT"]
 
             # get detectors
             for freqfactor in ["1f", "2f"]:
@@ -1994,8 +1977,8 @@ class PEDAGRunner(object):
                 configdict["output_snr"] = "True"
 
             for ephem, ephemname in zip(
-                [earthephem, sunephem, timeephem],
-                ["earthephemeris", "sunephemeris", "timeephemeris"],
+                [earthephem, sunephem],
+                ["earthephemeris", "sunephemeris"],
             ):
                 if ephem is not None:
                     if isinstance(ephem, dict):
@@ -2009,8 +1992,6 @@ class PEDAGRunner(object):
                                 and ephemtype in ephem
                             ):
                                 configdict[ephemname] = ephem[ephemtype]
-                            elif ephemname.startswith("time") and units in ephem:
-                                configdict[ephemname] = ephem[units]
                             else:
                                 # try passing entire dictionary
                                 configdict[ephemname] = ephem

@@ -18,6 +18,7 @@ from astropy.time import Time
 from configargparse import ArgumentError
 from htcondor.dags import DAG, write_dag
 from simpleeval import EvalWithCompoundTypes, NameNotDefined
+from solar_system_ephemerides.paths import JPLDE
 
 import cwinpy
 
@@ -39,11 +40,9 @@ from ..info import (
 from ..parfile import PulsarParameters
 from ..utils import (
     LAL_BINARY_MODELS,
-    LAL_EPHEMERIS_TYPES,
     check_for_tempo2,
     draw_ra_dec,
     get_psr_name,
-    initialise_ephemeris,
     int_to_alpha,
     overlap,
     parse_args,
@@ -422,11 +421,11 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "Set this to True to use Tempo2 (via libstempo) to calculate the "
             "signal phase evolution. For this to be used v2.4.2 or greater of "
             "libstempo must be installed. When using Tempo2 the "
-            '"--earthephemeris", "--sunephemeris" and "--timeephemeris" '
-            "arguments do not need to be supplied. This can only be used when "
-            "running the full heterodyne in one stage, but not for "
-            're-heterodyning previous data, as such all the "--include..." '
-            "arguments will be assumed to be True."
+            '"--earthephemeris" and "--sunephemeris" arguments do not need to '
+            "be supplied. This can only be used when running the full "
+            "heterodyne in one stage, but not for re-heterodyning previous "
+            'data, as such all the "--include..." arguments will be assumed '
+            "to be True."
         ),
     )
 
@@ -451,17 +450,6 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
             "Sun. If a pulsar requires a specific ephemeris that is not "
             "provided in this dictionary, then the code will automatically "
             "attempt to find or download the required file if available."
-        ),
-    )
-    ephemerisparser.add(
-        "--timeephemeris",
-        help=(
-            "A dictionary, keyed to time system name, which can be either "
-            '"TCB" or "TDB", pointing to the location of a file containing '
-            "that ephemeris for that time system. If a pulsar requires a "
-            "specific ephemeris that is not provided in this dictionary, then "
-            "the code will automatically attempt to find or download the "
-            "required file if available."
         ),
     )
 
@@ -524,7 +512,6 @@ def heterodyne(**kwargs):
         "output",
         "earthephemeris",
         "sunephemeris",
-        "timeephemeris",
     ]
     for attr in nsattrs:
         value = str(hetkwargs.pop(attr, None))
@@ -961,7 +948,6 @@ class HeterodyneDAGRunner(object):
         # get ephemeris information
         earthephemeris = self.eval(config.get("ephemerides", "earth", fallback=None))
         sunephemeris = self.eval(config.get("ephemerides", "sun", fallback=None))
-        timeephemeris = self.eval(config.get("ephemerides", "time", fallback=None))
 
         # get all the split segment times and frame caches
         if joblength == 0:
@@ -1277,34 +1263,26 @@ class HeterodyneDAGRunner(object):
         etypes = set(etypes)
         binarymodels = set(binarymodels)
 
-        # if ephemeris information is None download/extract information
-        if earthephemeris is None or sunephemeris is None:
-            earthephemeris = {} if earthephemeris is None else earthephemeris
-            sunephemeris = {} if sunephemeris is None else sunephemeris
-            for etype in LAL_EPHEMERIS_TYPES:
-                if etype not in earthephemeris:
-                    edat = initialise_ephemeris(ephem=etype, ssonly=True)
-                    earthephemeris[etype] = edat.filenameE
-                    sunephemeris[etype] = edat.filenameS
+        # if ephemeris files are given, set the files explicitly
+        available_ephem_types = list(JPLDE)
+        if isinstance(earthephemeris, dict) and isinstance(sunephemeris, dict):
+            if sorted(list(earthephemeris.keys())) != sorted(list(sunephemeris.keys())):
+                raise ValueError("Supplied earth and sun ephemerides are not the same")
 
-        if timeephemeris is None:
-            timeephemeris = {} if timeephemeris is None else timeephemeris
-            for unit in ["TCB", "TDB"]:
-                if unit not in timeephemeris:
-                    _, fnames = initialise_ephemeris(
-                        units=unit, timeonly=True, filenames=True
-                    )
-                    timeephemeris[unit] = fnames[0]
+            for jplde in earthephemeris.keys():
+                if jplde in available_ephem_types:
+                    # remove files if ephemeris is already available
+                    earthephemeris.pop(jplde)
+                    sunephemeris.pop(jplde)
+                else:
+                    available_ephem_types.append(jplde)
 
-        # create copy of each file to a unique name in case of identical filenames
-        # from astropy cache, which causes problems if requiring files be
-        # transferred
+        # create copy of each ephemeris file to a unique name in case of identical
+        # filenames, which causes problems if requiring files be transferred
         transfer_files = config.get(dagsection, "transfer_files", fallback="YES")
         osg = config.getboolean(dagsection, "osg", fallback=False)
-        if transfer_files == "YES" or osg:
-            for edat, ename in zip(
-                [earthephemeris, sunephemeris, timeephemeris], ["earth", "sun", "time"]
-            ):
+        if (transfer_files == "YES" or osg) and earthephemeris:
+            for edat, ename in zip([earthephemeris, sunephemeris], ["earth", "sun"]):
                 if (
                     len(set([os.path.basename(edat[etype]) for etype in edat]))
                     != len(edat)
@@ -1320,7 +1298,7 @@ class HeterodyneDAGRunner(object):
         # check that ephemeris files exist for all required types
         if not usetempo2:
             for etype in etypes:
-                if etype not in earthephemeris or etype not in sunephemeris:
+                if etype not in available_ephem_types:
                     raise ValueError(
                         f"Pulsar(s) require ephemeris '{etype}' which has not been supplied"
                     )
@@ -1424,7 +1402,6 @@ class HeterodyneDAGRunner(object):
                         # include ephemeris files
                         configdict["earthephemeris"] = earthephemeris
                         configdict["sunephemeris"] = sunephemeris
-                        configdict["timeephemeris"] = timeephemeris
 
                         # temporary Heterodyne object to get the output file names
                         tmphet = Heterodyne(
@@ -1587,7 +1564,6 @@ class HeterodyneDAGRunner(object):
                             # include ephemeris files
                             configdict["earthephemeris"] = earthephemeris
                             configdict["sunephemeris"] = sunephemeris
-                            configdict["timeephemeris"] = timeephemeris
 
                             # input the data
                             configdict["heterodyneddata"] = {

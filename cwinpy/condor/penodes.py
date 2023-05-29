@@ -235,7 +235,7 @@ class PulsarPELayer(CondorLayer):
                             curconfig[key] = os.path.basename(config[key])
 
                 # transfer ephemeris files
-                for ephem in ["earth", "sun", "time"]:
+                for ephem in ["earth", "sun"]:
                     key = f"{ephem}ephemeris"
                     if key in config:
                         if isinstance(config[key], dict):

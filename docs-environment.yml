@@ -26,6 +26,7 @@ dependencies:
     - scipy
     - seaborn
     - simpleeval
+    - solar-system-ephemerides
     - autodoc
     - myst-parser
     - nbsphinx
