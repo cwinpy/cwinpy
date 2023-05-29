@@ -326,13 +326,13 @@ Using ROQ with a search pipeline
 ================================
 
 The ROQ likelihood can be used within a search pipeline, i.e., when running
-``cwinpy_knope_pipeline`` or ``cwinpy_pe_pipeline``. This will required individual prior files be
-specified for each source being searched for as the default priors will not require an ROQ (it will
-work will an ROQ, but is not necessary). We will perform a search for two pulsars in LIGO O1 data:
+``cwinpy_knope_pipeline`` or ``cwinpy_pe_pipeline``. This requires individual prior files to be
+specified for each source being searched for. Here, we will perform a search for three pulsars in
+LIGO O1 data:
 
-* the hardware injection, ``PULSAR01``, for which we will "accidentally" heterodyne using a slightly
-  offset sky location and then perform parameter estimation over a small sky patch including the
-  true location;
+* the hardware injections, ``PULSAR01`` and ``PULSAR05``, for which we will "accidentally"
+  heterodyne using a slightly offset sky locations and then perform parameter estimation over a
+  small sky patch including the true location;
 * the pulsar PSR J1932+17, which was an :ref:`outlier<Example: analysis outlier>` in the O1
   analysis, for which we will search over a small frequency and frequency derivative range based on
   expanding the uncertainty given by the electromagnetic timing solution by a factor of 5.
@@ -350,9 +350,19 @@ each coordinate (around the true values):
 .. literalinclude:: ../data/PULSAR01_prior.txt
    :language: python
 
+For the ``PULSAR05`` hardware injection, we will use a ``.par`` file containing
 
-``PULSAR05`` with the right ascension and declination have been shifted by 0.02 mrad (0.275 seconds) and
--0.03 mrad (-6.188 arcsec). Prior ±0.05 mrad around true position.
+.. literalinclude:: ../data/PULSAR05_offset.par
+   :language: text
+
+where the right ascension and declination have been shifted by 0.02 mrad (0.275 seconds) and -0.03
+mrad (-6.188 arcsec), respectively, compared to their actual values. These shifts are much larger
+than for ``PULSAR01`` due to it being at a much lower frequency for which the sky resolution is
+poorer. We will use a prior file that searches over right ascension and declination over a uniform
+patch spanning ±0.05 mrad in each coordinate (around the true values):
+
+.. literalinclude:: ../data/PULSAR05_prior.txt
+   :language: python
 
 For PSR J1932+17, the ``.par`` file we will use (as can be found :ref:`here<Example: analysis outlier>`)
 contains:
@@ -376,22 +386,60 @@ which is run with:
 
    $ cwinpy_knope_pipeline roq_pipeline_example.ini
 
+.. attention::
+
+   Note that in this configuration file, in the ``[pe]`` section, we have:
+
+   .. code-block:: ini
+
+      data_kwargs = {'bbminlength': 14400}
+
+   This defines the minimum "chunk length" into which the heterodyned data can split by the
+   :meth:`~cwinpy.data.HeterodynedData.bayesian_blocks` method. The ROQ method will produce a
+   reduced order quadrature for each data "chunk", so setting this to 14,400 seconds (10 days)
+   reduces the number of ROQs that are required to be calculated. However, this also means that the
+   amount of memory required to run this needs to be increased, hence the lines:
+
+   .. code-block:: ini
+
+      [pe_job]
+      request_memory = 64GB
+
+   in the file.
+
+   It is also important to note that the sampling method used in
+   
+   .. code-block:: ini
+
+      sampler_kwargs = {'sample': 'rwalk'}
+
+   is set to ``rwalk``. While this is the default sampling method that CWInPy will use for the
+   dynesty sampler, it is explicitly set here to note that for sampling over sky location this
+   method (or similar) is required as opposed to the ``rslice`` method that was default for CWInPy
+   versions between v0.8.0 and v0.10.0. It was found that ``rslice`` performed very poorly when
+   sampling over sky position, most likely (although speculatively) due to the sky location being
+   very tightly localised within the prior volume and slices very rarely intersecting with it.
+
 Once complete, the posteriors for the J1932+17 analysis can be plotted with:
 
 .. code-block:: python
 
    from cwinpy.plot import Plot
-   plot = Plot("cwinpy_pe_H1L1_J1932+17_result.hdf5")
+   plot = Plot("cwinpy_pe_H1_J1932+17_result.hdf5")
    plot.plot(bins=25)
    plot.savefig("cwinpy_pe_J1932+17.png", dpi=200)
 
-.. thumbnail:: ../data/roq/cwinpy_pe_J1932+17.png
+.. thumbnail:: cwinpy_pe_J1932+17.png
    :width: 450px
    :align: center
 
 We can see that the posterior has a strong peak in the frequency derivative, which is primarily
 responsible for :math:`h_0` peaking away from zero, although the posterior over frequency is rather
 unconstrained.
+
+The posteriors for the ``PULSAR05`` analysis can be plotted, along with the true injected values,
+using (where the sky position axes ranges have been expanded to show the full prior range and the
+offset sky location at which the heterodyne was performed is also shown in orange):
 
 .. code-block:: python
 
@@ -400,32 +448,118 @@ unconstrained.
    from cwinpy.plot import Plot
    plot = Plot(
       "cwinpy_pe_H1_JPULSAR05_result.hdf5",
-      pulsar=HW_INJ["O1"]["hw_inj_parameters"][5]
+      pulsar=HW_INJ["O1"]["hw_inj_files"][5]
    )
 
    # read in heterodyned data to extract heteroydne parameters
-   het = HeterodynedData.read("../../heterodyne_JPULSAR05_H1_2_1129136736-1137253524.hdf5")
+   het = HeterodynedData.read("../../H1/heterodyne_JPULSAR05_H1_2_1129136736-1137253524.hdf5")
 
    # plot showing full prior range over RA/DEC and original heterodyne position
    fig = plot.plot()
    ax = fig.axes
 
    for axs in ax[::6]:
-       axs.set_xlim([plot.pulsar["DEC"] - 0.05e-3, plot.pulsar["DEC"] + 0.05e-3])
-       axs.axvline(het.par["DEC"], color="tab:orange")
+       axs.set_xlim(
+           [
+               plot.pulsar["DEC"] - plot.parameter_offsets["dec"] - 0.05e-3,
+               plot.pulsar["DEC"] - plot.parameter_offsets["dec"] + 0.05e-3
+           ]
+       )
+       axs.axvline(het.par["DEC"] - plot.parameter_offsets["dec"], color="tab:orange")
 
    for axs in ax[-6:-1]:
-       axs.set_ylim([plot.pulsar["RA"] - 0.05e-3, plot.pulsar["RA"] + 0.05e-3])
-       axs.axhline(het.par["RA"], color="tab:orange")
+       axs.set_ylim(
+           [
+               plot.pulsar["RA"] - plot.parameter_offsets["ra"] - 0.05e-3,
+               plot.pulsar["RA"] - plot.parameter_offsets["ra"] + 0.05e-3
+           ]
+       )
+       axs.axhline(het.par["RA"] - plot.parameter_offsets["ra"], color="tab:orange")
 
-   ax[-1].set_xlim([plot.pulsar["RA"] - 0.05e-3, plot.pulsar["RA"] + 0.05e-3])
-   ax[-1].axvline(het.par["RA"], color="tab:orange")
+   ax[-1].set_xlim(
+       [
+           plot.pulsar["RA"] - plot.parameter_offsets["ra"] - 0.05e-3,
+           plot.pulsar["RA"] - plot.parameter_offsets["ra"] + 0.05e-3
+       ]
+   )
+   ax[-1].axvline(het.par["RA"]- plot.parameter_offsets["ra"], color="tab:orange")
+   plot.savefig("cwinpy_pe_JPULSAR05.png", dpi=200)
 
-Using ROQ with a search pipeline on a hardware injection
-========================================================
+.. thumbnail:: cwinpy_pe_JPULSAR05.png
+   :width: 450px
+   :align: center
 
-Run on PULSAR08 in O1 with heterodyning with an offset sky position - offset by 3e-4 rads in RA and
--3e-4 rads in DEC. Just use 4 days of data. Priors of +/-1e-3 rads around the true values.
+We see here that, despite the heterodyne offset in sky location, the true value has still been well
+recovered and the other source parameter are also recovered well (see `Injection parameter
+comparison`_ for comparison).
+
+The posteriors for the ``PULSAR01`` analysis can be plotted, along with the true injected values,
+using (where the sky position axes ranges have been expanded to show the full prior range and the
+offset sky location at which the heterodyne was performed is also shown in orange):
+
+.. code-block:: python
+
+   from cwinpy import HeterodynedData
+   from cwinpy.info import HW_INJ
+   from cwinpy.plot import Plot
+   plot = Plot(
+      "cwinpy_pe_H1_JPULSAR01_result.hdf5",
+      pulsar=HW_INJ["O1"]["hw_inj_files"][1]
+   )
+
+   # read in heterodyned data to extract heteroydne parameters
+   het = HeterodynedData.read("../../H1/heterodyne_JPULSAR01_H1_2_1129136736-1137253524.hdf5")
+
+   # plot showing full prior range over RA/DEC and original heterodyne position
+   fig = plot.plot()
+   ax = fig.axes
+
+   for axs in ax[::6]:
+       axs.set_xlim(
+           [
+               plot.pulsar["DEC"] - plot.parameter_offsets["dec"] - 0.002e-3,
+               plot.pulsar["DEC"] - plot.parameter_offsets["dec"] + 0.002e-3
+           ]
+       )
+       axs.axvline(het.par["DEC"] - plot.parameter_offsets["dec"], color="tab:orange")
+
+   for axs in ax[-6:-1]:
+       axs.set_ylim(
+           [
+               plot.pulsar["RA"] - plot.parameter_offsets["ra"] - 0.002e-3,
+               plot.pulsar["RA"] - plot.parameter_offsets["ra"] + 0.002e-3
+           ]
+       )
+       axs.axhline(het.par["RA"] - plot.parameter_offsets["ra"], color="tab:orange")
+
+   ax[-1].set_xlim(
+       [
+           plot.pulsar["RA"] - plot.parameter_offsets["ra"] - 0.002e-3,
+           plot.pulsar["RA"] - plot.parameter_offsets["ra"] + 0.002e-3
+       ]
+   )
+   ax[-1].axvline(het.par["RA"]- plot.parameter_offsets["ra"], color="tab:orange")
+   plot.savefig("cwinpy_pe_JPULSAR01.png", dpi=200)
+
+.. thumbnail:: cwinpy_pe_JPULSAR01.png
+   :width: 450px
+   :align: center
+
+In this case, we see that the recovered sky location does not match the true location *or* the
+offset location at which the heterodyned was performed! However, the other parameters are recovered
+as expected, or at least consistently with those recovered in `Injection parameter comparison`_,
+suggesting that the recovered location is a "good" one. A reason behind this discrepancy may lie in
+the generation of the hardware injections themselves. For the injections, the sky-location dependent
+time-delays are calculated from a look-up table generated every `800 seconds
+<https://git.ligo.org/lscsoft/lalsuite/-/blob/master/lalpulsar/lib/PulsarSimulateCoherentGW.c#L254>`__
+(see descriptions `here
+<https://lscsoft.docs.ligo.org/lalsuite/lalpulsar/group___pulsar_simulate_coherent_g_w__h.html>`__).
+This has been seen in `the past <https://wiki.ligo.org/CW/GeneratePulsarSignalApproximation>`__
+(LVK-only link) to cause small phase discrepancies, which may be being modelling in this analysis
+(for which the time-delays are calculated and interpolated between on 60 second intervals during the
+heterodyne and for every time point during the ROQ generation) as a sky location offset. This is
+seen for ``PULSAR01`` rather than the ``PULSAR05`` analysis above due to its higher frequency and
+its respectively finer sky resolution.
 
 ROQ API
 -------
