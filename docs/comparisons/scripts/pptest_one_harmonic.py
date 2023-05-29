@@ -8,6 +8,7 @@ frequency: h0, iota, psi and phi0.
 
 import bilby
 import numpy as np
+
 from cwinpy.pe.testing import PEPPPlotsDAG
 
 # set the priors

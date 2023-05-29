@@ -6,7 +6,6 @@ runs and cwinpy runs
 import os
 
 import bilby
-import cwinpy
 import h5py
 import numpy as np
 from bilby.core.result import read_in_result
@@ -14,6 +13,8 @@ from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 from lalinference.io import read_samples
 from scipy.spatial.distance import jensenshannon
 from scipy.stats import combine_pvalues, gaussian_kde, ks_2samp
+
+import cwinpy
 
 # comparison rst table information
 FILETEXT = """\

@@ -7,6 +7,7 @@ import subprocess as sp
 
 import numpy as np
 from bilby.core.prior import PriorDict, Sine, Uniform
+
 from cwinpy.heterodyne import heterodyne
 from cwinpy.parfile import PulsarParameters
 from cwinpy.pe import pe
