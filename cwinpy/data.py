@@ -1879,7 +1879,6 @@ class HeterodynedData(TimeSeriesBase):
             times=self.times,
             earth_ephem=self.ephemearth,
             sun_ephem=self.ephemsun,
-            time_corr=self.ephemtime,
             usetempo2=kwargs.get("usetempo2", False),
         )
 
