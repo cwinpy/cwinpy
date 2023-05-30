@@ -1535,6 +1535,9 @@ class Heterodyne(object):
                             edat = initialise_ephemeris(ephem=ephem, ssonly=True)
                             self._ephemerides[ephem] = edat
 
+                    if not hasattr(self, "_timecorr"):
+                        self._timecorr = {}
+
                     for unit in units:
                         tdat = initialise_ephemeris(units=unit, timeonly=True)
                         self._timecorr[unit] = tdat
@@ -1907,7 +1910,13 @@ class Heterodyne(object):
                                     )
                                     self._ephemerides[ephem] = edat
 
-                                if units not in self._timecorr:
+                                if not hasattr(self, "_timecorr"):
+                                    tdat = initialise_ephemeris(
+                                        units=units, timeonly=True
+                                    )
+                                    self._timecorr = {}
+                                    self._timecorr[units] = tdat
+                                elif units not in self._timecorr:
                                     tdat = initialise_ephemeris(
                                         units=units, timeonly=True
                                     )
