@@ -1530,14 +1530,14 @@ class Heterodyne(object):
                         # default to DE405
                         ephems = ["DE405"]
 
-                    for ephem, unit in zip(ephems, units):
+                    for ephem in ephems:
                         if ephem not in self._ephemerides:
                             edat = initialise_ephemeris(ephem=ephem, ssonly=True)
                             self._ephemerides[ephem] = edat
 
-                        if unit not in self._timecorr:
-                            tdat = initialise_ephemeris(units=unit, timeonly=True)
-                            self._timecorr[unit] = tdat
+                    for unit in units:
+                        tdat = initialise_ephemeris(units=unit, timeonly=True)
+                        self._timecorr[unit] = tdat
 
                     # convert times to GPS time vector
                     gpstimes = lalpulsar.CreateTimestampVector(thishet.size)
