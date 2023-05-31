@@ -594,7 +594,7 @@ class MultiHeterodynedData:
             ``"periodogram"``, or ``"spectrogram"``
         """
 
-        from matplotlib import pyplot as pl
+        from matplotlib import pyplot as plt
 
         if plottype.lower() not in ["spectrogram", "periodogram", "power"]:
             raise ValueError("Spectrum plot type is not known")
@@ -670,7 +670,7 @@ class MultiHeterodynedData:
                 else:
                     figsize = (6, 5 * nplots)
 
-            figs, axs = pl.subplots(nplots, 1, figsize=figsize)
+            figs, axs = plt.subplots(nplots, 1, figsize=figsize)
 
             for ax, het in zip(axs, hets):
                 if plottype.lower() == "periodogram":
@@ -3208,10 +3208,13 @@ class HeterodynedData(TimeSeriesBase):
                 if average not in ["median", "mean"]:
                     raise ValueError("Average method must be 'median' or 'mean'")
 
+                # ignore any power time bins that are zero
+                nonzero = np.r_[[i for i in range(power.shape[1]) if power[0, i] != 0]]
+
                 if average == "median":
-                    power = np.median(power, axis=-1)
+                    power = np.median(power[:, nonzero], axis=-1)
                 else:
-                    power = np.mean(power, axis=-1)
+                    power = np.mean(power[:, nonzero], axis=-1)
         else:
             # perform periodogram
             try:
@@ -3234,7 +3237,7 @@ class HeterodynedData(TimeSeriesBase):
 
         # perform plotting
         try:
-            from matplotlib import pyplot as pl
+            from matplotlib import pyplot as plt
             from matplotlib.axes import Axes
 
             fraction_labels = speckwargs.get("fraction_labels", True)
@@ -3289,7 +3292,7 @@ class HeterodynedData(TimeSeriesBase):
                     fig = ax.get_figure()
                     thisax = ax
                 else:
-                    fig, thisax = pl.subplots(figsize=figsize)
+                    fig, thisax = plt.subplots(figsize=figsize)
 
                 thisax.imshow(np.sqrt(np.flipud(power)), **plotkwargs)
 
@@ -3330,7 +3333,7 @@ class HeterodynedData(TimeSeriesBase):
                     fig = ax.get_figure()
                     thisax = ax
                 else:
-                    fig, thisax = pl.subplots(figsize=figsize)
+                    fig, thisax = plt.subplots(figsize=figsize)
 
                 thisax.plot(frequencies, power, **plotkwargs)
 
