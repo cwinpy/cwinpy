@@ -405,8 +405,8 @@ class MultiHeterodynedData:
         **plotkwargs,
     ):
         """
-        Plot all, or some of, the power spectra of the time series' contained
-        in the class. The general arguments can be seen in
+        Plot all, or some of, the power spectral densities of the time series'
+        contained in the class. The general arguments can be seen in
         :meth:`cwinpy.data.HeterodynedData.power_spectrum` and additional
         arguments are given below.
 
@@ -436,6 +436,7 @@ class MultiHeterodynedData:
             thresh=thresh,
             labelsize=labelsize,
             fontsize=fontsize,
+            legendsize=legendsize,
             labelname=labelname,
             fontname=fontname,
             dt=dt,
@@ -495,6 +496,7 @@ class MultiHeterodynedData:
             thresh=thresh,
             labelsize=labelsize,
             fontsize=fontsize,
+            legendsize=legendsize,
             labelname=labelname,
             fontname=fontname,
             fraction_labels=fraction_labels,
@@ -554,6 +556,7 @@ class MultiHeterodynedData:
             thresh=thresh,
             labelsize=labelsize,
             fontsize=fontsize,
+            legendsize=legendsize,
             labelname=labelname,
             fontname=fontname,
             dt=dt,
@@ -3037,11 +3040,12 @@ class HeterodynedData(TimeSeriesBase):
         legendsize=None,
         window=None,
         overlap=0.5,
+        asd=False,
         **plotkwargs,
     ):
         """
-        Compute and plot the power spectrum of the data. This computes the
-        spectrogram, and averages the power over time.
+        Compute and plot the power spectral density of the data. This computes
+        the spectrogram, and averages the power over time.
 
         See :meth:`~cwinpy.data.HeterodynedData.spectrogram` for input
         parameters. The default figure size is (6, 5).
@@ -3050,7 +3054,11 @@ class HeterodynedData(TimeSeriesBase):
         ----------
         average: str, 'median'
             The method by which to "average" the spectrum in time. This can be
-            'median' (the default) or 'mean'.
+            'median' (the default), 'mean', 'max' (return the maximum) or 'min'
+            (return the minimum).
+        asd: bool
+            If True, the amplitude spectral density will be returned rather
+            than the power spectrum.
         plotkwargs:
             Keyword parameters for :func:`matplotlib.pyplot.plot`.
 
@@ -3075,6 +3083,7 @@ class HeterodynedData(TimeSeriesBase):
         speckwargs["average"] = average
         speckwargs["window"] = window
         speckwargs["overlap"] = overlap
+        speckwargs["asd"] = asd
 
         return self._plot_power(
             "power",
@@ -3125,7 +3134,7 @@ class HeterodynedData(TimeSeriesBase):
             raise TypeError("Power spectrum type must be a string")
 
         if ptype not in ["spectrogram", "periodogram", "power"]:
-            raise ValueError("Type must be 'spectrogram', 'periodogram', or " "'power'")
+            raise ValueError("Type must be 'spectrogram', 'periodogram', or 'power'")
 
         # set plotting defaults
         if labelsize is None:
@@ -3201,20 +3210,29 @@ class HeterodynedData(TimeSeriesBase):
             except Exception as e:
                 raise RuntimeError("Problem creating spectrogram: {}".format(e))
 
+            # rescale power due to zero padding spreading out power and different sample rate
+            power *= (Fs / Fn) ** 2
+
             if ptype == "power":
                 # average the spectrogram for a power spectrum
                 average = speckwargs.get("average", "median")
 
-                if average not in ["median", "mean"]:
-                    raise ValueError("Average method must be 'median' or 'mean'")
+                if average not in ["median", "mean", "max", "min"]:
+                    raise ValueError(
+                        "Average method must be 'median', 'mean', 'max' or 'min'."
+                    )
 
                 # ignore any power time bins that are zero
                 nonzero = np.r_[[i for i in range(power.shape[1]) if power[0, i] != 0]]
 
                 if average == "median":
                     power = np.median(power[:, nonzero], axis=-1)
-                else:
+                elif average == "mean":
                     power = np.mean(power[:, nonzero], axis=-1)
+                elif average == "max":
+                    power = np.max(power[:, nonzero], axis=-1)
+                else:
+                    power = np.min(power[:, nonzero], axis=-1)
         else:
             # perform periodogram
             try:
@@ -3335,6 +3353,10 @@ class HeterodynedData(TimeSeriesBase):
                 else:
                     fig, thisax = plt.subplots(figsize=figsize)
 
+                if speckwargs["asd"]:
+                    # convert PSD to ASD
+                    power = np.sqrt(power)
+
                 thisax.plot(frequencies, power, **plotkwargs)
 
                 if self.detector is not None:
@@ -3343,7 +3365,17 @@ class HeterodynedData(TimeSeriesBase):
                     legfont = FontProperties(family=fontname, size=legendsize)
                     thisax.legend(prop=legfont)
 
-                thisax.set_ylabel("Power", fontname=fontname, fontsize=fontsize)
+                if speckwargs["asd"]:
+                    thisax.set_ylabel(
+                        r"Amplitude / $\sqrt{\rm{Hz}}$",
+                        fontname=fontname,
+                        fontsize=fontsize,
+                    )
+                else:
+                    thisax.set_ylabel(
+                        "Power / Hz", fontname=fontname, fontsize=fontsize
+                    )
+
                 thisax.set_xlabel(
                     "Frequency (Hz)", fontname=fontname, fontsize=fontsize
                 )
