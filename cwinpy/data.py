@@ -3352,7 +3352,7 @@ class HeterodynedData(TimeSeriesBase):
                 else:
                     fig, thisax = plt.subplots(figsize=figsize)
 
-                if speckwargs["asd"]:
+                if speckwargs.get("asd", False):
                     # convert PSD to ASD
                     power = np.sqrt(power)
 
@@ -3364,7 +3364,7 @@ class HeterodynedData(TimeSeriesBase):
                     legfont = FontProperties(family=fontname, size=legendsize)
                     thisax.legend(prop=legfont)
 
-                if speckwargs["asd"]:
+                if speckwargs.get("asd", False):
                     thisax.set_ylabel(
                         r"Amplitude / $\sqrt{\rm{Hz}}$",
                         fontname=fontname,
