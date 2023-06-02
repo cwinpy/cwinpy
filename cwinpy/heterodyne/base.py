@@ -217,20 +217,14 @@ class Heterodyne(object):
         requires a specific ephemeris that is not provided in this dictionary,
         then the code will automatically attempt to find or download the
         required file if available.
-    timeephemeris: dict
-        A dictionary, keyed to time system name, which can be either "TCB" or
-        "TDB", pointing to the location of a file containing that ephemeris for
-        that time system. If a pulsar requires a specific ephemeris that is not
-        provided in this dictionary, then the code will automatically attempt
-        to find or download the required file if available.
     usetempo2: bool
         Set this to True to use TEMPO2 (via libstempo) to calculate the signal
         phase evolution. For this to be used v2.4.2 or greater of libstempo
-        must be installed. When using TEMPO2 the ``earthephemeris``,
-        ``sunephemeris`` and ``timeephemeris`` arguments do not need to be
-        supplied. This can only be used when running the full heterodyne in
-        one stage, but not for re-heterodyning previous data, as such all the
-        ``include...`` arguments will be assumed to be ``True``.
+        must be installed. When using TEMPO2 the ``earthephemeris`` and
+        ``sunephemeris`` arguments do not need to be supplied. This can only
+        be used when running the full heterodyne in one stage, but not for
+        re-heterodyning previous data, as such all the ``include...``
+        arguments will be assumed to be ``True``.
     resume: bool
         Set to True to resume heterodyning in case not all pulsars completed.
         This checks whether output files (as set using ``output`` and
@@ -282,7 +276,6 @@ class Heterodyne(object):
         interpolationstep=60,
         earthephemeris=None,
         sunephemeris=None,
-        timeephemeris=None,
         usetempo2=False,
         resume=False,
         cwinpy_heterodyne_pipeline_config_file=None,
@@ -345,9 +338,7 @@ class Heterodyne(object):
         self.interpolationstep = interpolationstep
 
         # set ephemeris information
-        self.set_ephemeris(
-            earthephemeris, sunephemeris, timeephemeris, usetempo2=usetempo2
-        )
+        self.set_ephemeris(earthephemeris, sunephemeris, usetempo2=usetempo2)
 
         # set the name of any DAG configuration file
         self.cwinpy_heterodyne_pipeline_config_file = (
@@ -1539,14 +1530,17 @@ class Heterodyne(object):
                         # default to DE405
                         ephems = ["DE405"]
 
-                    for ephem, unit in zip(ephems, units):
+                    for ephem in ephems:
                         if ephem not in self._ephemerides:
                             edat = initialise_ephemeris(ephem=ephem, ssonly=True)
                             self._ephemerides[ephem] = edat
 
-                        if unit not in self._timecorr:
-                            tdat = initialise_ephemeris(units=unit, timeonly=True)
-                            self._timecorr[unit] = tdat
+                    if not hasattr(self, "_timecorr"):
+                        self._timecorr = {}
+
+                    for unit in units:
+                        tdat = initialise_ephemeris(units=unit, timeonly=True)
+                        self._timecorr[unit] = tdat
 
                     # convert times to GPS time vector
                     gpstimes = lalpulsar.CreateTimestampVector(thishet.size)
@@ -1916,7 +1910,13 @@ class Heterodyne(object):
                                     )
                                     self._ephemerides[ephem] = edat
 
-                                if units not in self._timecorr:
+                                if not hasattr(self, "_timecorr"):
+                                    tdat = initialise_ephemeris(
+                                        units=units, timeonly=True
+                                    )
+                                    self._timecorr = {}
+                                    self._timecorr[units] = tdat
+                                elif units not in self._timecorr:
                                     tdat = initialise_ephemeris(
                                         units=units, timeonly=True
                                     )
@@ -2454,11 +2454,10 @@ class Heterodyne(object):
         self,
         earthephemeris=None,
         sunephemeris=None,
-        timeephemeris=None,
         usetempo2=False,
     ):
         """
-        Initialise the solar system and time ephemeris data.
+        Initialise the solar system ephemeris data.
 
         Parameters
         ----------
@@ -2468,19 +2467,12 @@ class Heterodyne(object):
         sunephemeris: dict
             A dictionary, keyed to ephemeris names, e.g., "DE405", pointing to
             the location of a file containing that ephemeris for the Sun.
-        timeephemeris: dict
-            A dictionary, keyed to time system name, which can be either "TCB"
-            or "TDB", pointing to the location of a file containing that
-            ephemeris for that time system.
         usetempo2: bool
             Set if using TEMPO2, via libstempo, for phase generation.
         """
 
         if not hasattr(self, "_ephemerides"):
             self._ephemerides = {}
-
-        if not hasattr(self, "_timecorr"):
-            self._timecorr = {}
 
         if not hasattr(self, "_earthephemeris"):
             self._earthephemeris = earthephemeris
@@ -2523,17 +2515,6 @@ class Heterodyne(object):
                     ssonly=True,
                 )
 
-        if isinstance(timeephemeris, dict):
-            if not hasattr(self, "_timeephemeris"):
-                self._timeephemeris = timeephemeris
-            else:
-                self._timeephemeris.update(timeephemeris)
-
-            for timetype in timeephemeris:
-                self._timecorr[timetype] = initialise_ephemeris(
-                    timefile=timeephemeris[timetype], timeonly=True
-                )
-
     @property
     def earthephemeris(self):
         if hasattr(self, "_earthephemeris"):
@@ -2545,13 +2526,6 @@ class Heterodyne(object):
     def sunephemeris(self):
         if hasattr(self, "_sunephemeris"):
             return self._sunephemeris
-        else:
-            return None
-
-    @property
-    def timeephemeris(self):
-        if hasattr(self, "_timeephemeris"):
-            return self._timeephemeris
         else:
             return None
 

@@ -21,7 +21,6 @@ class HeterodynedCWSimulator(object):
         times=None,
         earth_ephem=None,
         sun_ephem=None,
-        time_corr=None,
         ephem="DE405",
         units="TCB",
         usetempo2=False,
@@ -60,10 +59,6 @@ class HeterodynedCWSimulator(object):
         sun_ephem: str
             A file containing the LALSuite-style Sun ephemeris information. If
             not set then a default file will be used.
-        time_corr: str
-            A file containing the LALSuite-style information on the time system
-            corrections for, e.g., the TCB or TDB system. If not set then
-            a default file will be used.
         ephem: str
             The solar system ephemeris system to use for the Earth and Sun
             ephemeris, i.e., ``"DE200"``, ``"DE405"``, ``"DE421"``, or
@@ -105,7 +100,6 @@ class HeterodynedCWSimulator(object):
                 units=self.units,
                 earthfile=earth_ephem,
                 sunfile=sun_ephem,
-                timefile=time_corr,
             )
 
             # set the "heterodyne" SSB time delay

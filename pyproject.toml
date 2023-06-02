@@ -57,6 +57,7 @@ dependencies = [
     "requests",
     "scipy",
     "simpleeval",
+    "solar-system-ephemerides>=1.0.0",
 ]
 
 dynamic = [

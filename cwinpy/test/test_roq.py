@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 from bilby.core.prior import PriorDict, Sine, Uniform
+from solar_system_ephemerides.paths import body_ephemeris_path
 
 from cwinpy.data import HeterodynedData, MultiHeterodynedData
 from cwinpy.heterodyne import heterodyne
@@ -18,7 +19,7 @@ from cwinpy.parfile import PulsarParameters
 from cwinpy.pe import pe
 from cwinpy.pe.likelihood import TargetedPulsarLikelihood
 from cwinpy.pe.roq import GenerateROQ
-from cwinpy.utils import LAL_EPHEMERIS_URL, download_ephemeris_file, logfactorial
+from cwinpy.utils import logfactorial
 
 
 def full_log_likelihood(model, data, like="studentst", sigma=1.0):
@@ -536,12 +537,8 @@ phi0 = {phi0}
             fp.write("\n")
 
         # set ephemeris files
-        efile = download_ephemeris_file(
-            LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz")
-        )
-        sfile = download_ephemeris_file(
-            LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz")
-        )
+        efile = body_ephemeris_path(body="earth", jplde="DE405", string=True)
+        sfile = body_ephemeris_path(body="sun", jplde="DE405", string=True)
 
         cmds = [
             "-F",
@@ -856,12 +853,8 @@ phi0 = {phi0}
             fp.write("\n")
 
         # set ephemeris files
-        efile = download_ephemeris_file(
-            LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz")
-        )
-        sfile = download_ephemeris_file(
-            LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz")
-        )
+        efile = body_ephemeris_path(body="earth", jplde="DE405", string=True)
+        sfile = body_ephemeris_path(body="sun", jplde="DE405", string=True)
 
         cmds = [
             "-F",
@@ -1144,12 +1137,8 @@ phi0 = {phi0}
             fp.write("\n")
 
         # set ephemeris files
-        efile = download_ephemeris_file(
-            LAL_EPHEMERIS_URL.format("earth00-40-DE421.dat.gz")
-        )
-        sfile = download_ephemeris_file(
-            LAL_EPHEMERIS_URL.format("sun00-40-DE421.dat.gz")
-        )
+        efile = body_ephemeris_path(body="earth", jplde="DE405", string=True)
+        sfile = body_ephemeris_path(body="sun", jplde="DE405", string=True)
 
         cmds = [
             "-F",

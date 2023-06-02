@@ -9,10 +9,10 @@ import subprocess as sp
 import numpy as np
 import pytest
 from bilby.core.prior import PriorDict, Uniform
+from solar_system_ephemerides.paths import body_ephemeris_path
 
 from cwinpy import HeterodynedData, PulsarParameters
 from cwinpy.knope import knope
-from cwinpy.utils import LAL_EPHEMERIS_URL, download_ephemeris_file
 
 
 class TestKnope(object):
@@ -109,12 +109,8 @@ phi0 = {phi0}
             fp.write("\n")
 
         # set ephemeris files
-        efile = download_ephemeris_file(
-            LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz")
-        )
-        sfile = download_ephemeris_file(
-            LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz")
-        )
+        efile = body_ephemeris_path(body="earth", jplde="DE405", string=True)
+        sfile = body_ephemeris_path(body="sun", jplde="DE405", string=True)
 
         for j, datastart in enumerate(cls.fakedatastarts):
             for i in range(len(cls.fakedatachannels)):

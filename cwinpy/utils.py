@@ -16,19 +16,20 @@ from math import gcd
 import appdirs
 import lalpulsar
 import numpy as np
-import requests
 from astropy import units as u
 from astropy.coordinates.sky_coordinate import SkyCoord
 from numba import jit, njit
 from numba.extending import get_cython_function_address
+from solar_system_ephemerides.ephemeris import (
+    lal_ephemeris_data,
+    lal_time_ephemeris_data,
+)
+from solar_system_ephemerides.paths import time_ephemeris_path
 
 from .parfile import PulsarParameters
 
 #: exit code to return when checkpointing
 CHECKPOINT_EXIT_CODE = 77
-
-#: URL for LALSuite solar system ephemeris files
-LAL_EPHEMERIS_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
 
 #: the current solar system ephemeris types in LALSuite
 LAL_EPHEMERIS_TYPES = ["DE200", "DE405", "DE421", "DE430"]
@@ -498,13 +499,12 @@ def initialise_ephemeris(
     units="TCB",
     earthfile=None,
     sunfile=None,
-    timefile=None,
     ssonly=False,
     timeonly=False,
     filenames=False,
 ):
     """
-    Download/read and return solar system ephemeris and time coordinate data.
+    Read and return solar system ephemeris and time coordinate data.
     If files are provided these will be used and read. If not provided then,
     using supplied ``ephem`` and ``units`` values, it will first attempt to
     find files locally (either in your current path or in a path supplied by
@@ -519,8 +519,6 @@ def initialise_ephemeris(
         A file containing the Earth's position/velocity ephemeris
     sunfile: str
         A file containing the Sun's position/velocity ephemeris
-    timefile: str
-        A file containing time corrections for the TCB or TDB time coordinates.
     ephem: str
         The JPL ephemeris name, e.g., DE405
     units: str
@@ -541,104 +539,42 @@ def initialise_ephemeris(
         The LAL EphemerisData object and TimeCorrectionData object.
     """
 
-    earth = "earth00-40-{}.dat.gz".format(ephem) if earthfile is None else earthfile
-    sun = "sun00-40-{}.dat.gz".format(ephem) if sunfile is None else sunfile
-
     filepaths = []
 
     if not timeonly:
-        try:
-            with MuteStream():
-                # get full file path
-                earthf = lalpulsar.PulsarFileResolvePath(earth)
-                sunf = lalpulsar.PulsarFileResolvePath(sun)
-                edat = lalpulsar.InitBarycenter(earthf, sunf)
-            filepaths = [edat.filenameE, edat.filenameS]
-        except RuntimeError:
-            # try downloading the ephemeris files
+        # check whether reading from a given file
+        if earthfile is not None and sunfile is not None:
             try:
-                efile = download_ephemeris_file(LAL_EPHEMERIS_URL.format(earth))
-                sfile = download_ephemeris_file(LAL_EPHEMERIS_URL.format(sun))
-                edat = lalpulsar.InitBarycenter(efile, sfile)
-                filepaths = [efile, sfile]
+                with MuteStream():
+                    # get full file path
+                    earthf = lalpulsar.PulsarFileResolvePath(earthfile)
+                    sunf = lalpulsar.PulsarFileResolvePath(sunfile)
+                    edat = lalpulsar.InitBarycenter(earthf, sunf)
+
+            except RuntimeError as e:
+                raise IOError("Could not read in ephemeris files: {}".format(e))
+        else:
+            try:
+                edat = lal_ephemeris_data(jplde=ephem)
             except Exception as e:
                 raise IOError("Could not read in ephemeris files: {}".format(e))
+
+        filepaths = [edat.filenameE, edat.filenameS]
 
         if ssonly:
             return (edat, filepaths) if filenames else edat
 
-    unit = None
-    if timefile is None:
-        if units.upper() in ["TCB", "TDB"]:
-            unit = dict(TCB="te405", TDB="tdb")[units.upper()]
-        else:
-            raise ValueError("units must be TCB or TDB")
-
-    time = "{}_2000-2040.dat.gz".format(unit) if timefile is None else timefile
-
     try:
-        with MuteStream():
-            # get full file path
-            timef = lalpulsar.PulsarFileResolvePath(time)
-            tdat = lalpulsar.InitTimeCorrections(timef)
-        filepaths.append(timef)
-    except RuntimeError:
-        try:
-            # try downloading the time coordinate file
-            tfile = download_ephemeris_file(LAL_EPHEMERIS_URL.format(time))
-            tdat = lalpulsar.InitTimeCorrections(tfile)
-            filepaths.append(tfile)
-        except Exception as e:
-            raise IOError("Could not read in time correction file: {}".format(e))
+        tdat = lal_time_ephemeris_data(units=units)
+    except Exception as e:
+        raise IOError("Could not read in time correction file: {}".format(e))
+
+    filepaths.append(time_ephemeris_path(units=units, string=True))
 
     if timeonly:
         return (tdat, filepaths) if filenames else tdat
     else:
         return (edat, tdat, filepaths) if filenames else (edat, tdat)
-
-
-def download_ephemeris_file(url):
-    """
-    Download and cache an ephemeris files from a given URL. If the file has
-    already been downloaded and cached it will just be retrieved from the cache
-    location.
-
-    Parameters
-    ----------
-    url: str
-        The URL of the file to download.
-    """
-
-    fname = os.path.basename(url)  # extract the file name
-    fpath = os.path.join(EPHEMERIS_CACHE_DIR, fname)
-
-    if os.path.isfile(fpath):
-        # return previously cached file
-        return fpath
-
-    # try downloading the file
-    try:
-        ephdata = requests.get(url)
-    except Exception as e:
-        raise RuntimeError(f"Error downloading from {url}\n{e}")
-
-    if ephdata.status_code != 200:
-        raise RuntimeError(f"Error downloading from {url}")
-
-    if not os.path.exists(EPHEMERIS_CACHE_DIR):
-        try:
-            os.makedirs(EPHEMERIS_CACHE_DIR)
-        except OSError:
-            if not os.path.exists(EPHEMERIS_CACHE_DIR):
-                raise
-    elif not os.path.isdir(EPHEMERIS_CACHE_DIR):
-        raise OSError(f"Cache directory {EPHEMERIS_CACHE_DIR} is not a directory")
-
-    # write out file to cache
-    with open(fpath, "wb") as fp:
-        fp.write(ephdata.content)
-
-    return fpath
 
 
 def check_for_tempo2():

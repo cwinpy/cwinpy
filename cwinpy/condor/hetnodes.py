@@ -268,13 +268,16 @@ class HeterodyneLayer(CondorLayer):
                     config["pulsarfiles"] = os.path.basename(config["pulsarfiles"])
 
                 # transfer ephemeris files
-                for ephem in ["earthephemeris", "sunephemeris", "timeephemeris"]:
-                    for etype in copy.deepcopy(config[ephem]):
-                        transfer_input.append(
-                            relative_topdir(config[ephem][etype], resultsdir)
-                        )
+                for ephem in ["earthephemeris", "sunephemeris"]:
+                    if config[ephem]:
+                        for etype in copy.deepcopy(config[ephem]):
+                            transfer_input.append(
+                                relative_topdir(config[ephem][etype], resultsdir)
+                            )
 
-                        config[ephem][etype] = os.path.basename(config[ephem][etype])
+                            config[ephem][etype] = os.path.basename(
+                                config[ephem][etype]
+                            )
 
                 # transfer frame cache files
                 if "framecache" in config:
