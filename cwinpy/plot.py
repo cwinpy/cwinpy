@@ -414,7 +414,7 @@ class Plot:
 
                 # convert parameters if required based on prior information
                 self._injection_parameters[param] = self._pulsar[param]
-                if hasattr(list(self._results.values())[0], "priors"):
+                try:
                     priors = list(self._results.values())[0].priors
                     if param.upper() in TEMPOUNITS.keys():
                         if str(TEMPOUNITS[param.upper()]) == priors[param].unit:
@@ -431,6 +431,8 @@ class Plot:
                                     .to(TEMPOUNITS[param.upper()])
                                     .value
                                 )
+                except ValueError:
+                    pass
 
     @property
     def injection_parameters(self):
