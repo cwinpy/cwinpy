@@ -269,7 +269,7 @@ class HeterodyneLayer(CondorLayer):
 
                 # transfer ephemeris files
                 for ephem in ["earthephemeris", "sunephemeris"]:
-                    if config[ephem]:
+                    if ephem in config:
                         for etype in copy.deepcopy(config[ephem]):
                             transfer_input.append(
                                 relative_topdir(config[ephem][etype], resultsdir)
