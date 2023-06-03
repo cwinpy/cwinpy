@@ -1760,26 +1760,26 @@ class PEDAGRunner(object):
         # set some default bilby-style priors
         DEFAULTPRIORS2F = (
             "h0 = Uniform(minimum=0.0, maximum=1.0e-21, name='h0', latex_label='$h_0$')\n"
-            "phi0 = Uniform(minimum=0.0, maximum={pi}, name='phi0', latex_label='$\\phi_0$', unit='rad')\n"
-            "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
-            "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
-        ).format(**{"pi": np.pi, "pi_2": (np.pi / 2.0)})
+            f"phi0 = Uniform(minimum=0.0, maximum={np.pi}, name='phi0', latex_label='$\\phi_0$', unit='rad')\n"
+            f"iota = Sine(minimum=0.0, maximum={np.pi}, name='iota', latex_label='$\\iota$', unit='rad')\n"
+            f"psi = Uniform(minimum=0.0, maximum={np.pi / 2}, name='psi', latex_label='$\\psi$', unit='rad')\n"
+        )
 
         DEFAULTPRIORS1F = (
             "c21 = Uniform(minimum=0.0, maximum=1.0e-21, name='c21', latex_label='$C_{{21}}$')\n"
-            "phi21 = Uniform(minimum=0.0, maximum={2pi}, name='phi21', latex_label='$\\Phi_{{21}}$', unit='rad')\n"
-            "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
-            "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
-        ).format(**{"2pi": 2.0 * np.pi, "pi": np.pi, "pi_2": (np.pi / 2.0)})
+            f"phi21 = Uniform(minimum=0.0, maximum={2 * np.pi}, name='phi21', latex_label='$\\Phi_{{{{21}}}}$', unit='rad')\n"  # noqa: E501
+            f"iota = Sine(minimum=0.0, maximum={np.pi}, name='iota', latex_label='$\\iota$', unit='rad')\n"
+            f"psi = Uniform(minimum=0.0, maximum={np.pi / 2}, name='psi', latex_label='$\\psi$', unit='rad')\n"
+        )
 
         DEFAULTPRIORS1F2F = (
             "c21 = Uniform(minimum=0.0, maximum=1.0e-21, name='c21', latex_label='$C_{{21}}$')\n"
             "c22 = Uniform(minimum=0.0, maximum=1.0e-21, name='c22', latex_label='$C_{{22}}$')\n"
-            "phi21 = Uniform(minimum=0.0, maximum={2pi}, name='phi21', latex_label='$\\Phi_{{21}}$', unit='rad')\n"
-            "phi22 = Uniform(minimum=0.0, maximum={2pi}, name='phi22', latex_label='$\\Phi_{{22}}$', unit='rad')\n"
-            "iota = Sine(minimum=0.0, maximum={pi}, name='iota', latex_label='$\\iota$, unit='rad')\n"
-            "psi = Uniform(minimum=0.0, maximum={pi_2}, name='psi', latex_label='$\\psi$, unit='rad')\n"
-        ).format(**{"2pi": 2.0 * np.pi, "pi": np.pi, "pi_2": (np.pi / 2.0)})
+            f"phi21 = Uniform(minimum=0.0, maximum={2 * np.pi}, name='phi21', latex_label='$\\Phi_{{{{21}}}}$', unit='rad')\n"  # noqa: E501
+            f"phi22 = Uniform(minimum=0.0, maximum={2 * np.pi}, name='phi22', latex_label='$\\Phi_{{{{22}}}}$', unit='rad')\n"  # noqa: E501
+            f"iota = Sine(minimum=0.0, maximum={np.pi}, name='iota', latex_label='$\\iota$', unit='rad')\n"
+            f"psi = Uniform(minimum=0.0, maximum={np.pi / 2}, name='psi', latex_label='$\\psi$', unit='rad')\n"
+        )
 
         # get priors (if none are specified use the defaults)
         priors = config.get("pe", "priors", fallback=None)
