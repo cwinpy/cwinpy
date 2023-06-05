@@ -2,28 +2,28 @@
    :widths: auto
    :header: "Method", ":math:`\\ln{(Z)}`", ":math:`\\ln{(Z)}` noise", ":math:`\\ln{}` Odds"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "1492891.191", "1492439.107", "452.083±0.119"
-   "``cwinpy_pe``", "1492472.611", "1492019.832", "452.779±0.174"
-   "``cwinpy_pe`` (grid)", "1492472.478", "", "452.646"
+   "``lalpulsar_parameter_estimation_nested``", "1492890.996", "1492439.107", "451.888±0.120"
+   "``cwinpy_pe``", "1492472.586", "1492019.832", "452.754±0.210"
+   "``cwinpy_pe`` (grid)", "1492472.475", "", "452.643"
 
 .. csv-table:: Parameter table
    :widths: auto
    :header: "Method", ":math:`h_0`", ":math:`\\phi_0` (rad)", ":math:`\\psi` (rad)", ":math:`\\cos{\\iota}`"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "1.14±0.04×10\ :sup:`-24`", "2.88±0.02", "0.18±0.02", "0.09±0.02"
+   "``lalpulsar_parameter_estimation_nested``", "1.14±0.04×10\ :sup:`-24`", "2.88±0.02", "0.18±0.02", "0.09±0.02"
    "90% credible intervals", "[1.08, 1.20]×10\ :sup:`-24`", "[2.86, 2.91]", "[0.15, 0.21]", "[0.06, 0.11]"
    "``cwinpy_pe``", "1.14±0.04×10\ :sup:`-24`", "2.88±0.02", "0.18±0.02", "0.09±0.02"
-   "90% credible intervals", "[1.08, 1.20]×10\ :sup:`-24`", "[2.86, 2.91]", "[0.15, 0.21]", "[0.06, 0.11]"
+   "90% credible intervals", "[1.08, 1.20]×10\ :sup:`-24`", "[2.86, 2.91]", "[0.15, 0.21]", "[0.06, 0.12]"
 
 .. csv-table:: Maximum a-posteriori
    :widths: auto
    :header: "Method", ":math:`h_0`", ":math:`\\phi_0` (rad)", ":math:`\\psi` (rad)", ":math:`\\cos{\\iota}`", ":math:`\\ln{(L)}` max"
 
-   "``lalapps_pulsar_parameter_estimation_nested``", "1.14×10\ :sup:`-24`", "2.88", "0.18", "0.09", "1492907.21"
+   "``lalpulsar_parameter_estimation_nested``", "1.14×10\ :sup:`-24`", "2.88", "0.18", "0.09", "1492907.22"
    "``cwinpy_pe``", "1.14×10\ :sup:`-24`", "2.89", "0.18", "0.09", "1492489.03"
 
-| Combined K-S test p-value: 0.0027
-| Maximum Jensen-Shannon divergence: 0.0009
+| Combined K-S test p-value: 0.1074
+| Maximum Jensen-Shannon divergence: 0.0016
 
-| CWInPy version: 0.8.0
-| bilby version: 1.1.5: release
+| CWInPy version: 1.0.0
+| bilby version: 2.1.1
