@@ -11,8 +11,6 @@
 
 stages:
   - test
-  #- comparisons
-  #- deploy
   - release
 
 # test on python 3.8
@@ -51,59 +49,6 @@ pre-commit-python-3.8:
     # run pre-commit checks
     - pre-commit run --all-files --verbose --show-diff-on-failure
 
-
-# run comparisons when a new tag is made
-run-comparisons:
-  stage: comparisons
-  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python38
-  only:
-    # only run on tags (I'm assuming I'll only tag new versions!)
-    - tags
-  except:
-    # only run on master branch (hopefully https://stackoverflow.com/a/52807912/1862861 works)
-    - branches
-  allow_failure: true
-  before_script:
-    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
-    - eval $(ssh-agent -s)
-    - echo "$GIT_SSH_PRIV_KEY" | tr -d '\r' | ssh-add -
-    - git config --global user.email "matthew.pitkin@ligo.org"
-    - git config --global user.name "Matthew Pitkin"
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-    - chmod 644 ~/.ssh/known_hosts
-    - pip install --upgrade pip
-    - pip install numpy healpy
-  script:
-    # clone the CWInPy repo
-    - cd ~
-    - git clone git@git.ligo.org:CW/software/cwinpy.git
-    - cd cwinpy
-    # install CWInPy
-    - pip install .
-    # run the comparison scripts
-    - cd docs/comparisons/scripts
-    - COMPFILES=`ls *.py`
-    - SUCCESS=0
-    - for cf in $COMPFILES; do if [ -x $cf ]; then python $cf; SUCCESS=$?; if [ SUCCESS -ne 0 ]; then break; fi; fi; done
-    # commit results
-    - if [ $SUCCESS -eq 0 ]; then git commit -a -m "[skip ci] Updated comparison plots"; git pull --rebase origin master; git push origin master; fi
-
-#pages:
-#  stage: deploy
-#  dependencies:
-#    - python-3.7
-#  script:
-#    - mkdir -p public/
-#    - mv docs/_build/html/* public/
-#    - mv htmlcov/ public/
-#    - mv coverage_badge.svg public/
-#  artifacts:
-#    paths:
-#      - public
-#  only:
-#    - master
 
 # for new tags create a release and upload to PyPI
 generate_release:
