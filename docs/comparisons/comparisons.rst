@@ -36,7 +36,7 @@ Posterior credible interval checks
 
 Another test of the code is to check that the posterior credible intervals resulting from any
 analysis correctly ascribe probability, i.e., that they are "well calibrated" [2]_. To do this one
-can create a set of simulated signal with true parameters drawn from a particular prior, and then
+can create a set of simulated signals with true parameters drawn from a particular prior, and then
 use the code to sample the posterior probability distribution over the parameter space for each
 parameter using the *same* prior. Using the one-dimensional marginalised posteriors for each
 parameter, and each simulation, one can then find the credible interval in which the known true
@@ -116,7 +116,7 @@ The distributions of signal-to-noise ratios for these simulations is:
 
 .. literalinclude:: scripts/pptest_two_harmonics.py
    :language: python
-   :lines: 1-45,49-58,61-64,66-68
+   :lines: 1-45,49-58,61-64,66-69
 
 Pipeline comparison
 ===================
@@ -160,7 +160,7 @@ This has then been submitted (on the `UWM Nemo computing cluster
 
 To perform the analysis using CWInPy, the :ref:`"Quick Setup"<Quick setup>` has been used:
 
->>> cwinpy_knope_pipeline --run O1 --hwinj --incoherent --output /home/matthew/cwinpy_knope/O1injections --accounting-group ligo.dev.o1.cw.targeted.bayesian
+>>> cwinpy_knope_pipeline --run O1 --hwinj --incoherent-only --output /home/matthew.pitkin/cwinpy_knope/O1injections --accounting-group ligo.dev.o4.cw.targeted.bayesian
 
 .. note::
 
@@ -187,8 +187,9 @@ time of running). In terms of total CPU hours used by all the jobs for the ``lal
 Heterodyned data comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To compare the heterodyned data we can look at the power spectra obtained using ``lalpulsar_knope``
-and ``cwinpy_knope_pipeline``. The following code has been used to produce these spectra:
+To compare the heterodyned data we can look at the amplitude spectral densities obtained using
+``lalpulsar_knope`` and ``cwinpy_knope_pipeline``. The following code has been used to produce these
+spectra:
 
 .. code-block:: python
     
@@ -215,9 +216,9 @@ and ``cwinpy_knope_pipeline``. The following code has been used to produce these
             ck = HeterodynedData(cwinpybase.format(det=det, num=num, span=timespans["cwinpy"][det]))
             lk = HeterodynedData(lalappsbase.format(det=det, num=num, span=timespans["lalapps"][det]))
 
-            # plot median power spectrum of data
-            lk.power_spectrum(remove_outliers=True, dt=int(lal.DAYSID_SI * 10), label="lalapps", lw=3, color="k", ax=ax)
-            ck.power_spectrum(remove_outliers=True, dt=int(lal.DAYSID_SI * 10), label="cwinpy", alpha=0.8, ls="--", ax=ax)
+            # plot median amplitude spectral densities of data
+            lk.power_spectrum(remove_outliers=True, dt=int(lal.DAYSID_SI * 10), asd=True, label="lalapps", lw=3, color="k", ax=ax)
+            ck.power_spectrum(remove_outliers=True, dt=int(lal.DAYSID_SI * 10), asd=True, label="cwinpy", alpha=0.8, ls="--", ax=ax)
             ax.set_title(f"PULSAR{num}")
 
             if int(num) < 12:
