@@ -1,5 +1,18 @@
 # Notable changes between versions
 
+## [1.0.0] 2023-06-05
+
+Changes for this release:
+
+- Add the ability to compute the likelihood using reduced order quadrature (!119)
+- Allow the heterodyned pipeline to ignore frame files that fail to be read (!142)
+- Switch the default dynesty sampling method back to `"rwalk"` (!144)
+- Use the `solar-system-ephemerides` package to provide ephemeris files (!140)
+- Allow  the `HeterodynedData.power_spectrum` method to plot amplitude spectral density (and fix
+  scalings) (!146, !147)
+- Allow Bayesian blocks segmentation of a `HeterodynedData` object to be recalculated for data that
+  is read in from an existing file (!141, !143)
+
 ## [0.10.0] 2023-05-11
 
 Changes for this release:
