@@ -11,9 +11,9 @@
 
 stages:
   - test
-  - comparisons
+  #- comparisons
   #- deploy
-
+  - release
 
 # test on python 3.8
 python-3.8:
@@ -104,3 +104,15 @@ run-comparisons:
 #      - public
 #  only:
 #    - master
+
+# for new tags create a release and upload to PyPI
+generate_release:
+  stage: release
+  image: python
+  before_script:
+    - python -m pip install build setuptools_scm[toml] twine
+  script:
+    - python -m build --sdist --outdir dist/ .
+    - python -m twine upload dist/*
+  only:
+    - tags
