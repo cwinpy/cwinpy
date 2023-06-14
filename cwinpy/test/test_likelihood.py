@@ -127,7 +127,7 @@ PHI0     2.4
             )
             like.parameters = {"h0": 0.0}
 
-            assert like.log_likelihood() == like.noise_log_likelihood()
+            assert np.isclose(like.log_likelihood(), like.noise_log_likelihood())
 
     def test_numba_likelihood(self):
         """
