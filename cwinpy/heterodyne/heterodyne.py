@@ -1269,7 +1269,7 @@ class HeterodyneDAGRunner(object):
             if sorted(list(earthephemeris.keys())) != sorted(list(sunephemeris.keys())):
                 raise ValueError("Supplied earth and sun ephemerides are not the same")
 
-            for jplde in earthephemeris.keys():
+            for jplde in list(earthephemeris.keys()):
                 if jplde in available_ephem_types:
                     # remove files if ephemeris is already available
                     earthephemeris.pop(jplde)
