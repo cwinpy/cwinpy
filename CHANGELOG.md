@@ -1,5 +1,11 @@
 # Notable changes between versions
 
+## [1.0.2] 2023-06-17
+
+Changes for this release:
+
+- Allow merging of heterodyned files when some are empty (!153)
+
 ## [1.0.1] 2023-06-14
 
 This release provides a minor bug fix (!151) and fixes a intermittent failure of the test suite (!152).
