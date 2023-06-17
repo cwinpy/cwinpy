@@ -1136,6 +1136,11 @@ class HeterodynedData(TimeSeriesBase):
         else:
             datafiles = list(source)
 
+        # remove any files that have zero size
+        datafiles = [df for df in datafiles if Path(df).stat().st_size]
+        if not datafiles:
+            raise IOError("No non-empty heterodyned data files were given")
+
         hetdata = read_multi(lambda x: x[0], cls, datafiles[0], *args, **kwargs)
 
         for dfile in datafiles[1:]:
