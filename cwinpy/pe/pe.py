@@ -1796,7 +1796,7 @@ class PEDAGRunner:
             priors = self.eval(priors)
 
             if isinstance(priors, dict):
-                priorfiles = priors
+                self.priorfiles = priors
             else:
                 if isinstance(priors, list):
                     allpriors = []
@@ -1819,12 +1819,12 @@ class PEDAGRunner:
                         )
                     ]
 
-                    priorfiles = {}
+                    self.priorfiles = {}
                     for pname in self.pulsardict.keys():
                         for i, priorfile in enumerate(list(allpriors)):
                             if pname in priorfile:
-                                if pname not in priorfiles:
-                                    priorfiles[pname] = priorfile
+                                if pname not in self.priorfiles:
+                                    self.priorfiles[pname] = priorfile
                                     del allpriors[i]
                                     break
                                 else:
@@ -1834,7 +1834,9 @@ class PEDAGRunner:
                                     )
                 elif isinstance(priors, str):
                     if os.path.isfile(priors):
-                        priorfiles = {psr: priors for psr in self.pulsardict.keys()}
+                        self.priorfiles = {
+                            psr: priors for psr in self.pulsardict.keys()
+                        }
                     elif os.path.isdir(priors):
                         # add * wildcard to directories (if not already present)
                         if priors[-1] != "*":
@@ -1854,12 +1856,12 @@ class PEDAGRunner:
                             )
                         ]
 
-                        priorfiles = {}
+                        self.priorfiles = {}
                         for pname in self.pulsardict.keys():
                             for i, priorfile in enumerate(list(allpriors)):
                                 if pname in priorfile:
-                                    if pname not in priorfiles:
-                                        priorfiles[pname] = priorfile
+                                    if pname not in self.priorfiles:
+                                        self.priorfiles[pname] = priorfile
                                         del allpriors[i]
                                         break
                                     else:
@@ -1884,10 +1886,10 @@ class PEDAGRunner:
                 else:
                     fp.write(DEFAULTPRIORS1F)
 
-            priorfiles = {psr: priorfile for psr in self.pulsardict.keys()}
+            self.priorfiles = {psr: priorfile for psr in self.pulsardict.keys()}
 
         # check prior and data exist for the same pulsar, if not remove
-        priornames = list(priorfiles.keys())
+        priornames = list(self.priorfiles.keys())
         datanames = list(self.datadict.keys()) if not simdata else priornames
 
         for pname in list(self.pulsardict.keys()):
@@ -1901,7 +1903,7 @@ class PEDAGRunner:
                 if pname in datanames:
                     self.datadict.pop(pname)
                 if pname in priornames:
-                    priorfiles.pop(pname)
+                    self.priorfiles.pop(pname)
                 if pname in self.pulsardict:
                     self.pulsardict.pop(pname)
 
@@ -1962,7 +1964,7 @@ class PEDAGRunner:
                 if pname in injdict:
                     configdict["inj_par"] = injdict[pname]
 
-            configdict["prior"] = priorfiles[pname]
+            configdict["prior"] = self.priorfiles[pname]
             configdict["sampler"] = sampler
             configdict["disable_numba"] = disablenumba
 
@@ -2028,7 +2030,7 @@ class PEDAGRunner:
                     configdict["fake_dt"] = fakedt
 
             # set combinations of detectors
-            detcomb = []
+            self.detcomb = []
             if not self.coherent and not self.incoherent:
                 raise ValueError(
                     "'coherent' and 'incoherent' options cannot both be False"
@@ -2036,13 +2038,15 @@ class PEDAGRunner:
 
             if self.coherent:
                 # add all detectors
-                detcomb.append(detectors)
+                self.detcomb.append(detectors)
             if self.incoherent:
                 # add individual detectors
                 for det in detectors:
-                    detcomb.append([det])
+                    self.detcomb.append([det])
 
-            for dets in detcomb:
+            self.resultsfiles = {}
+
+            for dets in self.detcomb:
                 # set required seed
                 if seeddict is not None:
                     if dets == detectors:
@@ -2112,10 +2116,14 @@ class PEDAGRunner:
                 )
 
                 if nparallel > 1:
-                    MergePELayer(
+                    mergelayer = MergePELayer(
                         pelayer,
                         layer_name=f"cwinpy_pe_{''.join(dets)}_{pname.replace('+', 'plus')}",
                     )
+
+                    self.resultsfiles["".join(dets)] = mergelayer.resultsfile
+                else:
+                    self.resultsfiles["".join(dets)] = pelayer.resultsfiles[0]
 
         if self.build:
             # write out the DAG and submit files

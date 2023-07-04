@@ -340,6 +340,10 @@ class MergePELayer(CondorLayer):
         )
         arglist.append(f"--label {label}")
 
+        self.resultsfile = os.path.join(
+            os.path.abspath(self.parent_layer_class.resdir), label + "*"
+        )
+
         # set merge flag
         arglist.append("--merge")
 
