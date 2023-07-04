@@ -412,7 +412,7 @@ continuous gravitational-wave signal from a known pulsar."""
     return parser
 
 
-class PERunner(object):
+class PERunner:
     """
     Set up and run the known pulsar parameter estimation.
 
@@ -1461,7 +1461,7 @@ def pe_cli(**kwargs):  # pragma: no cover
     _ = pe(**kwargs)
 
 
-class PEDAGRunner(object):
+class PEDAGRunner:
     """
     Set up and run the known pulsar parameter estimation DAG.
 
@@ -1500,7 +1500,10 @@ class PEDAGRunner(object):
             self.dag = DAG()
 
         # get whether to build the dag
-        self.build = config.getboolean(dagsection, "build", fallback=True)
+        if "build" in kwargs:
+            self.build = kwargs["build"]
+        else:
+            self.build = config.getboolean(dagsection, "build", fallback=True)
 
         # check for required configuration file section
         if not config.has_section("pe"):
@@ -1522,14 +1525,14 @@ class PEDAGRunner(object):
         #  - a combination of a list of directories and/or files
         #  - a dictionary of parameter files keyed to the pulsar name
         # All files must have the extension '.par'
-        pulsardict = {}
+        self.pulsardict = {}
         if parfiles is not None:
             parfiles = self.eval(parfiles)
             if isinstance(parfiles, dict):
                 for pname, pfile in parfiles.items():
                     # add from dictionary
                     if is_par_file(pfile):
-                        pulsardict[pname] = pfile
+                        self.pulsardict[pname] = pfile
                     else:
                         warnings.warn(
                             f"'{pfile}' is not a pulsar parameter file, so it "
@@ -1566,7 +1569,7 @@ class PEDAGRunner(object):
                             if psr[name] is not None
                         ]
                         if len(names) > 0:
-                            pulsardict[names[0]] = pulsar
+                            self.pulsardict[names[0]] = pulsar
                         else:
                             warnings.warn(
                                 f"Parameter file '{pulsar}' has no name, so it will be "
@@ -1668,32 +1671,32 @@ class PEDAGRunner(object):
 
             # try getting pulsar names from data file dictionaries if "pulsars"
             # was not specified in the configuration file
-            if len(pulsardict) == 0:
+            if len(self.pulsardict) == 0:
                 for datafiles in [datafiles1f, datafiles2f]:
                     try:
-                        pulsardict = {
+                        self.pulsardict = {
                             pname: pname for pname in datafiles[detectors[0]].keys()
                         }
                     except (TypeError, KeyError):
                         pass
 
-                    if len(pulsardict) > 0:
+                    if len(self.pulsardict) > 0:
                         break
 
-                if len(pulsardict) == 0:
+                if len(self.pulsardict) == 0:
                     raise ValueError("No pulsars specified")
 
             # get lists of data files. For each detector the passed files could
             # be a single file, a list of files, a glob-able directory path
             # containing the files, or a dictionary keyed to the pulsar names.
-            datadict = {pname: {} for pname in pulsardict.keys()}
+            self.datadict = {pname: {} for pname in self.pulsardict.keys()}
 
             for datafilesf, freqfactor in zip([datafiles1f, datafiles2f], ["1f", "2f"]):
                 if datafilesf is None:
                     continue
                 else:
-                    for pname in pulsardict.keys():
-                        datadict[pname][freqfactor] = {}
+                    for pname in self.pulsardict.keys():
+                        self.datadict[pname][freqfactor] = {}
 
                 for det in detectors:
                     dff = []
@@ -1701,9 +1704,9 @@ class PEDAGRunner(object):
 
                     if isinstance(datafiles, dict):
                         # dictionary of files, with one for each pulsar
-                        for pname in pulsardict.keys():
+                        for pname in self.pulsardict.keys():
                             if pname in datafiles:
-                                datadict[pname][freqfactor][det] = datafiles[pname]
+                                self.datadict[pname][freqfactor][det] = datafiles[pname]
                         continue
 
                     if not isinstance(datafiles, list):
@@ -1723,11 +1726,11 @@ class PEDAGRunner(object):
                         raise ValueError("No data files found!")
 
                     # check file name contains the name of a supplied pulsar
-                    for pname in pulsardict:
+                    for pname in self.pulsardict:
                         for datafile in dff:
                             if pname in datafile:
-                                if det not in datadict[pname][freqfactor]:
-                                    datadict[pname][freqfactor][det] = datafile
+                                if det not in self.datadict[pname][freqfactor]:
+                                    self.datadict[pname][freqfactor][det] = datafile
                                 else:
                                     print(
                                         f"Duplicate pulsar '{pname}' data. Ignoring "
@@ -1817,7 +1820,7 @@ class PEDAGRunner(object):
                     ]
 
                     priorfiles = {}
-                    for pname in pulsardict.keys():
+                    for pname in self.pulsardict.keys():
                         for i, priorfile in enumerate(list(allpriors)):
                             if pname in priorfile:
                                 if pname not in priorfiles:
@@ -1831,7 +1834,7 @@ class PEDAGRunner(object):
                                     )
                 elif isinstance(priors, str):
                     if os.path.isfile(priors):
-                        priorfiles = {psr: priors for psr in pulsardict.keys()}
+                        priorfiles = {psr: priors for psr in self.pulsardict.keys()}
                     elif os.path.isdir(priors):
                         # add * wildcard to directories (if not already present)
                         if priors[-1] != "*":
@@ -1852,7 +1855,7 @@ class PEDAGRunner(object):
                         ]
 
                         priorfiles = {}
-                        for pname in pulsardict.keys():
+                        for pname in self.pulsardict.keys():
                             for i, priorfile in enumerate(list(allpriors)):
                                 if pname in priorfile:
                                     if pname not in priorfiles:
@@ -1881,13 +1884,13 @@ class PEDAGRunner(object):
                 else:
                     fp.write(DEFAULTPRIORS1F)
 
-            priorfiles = {psr: priorfile for psr in pulsardict.keys()}
+            priorfiles = {psr: priorfile for psr in self.pulsardict.keys()}
 
         # check prior and data exist for the same pulsar, if not remove
         priornames = list(priorfiles.keys())
-        datanames = list(datadict.keys()) if not simdata else priornames
+        datanames = list(self.datadict.keys()) if not simdata else priornames
 
-        for pname in list(pulsardict.keys()):
+        for pname in list(self.pulsardict.keys()):
             if pname in priornames and pname in datanames:
                 continue
             else:
@@ -1896,11 +1899,11 @@ class PEDAGRunner(object):
                     "is given"
                 )
                 if pname in datanames:
-                    datadict.pop(pname)
+                    self.datadict.pop(pname)
                 if pname in priornames:
                     priorfiles.pop(pname)
-                if pname in pulsardict:
-                    pulsardict.pop(pname)
+                if pname in self.pulsardict:
+                    self.pulsardict.pop(pname)
 
         # output the SNRs (injected and recovered)
         outputsnr = config.getboolean("pe", "output_snr", fallback=False)
@@ -1924,28 +1927,28 @@ class PEDAGRunner(object):
 
         # get whether to perform PE coherently for multiple detectors and/or
         # for each detector independently
-        coherent = config.getboolean("pe", "coherent", fallback=True)
-        incoherent = config.getboolean("pe", "incoherent", fallback=False)
+        self.coherent = config.getboolean("pe", "coherent", fallback=True)
+        self.incoherent = config.getboolean("pe", "incoherent", fallback=False)
 
-        if len(pulsardict) == 0:
+        if len(self.pulsardict) == 0:
             raise ValueError("No pulsars have been specified!")
 
         # create jobs (output and label set using pulsar name)
-        for pname in pulsardict:
+        for pname in self.pulsardict:
             # create dictionary of configuration outputs
             configdict = {}
 
             ephemtype = None
-            if is_par_file(pulsardict[pname]):
-                configdict["par_file"] = pulsardict[pname]
-                psrpar = PulsarParameters(pulsardict[pname])
+            if is_par_file(self.pulsardict[pname]):
+                configdict["par_file"] = self.pulsardict[pname]
+                psrpar = PulsarParameters(self.pulsardict[pname])
                 ephemtype = psrpar["EPHEM"]
 
             # get detectors
             for freqfactor in ["1f", "2f"]:
                 if not simdata:
                     try:
-                        detectors = list(datadict[pname][freqfactor])
+                        detectors = list(self.datadict[pname][freqfactor])
                     except KeyError:
                         pass
                 else:
@@ -2026,15 +2029,15 @@ class PEDAGRunner(object):
 
             # set combinations of detectors
             detcomb = []
-            if not coherent and not incoherent:
+            if not self.coherent and not self.incoherent:
                 raise ValueError(
                     "'coherent' and 'incoherent' options cannot both be False"
                 )
 
-            if coherent:
+            if self.coherent:
                 # add all detectors
                 detcomb.append(detectors)
-            if incoherent:
+            if self.incoherent:
                 # add individual detectors
                 for det in detectors:
                     detcomb.append([det])
@@ -2052,7 +2055,8 @@ class PEDAGRunner(object):
                     if not simdata:
                         try:
                             configdict["data_file_{}".format(freqfactor)] = {
-                                det: datadict[pname][freqfactor][det] for det in dets
+                                det: self.datadict[pname][freqfactor][det]
+                                for det in dets
                             }
                         except KeyError:
                             pass
