@@ -39,6 +39,7 @@ classifiers = [
 requires-python = ">=3.7, <4"
 dependencies = [
     "appdirs",
+    "arby",
     "astropy",
     "bilby >= 2.0.1",
     "configargparse",
@@ -67,7 +68,6 @@ dynamic = [
 [project.optional-dependencies]
 # test suite
 test = [
-    "arby",
     "codecov",
     "coverage",
     "coverage-badge",

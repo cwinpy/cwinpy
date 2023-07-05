@@ -3733,10 +3733,7 @@ class HeterodynedData(TimeSeriesBase):
             reduced basis set.
         """
 
-        try:
-            from .pe.roq import GenerateROQ
-        except (ModuleNotFoundError, ImportError):
-            raise ImportError("Arby must be installed to generate a ROQ")
+        from .pe.roq import GenerateROQ
 
         roq = []
 
