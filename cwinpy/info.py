@@ -1,8 +1,8 @@
 import filecmp
 import glob
 import os
+from importlib import resources
 
-import pkg_resources
 from astropy.time import Time
 
 from .parfile import PulsarParameters
@@ -163,7 +163,8 @@ HW_INJ_RUNTIMES["O3"] = {
 
 
 HW_INJ_RUNS = ["S5", "S6", "O1", "O2", "O3a"]
-HW_INJ_BASE_PATH = pkg_resources.resource_filename("cwinpy", "data/")
+with resources.path("cwinpy", "data") as rpath:
+    HW_INJ_BASE_PATH = str(rpath)
 #: locations of hardware injection parameter files
 HW_INJ = {
     run: {
