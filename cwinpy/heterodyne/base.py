@@ -1127,14 +1127,12 @@ class Heterodyne(object):
                     # try checking if a pulsar name has been given and if that
                     # is present in the ATNF catalogue. In that case use the
                     # ATNF ephemeris.
-                    global psrqpy_query
-
-                    if psrqpy_query is None:
+                    if not hasattr(self, "_psrqpy_query"):
                         from psrqpy import QueryATNF
 
-                        psrqpy_query = QueryATNF()
+                        self._psrqpy_query = QueryATNF()
 
-                    par = psrqpy_query.get_ephemeris(psr=pf)
+                    par = self._psrqpy_query.get_ephemeris(psr=pf)
 
                     if par is None:
                         print(
