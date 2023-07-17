@@ -1,7 +1,6 @@
 import copy
 import os
 import re
-import tempfile
 
 from configargparse import DefaultConfigFileParser
 
@@ -200,14 +199,14 @@ class HeterodyneLayer(CondorLayer):
                 ),
             )
 
-            # output the DAG configuration file to a temporary file, which will
+            # output the DAG configuration to a file that will
             # later be read and stored in the HeterodynedData objects
-            fp, dagconfigpath = tempfile.mkstemp(
-                prefix="pipeline_config", suffix=".ini", text=True
-            )
-            with os.fdopen(fp, "w") as cfp:
-                self.cf.write(cfp)
-            config["cwinpy_heterodyne_pipeline_config_file"] = dagconfigpath
+            dagconfigfile = os.path.join(configlocation, "pipeline_config.ini")
+            if not os.path.isfile(dagconfigfile):
+                with open(dagconfigfile, "w") as fp:
+                    self.cf.write(fp)
+
+            config["cwinpy_heterodyne_pipeline_config_file"] = dagconfigfile
 
             if transfer_files == "YES":
                 transfer_input = []
