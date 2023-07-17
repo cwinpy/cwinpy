@@ -8,7 +8,6 @@ import os
 import re
 import signal
 import sys
-import tempfile
 import warnings
 from pathlib import Path
 
@@ -1132,27 +1131,35 @@ class Heterodyne(object):
 
                         self._psrqpy_query = QueryATNF()
 
-                    par = self._psrqpy_query.get_ephemeris(psr=pf)
+                    # create directory called atnf_pulsars within the current
+                    # working directory to contain downloaded par files
+                    pulsardir = os.path.join(os.getcwd(), "atnf_pulsars")
+                    os.makedirs(pulsardir, exist_ok=True)
 
-                    if par is None:
-                        print(
-                            f"Pulsar file '{pf}' could not be read. This pulsar will be ignored."
-                        )
-                        continue
-                    else:
-                        print(
-                            f"Ephemeris for '{pf}' has been obtained from the ATNF pulsar catalogue"
-                        )
+                    # write the par file if it has not already been created
+                    dparfile = os.path.join(pulsardir, f"{pf}.par")
 
-                    # create temporary par file containing ATNF ephemeris
-                    tmppar = tempfile.mkstemp(suffix=".par", prefix=pf)
-                    with open(tmppar[1], "w") as fp:
-                        fp.write(par)
+                    if not os.path.isfile(dparfile):
+                        par = self._psrqpy_query.get_ephemeris(psr=pf)
+
+                        if par is None:
+                            print(
+                                f"Pulsar file '{pf}' could not be read. This pulsar will be ignored."
+                            )
+                            continue
+                        else:
+                            print(
+                                f"Ephemeris for '{pf}' has been obtained from the ATNF pulsar catalogue"
+                            )
+
+                        # create temporary par file containing ATNF ephemeris
+                        with open(dparfile, "w") as fp:
+                            fp.write(par)
 
                     # get pulsar name
-                    readpar = PulsarParameters(tmppar[1])
+                    readpar = PulsarParameters(dparfile)
                     pname = get_psr_name(readpar)
-                    self._pulsars[pname] = tmppar[1]
+                    self._pulsars[pname] = dparfile
         elif pfiles is not None:
             raise TypeError("pulsarfiles must be a string, list or dict")
 
