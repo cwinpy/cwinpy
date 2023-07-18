@@ -587,6 +587,14 @@ pulsar `J0737-3039A <https://en.wikipedia.org/wiki/PSR_J0737%E2%88%923039>`_ you
 Internally, the ephemeris information is obtained using the :class:`~psrqpy.search.QueryATNF` class
 from `psrqpy <https://psrqpy.readthedocs.io/en/latest/>`_.
 
+.. note::
+
+   Any pulsar parameter files extracted from the ATNF pulsar catalogue will be held in a
+   subdirectory of the directory from which you invoked the ``cwinpy_knope_pipeline`` script, called
+   ``atnf_pulsars``. If such a directory already exists and contains the parameter file for a
+   requested pulsar, then that file will be used rather than being reacquired from the catalogue. To
+   ensure files are up-to-date, clear out the ``atnf_pulsars`` directory as required.
+
 CWInPy also contains information on the continuous :ref:`hardware injections<Hardware Injections>`
 performed in each run, so if you wanted the analyse the these in, say, the LIGO `sixth science run
 <https://gwosc.org/archive/S6/>`_, you could do:

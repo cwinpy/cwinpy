@@ -2,7 +2,6 @@ import copy
 import fnmatch
 import os
 import shutil
-from subprocess import call
 
 from htcondor import Schedd, Submit
 
@@ -37,7 +36,7 @@ class CondorLayer:
         """
 
         self.dag = dag
-        self.cf = cf
+        self.cf = copy.deepcopy(cf)
         self.requirements = []
 
         # get configuration sections and section values
