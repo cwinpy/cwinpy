@@ -4,7 +4,6 @@ Classes providing likelihood functions.
 
 import re
 from copy import deepcopy
-from warnings import warn
 
 import bilby
 import lal
@@ -361,14 +360,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             roqkwargs["earth_ephem"] = data.ephemearth
             roqkwargs["sun_ephem"] = data.ephemsun
 
-            try:
-                roqchunks = data.generate_roq(self.priors, **roqkwargs)
-            except (ModuleNotFoundError, ImportError):
-                warn(
-                    "ROQ could not be used as Arby is not installed. ROQ will therefore be set to False"
-                )
-                self.__roq = False
-                return
+            roqchunks = data.generate_roq(self.priors, **roqkwargs)
 
             self._roq_all_nodes.append(np.concatenate([r._x_nodes for r in roqchunks]))
 
