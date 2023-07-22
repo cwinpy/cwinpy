@@ -1935,10 +1935,14 @@ class PEDAGRunner:
         if len(self.pulsardict) == 0:
             raise ValueError("No pulsars have been specified!")
 
+        self.resultsfiles = {}
+
         # create jobs (output and label set using pulsar name)
         for pname in self.pulsardict:
             # create dictionary of configuration outputs
             configdict = {}
+
+            self.resultsfiles[pname] = {}
 
             ephemtype = None
             if is_par_file(self.pulsardict[pname]):
@@ -2044,9 +2048,9 @@ class PEDAGRunner:
                 for det in detectors:
                     self.detcomb.append([det])
 
-            self.resultsfiles = {}
-
             for dets in self.detcomb:
+                self.resultsfiles[pname] = {}
+
                 # set required seed
                 if seeddict is not None:
                     if dets == detectors:
@@ -2121,9 +2125,9 @@ class PEDAGRunner:
                         layer_name=f"cwinpy_pe_{''.join(dets)}_{pname.replace('+', 'plus')}",
                     )
 
-                    self.resultsfiles["".join(dets)] = mergelayer.resultsfile
+                    self.resultsfiles[pname]["".join(dets)] = mergelayer.resultsfile
                 else:
-                    self.resultsfiles["".join(dets)] = pelayer.resultsfiles[0]
+                    self.resultsfiles[pname]["".join(dets)] = pelayer.resultsfiles[0]
 
         if self.build:
             # write out the DAG and submit files

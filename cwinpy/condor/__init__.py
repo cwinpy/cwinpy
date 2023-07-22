@@ -36,7 +36,7 @@ class CondorLayer:
         """
 
         self.dag = dag
-        self.cf = copy.deepcopy(cf)
+        self.cf = cf
         self.requirements = []
 
         # get configuration sections and section values
