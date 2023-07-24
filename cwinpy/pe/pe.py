@@ -2126,8 +2126,16 @@ class PEDAGRunner:
                     )
 
                     self.resultsfiles[pname]["".join(dets)] = mergelayer.resultsfile
+
+                    # store base directory containing results
+                    if not hasattr(self, "resultsbase"):
+                        self.resultsbase = mergelayer.parent_layer_class.resbase
                 else:
                     self.resultsfiles[pname]["".join(dets)] = pelayer.resultsfiles[0]
+
+                    # store base directory containing results
+                    if not hasattr(self, "resultsbase"):
+                        self.resultsbase = pelayer.resbase
 
         if self.build:
             # write out the DAG and submit files

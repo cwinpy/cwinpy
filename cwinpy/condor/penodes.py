@@ -165,9 +165,10 @@ class PulsarPELayer(CondorLayer):
         dagconfigfile = os.path.join(configlocation, "pe_pipeline_config.ini")
 
         # get results directory
-        self.resdir = os.path.join(
-            self.outdir, self.get_option("results", default="results"), self.psrname
+        self.resbase = os.path.join(
+            self.outdir, self.get_option("results", default="results")
         )
+        self.resdir = os.path.join(self.resbase, self.psrname)
         if not os.path.exists(self.resdir):
             os.makedirs(self.resdir)
 
