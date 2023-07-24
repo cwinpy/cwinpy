@@ -255,21 +255,18 @@ def generate_summary_pages(**kwargs):
             "--disable-posteriors",
             action="store_true",
             default=False,
-            type=bool,
             help="Set this flag to disable production of posterior plots.",
         )
         parser.add_argument(
             "--disable-timeseries",
             action="store_true",
             default=False,
-            type=bool,
             help="Set this flag to disable production of time series plots.",
         )
         parser.add_argument(
             "--disable-upper-limit-table",
             action="store_true",
             default=False,
-            type=bool,
             help=(
                 "Set this flag to disable production of a table of amplitude "
                 "upper limits."
@@ -279,7 +276,6 @@ def generate_summary_pages(**kwargs):
             "--disable-upper-limit-plot",
             action="store_true",
             default=False,
-            type=bool,
             help=(
                 "Set this flag to disable production of a plot of amplitude "
                 "upper limits as a function of frequency."
