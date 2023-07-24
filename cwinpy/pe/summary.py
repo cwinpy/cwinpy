@@ -205,7 +205,7 @@ def generate_summary_pages(**kwargs):
         as a function of frequency. The default is True.
     """
 
-    if "config" in kwargs:
+    if "cli" not in kwargs:
         configfile = kwargs.pop("config")
         outpath = Path(kwargs.pop("outpath"))
         # url = kwargs.pop("url")
@@ -362,3 +362,13 @@ def generate_summary_pages(**kwargs):
             raise ValueError(
                 "None of the specified pulsars were found in the analysis."
             )
+
+
+def generate_summary_pages_cli(**kwargs):  # pragma: no cover
+    """
+    Entry point to ``cwinpy_generate_summary_pages`` script. This just calls
+    :func:`~cwinpy.pe.summary.generate_summary_pages`.
+    """
+
+    kwargs["cli"] = True
+    generate_summary_pages(**kwargs)
