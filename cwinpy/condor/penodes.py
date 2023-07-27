@@ -280,8 +280,9 @@ class PulsarPELayer(CondorLayer):
 
             # write out configuration file
             parseobj = DefaultConfigFileParser()
-            with open(configfile, "w") as fp:
-                fp.write(parseobj.serialize(curconfig))
+            if not os.path.isfile(configfile):
+                with open(configfile, "w") as fp:
+                    fp.write(parseobj.serialize(curconfig))
 
             self.vars.append(vardict)
 
