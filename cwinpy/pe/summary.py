@@ -82,7 +82,7 @@ def pulsar_summary_plots(
     if outdir is None:
         outpath = Path.cwd()
     else:
-        outpath = Path(outpath)
+        outpath = Path(outdir)
         outpath.mkdir(parents=True, exist_ok=True)
 
     pname = get_psr_name(par)
