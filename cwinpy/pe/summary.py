@@ -296,7 +296,7 @@ def generate_summary_pages(**kwargs):
         # upperlimitplot = not args.disable_upper_limit_plot
 
     # make the output directory
-    outpath.mkdir(parents=True, exists_ok=True)
+    outpath.mkdir(parents=True, exist_ok=True)
 
     # extract run information from configuration file
     pipeline_data = pe_pipeline(config=configfile, build=False)
