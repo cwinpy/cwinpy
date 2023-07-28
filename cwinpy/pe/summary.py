@@ -228,7 +228,7 @@ def generate_summary_pages(**kwargs):
         )
         parser.add_argument(
             "config",
-            help=("The configuration file from the cwinpy_knope_pipeline " "analysis."),
+            help=("The configuration file from the cwinpy_knope_pipeline analysis."),
         )
         parser.add_argument(
             "--outpath",
@@ -239,7 +239,7 @@ def generate_summary_pages(**kwargs):
         parser.add_argument(
             "--url",
             "-u",
-            help=("The URL from which the summary results pages will be " "accessed."),
+            help=("The URL from which the summary results pages will be accessed."),
             required=True,
         )
         parser.add_argument(
@@ -311,12 +311,12 @@ def generate_summary_pages(**kwargs):
     if showposteriors:
         posteriorplots = {}
 
-        if not pipeline_data.results_files:
+        if not pipeline_data.resultsfiles:
             raise ValueError("No results files given in pipeline configuration!")
 
         posteriorplotdir = outpath / "posterior_plots"
 
-        for psr in pipeline_data.results_files:
+        for psr in pipeline_data.resultsfiles:
             if pulsars is not None and psr not in pulsars:
                 continue
 
