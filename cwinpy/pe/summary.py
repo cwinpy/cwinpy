@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import Union
 
 from bilby.core.result import Result
 from matplotlib import pyplot as plt
@@ -15,15 +16,16 @@ from .peutils import (  # , optimal_snr, read_in_result_wrapper, results_odds
 
 
 def pulsar_summary_plots(
-    parfile,
-    heterodyneddata=None,
-    posteriordata=None,
-    ulresultstable=None,
-    oddstable=None,
-    snrtable=None,
-    outdir=None,
-    outputsuffix=None,
-    plotformat=".png",
+    parfile: Union[str, Path, PulsarParameters],
+    heterodyneddata: Union[str, dict, HeterodynedData, Path] = None,
+    posteriordata: Union[str, dict, Path, Result] = None,
+    ulresultstable: UpperLimitTable = None,
+    oddstable: dict = None,
+    snrtable: dict = None,
+    outdir: Union[str, Path] = None,
+    outputsuffix: str = None,
+    plotformat: str = ".png",
+    showindividualparams: bool = False,
     **plotkwargs,
 ):
     """
@@ -68,6 +70,9 @@ def pulsar_summary_plots(
         An suffix to append to the output files names. Default is None.
     plotformat: str
         The file format with which the save the figures. The default is ".png".
+    showindividualparams: bool
+        Set to true to produce posterior plots for all individual parameters as
+        well as the joint posterior plot. Default is False.
 
     Returns
     -------
@@ -155,17 +160,38 @@ def pulsar_summary_plots(
             if outputsuffix is not None:
                 postdata = {outputsuffix: postdata}
 
-            # plot posteriors
+            # copy of plotting kwargs
+            tplotkwargs = plotkwargs.copy()
+
+            # get output dpi
+            dpi = tplotkwargs.pop("dpi", 150)
+
+            # set default number of histogram bins for plots
+            if "bins" not in tplotkwargs:
+                tplotkwargs["bins"] = 30
+
+            # plot posteriors for all parameters
             plot = Plot(postdata, plottype="corner")
-            plot.plot()
+            plot.plot(**tplotkwargs)
 
             outsuf = "" if outputsuffix is None else f"{outputsuffix}"
             filename = f"posteriors_{pname}_{outsuf}"
-            plot.savefig(
-                outpath / f"{filename}{plotformat}", dpi=plotkwargs.get("dpi", 150)
-            )
+            plot.savefig(outpath / f"{filename}{plotformat}", dpi=dpi)
             summaryfiles[filename] = outpath / f"{filename}{plotformat}"
             plt.close()
+
+            # plot individual parameter marginal posteriors if requested
+            if showindividualparams:
+                params = plot.parameters  # get all parameter names
+
+                for param in params:
+                    plot = Plot(postdata, parameters=param, plottype="hist", kde=True)
+                    plot.plot(hist_kwargs={"bins": tplotkwargs["bins"]})
+
+                    filename = f"posteriors_{pname}_{param}_{outsuf}"
+                    plot.savefig(outpath / f"{filename}{plotformat}", dpi=dpi)
+                    summaryfiles[filename] = outpath / f"{filename}{plotformat}"
+                    plt.close()
         elif isinstance(posteriordata, dict):
             for suf in posteriordata:
                 if outputsuffix is None:
@@ -173,14 +199,13 @@ def pulsar_summary_plots(
                 else:
                     outsuf = f"{outputsuffix}_{suf}"
 
-                print(suf, outsuf)
-
                 sf = pulsar_summary_plots(
                     par,
                     posteriordata=posteriordata[suf],
                     outputsuffix=outsuf,
                     outdir=outdir,
                     plotformat=plotformat,
+                    showindividualparams=showindividualparams,
                     **plotkwargs,
                 )
 
@@ -205,8 +230,11 @@ def generate_summary_pages(**kwargs):
     url: str
         The URL from which the summary results pages will be accessed.
     showposteriors: bool
-        Set to enable/disable production of plots showing the posteriors. The
-        default is True.
+        Set to enable/disable production of plots showing the joint posteriors
+        for all parameters. The default is True.
+    showindividualposteriors: bool
+        Set to enable/disable production of plots showing the marginal
+        posteriors for each individual parameter. The default is False.
     showtimeseries: bool
         Set to enable/disable production of plots showing the heterodyned time
         series data (and spectral representations). The default is True.
@@ -227,6 +255,7 @@ def generate_summary_pages(**kwargs):
         # url = kwargs.pop("url")
 
         showposteriors = kwargs.pop("showposteriors", True)
+        showindividualparams = kwargs.pop("showindividualposteriors", False)
         showtimeseries = kwargs.pop("showtimeseries", True)
 
         pulsars = kwargs.pop("pulsar", None)
@@ -274,6 +303,15 @@ def generate_summary_pages(**kwargs):
             help="Set this flag to disable production of posterior plots.",
         )
         parser.add_argument(
+            "--enable-individual-posteriors",
+            action="store_true",
+            default=False,
+            help=(
+                "Set this flag to enable to produciton of marginal posterior "
+                "plots for each individual parameters."
+            ),
+        )
+        parser.add_argument(
             "--disable-timeseries",
             action="store_true",
             default=False,
@@ -305,6 +343,7 @@ def generate_summary_pages(**kwargs):
 
         showposteriors = not args.disable_posteriors
         showtimeseries = not args.disable_timeseries
+        showindividualparams = args.enable_individual_posteriors
 
         pulsars = args.pulsars
 
@@ -336,14 +375,12 @@ def generate_summary_pages(**kwargs):
             if pulsars is not None and psr not in pulsars:
                 continue
 
-            print(psr)
-            print(pipeline_data.resultsfiles[psr])
-
             posteriorplots[psr] = pulsar_summary_plots(
                 pipeline_data.pulsardict[psr],
                 posteriordata=pipeline_data.resultsfiles[psr],
                 outdir=posteriorplotdir / psr,
                 ulresultstable=ultable,
+                showindividualparams=showindividualparams,
             )
 
         if not posteriorplots:
