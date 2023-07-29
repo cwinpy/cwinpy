@@ -2,8 +2,10 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Union
 
+import numpy as np
 from bilby.core.result import Result
 from matplotlib import pyplot as plt
+from scipy.stats import hmean
 
 from ..data import HeterodynedData
 from ..parfile import PulsarParameters
@@ -414,6 +416,115 @@ def generate_summary_pages(**kwargs):
             raise ValueError(
                 "None of the specified pulsars were found in the analysis."
             )
+
+
+def generate_power_spectrum(
+    heterodyneddata: dict,
+    time_average: str = "median",
+    freq_average: str = "median",
+) -> dict:
+    """
+    Extract the power spectral density at the frequencies of a set of analysed
+    pulsars using their heterodyned data products.
+
+    Parameters
+    ----------
+    heterodyneddata: dict
+        The input should be a dictionary as provided by the
+        :attr:`~cwinpy.pe.pe.PEDAGRunner.datadict`, i.e., a dictionary key by
+        pulsar name, then heterodyned data frequency factor ("1f" or "2f"),
+        then a detector name, pointing to a path to some
+        :class:`~cwinpy.data.HeterodynedData`.
+    time_average: str
+        The method of averaging each pulsar's spectrogram over time. The
+        default is "median", although "harmonic_mean" may be useful. Allowed
+        values are: "median", "mean", "harmonic_mean", "max" or "min".
+    freq_average:
+        The method of averaging each pulsar's spectrogram over frequency. The
+        default is "median", although "harmonic_mean" may be useful. Allowed
+        values are: "median", "mean", "harmonic_mean", "max" or "min".
+
+    Returns
+    -------
+    specs: dict
+        A dictionary keyed on the detector names, followed by frequency factors
+        ("1f" or "2f") with values being 2D arrays containing the frequency and
+        power spectral density (from using a median over the frequency band of
+        the heterodyned data).
+    """
+
+    if not isinstance(heterodyneddata, dict):
+        raise TypeError("heterodyneddata must be a dictionary")
+
+    if freq_average.lower() not in [
+        "median",
+        "mean",
+        "harmonic_mean",
+        "hmean",
+        "max",
+        "min",
+    ]:
+        raise ValueError(
+            'freq_average must be one of "median", "mean", "harmonic_mean", "max" or "min"'
+        )
+
+    # frequency averaging functions
+    favfunc = {
+        "mean": np.mean,
+        "min": np.min,
+        "max": np.max,
+        "median": np.median,
+        "hmean": hmean,
+        "harmonic_mean": hmean,
+    }
+
+    spec = {}
+    freqs = {}
+    for psr in heterodyneddata:
+        if not isinstance(heterodyneddata[psr], dict):
+            raise ValueError("heterodyneddata values must contain dictionaries")
+
+        for ff in heterodyneddata[psr]:
+            # check frequency factors of 1f or 2f
+            if ff not in ["1f", "2f"]:
+                raise KeyError("key must be either 1f or 2f")
+
+            for det in heterodyneddata[psr][ff]:
+                if isinstance(
+                    heterodyneddata[psr][ff][det], (str, Path, HeterodynedData)
+                ):
+                    if isinstance(heterodyneddata[psr][ff][det], HeterodynedData):
+                        het = heterodyneddata
+                    else:
+                        het = HeterodynedData.read(heterodyneddata[psr][ff][det])
+                else:
+                    raise ValueError("data is not a HeterodynedData object/path")
+
+                if det not in freqs:
+                    freqs[det] = {}
+                    spec[det] = {}
+
+                if ff not in freqs[det]:
+                    freqs[det][ff] = []
+                    spec[det][ff] = []
+
+                # get power spectral densities
+                _, power = het.power_spectrum(
+                    remove_outliers=True, plot=False, average=time_average
+                )
+                spec[det][ff].append(favfunc[freq_average.lower()](power))
+
+                # get the frequency
+                freqs[det][ff].append(het.par["F0"] * int(ff[0]))
+
+    # convert to arrays and sort by frequency
+    specs = {}
+    for det in freqs:
+        specs[det] = {}
+        for ff in freqs[det]:
+            specs[det][ff] = np.array(sorted(zip(freqs[det][ff], spec[det][ff])))
+
+    return specs
 
 
 def generate_summary_pages_cli(**kwargs):  # pragma: no cover
