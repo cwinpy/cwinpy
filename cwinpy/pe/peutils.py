@@ -1263,20 +1263,20 @@ class UpperLimitTable(QTable):
             keyword. If a list of numbers is given these will be used for the
             characteristic age assuming that they are given in years.
         asds: list
-            A list of paths to files containing the amplitude spectral density
-            for the detectors used in producing the upper limit. These files
-            should have two columns: frequency and amplitude spectral density.
-            If given, and plotting the amplitudes, "H0", "C21" or "C22", these
-            will be used to plot an estimate of the search sensitivity. Note
-            that these sensitivity estimates are based on the *median expected
-            95% upper limit* on Gaussian noise (i.e., they aren't valid if
-            plotting upper limits for a different credibility value). The
-            scaling factors used in producing the sensitivity estimates are
-            given in Appendix C of [7]_. If multiple files are given, the
-            observation time weighted harmonic mean of the amplitudes will be
-            used to calculate the sensitivity. Keyword arguments used by
-            :func:`~matplotlib.pyplot.plot` when plotting the sensitivity can
-            be passed using the ``asdkwargs`` keyword.
+            A list of paths to files or arrays containing the amplitude
+            spectral density for the detectors used in producing the upper
+            limit. These files/arrays should contain two columns: frequency and
+            amplitude spectral density. If given, and plotting the amplitudes,
+            "H0", "C21" or "C22", these will be used to plot an estimate of the
+            search sensitivity. Note that these sensitivity estimates are based
+            on the *median expected 95% upper limit* on Gaussian noise (i.e.,
+            they aren't valid if plotting upper limits for a different
+            credibility value). The scaling factors used in producing the
+            sensitivity estimates are given in Appendix C of [7]_. If multiple
+            files are given, the observation time weighted harmonic mean of the
+            amplitudes will be used to calculate the sensitivity. Keyword
+            arguments used by :func:`~matplotlib.pyplot.plot` when plotting the
+            sensitivity can be passed using the ``asdkwargs`` keyword.
         tobs: list
             The observation times (in seconds) for each of the detectors
             associated with the ASD files given in the ``asds`` keyword. These
@@ -1469,10 +1469,14 @@ class UpperLimitTable(QTable):
             lowfreq = -np.inf
             highfreq = np.inf
             for i in range(nasds):
-                try:
-                    asddata = np.loadtxt(asds[i], comments=["#", "%"])
-                except (ValueError, OSError):
-                    raise IOError(f"Could not read in ASD file '{asds[i]}'")
+                if isinstance(asds[i], (str, Path)):
+                    try:
+                        asddata = np.loadtxt(asds[i], comments=["#", "%"])
+                    except (ValueError, OSError):
+                        raise IOError(f"Could not read in ASD file '{asds[i]}'")
+                else:
+                    # assume it is a NumPy array
+                    asddata = asds[i]
 
                 freqs.append(asddata[:, 0])
                 weightedpsds.append(asddata[:, 1] ** 2 / tobs[i])

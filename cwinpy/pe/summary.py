@@ -422,6 +422,7 @@ def generate_power_spectrum(
     heterodyneddata: dict,
     time_average: str = "median",
     freq_average: str = "median",
+    asd: bool = False,
 ) -> dict:
     """
     Extract the power spectral density at the frequencies of a set of analysed
@@ -439,10 +440,13 @@ def generate_power_spectrum(
         The method of averaging each pulsar's spectrogram over time. The
         default is "median", although "harmonic_mean" may be useful. Allowed
         values are: "median", "mean", "harmonic_mean", "max" or "min".
-    freq_average:
+    freq_average: str
         The method of averaging each pulsar's spectrogram over frequency. The
         default is "median", although "harmonic_mean" may be useful. Allowed
         values are: "median", "mean", "harmonic_mean", "max" or "min".
+    asd: bool
+        If set to True, output the amplitude spectral density values rather
+        than power spectral density values.
 
     Returns
     -------
@@ -510,7 +514,10 @@ def generate_power_spectrum(
 
                 # get power spectral densities
                 _, power = het.power_spectrum(
-                    remove_outliers=True, plot=False, average=time_average
+                    remove_outliers=True,
+                    plot=False,
+                    average=time_average,
+                    asd=asd,
                 )
                 spec[det][ff].append(favfunc[freq_average.lower()](power))
 
