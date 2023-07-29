@@ -2049,7 +2049,7 @@ class PEDAGRunner:
                     self.detcomb.append([det])
 
             for dets in self.detcomb:
-                self.resultsfiles[pname] = {}
+                self.resultsfiles[pname]["".join(dets)] = {}
 
                 # set required seed
                 if seeddict is not None:
