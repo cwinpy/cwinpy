@@ -19,6 +19,7 @@ from gwpy.timeseries import TimeSeries, TimeSeriesBase
 from gwpy.types import Series
 from numba import jit
 from scipy.ndimage import median_filter
+from scipy.stats import hmean
 
 import cwinpy
 
@@ -3058,8 +3059,8 @@ class HeterodynedData(TimeSeriesBase):
         ----------
         average: str, 'median'
             The method by which to "average" the spectrum in time. This can be
-            'median' (the default), 'mean', 'max' (return the maximum) or 'min'
-            (return the minimum).
+            'median' (the default), 'mean', 'harmonic_mean', 'max' (return the
+            maximum) or 'min' (return the minimum).
         asd: bool
             If True, the amplitude spectral density will be returned rather
             than the power spectrum.
@@ -3224,11 +3225,18 @@ class HeterodynedData(TimeSeriesBase):
 
             if ptype == "power":
                 # average the spectrogram for a power spectrum
-                average = speckwargs.get("average", "median")
+                average = speckwargs.get("average", "median").lower()
 
-                if average not in ["median", "mean", "max", "min"]:
+                if average not in [
+                    "median",
+                    "mean",
+                    "harmonic_mean",
+                    "hmean",
+                    "max",
+                    "min",
+                ]:
                     raise ValueError(
-                        "Average method must be 'median', 'mean', 'max' or 'min'."
+                        "Average method must be 'median', 'mean', 'harmonic_mean', 'max' or 'min'."
                     )
 
                 # ignore any power time bins that are zero
@@ -3238,6 +3246,8 @@ class HeterodynedData(TimeSeriesBase):
                     power = np.median(power[:, nonzero], axis=-1)
                 elif average == "mean":
                     power = np.mean(power[:, nonzero], axis=-1)
+                elif average in ["harmonic_mean", "hmean"]:
+                    power = hmean(power[:, nonzero], axis=-1)
                 elif average == "max":
                     power = np.max(power[:, nonzero], axis=-1)
                 else:
@@ -3260,6 +3270,10 @@ class HeterodynedData(TimeSeriesBase):
             if ptype == "spectrogram":
                 return frequencies, power, stimes
             else:
+                if speckwargs.get("asd", False):
+                    # convert PSD to ASD
+                    power = np.sqrt(power)
+
                 return frequencies, power
 
         # perform plotting
