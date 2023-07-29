@@ -3214,6 +3214,11 @@ class HeterodynedData(TimeSeriesBase):
             except Exception as e:
                 raise RuntimeError("Problem creating spectrogram: {}".format(e))
 
+            # get frequencies within +/-Fn / 2
+            fidx = (frequencies >= -Fn / 2) & (frequencies <= Fn / 2)
+            power = power[fidx, :]
+            frequencies = frequencies[fidx]
+
             # rescale power due to zero padding spreading out power and different sample rate
             power *= (Fs / Fn) ** 2
 
@@ -3302,7 +3307,7 @@ class HeterodynedData(TimeSeriesBase):
 
                 # extents of the plot
                 if "extent" not in plotkwargs:
-                    plotkwargs["extent"] = [0, tottime, -2 / Fn, 2 / Fn]
+                    plotkwargs["extent"] = [0, tottime, -Fn / 2, Fn / 2]
 
                 if "aspect" not in plotkwargs:
                     plotkwargs["aspect"] = "auto"
