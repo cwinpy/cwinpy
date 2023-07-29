@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from bilby.core.result import Result
+from matplotlib import pyplot as plt
 
 from ..data import HeterodynedData
 from ..parfile import PulsarParameters
@@ -76,8 +77,10 @@ def pulsar_summary_plots(
 
     if is_par_file(parfile):
         par = PulsarParameters(parfile)
+    elif isinstance(parfile, PulsarParameters):
+        par = parfile
     else:
-        raise ValueError("Supplied pulsar .par file is invalid.")
+        raise ValueError(f"Supplied pulsar .par file '{parfile}' is invalid.")
 
     if outdir is None:
         outpath = Path.cwd()
@@ -96,7 +99,7 @@ def pulsar_summary_plots(
             else:
                 het = HeterodynedData.read(heterodyneddata)
 
-            outsuf = "" if outputsuffix is None else f"_{outputsuffix}"
+            outsuf = "" if outputsuffix is None else f"{outputsuffix}"
 
             # plot time series
             hetfig = het.plot(which="abs", remove_outliers=True)
@@ -106,15 +109,25 @@ def pulsar_summary_plots(
                 outpath / f"{filename}{plotformat}", dpi=plotkwargs.get("dpi", 150)
             )
             summaryfiles[filename] = outpath / f"{filename}{plotformat}"
+            plt.close()
 
             # plot spectrogram
             specfig = het.spectrogram(remove_outliers=True)
-            specfig.tight_layout()
-            filename = f"time_series_plot_{pname}_{outsuf}"
-            specfig.savefig(
+            filename = f"spectrogram_plot_{pname}_{outsuf}"
+            specfig[-1].savefig(
                 outpath / f"{filename}{plotformat}", dpi=plotkwargs.get("dpi", 150)
             )
             summaryfiles[filename] = outpath / f"{filename}{plotformat}"
+            plt.close()
+
+            # plot spectrum
+            sfig = het.power_spectrum(remove_outliers=True, asd=True)
+            filename = f"asd_plot_{pname}_{outsuf}"
+            sfig[-1].savefig(
+                outpath / f"{filename}{plotformat}", dpi=plotkwargs.get("dpi", 150)
+            )
+            summaryfiles[filename] = outpath / f"{filename}{plotformat}"
+            plt.close()
         elif isinstance(heterodyneddata, dict):
             for suf in heterodyneddata:
                 if outputsuffix is None:
@@ -146,18 +159,21 @@ def pulsar_summary_plots(
             plot = Plot(postdata, plottype="corner")
             plot.plot()
 
-            outsuf = "" if outputsuffix is None else f"_{outputsuffix}"
+            outsuf = "" if outputsuffix is None else f"{outputsuffix}"
             filename = f"posteriors_{pname}_{outsuf}"
             plot.savefig(
                 outpath / f"{filename}{plotformat}", dpi=plotkwargs.get("dpi", 150)
             )
             summaryfiles[filename] = outpath / f"{filename}{plotformat}"
+            plt.close()
         elif isinstance(posteriordata, dict):
             for suf in posteriordata:
                 if outputsuffix is None:
                     outsuf = suf
                 else:
                     outsuf = f"{outputsuffix}_{suf}"
+
+                print(suf, outsuf)
 
                 sf = pulsar_summary_plots(
                     par,
@@ -319,6 +335,9 @@ def generate_summary_pages(**kwargs):
         for psr in pipeline_data.resultsfiles:
             if pulsars is not None and psr not in pulsars:
                 continue
+
+            print(psr)
+            print(pipeline_data.resultsfiles[psr])
 
             posteriorplots[psr] = pulsar_summary_plots(
                 pipeline_data.pulsardict[psr],
