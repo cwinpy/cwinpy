@@ -5,6 +5,7 @@ from typing import Union
 import numpy as np
 from bilby.core.result import Result
 from matplotlib import pyplot as plt
+from pesummary.core.webpage.webpage import BOOTSTRAP, OTHER_SCRIPTS, page
 from scipy.stats import hmean
 
 from ..data import HeterodynedData
@@ -14,7 +15,131 @@ from ..utils import get_psr_name, is_par_file
 from .pe import pe_pipeline
 from .peutils import (  # , optimal_snr, read_in_result_wrapper, results_odds
     UpperLimitTable,
+    set_formats,
 )
+
+# add MathJAX to HOME_SCRIPTS and OTHER_SCRIPTS
+SCRIPTS_AND_CSS = f"""   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js"></script>
+{OTHER_SCRIPTS}"""
+
+
+def make_html(
+    web_dir: Union[str, Path],
+    pages: list,
+    title: str = "Summary Pages",
+):
+    """
+    Make the initial html page. Adapted from pesummary.
+
+    Parameters
+    ----------
+    web_dir: str, Path
+        Path to the location where you would like the html file to be saved.
+    pages: list
+        A list of pages that you would like to be created.
+    title: str, optional
+        Header title of html page.
+    """
+
+    for i in pages:
+        htmlfile = Path(web_dir) / f"{i}.html"
+        with open(htmlfile, "w") as f:
+            bootstrap = BOOTSTRAP.split("\n")
+            bootstrap[1] = "  <title>{}</title>".format(title)
+            bootstrap = [j + "\n" for j in bootstrap]
+            f.writelines(bootstrap)
+            scripts = SCRIPTS_AND_CSS.split("\n")
+            scripts = [j + "\n" for j in scripts]
+            f.writelines(scripts)
+
+
+def open_html(web_dir, base_url, html_page, label):
+    """
+    Open html page ready so you can manipulate the contents. Adapted from
+    pesummary.
+
+    Parameters
+    ----------
+    web_dir: str
+        path to the location where you would like the html file to be saved
+    base_url: str
+        url to the location where you would like the html file to be saved
+    page: str
+        name of the html page that you would like to edit
+    """
+    try:
+        if html_page[-5:] == ".html":
+            html_page = html_page[:-5]
+    except Exception:
+        pass
+
+    htmlfile = Path(web_dir) / f"{html_page}.html"
+    f = open(htmlfile, "a")
+
+    return page(f, web_dir, base_url, label)
+
+
+PULSAR_HEADER_FORMATS = {
+    "F0": {
+        "html": r"$f_{\rm rot}$ (Hz)",
+        "ultablename": "F0ROT",
+        "formatter": set_formats(name="F0ROT", type="html", dp=2),
+    },
+    "2F0": {
+        "html": r"$2f_{\rm rot}\,/\,f_{\rm gw}$ (Hz)",
+        "ultablename": "F0ROT",
+        "formatter": lambda x: set_formats(name="F0ROT", type="html", dp=2)(2 * x),
+    },
+    "F1": {
+        "html": r"$\dot{f}_{\rm rot}$ (Hz/s)",
+        "ultablename": "F1ROT",
+        "formatter": set_formats(name="F1ROT", type="html", dp=2, scinot=True),
+    },
+    "DIST": {
+        "html": "distance (kpc)",
+        "ultablename": "DIST",
+        "formatter": set_formats(name="DIST", type="html", dp=1),
+    },
+    "SDLIM": {
+        "html": "$h_0$ spin-down limit",
+        "ultablename": "SDLIM",
+        "formatter": set_formats(name="SDLIM", type="html", dp=1, scinot=True),
+    },
+}
+
+RESULTS_HEADER_FORMATS = {
+    "H0": {
+        "html": r"$h_0^{95%}$ upper limit",
+        "ultablename": "H0_{}_95%UL",
+        "formatter": set_formats(name="H0", type="html", dp=1, scinot=True),
+    },
+    "ELL": {
+        "html": r"$\varepsilon^{95%}$ upper limit",
+        "ultablename": "ELL_{}_95%UL",
+        "formatter": set_formats(name="ELL", type="html", dp=1, scinot=True),
+    },
+    "Q22": {
+        "html": r"$Q_{22}^{95%}$ upper limit (kg m<sup>2</sup>)",
+        "ultablename": "Q22_{}_95%UL",
+        "formatter": set_formats(name="Q22", type="html", dp=1, scinot=True),
+    },
+    "SDRAT": {
+        "html": r"$h_0^{95%}\,/\,h_0^{\rm spin-down}",
+        "ultablename": "SDRAT_{}_95%UL",
+        "formatter": set_formats(name="SDRAT", type="html"),
+    },
+    "C21": {
+        "html": r"$C_{21}^{95%}$ upper limit",
+        "ultablename": "C21_{}_95%UL",
+        "formatter": set_formats(name="C21", type="html", dp=1, scinot=True),
+    },
+    "C22": {
+        "html": r"$C_{22}^{95%}$ upper limit",
+        "ultablename": "C22_{}_95%UL",
+        "formatter": set_formats(name="C22", type="html", dp=1, scinot=True),
+    },
+}
 
 
 def pulsar_summary_plots(
@@ -28,7 +153,8 @@ def pulsar_summary_plots(
     outputsuffix: str = None,
     plotformat: str = ".png",
     showindividualparams: bool = False,
-    **plotkwargs,
+    webpage: page = None,
+    **kwargs,
 ):
     """
     Produce plots summarising the information from a pulsar analysis.
@@ -75,6 +201,10 @@ def pulsar_summary_plots(
     showindividualparams: bool
         Set to true to produce posterior plots for all individual parameters as
         well as the joint posterior plot. Default is False.
+    webpage: :class:`pesummary.core.webpage.webpage.page`, dict
+        A :class:`~pesummary.core.webpage.webpage.page` onto which to add the
+        plots/tables or a dictionary of pages, where the dictionary keys will
+        be treated as the detector names.
 
     Returns
     -------
@@ -99,6 +229,61 @@ def pulsar_summary_plots(
 
     summaryfiles = {}
 
+    if isinstance(ulresultstable, UpperLimitTable):
+        if isinstance(webpage, page) and kwargs.get("det", None) is not None:
+            tloc = ulresultstable.loc[pname]
+
+            # create table of results for the pulsar
+            det = kwargs["det"]  # get detector if passed as kwarg
+
+            # construct table of pulsar information and results
+            header = [f"PSR {pname}"]
+
+            psrtable = []
+            for key in PULSAR_HEADER_FORMATS:
+                tname = PULSAR_HEADER_FORMATS[key]["ultablename"]
+                if tname in ulresultstable.columns:
+                    psrtable.append(
+                        [
+                            PULSAR_HEADER_FORMATS[key]["html"],
+                            PULSAR_HEADER_FORMATS[key]["formatter"](tloc[tname].value),
+                        ]
+                    )
+
+            page.make_table(
+                headings=header,
+                heading_span=2,
+                accordian=False,
+                contents=psrtable,
+            )
+
+            resheader = ["Results"]
+            restable = []
+            for key in RESULTS_HEADER_FORMATS:
+                tname = RESULTS_HEADER_FORMATS[key]["ultablename"].format(det)
+                if tname in ulresultstable.columns:
+                    restable.append(
+                        [
+                            RESULTS_HEADER_FORMATS[key]["html"],
+                            RESULTS_HEADER_FORMATS[key]["formatter"](tloc[tname].value),
+                        ]
+                    )
+
+            page.make_table(
+                headings=resheader,
+                heading_span=2,
+                accordian=False,
+                contents=restable,
+            )
+        elif isinstance(webpage, dict):
+            for det in webpage:
+                pulsar_summary_plots(
+                    parfile,
+                    ulresultstable=ulresultstable,
+                    webpage=webpage[det],
+                    det=det,
+                )
+
     if heterodyneddata is not None:
         if isinstance(heterodyneddata, (str, Path, HeterodynedData)):
             if isinstance(heterodyneddata, HeterodynedData):
@@ -113,7 +298,7 @@ def pulsar_summary_plots(
             hetfig.tight_layout()
             filename = f"time_series_plot_{pname}_{outsuf}"
             hetfig.savefig(
-                outpath / f"{filename}{plotformat}", dpi=plotkwargs.get("dpi", 150)
+                outpath / f"{filename}{plotformat}", dpi=kwargs.get("dpi", 150)
             )
             summaryfiles[filename] = outpath / f"{filename}{plotformat}"
             plt.close()
@@ -122,7 +307,7 @@ def pulsar_summary_plots(
             specfig = het.spectrogram(remove_outliers=True)
             filename = f"spectrogram_plot_{pname}_{outsuf}"
             specfig[-1].savefig(
-                outpath / f"{filename}{plotformat}", dpi=plotkwargs.get("dpi", 150)
+                outpath / f"{filename}{plotformat}", dpi=kwargs.get("dpi", 150)
             )
             summaryfiles[filename] = outpath / f"{filename}{plotformat}"
             plt.close()
@@ -131,7 +316,7 @@ def pulsar_summary_plots(
             sfig = het.power_spectrum(remove_outliers=True, asd=True)
             filename = f"asd_plot_{pname}_{outsuf}"
             sfig[-1].savefig(
-                outpath / f"{filename}{plotformat}", dpi=plotkwargs.get("dpi", 150)
+                outpath / f"{filename}{plotformat}", dpi=kwargs.get("dpi", 150)
             )
             summaryfiles[filename] = outpath / f"{filename}{plotformat}"
             plt.close()
@@ -148,7 +333,7 @@ def pulsar_summary_plots(
                     outputsuffix=outsuf,
                     outdir=outdir,
                     plotformat=plotformat,
-                    **plotkwargs,
+                    **kwargs,
                 )
 
                 summaryfiles.update(sf)
@@ -163,7 +348,7 @@ def pulsar_summary_plots(
                 postdata = {outputsuffix: postdata}
 
             # copy of plotting kwargs
-            tplotkwargs = plotkwargs.copy()
+            tplotkwargs = kwargs.copy()
 
             # get output dpi
             dpi = tplotkwargs.pop("dpi", 150)
@@ -208,7 +393,7 @@ def pulsar_summary_plots(
                     outdir=outdir,
                     plotformat=plotformat,
                     showindividualparams=showindividualparams,
-                    **plotkwargs,
+                    **kwargs,
                 )
 
                 summaryfiles.update(sf)
@@ -360,9 +545,19 @@ def generate_summary_pages(**kwargs):
 
     if upperlimittable:
         # try and get base directory for results:
-        ultable = UpperLimitTable(resdir=pipeline_data.resultsbase)
+        ultable = UpperLimitTable(
+            resdir=pipeline_data.resultsbase,
+            includesdlim=True,
+            includeell=True,
+            includeq22=True,
+        )
+
+        # if upperlimitplot:
+        # get power spectral densities
+        # psds = generate_power_spectrum(pipeline_data.datadict)
     else:
         ultable = None
+        # psds = None
 
     # plot posteriors
     if showposteriors:
@@ -416,6 +611,8 @@ def generate_summary_pages(**kwargs):
             raise ValueError(
                 "None of the specified pulsars were found in the analysis."
             )
+
+    return ultable
 
 
 def generate_power_spectrum(

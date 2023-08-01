@@ -709,6 +709,64 @@ def plot_snr_vs_odds(S, R, **kwargs):
     return fig, ax
 
 
+class set_formats:
+    def __init__(self, name=None, type=None, dp=2, sf=3, scinot=True):
+        """
+        Defaults to rounding to two decimal places (or three significant
+        figures for spin-down ratios)
+        """
+        self.name = name
+        self.type = type
+        self.dp = dp
+        self.sf = sf
+        self.scinot = scinot
+
+    def __call__(self, x):
+        if isinstance(x, np.ma.core.MaskedConstant):
+            return
+
+        def splitexponent(y):
+            # get exponent
+            exp = int(np.floor(np.log10(abs(y))))
+            val = y / 10**exp
+            return val, exp
+
+        if hasattr(x, "value"):
+            num = deepcopy(x.value)
+        else:
+            num = deepcopy(x)
+
+        if self.name == "PSRJ":
+            if "-" in num and self.type == "latex":
+                return num.replace("-", r"\textminus")
+            else:
+                return num
+        if self.name in ["F0ROT", "DIST"]:
+            return f"%.{self.dp}f" % num
+        elif self.name.startswith("SDRAT") and 1e-3 < num < 1000:
+            num = round(num, self.sf - int(np.floor(np.log10(num))) - 1)
+            if num > 10:
+                return f"{int(num)}"
+            else:
+                return f"{num}"
+        else:
+            val, exp = splitexponent(num)
+            val = round(val, self.dp)
+
+            if self.scinot:
+                if self.type == "latex":
+                    # LaTeX formating
+                    return rf"{val}\!\times\!10^{{{exp}}}"
+                elif self.type == "html":
+                    return rf"{val}×10<sup>{exp}</sup>"
+                elif self.type == "rst":
+                    return rf"{val}×10\ :sup:`{exp}`"
+                else:
+                    return f"{val}e{exp}"
+            else:
+                return f"{val}e{exp}"
+
+
 class UpperLimitTable(QTable):
     AMPPARAMS = {
         "h0": u.dimensionless_unscaled,
@@ -1107,63 +1165,6 @@ class UpperLimitTable(QTable):
         if not format.startswith("ascii."):
             format = f"ascii.{format}"
 
-        class set_formats:
-            def __init__(self, name=None, type=None, dp=2, sf=3, scinot=True):
-                """
-                Defaults to rounding to two decimal places (or three significant
-                figures for spin-down ratios)
-                """
-                self.name = name
-                self.type = type
-                self.dp = dp
-                self.sf = sf
-                self.scinot = scinot
-
-            def __call__(self, x):
-                if isinstance(x, np.ma.core.MaskedConstant):
-                    return
-
-                def splitexponent(y):
-                    # get exponent
-                    exp = int(np.floor(np.log10(abs(y))))
-                    val = y / 10**exp
-                    return val, exp
-
-                if hasattr(x, "value"):
-                    num = deepcopy(x.value)
-                else:
-                    num = deepcopy(x)
-
-                if self.name == "PSRJ":
-                    if "-" in num and self.type == "latex":
-                        return num.replace("-", r"\textminus")
-                    else:
-                        return num
-                if self.name in ["F0ROT", "DIST"]:
-                    return f"%.{self.dp}f" % num
-                elif self.name.startswith("SDRAT") and 1e-3 < num < 1000:
-                    num = round(num, self.sf - int(np.floor(np.log10(num))) - 1)
-                    if num > 10:
-                        return f"{int(num)}"
-                    else:
-                        return f"{num}"
-                else:
-                    val, exp = splitexponent(num)
-                    val = round(val, self.dp)
-
-                    if self.scinot:
-                        if self.type == "latex":
-                            # LaTeX formating
-                            return rf"{val}\!\times\!10^{{{exp}}}"
-                        elif self.type == "html":
-                            return f"{val}×10<sup>{exp}</sup>"
-                        elif self.type == "rst":
-                            return rf"{val}×10\ :sup:`{exp}`"
-                        else:
-                            return f"{val}e{exp}"
-                    else:
-                        return f"{val}e{exp}"
-
         # set default output formatting
         formats = kwargs.pop("formats", {})
         sf = kwargs.pop("sigfig", 3)
@@ -1186,6 +1187,10 @@ class UpperLimitTable(QTable):
         with StringIO() as sp:
             ct.write(sp, format=format, formats=formats, **kwargs)
             stringtab = sp.getvalue()
+
+        if format.strip("ascii.") == "html":
+            # convert &lt; and &gt; back to < and >
+            stringtab = stringtab.replace("&lt;", "<").replace("&gt;", ">")
 
         return stringtab
 
