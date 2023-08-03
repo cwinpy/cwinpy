@@ -246,7 +246,7 @@ def pulsar_summary_plots(
             det = kwargs["det"]  # get detector if passed as kwarg
 
             # construct table of pulsar information and results
-            header = [f"PSR {pname}"]
+            header = [f"PSR {pname}", ""]
 
             psrtable = []
             for key in PULSAR_HEADER_FORMATS:
@@ -260,17 +260,15 @@ def pulsar_summary_plots(
                     )
 
             webpage.make_div()  # div to contain tables
-            webpage.make_div(_style="float:left;width:50%")  # div for first table
+            webpage.make_div(_style="float:left;width:33%")  # div for first table
             webpage.make_table(
                 headings=header,
-                heading_span=2,
                 accordian=False,
                 contents=psrtable,
-                colors=["#ffffff"],
             )
             webpage.end_div()
 
-            resheader = ["Results"]
+            resheader = ["Results", ""]
             restable = []
             for key in RESULTS_HEADER_FORMATS:
                 tname = RESULTS_HEADER_FORMATS[key]["ultablename"].format(det)
@@ -286,13 +284,11 @@ def pulsar_summary_plots(
                         ]
                     )
 
-            webpage.make_div(_style="float:left;width:50%")  # div for second table
+            webpage.make_div(_style="float:left;width:33%")  # div for second table
             webpage.make_table(
                 headings=resheader,
-                heading_span=2,
                 accordian=False,
                 contents=restable,
-                colors=["#ffffff"],
             )
             webpage.end_div()
             webpage.end_div()
@@ -650,20 +646,18 @@ def generate_summary_pages(**kwargs):
         dets = list(pipeline_data.resultsfiles[psr].keys())
 
         pages = {}
-        links = ["Detectors", [{det: psr.replace("+", "%2B") for det in dets}]]
+        links = [{det: psr} for det in dets]
         for det in dets:
             # make the initial page
-            htmlpage = make_html(
-                outpath, psr.replace("+", "%2B"), det, title=f"PSR {psr} ({det})"
-            )
-            purl = f"{url}/html/{psr.replace('+', '%2B')}_{det}.html"
+            htmlpage = make_html(outpath, psr, det, title=f"PSR {psr} ({det})")
+            purl = f"{url}/html/{psr}_{det}.html"
             pages[det] = open_html(
                 det,
                 purl,
                 htmldir / htmlpage.stem,
-                label=f"{psr.replace('+', '%2B')}_{det}",
+                label=f"{psr}_{det}",
             )
-            pages[det].make_navbar(links)
+            pages[det].make_navbar(links, search=False, about=False)
 
         # add results tables to each page
         _ = pulsar_summary_plots(
@@ -673,13 +667,63 @@ def generate_summary_pages(**kwargs):
         )
 
         # pulsar name with link (to final detector)
-        thispulsarresults.append(
-            f'<a href="../html/{psr.replace("+", "%2B")}_{det}">{psr}</a>'
-        )
+        thispulsarresults.append(f'<a href="../html/{psr}_{det}.html">{psr}</a>')
 
         allresultstable.append(thispulsarresults)
 
+    # copy required CSS and js files
+    copy_css_and_js_scripts(outpath)
+
     return ultable
+
+
+def copy_css_and_js_scripts(webdir: Union[str, Path]):
+    """
+    Copy CSS and js scripts from the PESummary package to the web directory.
+
+    Adapted from :meth:`~pesummary.core.webpage.main._WebpageGeneration.copy_css_and_js_scripts`.
+
+    Parameters
+    ----------
+    webdir: str, Path
+        The path to the location for the files to be copied.
+    """
+    import shutil
+
+    import pkg_resources
+
+    files_to_copy = []
+
+    path = Path(pkg_resources.resource_filename("pesummary", "core"))
+    webdir = Path(webdir)
+
+    scripts = (path / "js").glob("*.js")
+    for i in scripts:
+        files_to_copy.append([i, webdir / "js" / i.name])
+
+    csss = (path / "css").glob("*.css")
+    for i in csss:
+        files_to_copy.append([i, webdir / "css" / i.name])
+
+    for _dir in ["js", "css"]:
+        (webdir / _dir).mkdir(exist_ok=True, parents=True)
+
+    for ff in files_to_copy:
+        shutil.copy(ff[0], ff[1])
+
+        # remove offending unneccessary line from grab.js that causes it
+        # to break in this use case
+        if ff[0].name == "grab.js":
+            with open(ff[1], "r") as fp:
+                grab = fp.readlines()
+
+            with open(ff[1], "w") as fp:
+                for line in grab:
+                    if "if ( param == approximant ) {" not in line:
+                        if "var approx" in line:
+                            line = line.replace("el.innerHTML", "param")
+
+                        fp.write(line)
 
 
 def generate_power_spectrum(
