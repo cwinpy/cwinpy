@@ -26,7 +26,8 @@ SCRIPTS_AND_CSS = f"""   <script src="https://polyfill.io/v3/polyfill.min.js?fea
 
 def make_html(
     web_dir: Union[str, Path],
-    pages: list,
+    label: str,
+    suffix: str = None,
     title: str = "Summary Pages",
 ):
     """
@@ -36,22 +37,30 @@ def make_html(
     ----------
     web_dir: str, Path
         Path to the location where you would like the html file to be saved.
-    pages: list
-        A list of pages that you would like to be created.
+    label: str
+        Label used to create page name.
+    suffix: str
+        Suffix to page name
     title: str, optional
         Header title of html page.
     """
 
-    for i in pages:
-        htmlfile = Path(web_dir) / f"{i}.html"
-        with open(htmlfile, "w") as f:
-            bootstrap = BOOTSTRAP.split("\n")
-            bootstrap[1] = "  <title>{}</title>".format(title)
-            bootstrap = [j + "\n" for j in bootstrap]
-            f.writelines(bootstrap)
-            scripts = SCRIPTS_AND_CSS.split("\n")
-            scripts = [j + "\n" for j in scripts]
-            f.writelines(scripts)
+    if suffix is None:
+        pagename = f"{label}.html"
+    else:
+        pagename = f"{label}_{suffix}.html"
+
+    htmlfile = Path(web_dir) / "html" / pagename
+    with open(htmlfile, "w") as f:
+        bootstrap = BOOTSTRAP.split("\n")
+        bootstrap[1] = "  <title>{}</title>".format(title)
+        bootstrap = [j + "\n" for j in bootstrap]
+        f.writelines(bootstrap)
+        scripts = SCRIPTS_AND_CSS.split("\n")
+        scripts = [j + "\n" for j in scripts]
+        f.writelines(scripts)
+
+    return htmlfile
 
 
 def open_html(web_dir, base_url, html_page, label):
@@ -82,17 +91,17 @@ def open_html(web_dir, base_url, html_page, label):
 
 PULSAR_HEADER_FORMATS = {
     "F0": {
-        "html": r"$f_{\rm rot}$ (Hz)",
+        "html": r"\(f_{\rm rot}\) (Hz)",
         "ultablename": "F0ROT",
         "formatter": set_formats(name="F0ROT", type="html", dp=2),
     },
     "2F0": {
-        "html": r"$2f_{\rm rot}\,/\,f_{\rm gw}$ (Hz)",
+        "html": r"\(f_{\rm gw}\,[2f_{\rm rot}]\) (Hz)",
         "ultablename": "F0ROT",
         "formatter": lambda x: set_formats(name="F0ROT", type="html", dp=2)(2 * x),
     },
     "F1": {
-        "html": r"$\dot{f}_{\rm rot}$ (Hz/s)",
+        "html": r"\(\dot{f}_{\rm rot}\) (Hz/s)",
         "ultablename": "F1ROT",
         "formatter": set_formats(name="F1ROT", type="html", dp=2, scinot=True),
     },
@@ -102,7 +111,7 @@ PULSAR_HEADER_FORMATS = {
         "formatter": set_formats(name="DIST", type="html", dp=1),
     },
     "SDLIM": {
-        "html": "$h_0$ spin-down limit",
+        "html": "\(h_0\) spin-down limit",
         "ultablename": "SDLIM",
         "formatter": set_formats(name="SDLIM", type="html", dp=1, scinot=True),
     },
@@ -110,32 +119,32 @@ PULSAR_HEADER_FORMATS = {
 
 RESULTS_HEADER_FORMATS = {
     "H0": {
-        "html": r"$h_0^{95%}$ upper limit",
+        "html": r"\(h_0^{95\%}\) upper limit",
         "ultablename": "H0_{}_95%UL",
         "formatter": set_formats(name="H0", type="html", dp=1, scinot=True),
     },
     "ELL": {
-        "html": r"$\varepsilon^{95%}$ upper limit",
+        "html": r"\(\varepsilon^{95\%}\) upper limit",
         "ultablename": "ELL_{}_95%UL",
         "formatter": set_formats(name="ELL", type="html", dp=1, scinot=True),
     },
     "Q22": {
-        "html": r"$Q_{22}^{95%}$ upper limit (kg m<sup>2</sup>)",
+        "html": r"\(Q_{22}^{95\%}\) upper limit (kg m<sup>2</sup>)",
         "ultablename": "Q22_{}_95%UL",
         "formatter": set_formats(name="Q22", type="html", dp=1, scinot=True),
     },
     "SDRAT": {
-        "html": r"$h_0^{95%}\,/\,h_0^{\rm spin-down}",
+        "html": r"\(h_0^{95\%}\,/\,h_0^{\rm spin-down}\)",
         "ultablename": "SDRAT_{}_95%UL",
         "formatter": set_formats(name="SDRAT", type="html"),
     },
     "C21": {
-        "html": r"$C_{21}^{95%}$ upper limit",
+        "html": r"\(C_{21}^{95\%}\) upper limit",
         "ultablename": "C21_{}_95%UL",
         "formatter": set_formats(name="C21", type="html", dp=1, scinot=True),
     },
     "C22": {
-        "html": r"$C_{22}^{95%}$ upper limit",
+        "html": r"\(C_{22}^{95\%}\) upper limit",
         "ultablename": "C22_{}_95%UL",
         "formatter": set_formats(name="C22", type="html", dp=1, scinot=True),
     },
@@ -250,12 +259,16 @@ def pulsar_summary_plots(
                         ]
                     )
 
-            page.make_table(
+            webpage.make_div()  # div to contain tables
+            webpage.make_div(_style="float:left;width:50%")  # div for first table
+            webpage.make_table(
                 headings=header,
                 heading_span=2,
                 accordian=False,
                 contents=psrtable,
+                colors=["#ffffff"],
             )
+            webpage.end_div()
 
             resheader = ["Results"]
             restable = []
@@ -265,16 +278,24 @@ def pulsar_summary_plots(
                     restable.append(
                         [
                             RESULTS_HEADER_FORMATS[key]["html"],
-                            RESULTS_HEADER_FORMATS[key]["formatter"](tloc[tname].value),
+                            RESULTS_HEADER_FORMATS[key]["formatter"](
+                                tloc[tname].value
+                                if hasattr(tloc[tname], "value")
+                                else tloc[tname]
+                            ),
                         ]
                     )
 
-            page.make_table(
+            webpage.make_div(_style="float:left;width:50%")  # div for second table
+            webpage.make_table(
                 headings=resheader,
                 heading_span=2,
                 accordian=False,
                 contents=restable,
+                colors=["#ffffff"],
             )
+            webpage.end_div()
+            webpage.end_div()
         elif isinstance(webpage, dict):
             for det in webpage:
                 pulsar_summary_plots(
@@ -439,7 +460,7 @@ def generate_summary_pages(**kwargs):
     if "cli" not in kwargs:
         configfile = kwargs.pop("config")
         outpath = Path(kwargs.pop("outpath"))
-        # url = kwargs.pop("url")
+        url = kwargs.pop("url")
 
         showposteriors = kwargs.pop("showposteriors", True)
         showindividualparams = kwargs.pop("showindividualposteriors", False)
@@ -526,7 +547,7 @@ def generate_summary_pages(**kwargs):
         args = parser.parse_args()
         configfile = args.config
         outpath = Path(args.outpath)
-        # url = args.url
+        url = args.url
 
         showposteriors = not args.disable_posteriors
         showtimeseries = not args.disable_timeseries
@@ -611,6 +632,52 @@ def generate_summary_pages(**kwargs):
             raise ValueError(
                 "None of the specified pulsars were found in the analysis."
             )
+
+    # html table showing all results
+    allresultstable = []
+    htmldir = outpath / "html"
+    htmldir.mkdir(parents=True, exist_ok=True)
+
+    # generate pages for each pulsar
+    for psr in pipeline_data.resultsfiles:
+        if pulsars is not None and psr not in pulsars:
+            continue
+
+        # row containing this pulsar's results
+        thispulsarresults = []
+
+        # create webpage
+        dets = list(pipeline_data.resultsfiles[psr].keys())
+
+        pages = {}
+        links = ["Detectors", [{det: psr.replace("+", "%2B") for det in dets}]]
+        for det in dets:
+            # make the initial page
+            htmlpage = make_html(
+                outpath, psr.replace("+", "%2B"), det, title=f"PSR {psr} ({det})"
+            )
+            purl = f"{url}/html/{psr.replace('+', '%2B')}_{det}.html"
+            pages[det] = open_html(
+                det,
+                purl,
+                htmldir / htmlpage.stem,
+                label=f"{psr.replace('+', '%2B')}_{det}",
+            )
+            pages[det].make_navbar(links)
+
+        # add results tables to each page
+        _ = pulsar_summary_plots(
+            pipeline_data.pulsardict[psr],
+            ulresultstable=ultable,
+            webpage=pages,
+        )
+
+        # pulsar name with link (to final detector)
+        thispulsarresults.append(
+            f'<a href="../html/{psr.replace("+", "%2B")}_{det}">{psr}</a>'
+        )
+
+        allresultstable.append(thispulsarresults)
 
     return ultable
 
