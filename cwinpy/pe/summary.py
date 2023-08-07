@@ -4,8 +4,8 @@ from typing import Union
 
 import numpy as np
 from bilby.core.result import Result
+from gwpy.plot.colors import GW_OBSERVATORY_COLORS
 from matplotlib import pyplot as plt
-from pesummary.core.webpage.webpage import BOOTSTRAP, OTHER_SCRIPTS, page
 from scipy.stats import hmean
 
 from ..data import HeterodynedData
@@ -17,77 +17,7 @@ from .peutils import (  # , optimal_snr, read_in_result_wrapper, results_odds
     UpperLimitTable,
     set_formats,
 )
-
-# add MathJAX to HOME_SCRIPTS and OTHER_SCRIPTS
-SCRIPTS_AND_CSS = f"""   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js"></script>
-{OTHER_SCRIPTS}"""
-
-
-def make_html(
-    web_dir: Union[str, Path],
-    label: str,
-    suffix: str = None,
-    title: str = "Summary Pages",
-):
-    """
-    Make the initial html page. Adapted from pesummary.
-
-    Parameters
-    ----------
-    web_dir: str, Path
-        Path to the location where you would like the html file to be saved.
-    label: str
-        Label used to create page name.
-    suffix: str
-        Suffix to page name
-    title: str, optional
-        Header title of html page.
-    """
-
-    if suffix is None:
-        pagename = f"{label}.html"
-    else:
-        pagename = f"{label}_{suffix}.html"
-
-    htmlfile = Path(web_dir) / "html" / pagename
-    with open(htmlfile, "w") as f:
-        bootstrap = BOOTSTRAP.split("\n")
-        bootstrap[1] = "  <title>{}</title>".format(title)
-        bootstrap = [j + "\n" for j in bootstrap]
-        f.writelines(bootstrap)
-        scripts = SCRIPTS_AND_CSS.split("\n")
-        scripts = [j + "\n" for j in scripts]
-        f.writelines(scripts)
-
-    return htmlfile
-
-
-def open_html(web_dir, base_url, html_page, label):
-    """
-    Open html page ready so you can manipulate the contents. Adapted from
-    pesummary.
-
-    Parameters
-    ----------
-    web_dir: str
-        path to the location where you would like the html file to be saved
-    base_url: str
-        url to the location where you would like the html file to be saved
-    page: str
-        name of the html page that you would like to edit
-    """
-    try:
-        if html_page[-5:] == ".html":
-            html_page = html_page[:-5]
-    except Exception:
-        pass
-
-    htmlfile = Path(web_dir) / f"{html_page}.html"
-    f = open(htmlfile, "a")
-
-    return page(f, web_dir, base_url, label)
-
+from .webpage import CWPage, make_html, open_html
 
 PULSAR_HEADER_FORMATS = {
     "F0": {
@@ -162,7 +92,7 @@ def pulsar_summary_plots(
     outputsuffix: str = None,
     plotformat: str = ".png",
     showindividualparams: bool = False,
-    webpage: page = None,
+    webpage: CWPage = None,
     **kwargs,
 ):
     """
@@ -210,8 +140,8 @@ def pulsar_summary_plots(
     showindividualparams: bool
         Set to true to produce posterior plots for all individual parameters as
         well as the joint posterior plot. Default is False.
-    webpage: :class:`pesummary.core.webpage.webpage.page`, dict
-        A :class:`~pesummary.core.webpage.webpage.page` onto which to add the
+    webpage: :class:`cwinpy.pe.webpage.CWPage`, dict
+        A :class:`~cwinpy.pe.webpage.CWPage` onto which to add the
         plots/tables or a dictionary of pages, where the dictionary keys will
         be treated as the detector names.
 
@@ -239,7 +169,7 @@ def pulsar_summary_plots(
     summaryfiles = {}
 
     if isinstance(ulresultstable, UpperLimitTable):
-        if isinstance(webpage, page) and kwargs.get("det", None) is not None:
+        if isinstance(webpage, CWPage) and kwargs.get("det", None) is not None:
             tloc = ulresultstable.loc[pname]
 
             # create table of results for the pulsar
@@ -259,7 +189,7 @@ def pulsar_summary_plots(
                         ]
                     )
 
-            webpage.make_div()  # div to contain tables
+            webpage.make_container()  # div to contain tables
             webpage.make_div(_style="float:left;width:33%")  # div for first table
             webpage.make_table(
                 headings=header,
@@ -291,7 +221,7 @@ def pulsar_summary_plots(
                 contents=restable,
             )
             webpage.end_div()
-            webpage.end_div()
+            webpage.end_container()
         elif isinstance(webpage, dict):
             for det in webpage:
                 pulsar_summary_plots(
@@ -646,7 +576,7 @@ def generate_summary_pages(**kwargs):
         dets = list(pipeline_data.resultsfiles[psr].keys())
 
         pages = {}
-        links = [{det: psr} for det in dets]
+        links = [["Detector", [{det: psr} for det in dets]]]
         for det in dets:
             # make the initial page
             htmlpage = make_html(outpath, psr, det, title=f"PSR {psr} ({det})")
@@ -657,7 +587,16 @@ def generate_summary_pages(**kwargs):
                 htmldir / htmlpage.stem,
                 label=f"{psr}_{det}",
             )
-            pages[det].make_navbar(links, search=False, about=False)
+            if det in GW_OBSERVATORY_COLORS:
+                # set navbar colour based on the observatory
+                nbc = GW_OBSERVATORY_COLORS[det]
+            else:
+                nbc = "#777777"
+            pages[det].make_navbar(links, search=False, background_color=nbc)
+            pages[det].make_div()
+            pages[det].add_content(f"<h2>PSR {psr}, detector {det}</h2>\n")
+            pages[det].end_div()
+            pages[det].add_content("<hr>\n")
 
         # add results tables to each page
         _ = pulsar_summary_plots(
