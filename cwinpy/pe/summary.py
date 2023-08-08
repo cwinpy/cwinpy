@@ -1,3 +1,4 @@
+import os
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import Union
@@ -190,7 +191,7 @@ def pulsar_summary_plots(
                     )
 
             webpage.make_container()  # div to contain tables
-            webpage.make_div(_style="float:left;width:33%")  # div for first table
+            webpage.make_div(_style="float:left;width:40%")  # div for first table
             webpage.make_table(
                 headings=header,
                 accordian=False,
@@ -214,7 +215,7 @@ def pulsar_summary_plots(
                         ]
                     )
 
-            webpage.make_div(_style="float:left;width:33%")  # div for second table
+            webpage.make_div(_style="float:left;width:40%")  # div for second table
             webpage.make_table(
                 headings=resheader,
                 accordian=False,
@@ -314,11 +315,22 @@ def pulsar_summary_plots(
             summaryfiles[filename] = outpath / f"{filename}{plotformat}"
             plt.close()
 
+            if isinstance(webpage, CWPage):
+                # add plots to webpage
+                webpage.make_div()
+                webpage.add_content('<h1 class="display-4">Posteriors</h1>\n')
+                webpage.insert_image(
+                    os.path.relpath(summaryfiles[filename], webpage.web_dir)
+                )
+
             # plot individual parameter marginal posteriors if requested
             if showindividualparams:
                 params = plot.parameters  # get all parameter names
 
-                for param in params:
+                imgtable = []
+                row = []
+
+                for k, param in enumerate(params):
                     plot = Plot(postdata, parameters=param, plottype="hist", kde=True)
                     plot.plot(hist_kwargs={"bins": tplotkwargs["bins"]})
 
@@ -326,6 +338,20 @@ def pulsar_summary_plots(
                     plot.savefig(outpath / f"{filename}{plotformat}", dpi=dpi)
                     summaryfiles[filename] = outpath / f"{filename}{plotformat}"
                     plt.close()
+
+                    if isinstance(webpage, CWPage):
+                        if not (k + 1) % 2 and k != 0:
+                            imgtable.append(row)
+                            row = []
+
+                        row.append(
+                            os.path.relpath(summaryfiles[filename], webpage.web_dir)
+                        )
+
+            if isinstance(webpage, CWPage) and showindividualparams:
+                webpage.make_table_of_images(contents=imgtable)
+                webpage.end_div()
+
         elif isinstance(posteriordata, dict):
             for suf in posteriordata:
                 if outputsuffix is None:
@@ -340,6 +366,7 @@ def pulsar_summary_plots(
                     outdir=outdir,
                     plotformat=plotformat,
                     showindividualparams=showindividualparams,
+                    webpage=webpage[suf] if isinstance(webpage, dict) else webpage,
                     **kwargs,
                 )
 
@@ -506,6 +533,59 @@ def generate_summary_pages(**kwargs):
         ultable = None
         # psds = None
 
+    # html table showing all results
+    allresultstable = []
+    htmldir = outpath / "html"
+    htmldir.mkdir(parents=True, exist_ok=True)
+    pages = {}
+
+    # generate pages for each pulsar
+    for psr in pipeline_data.resultsfiles:
+        if pulsars is not None and psr not in pulsars:
+            continue
+
+        # row containing this pulsar's results
+        thispulsarresults = []
+
+        # create webpage
+        dets = list(pipeline_data.resultsfiles[psr].keys())
+
+        pages[psr] = {}
+        links = [["Detector", [{det: psr} for det in dets]]]
+        for det in dets:
+            # make the initial page
+            htmlpage = make_html(outpath, psr, det, title=f"PSR {psr} ({det})")
+            purl = f"{url}/html/{psr}_{det}.html"
+            pages[psr][det] = open_html(
+                outpath / "html",
+                purl,
+                htmldir / htmlpage.stem,
+                label=f"{psr}_{det}",
+            )
+            if det in GW_OBSERVATORY_COLORS:
+                # set navbar colour based on the observatory
+                nbc = GW_OBSERVATORY_COLORS[det]
+            else:
+                nbc = "#777777"
+            pages[psr][det].make_navbar(links, search=False, background_color=nbc)
+            pages[psr][det].make_div()
+            pages[psr][det].add_content(
+                f'<h1 class="display-4">PSR {psr} <small class="text-muted">{det}</small></h1>\n'
+            )
+            pages[psr][det].end_div()
+
+        # add results tables to each page
+        _ = pulsar_summary_plots(
+            pipeline_data.pulsardict[psr],
+            ulresultstable=ultable,
+            webpage=pages[psr],
+        )
+
+        # pulsar name with link (to final detector)
+        thispulsarresults.append(f'<a href="../html/{psr}_{det}.html">{psr}</a>')
+
+        allresultstable.append(thispulsarresults)
+
     # plot posteriors
     if showposteriors:
         posteriorplots = {}
@@ -523,8 +603,8 @@ def generate_summary_pages(**kwargs):
                 pipeline_data.pulsardict[psr],
                 posteriordata=pipeline_data.resultsfiles[psr],
                 outdir=posteriorplotdir / psr,
-                ulresultstable=ultable,
                 showindividualparams=showindividualparams,
+                webpage=pages[psr],
             )
 
         if not posteriorplots:
@@ -552,6 +632,7 @@ def generate_summary_pages(**kwargs):
                     pipeline_data.pulsardict[psr],
                     heterodyneddata=pipeline_data.datadict[psr][freqfactor],
                     outdir=timeseriesplotdir / psr / freqfactor,
+                    webpage=pages[psr],
                 )
 
         if not timeseriesplots:
@@ -559,59 +640,13 @@ def generate_summary_pages(**kwargs):
                 "None of the specified pulsars were found in the analysis."
             )
 
-    # html table showing all results
-    allresultstable = []
-    htmldir = outpath / "html"
-    htmldir.mkdir(parents=True, exist_ok=True)
-
-    # generate pages for each pulsar
-    for psr in pipeline_data.resultsfiles:
-        if pulsars is not None and psr not in pulsars:
-            continue
-
-        # row containing this pulsar's results
-        thispulsarresults = []
-
-        # create webpage
-        dets = list(pipeline_data.resultsfiles[psr].keys())
-
-        pages = {}
-        links = [["Detector", [{det: psr} for det in dets]]]
-        for det in dets:
-            # make the initial page
-            htmlpage = make_html(outpath, psr, det, title=f"PSR {psr} ({det})")
-            purl = f"{url}/html/{psr}_{det}.html"
-            pages[det] = open_html(
-                det,
-                purl,
-                htmldir / htmlpage.stem,
-                label=f"{psr}_{det}",
-            )
-            if det in GW_OBSERVATORY_COLORS:
-                # set navbar colour based on the observatory
-                nbc = GW_OBSERVATORY_COLORS[det]
-            else:
-                nbc = "#777777"
-            pages[det].make_navbar(links, search=False, background_color=nbc)
-            pages[det].make_div()
-            pages[det].add_content(f"<h2>PSR {psr}, detector {det}</h2>\n")
-            pages[det].end_div()
-            pages[det].add_content("<hr>\n")
-
-        # add results tables to each page
-        _ = pulsar_summary_plots(
-            pipeline_data.pulsardict[psr],
-            ulresultstable=ultable,
-            webpage=pages,
-        )
-
-        # pulsar name with link (to final detector)
-        thispulsarresults.append(f'<a href="../html/{psr}_{det}.html">{psr}</a>')
-
-        allresultstable.append(thispulsarresults)
-
     # copy required CSS and js files
     copy_css_and_js_scripts(outpath)
+
+    # close pages
+    for psr in pages:
+        for p in pages[psr].values():
+            p.close()
 
     return ultable
 

@@ -293,6 +293,10 @@ class CWPage(page):
             )
         self.add_content("</nav>\n")
 
+    def close(self):
+        self.add_content("</body>\n</html>\n")  # close off page
+        self.html_file.close()
+
 
 def make_html(
     web_dir: Union[str, Path],
