@@ -177,7 +177,7 @@ def pulsar_summary_plots(
             det = kwargs["det"]  # get detector if passed as kwarg
 
             # construct table of pulsar information and results
-            header = [f"PSR {pname}", ""]
+            header = ["Pulsar information", ""]
 
             psrtable = []
             for key in PULSAR_HEADER_FORMATS:
@@ -191,7 +191,9 @@ def pulsar_summary_plots(
                     )
 
             webpage.make_container()  # div to contain tables
-            webpage.make_div(_style="float:left;width:40%")  # div for first table
+            webpage.make_div(_style="padding-top:10px")  # add some extra padding
+            webpage.make_div(_class="row")
+            webpage.make_div(_class="col")
             webpage.make_table(
                 headings=header,
                 accordian=False,
@@ -215,12 +217,14 @@ def pulsar_summary_plots(
                         ]
                     )
 
-            webpage.make_div(_style="float:left;width:40%")  # div for second table
+            webpage.make_div(_class="col")
             webpage.make_table(
                 headings=resheader,
                 accordian=False,
                 contents=restable,
             )
+            webpage.end_div()
+            webpage.end_div()
             webpage.end_div()
             webpage.end_container()
         elif isinstance(webpage, dict):
@@ -241,8 +245,16 @@ def pulsar_summary_plots(
 
             outsuf = "" if outputsuffix is None else f"{outputsuffix}"
 
+            if isinstance(webpage, CWPage):
+                webpage.make_div()
+                webpage.add_content('<h1 class="display-4">Heterodyned data</h1>\n')
+
             # plot time series
-            hetfig = het.plot(which="abs", remove_outliers=True)
+            hetfig = het.plot(
+                which="abs",
+                remove_outliers=True,
+                color=GW_OBSERVATORY_COLORS.get(outsuf, "k"),
+            )
             hetfig.tight_layout()
             filename = f"time_series_plot_{pname}_{outsuf}"
             hetfig.savefig(
@@ -250,6 +262,14 @@ def pulsar_summary_plots(
             )
             summaryfiles[filename] = outpath / f"{filename}{plotformat}"
             plt.close()
+
+            if isinstance(webpage, CWPage):
+                webpage.add_content(
+                    '<h1 class="display-5"><small class="text-muted">Time series</small></h1>\n'
+                )
+                webpage.insert_image(
+                    os.path.relpath(summaryfiles[filename], webpage.web_dir), width=1200
+                )
 
             # plot spectrogram
             specfig = het.spectrogram(remove_outliers=True)
@@ -260,6 +280,15 @@ def pulsar_summary_plots(
             summaryfiles[filename] = outpath / f"{filename}{plotformat}"
             plt.close()
 
+            if isinstance(webpage, CWPage):
+                webpage.add_content(
+                    '<h1 class="display-5"><small class="text-muted">Spectrogram</small></h1>\n'
+                )
+                webpage.insert_image(
+                    os.path.relpath(summaryfiles[filename], webpage.web_dir),
+                    width=1200,
+                )
+
             # plot spectrum
             sfig = het.power_spectrum(remove_outliers=True, asd=True)
             filename = f"asd_plot_{pname}_{outsuf}"
@@ -268,6 +297,15 @@ def pulsar_summary_plots(
             )
             summaryfiles[filename] = outpath / f"{filename}{plotformat}"
             plt.close()
+
+            if isinstance(webpage, CWPage):
+                webpage.add_content(
+                    '<h1 class="display-5"><small class="text-muted">Amplitude spectrum</small></h1>\n'
+                )
+                webpage.insert_image(
+                    os.path.relpath(summaryfiles[filename], webpage.web_dir), width=650
+                )
+                webpage.end_div()
         elif isinstance(heterodyneddata, dict):
             for suf in heterodyneddata:
                 if outputsuffix is None:
@@ -281,6 +319,7 @@ def pulsar_summary_plots(
                     outputsuffix=outsuf,
                     outdir=outdir,
                     plotformat=plotformat,
+                    webpage=webpage[suf],
                     **kwargs,
                 )
 
@@ -323,12 +362,17 @@ def pulsar_summary_plots(
                     os.path.relpath(summaryfiles[filename], webpage.web_dir)
                 )
 
+                if showindividualparams:
+                    webpage.make_div()
+                    webpage.add_content(
+                        '<h1 class="display-5"><small class="text-muted">Individual posteriors</small></h1>\n'
+                    )
+                    webpage.make_container()
+                    webpage.make_div(_class="row")
+
             # plot individual parameter marginal posteriors if requested
             if showindividualparams:
                 params = plot.parameters  # get all parameter names
-
-                imgtable = []
-                row = []
 
                 for k, param in enumerate(params):
                     plot = Plot(postdata, parameters=param, plottype="hist", kde=True)
@@ -340,16 +384,29 @@ def pulsar_summary_plots(
                     plt.close()
 
                     if isinstance(webpage, CWPage):
-                        if not (k + 1) % 2 and k != 0:
-                            imgtable.append(row)
-                            row = []
-
-                        row.append(
-                            os.path.relpath(summaryfiles[filename], webpage.web_dir)
+                        # add individual posterior plots to webpage in 2 column grid
+                        webpage.make_div(_class="col")
+                        webpage.add_content(
+                            (
+                                f"<img src='{os.path.relpath(summaryfiles[filename], webpage.web_dir)}' "
+                                f"id='{filename}' alt='No image available' "
+                                "style='align-items:center; width:450px; cursor: pointer' "
+                                "class='mx-auto d-block'>\n"
+                            )
                         )
+                        webpage.end_div()
 
-            if isinstance(webpage, CWPage) and showindividualparams:
-                webpage.make_table_of_images(contents=imgtable)
+                        if k % 2:
+                            webpage.end_div()
+
+                            if k != len(params) - 1:
+                                webpage.make_div(_class="row")
+
+            if isinstance(webpage, CWPage):
+                if showindividualparams:
+                    webpage.end_container()
+                    webpage.end_div()
+
                 webpage.end_div()
 
         elif isinstance(posteriordata, dict):

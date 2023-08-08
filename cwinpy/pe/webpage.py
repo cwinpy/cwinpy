@@ -293,6 +293,34 @@ class CWPage(page):
             )
         self.add_content("</nav>\n")
 
+    def insert_image(self, path, justify="center", width=850, code=None):
+        """Generate an image in bootstrap format.
+
+        Parameters
+        ----------
+        path: str, optional
+            path to the image that you would like inserted
+        justify: str, optional
+            justifies the image to either the left, right or center
+        """
+        self.make_container()
+        _id = path.split("/")[-1][:-4]
+        string = (
+            f"<img src='{path}' id='{_id}' alt='No image available' "
+            f"style='align-items:center; width:{width}px; cursor: pointer'"
+        )
+        if justify == "center":
+            string += " class='mx-auto d-block'"
+        elif justify == "left":
+            string = string[:-1] + " float:left;'"
+        elif justify == "right":
+            string = string[:-1] + " float:right;'"
+        if code:
+            string += " onclick='{}(\"{}\")'".format(code, _id)
+        string += ">\n"
+        self.add_content(string, indent=2)
+        self.end_container()
+
     def close(self):
         self.add_content("</body>\n</html>\n")  # close off page
         self.html_file.close()
