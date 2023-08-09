@@ -42,12 +42,13 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
         ``log_10_noise_evidence`` with the former providing the base-10
         logarithm for the signal model and the latter the base-10 logarithm of
         the data being consistent with noise. If inputting a dictionary, it
-        should be keyed by two-character detector names, e.g., "H1", for the
-        results from individual detectors, or the string "joint", "coherent" or
-        a concatenation of all detector names for a coherent multi-detector
-        result. Alternatively, ``results`` can be a directory, within which it
-        is assumed that each subdirectory is named after a pulsar and contains
-        results files with the format
+        should be either i) keyed by two-character detector names, e.g., "H1",
+        for the results from individual detectors, or the string "joint",
+        "coherent" or a concatenation of all detector names for a coherent
+        multi-detector result, or ii) keyed by pulsar name with values assuming
+        the previous structure. Alternatively, ``results`` can be a directory,
+        within which it is assumed that each subdirectory is named after a
+        pulsar and contains results files with the format
         ``{fnamestr}_{det}_{psrname}_result.[hdf5,json]``, where the default
         ``fnamestr`` is ``cwinpy_pe``, ``det`` is the two-character detector
         name, or concantenation of multiple detector names, and ``psrname`` is
@@ -97,7 +98,12 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
                 if len(resfiles) == 0:
                     raise ValueError(f"{results} contains no valid results files")
         else:
-            resfiles = {"dummyname": results}
+            if all([len(k) == 2 for k in results]):
+                # check if all keys are detector names
+                resfiles = {"dummyname": results}
+            else:
+                # assume dictionary keyed by pulsar name
+                resfiles = results
 
         logodds = {}
 
@@ -754,10 +760,12 @@ class set_formats:
         if self.name in ["F0ROT", "DIST"]:
             return f"%.{self.dp}f" % num
         elif (
-            self.name.startswith("SDRAT") or self.name == "SNR"
-        ) and 1e-3 < num < 1000:
-            num = round(num, self.sf - int(np.floor(np.log10(num))) - 1)
-            if num > 10:
+            self.name.startswith("SDRAT")
+            or self.name == "SNR"
+            or self.name.startswith("ODDS")
+        ) and 1e-3 < abs(num) < 1000:
+            num = round(num, self.sf - int(np.floor(np.log10(abs(num)))) - 1)
+            if abs(num) > 10:
                 return f"{int(num)}"
             else:
                 return f"{num}"

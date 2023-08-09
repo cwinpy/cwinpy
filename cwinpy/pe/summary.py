@@ -14,11 +14,7 @@ from ..parfile import PulsarParameters
 from ..plot import Plot
 from ..utils import get_psr_name, is_par_file
 from .pe import pe_pipeline
-from .peutils import (  # , read_in_result_wrapper, results_odds
-    UpperLimitTable,
-    optimal_snr,
-    set_formats,
-)
+from .peutils import UpperLimitTable, optimal_snr, results_odds, set_formats
 from .webpage import CWPage, make_html, open_html
 
 PULSAR_HEADER_FORMATS = {
@@ -83,7 +79,17 @@ RESULTS_HEADER_FORMATS = {
     "SNR": {
         "html": r"Optimal signal-to-noise ratio \(\rho\)",
         "ultablename": "none",
-        "formatter": set_formats(name="SNR", type="html", dp=1, sf=1),
+        "formatter": set_formats(name="SNR", type="html", dp=1, sf=2),
+    },
+    "ODDSSVN": {
+        "html": r"\(\log{}_{10} \mathcal{O}\) signal vs. noise",
+        "ultablename": "none",
+        "formatter": set_formats(name="ODDS", type="html", dp=1, sf=2),
+    },
+    "ODDSCVI": {
+        "html": r"\(\log{}_{10} \mathcal{O}\) coherent vs. incoherent",
+        "ultablename": "none",
+        "formatter": set_formats(name="ODDS", type="html", dp=1, sf=2),
     },
 }
 
@@ -233,6 +239,18 @@ def pulsar_summary_plots(
                     ]
                 )
 
+            if isinstance(oddstable, dict) and pname in oddstable:
+                # single detector use SVN, multidetector ise CVI
+                oddstype = "ODDSSVN" if len(det) == 2 else "ODDSCVI"
+                restable.append(
+                    [
+                        RESULTS_HEADER_FORMATS[oddstype]["html"],
+                        RESULTS_HEADER_FORMATS[oddstype]["formatter"](
+                            oddstable[pname][det]
+                        ),
+                    ]
+                )
+
             webpage.make_div(_class="col")
             webpage.make_table(
                 headings=resheader,
@@ -249,6 +267,7 @@ def pulsar_summary_plots(
                     parfile,
                     ulresultstable=ulresultstable,
                     snrtable=snrtable,
+                    oddstable=oddstable,
                     webpage=webpage[det],
                     det=det,
                 )
@@ -486,6 +505,9 @@ def generate_summary_pages(**kwargs):
         Set to calculate and show the optimal matched filter signal-to-noise
         ratio for the recovered maximum a-posteriori waveform. The default is
         False.
+    showodds: bool
+        Set to calculate and show the log Bayesian odds for the coherent signal
+        model vs. noise/incoherent signals. The default is False.
     """
 
     if "cli" not in kwargs:
@@ -504,6 +526,7 @@ def generate_summary_pages(**kwargs):
         upperlimittable = kwargs.pop("upperlimittable", True)
         # upperlimitplot = kwargs.pop("upperlimitplot", True)
         showsnr = kwargs.pop("showsnr", False)
+        showodds = kwargs.pop("showodds", False)
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
@@ -585,6 +608,16 @@ def generate_summary_pages(**kwargs):
                 "maximum a-posteriori waveform."
             ),
         )
+        parser.add_argument(
+            "--show-odds",
+            action="store_true",
+            default=False,
+            help=(
+                "Set this flag to calculate and show the log "
+                "Bayesian odds for the coherent signal model vs. "
+                "noise/incoherent signals."
+            ),
+        )
 
         args = parser.parse_args()
         configfile = args.config
@@ -600,6 +633,7 @@ def generate_summary_pages(**kwargs):
         upperlimittable = not args.disable_upper_limit_table
         # upperlimitplot = not args.disable_upper_limit_plot
         showsnr = args.show_snr
+        showodds = args.show_odds
 
     # make the output directory
     outpath.mkdir(parents=True, exist_ok=True)
@@ -636,6 +670,27 @@ def generate_summary_pages(**kwargs):
 
         # get matched filter signal-to-noise ratios
         snrs = optimal_snr(pipeline_data.resultsfiles, datadicts)
+
+    if showodds:
+        odds = {psr: {} for psr in pipeline_data.datadict}
+
+        for dets in pipeline_data.detcomb:
+            if len(dets) == 1:
+                # get single detector signal vs noise odds
+                sodds = results_odds(
+                    pipeline_data.resultsfiles,
+                    oddstype="svn",
+                    scale="log10",
+                    det=dets[0],
+                )
+            else:
+                # get multi-detector coherent vs incoherent odds
+                sodds = results_odds(
+                    pipeline_data.resultsfiles, oddstype="cvi", scale="log10"
+                )
+
+            for psr in pipeline_data.datadict:
+                odds[psr].update({"".join(dets): sodds[psr]})
 
     # html table showing all results
     allresultstable = []
@@ -684,6 +739,7 @@ def generate_summary_pages(**kwargs):
             ulresultstable=ultable,
             webpage=pages[psr],
             snrtable=snrs if showsnr else None,
+            oddstable=odds if showodds else None,
         )
 
         # pulsar name with link (to final detector)
