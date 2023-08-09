@@ -243,6 +243,8 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
             resfiles = {"dummyname": {"dummydet": res}}
     elif isinstance(res, Result):
         resfiles = {"dummyname": {"dummydet": res}}
+    elif isinstance(res, dict):
+        resfiles = res
     else:
         raise TypeError("res should be a file/directory path or Result object")
 
@@ -269,8 +271,10 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
                     )
         else:
             hetfiles = {"dummyname": {"dummydet": het}}
-    elif isinstance(het, (HeterodynedData, MultiHeterodynedData, dict)):
+    elif isinstance(het, (HeterodynedData, MultiHeterodynedData)):
         hetfiles = {"dummyname": {"dummydet": het}}
+    elif isinstance(het, dict):
+        hetfiles = het
     else:
         raise TypeError("het should be a file/directory path or HeterodynedData object")
 
@@ -342,8 +346,14 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
                     for hd in hetfiles[psr][d]:
                         if isinstance(hd, HeterodynedData):
                             mhddet.add_data(hd)
+
+                            if len(muldets) > 0:
+                                mhd.add_data(hd)
                         else:
                             mhddet.add_data(hetfiles[psr][d][hd])
+
+                            if len(muldets) > 0:
+                                mhd.add_data(hetfiles[psr][d][hd])
                 else:
                     mhddet.add_data(hetfiles[psr][d])
 
@@ -743,7 +753,9 @@ class set_formats:
                 return num
         if self.name in ["F0ROT", "DIST"]:
             return f"%.{self.dp}f" % num
-        elif self.name.startswith("SDRAT") and 1e-3 < num < 1000:
+        elif (
+            self.name.startswith("SDRAT") or self.name == "SNR"
+        ) and 1e-3 < num < 1000:
             num = round(num, self.sf - int(np.floor(np.log10(num))) - 1)
             if num > 10:
                 return f"{int(num)}"

@@ -14,8 +14,9 @@ from ..parfile import PulsarParameters
 from ..plot import Plot
 from ..utils import get_psr_name, is_par_file
 from .pe import pe_pipeline
-from .peutils import (  # , optimal_snr, read_in_result_wrapper, results_odds
+from .peutils import (  # , read_in_result_wrapper, results_odds
     UpperLimitTable,
+    optimal_snr,
     set_formats,
 )
 from .webpage import CWPage, make_html, open_html
@@ -78,6 +79,11 @@ RESULTS_HEADER_FORMATS = {
         "html": r"\(C_{22}^{95\%}\) upper limit",
         "ultablename": "C22_{}_95%UL",
         "formatter": set_formats(name="C22", type="html", dp=1, scinot=True),
+    },
+    "SNR": {
+        "html": r"Optimal signal-to-noise ratio \(\rho\)",
+        "ultablename": "none",
+        "formatter": set_formats(name="SNR", type="html", dp=1, sf=1),
     },
 }
 
@@ -217,6 +223,16 @@ def pulsar_summary_plots(
                         ]
                     )
 
+            if isinstance(snrtable, dict) and pname in snrtable:
+                restable.append(
+                    [
+                        RESULTS_HEADER_FORMATS["SNR"]["html"],
+                        RESULTS_HEADER_FORMATS["SNR"]["formatter"](
+                            snrtable[pname][det]
+                        ),
+                    ]
+                )
+
             webpage.make_div(_class="col")
             webpage.make_table(
                 headings=resheader,
@@ -232,6 +248,7 @@ def pulsar_summary_plots(
                 pulsar_summary_plots(
                     parfile,
                     ulresultstable=ulresultstable,
+                    snrtable=snrtable,
                     webpage=webpage[det],
                     det=det,
                 )
@@ -465,6 +482,10 @@ def generate_summary_pages(**kwargs):
     upperlimitplot: bool
         Set to enable/disable production of a plot of amplitude upper limits
         as a function of frequency. The default is True.
+    showsnr: bool
+        Set to calculate and show the optimal matched filter signal-to-noise
+        ratio for the recovered maximum a-posteriori waveform. The default is
+        False.
     """
 
     if "cli" not in kwargs:
@@ -482,6 +503,7 @@ def generate_summary_pages(**kwargs):
 
         upperlimittable = kwargs.pop("upperlimittable", True)
         # upperlimitplot = kwargs.pop("upperlimitplot", True)
+        showsnr = kwargs.pop("showsnr", False)
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
@@ -553,6 +575,16 @@ def generate_summary_pages(**kwargs):
                 "upper limits as a function of frequency."
             ),
         )
+        parser.add_argument(
+            "--show-snr",
+            action="store_true",
+            default=False,
+            help=(
+                "Set this flag to calculate and show the optimal "
+                "matched-filter signal-to-noise ratio for the recovered "
+                "maximum a-posteriori waveform."
+            ),
+        )
 
         args = parser.parse_args()
         configfile = args.config
@@ -567,6 +599,7 @@ def generate_summary_pages(**kwargs):
 
         upperlimittable = not args.disable_upper_limit_table
         # upperlimitplot = not args.disable_upper_limit_plot
+        showsnr = args.show_snr
 
     # make the output directory
     outpath.mkdir(parents=True, exist_ok=True)
@@ -575,7 +608,7 @@ def generate_summary_pages(**kwargs):
     pipeline_data = pe_pipeline(config=configfile, build=False)
 
     if upperlimittable:
-        # try and get base directory for results:
+        # get table of upper limits
         ultable = UpperLimitTable(
             resdir=pipeline_data.resultsbase,
             includesdlim=True,
@@ -589,6 +622,20 @@ def generate_summary_pages(**kwargs):
     else:
         ultable = None
         # psds = None
+
+    if showsnr:
+        # switch frequency factor and detector in datadict
+        datadicts = {psr: {} for psr in pipeline_data.datadict}
+        for psr, psrddict in pipeline_data.datadict.items():
+            for ff in psrddict:
+                for det in psrddict[ff]:
+                    if det not in datadicts[psr]:
+                        datadicts[psr].update({det: {}})
+
+                    datadicts[psr][det][ff] = psrddict[ff][det]
+
+        # get matched filter signal-to-noise ratios
+        snrs = optimal_snr(pipeline_data.resultsfiles, datadicts)
 
     # html table showing all results
     allresultstable = []
@@ -636,6 +683,7 @@ def generate_summary_pages(**kwargs):
             pipeline_data.pulsardict[psr],
             ulresultstable=ultable,
             webpage=pages[psr],
+            snrtable=snrs if showsnr else None,
         )
 
         # pulsar name with link (to final detector)
