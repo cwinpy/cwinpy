@@ -710,7 +710,6 @@ def generate_summary_pages(**kwargs):
         dets = list(pipeline_data.resultsfiles[psr].keys())
 
         pages[psr] = {}
-        links = [["Detector", [{det: psr} for det in dets]]]
         for det in dets:
             # make the initial page
             htmlpage = make_html(outpath, psr, det, title=f"PSR {psr} ({det})")
@@ -721,12 +720,7 @@ def generate_summary_pages(**kwargs):
                 htmldir / htmlpage.stem,
                 label=f"{psr}_{det}",
             )
-            if det in GW_OBSERVATORY_COLORS:
-                # set navbar colour based on the observatory
-                nbc = GW_OBSERVATORY_COLORS[det]
-            else:
-                nbc = "#777777"
-            pages[psr][det].make_navbar(links, search=False, background_color=nbc)
+
             pages[psr][det].make_div()
             pages[psr][det].add_content(
                 f'<h1 class="display-4">PSR {psr} <small class="text-muted">{det}</small></h1>\n'
@@ -743,7 +737,7 @@ def generate_summary_pages(**kwargs):
         )
 
         # pulsar name with link (to final detector)
-        thispulsarresults.append(f'<a href="../html/{psr}_{det}.html">{psr}</a>')
+        thispulsarresults.append(f'<a href="../html/{psr}_{dets[0]}.html">{psr}</a>')
 
         allresultstable.append(thispulsarresults)
 
@@ -801,12 +795,38 @@ def generate_summary_pages(**kwargs):
                 "None of the specified pulsars were found in the analysis."
             )
 
+    # create home page
+    _ = make_html(outpath, "home", title="Home")
+    homeurl = f"{url}/home.html"
+    homepage = open_html(outpath / "html", homeurl, "home", "home")
+
+    # create homepage navbar
+    homelinks = {
+        "Pulsars": {psr: {det: f"{psr}_{det}.html" for det in dets} for psr in pages}
+    }
+    homepage.make_navbar(homelinks, search=False)
+    homepage.close()
+
     # copy required CSS and js files
     copy_css_and_js_scripts(outpath)
 
-    # close pages
+    # add nav bars and close results pages
     for psr in pages:
-        for p in pages[psr].values():
+        links = {}
+        links["home"] = "home.html"
+        links["Pulsars"] = homelinks["Pulsars"]
+        links["Detector"] = {det: f"{psr}_{det}.html" for det in pages[psr]}
+
+        for det, p in pages[psr].items():
+            if det in GW_OBSERVATORY_COLORS:
+                # set navbar colour based on the observatory
+                nbc = GW_OBSERVATORY_COLORS[det]
+            else:
+                nbc = "#777777"
+
+            # nav bar
+            p.make_navbar(links, background_color=nbc)
+
             p.close()
 
     return ultable
