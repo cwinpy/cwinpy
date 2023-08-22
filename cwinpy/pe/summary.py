@@ -48,16 +48,19 @@ PULSAR_HEADER_FORMATS = {
 RESULTS_HEADER_FORMATS = {
     "H0": {
         "html": r"\(h_0^{95\%}\) upper limit",
+        "tableheader": r"\(h_0^{{95\%}}\) ({})",
         "ultablename": "H0_{}_95%UL",
         "formatter": set_formats(name="H0", type="html", dp=1, scinot=True),
     },
     "ELL": {
         "html": r"\(\varepsilon^{95\%}\) upper limit",
+        "tableheader": r"\(\varepsilon^{{95\%}}\) ({})",
         "ultablename": "ELL_{}_95%UL",
         "formatter": set_formats(name="ELL", type="html", dp=1, scinot=True),
     },
     "Q22": {
         "html": r"\(Q_{22}^{95\%}\) upper limit (kg m<sup>2</sup>)",
+        "tableheader": r"\(Q_{{22}}^{{95\%}}\) kg m<sup>2</sup> ({})",
         "ultablename": "Q22_{}_95%UL",
         "formatter": set_formats(name="Q22", type="html", dp=1, scinot=True),
     },
@@ -68,11 +71,13 @@ RESULTS_HEADER_FORMATS = {
     },
     "C21": {
         "html": r"\(C_{21}^{95\%}\) upper limit",
+        "tableheader": r"\(C_{{21}}^{{95\%}}\) ({})",
         "ultablename": "C21_{}_95%UL",
         "formatter": set_formats(name="C21", type="html", dp=1, scinot=True),
     },
     "C22": {
         "html": r"\(C_{22}^{95\%}\) upper limit",
+        "tableheader": r"\(C_{{22}}^{{95\%}}\) ({})",
         "ultablename": "C22_{}_95%UL",
         "formatter": set_formats(name="C22", type="html", dp=1, scinot=True),
     },
@@ -698,17 +703,22 @@ def generate_summary_pages(**kwargs):
     htmldir.mkdir(parents=True, exist_ok=True)
     pages = {}
 
+    # get the detectors with results available
+    dets = list(list(pipeline_data.resultsfiles.items())[0][1].keys())
+    ldet = dets[np.argmax([len(d) for d in dets])]
+
+    # header for results table
+    resultstableheader = ["Pulsar"]
+
     # generate pages for each pulsar
     for psr in pipeline_data.resultsfiles:
         if pulsars is not None and psr not in pulsars:
             continue
 
         # row containing this pulsar's results
-        thispulsarresults = []
+        thispulsarresults = [f'<a href="../html/{psr}_{ldet}.html">{psr}</a>']
 
         # create webpage
-        dets = list(pipeline_data.resultsfiles[psr].keys())
-
         pages[psr] = {}
         for det in dets:
             # make the initial page
@@ -727,6 +737,28 @@ def generate_summary_pages(**kwargs):
             )
             pages[psr][det].end_div()
 
+        # add required results into a table for the main page
+        if ultable is not None:
+            tloc = ultable.loc[psr]
+            for amp in ["H0", "C21", "C22", "ELL", "Q22"]:
+                for det in dets:
+                    tname = f"{amp}_{det}_95%UL"
+
+                    if tname in ultable.colnames:
+                        hname = RESULTS_HEADER_FORMATS[amp]["tableheader"].format(det)
+
+                        thispulsarresults.append(
+                            RESULTS_HEADER_FORMATS[amp]["formatter"](
+                                tloc[tname].value
+                                if hasattr(tloc[tname], "value")
+                                else tloc[tname]
+                            )
+                        )
+
+                        if hname not in resultstableheader:
+                            # add name into header
+                            resultstableheader.append(hname)
+
         # add results tables to each page
         _ = pulsar_summary_plots(
             pipeline_data.pulsardict[psr],
@@ -735,9 +767,6 @@ def generate_summary_pages(**kwargs):
             snrtable=snrs if showsnr else None,
             oddstable=odds if showodds else None,
         )
-
-        # pulsar name with link (to final detector)
-        thispulsarresults.append(f'<a href="../html/{psr}_{dets[0]}.html">{psr}</a>')
 
         allresultstable.append(thispulsarresults)
 
@@ -805,6 +834,17 @@ def generate_summary_pages(**kwargs):
         "Pulsars": {psr: {det: f"{psr}_{det}.html" for det in dets} for psr in pages}
     }
     homepage.make_navbar(homelinks, search=False)
+
+    # add the results table
+    if ultable is not None:
+        homepage.make_table(
+            headings=resultstableheader,
+            contents=allresultstable,
+            sticky_header=True,
+            scroll_table=False,
+            accordian=False,
+        )
+
     homepage.close()
 
     # copy required CSS and js files
