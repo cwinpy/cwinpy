@@ -164,6 +164,108 @@ class CWPage(page):
             )
         self.add_content("</nav>\n")
 
+    def make_results_table(
+        self,
+        contents: dict,
+        format: str = "table-striped table-sm",
+        sticky_header: bool = True,
+    ):
+        """
+        Generate a table of pulsar results in bootstrap format. This is based
+        on the :meth:`pesummary.core.webpage.page.make_table` method
+
+        Parameters
+        ----------
+        contents: dict
+            A dictionary of results content. The dictionary should be keyed to
+            each pulsar. The values should be a dictionary keyed to each result
+            name, with the value being either the result (as a string or
+            number) or a dictionary with key-value pairs being a detector and
+            its associated result.
+        format: str
+            The bootstrap table format(s). The default is
+            "table-striped table-sm".
+        sticky_header: bool
+            Set whether to have a sticky header on the table. Default is True.
+        """
+
+        # generate headings
+        h1 = {"&nbsp;": 1}
+        l1 = list(contents.values())[0]
+        h1.update({r: len(l1[r]) if isinstance(l1[r], dict) else 1 for r in l1})
+        ncols = sum(h1.values())
+
+        if sticky_header:
+            # add a sticky header for the table
+            self.add_content(
+                "<style>\n"
+                ".header-fixed > tbody > tr > td,\n"
+                ".header-fixed > thead > tr > th {\n"
+            )
+            self.add_content(f"    width: {100 / ncols}%;\n")
+            self.add_content("    float: left;\n}\n</style>")
+
+        self.make_div(_class="container", _style="max-width:1400px", indent=18)
+
+        self.make_div(indent=20, _class="table-responsive")
+        self.add_content(
+            f"<table class='table {format}' style='max-width:1400px'>\n", indent=24
+        )
+
+        # first row of header
+        self.add_content("<thead>\n", indent=26)
+        self.add_content("<tr>\n", indent=28)
+        for i, h in enumerate(h1):
+            cclass = "" if not i else "class='border-left'"
+
+            # set result name headings
+            self.add_content(
+                f"<th {cclass} colspan='{h1[h]}' style='text-align:center'>{h}</th>\n",
+                indent=30,
+            )
+        self.add_content("</tr>\n", indent=28)
+        self.add_content("</thead>\n", indent=26)
+
+        # second row of header
+        self.add_content("<thead>\n", indent=26)
+        self.add_content("<tr>\n", indent=28)
+        self.add_content("<th>Pulsar</th>\n", indent=30)
+        for h in l1:
+            # set detector name headings
+            if isinstance(l1[h], dict):
+                for d in l1[h]:
+                    self.add_content(f"<th class='border-left'>{d}</th>\n", indent=30)
+            else:
+                self.add_content("<th class='border-left'>&nbsp;</th>\n", indent=30)
+
+        self.add_content("</tr>\n", indent=28)
+        self.add_content("</thead>\n", indent=26)
+
+        # add results
+        self.add_content("<tbody>\n", indent=26)
+
+        for psr in contents:
+            self.add_content("<tr>\n", indent=28)
+            self.add_content(f"<td>{psr}</td>\n", indent=30)
+
+            for r in contents[psr]:
+                value = contents[psr][r]
+                if isinstance(value, dict):
+                    for v in value.values():
+                        self.add_content(
+                            f"<td class='border-left'>{v}</td>\n", indent=30
+                        )
+                else:
+                    self.add_content(
+                        f"<td class='border-left'>{value}</td>\n", indent=30
+                    )
+            self.add_content("</tr>\n", indent=28)
+
+        self.add_content("</tbody>\n", indent=26)
+        self.add_content("</table>\n", indent=24)
+        self.end_div(indent=20)
+        self.end_div(indent=18)
+
     def insert_image(self, path, justify="center", width=850, code=None):
         """Generate an image in bootstrap format.
 

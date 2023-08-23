@@ -48,51 +48,55 @@ PULSAR_HEADER_FORMATS = {
 RESULTS_HEADER_FORMATS = {
     "H0": {
         "html": r"\(h_0^{95\%}\) upper limit",
-        "tableheader": r"\(h_0^{{95\%}}\) ({})",
+        "htmlshort": r"\(h_0^{{95\%}}\)",
         "ultablename": "H0_{}_95%UL",
         "formatter": set_formats(name="H0", type="html", dp=1, scinot=True),
     },
     "ELL": {
         "html": r"\(\varepsilon^{95\%}\) upper limit",
-        "tableheader": r"\(\varepsilon^{{95\%}}\) ({})",
+        "htmlshort": r"\(\varepsilon^{{95\%}}\)",
         "ultablename": "ELL_{}_95%UL",
         "formatter": set_formats(name="ELL", type="html", dp=1, scinot=True),
     },
     "Q22": {
         "html": r"\(Q_{22}^{95\%}\) upper limit (kg m<sup>2</sup>)",
-        "tableheader": r"\(Q_{{22}}^{{95\%}}\) kg m<sup>2</sup> ({})",
+        "htmlshort": r"\(Q_{{22}}^{{95\%}}\) kg m<sup>2</sup>",
         "ultablename": "Q22_{}_95%UL",
         "formatter": set_formats(name="Q22", type="html", dp=1, scinot=True),
     },
     "SDRAT": {
         "html": r"\(h_0^{95\%}\,/\,h_0^{\rm spin-down}\)",
+        "htmlshort": r"\(h_0^{95\%}\,/\,h_0^{\rm sd}\)",
         "ultablename": "SDRAT_{}_95%UL",
         "formatter": set_formats(name="SDRAT", type="html"),
     },
     "C21": {
         "html": r"\(C_{21}^{95\%}\) upper limit",
-        "tableheader": r"\(C_{{21}}^{{95\%}}\) ({})",
+        "htmlshort": r"\(C_{{21}}^{{95\%}}\)",
         "ultablename": "C21_{}_95%UL",
         "formatter": set_formats(name="C21", type="html", dp=1, scinot=True),
     },
     "C22": {
         "html": r"\(C_{22}^{95\%}\) upper limit",
-        "tableheader": r"\(C_{{22}}^{{95\%}}\) ({})",
+        "htmlshort": r"\(C_{{22}}^{{95\%}}\)",
         "ultablename": "C22_{}_95%UL",
         "formatter": set_formats(name="C22", type="html", dp=1, scinot=True),
     },
     "SNR": {
         "html": r"Optimal signal-to-noise ratio \(\rho\)",
+        "htmlshort": r"\(\rho\)",
         "ultablename": "none",
         "formatter": set_formats(name="SNR", type="html", dp=1, sf=2),
     },
     "ODDSSVN": {
         "html": r"\(\log{}_{10} \mathcal{O}\) signal vs. noise",
+        "htmlshort": r"\(\log{}_{10} \mathcal{O}_{\rm SvN}\)",
         "ultablename": "none",
         "formatter": set_formats(name="ODDS", type="html", dp=1, sf=2),
     },
     "ODDSCVI": {
         "html": r"\(\log{}_{10} \mathcal{O}\) coherent vs. incoherent",
+        "htmlshort": r"\(\log{}_{10} \mathcal{O}_{\rm CvI}\)",
         "ultablename": "none",
         "formatter": set_formats(name="ODDS", type="html", dp=1, sf=2),
     },
@@ -698,7 +702,7 @@ def generate_summary_pages(**kwargs):
                 odds[psr].update({"".join(dets): sodds[psr]})
 
     # html table showing all results
-    allresultstable = []
+    allresultstable = {}
     htmldir = outpath / "html"
     htmldir.mkdir(parents=True, exist_ok=True)
     pages = {}
@@ -707,16 +711,14 @@ def generate_summary_pages(**kwargs):
     dets = list(list(pipeline_data.resultsfiles.items())[0][1].keys())
     ldet = dets[np.argmax([len(d) for d in dets])]
 
-    # header for results table
-    resultstableheader = ["Pulsar"]
-
     # generate pages for each pulsar
     for psr in pipeline_data.resultsfiles:
         if pulsars is not None and psr not in pulsars:
             continue
 
         # row containing this pulsar's results
-        thispulsarresults = [f'<a href="../html/{psr}_{ldet}.html">{psr}</a>']
+        psrlink = f'<a href="../html/{psr}_{ldet}.html">{psr}</a>'
+        allresultstable[psrlink] = {}
 
         # create webpage
         pages[psr] = {}
@@ -745,19 +747,18 @@ def generate_summary_pages(**kwargs):
                     tname = f"{amp}_{det}_95%UL"
 
                     if tname in ultable.colnames:
-                        hname = RESULTS_HEADER_FORMATS[amp]["tableheader"].format(det)
+                        hname = RESULTS_HEADER_FORMATS[amp]["htmlshort"]
 
-                        thispulsarresults.append(
-                            RESULTS_HEADER_FORMATS[amp]["formatter"](
-                                tloc[tname].value
-                                if hasattr(tloc[tname], "value")
-                                else tloc[tname]
-                            )
+                        if hname not in allresultstable[psrlink]:
+                            allresultstable[psrlink][hname] = {}
+
+                        allresultstable[psrlink][hname][det] = RESULTS_HEADER_FORMATS[
+                            amp
+                        ]["formatter"](
+                            tloc[tname].value
+                            if hasattr(tloc[tname], "value")
+                            else tloc[tname]
                         )
-
-                        if hname not in resultstableheader:
-                            # add name into header
-                            resultstableheader.append(hname)
 
         # add results tables to each page
         _ = pulsar_summary_plots(
@@ -767,8 +768,6 @@ def generate_summary_pages(**kwargs):
             snrtable=snrs if showsnr else None,
             oddstable=odds if showodds else None,
         )
-
-        allresultstable.append(thispulsarresults)
 
     # plot posteriors
     if showposteriors:
@@ -837,13 +836,7 @@ def generate_summary_pages(**kwargs):
 
     # add the results table
     if ultable is not None:
-        homepage.make_table(
-            headings=resultstableheader,
-            contents=allresultstable,
-            sticky_header=True,
-            scroll_table=False,
-            accordian=False,
-        )
+        homepage.make_results_table(contents=allresultstable)
 
     homepage.close()
 
