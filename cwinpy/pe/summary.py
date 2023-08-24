@@ -640,7 +640,7 @@ def generate_summary_pages(**kwargs):
         pulsars = args.pulsars
 
         upperlimittable = not args.disable_upper_limit_table
-        # upperlimitplot = not args.disable_upper_limit_plot
+        upperlimitplot = not args.disable_upper_limit_plot
         showsnr = args.show_snr
         showodds = args.show_odds
 
@@ -659,12 +659,12 @@ def generate_summary_pages(**kwargs):
             includeq22=True,
         )
 
-        # if upperlimitplot:
-        # get power spectral densities
-        # psds = generate_power_spectrum(pipeline_data.datadict)
+        if upperlimitplot:
+            # get power spectral densities
+            asds = generate_power_spectrum(pipeline_data.datadict, asd=True)
     else:
         ultable = None
-        # psds = None
+        asds = None
 
     if showsnr:
         # switch frequency factor and detector in datadict
@@ -683,8 +683,12 @@ def generate_summary_pages(**kwargs):
     if showodds:
         odds = {psr: {} for psr in pipeline_data.datadict}
 
+        oddsdets = []
+        jointdets = None
+
         for dets in pipeline_data.detcomb:
             if len(dets) == 1:
+                oddsdets.append(dets[0])
                 # get single detector signal vs noise odds
                 sodds = results_odds(
                     pipeline_data.resultsfiles,
@@ -692,14 +696,27 @@ def generate_summary_pages(**kwargs):
                     scale="log10",
                     det=dets[0],
                 )
+
+                for psr in pipeline_data.datadict:
+                    odds[psr].update({dets[0]: sodds[psr]})
             else:
+                jointdets = "".join(dets)
                 # get multi-detector coherent vs incoherent odds
-                sodds = results_odds(
+                codds = results_odds(
                     pipeline_data.resultsfiles, oddstype="cvi", scale="log10"
                 )
 
-            for psr in pipeline_data.datadict:
-                odds[psr].update({"".join(dets): sodds[psr]})
+        maxpsrodds = {det: [-np.inf, None] for det in oddsdets}
+        if jointdets is not None:
+            maxpsrodds[jointdets] = [-np.inf, None]
+
+        for psr in pipeline_data.datadict:
+            odds[psr].update({jointdets: codds[psr]})
+
+            for det in maxpsrodds:
+                if odds[psr][det] > maxpsrodds[det][0]:
+                    maxpsrodds[det][0] = odds[psr][det]
+                    maxpsrodds[det][1] = psr
 
     # html table showing all results
     allresultstable = {}
@@ -741,8 +758,9 @@ def generate_summary_pages(**kwargs):
 
         # add required results into a table for the main page
         if ultable is not None:
+            # show upper limit results
             tloc = ultable.loc[psr]
-            for amp in ["H0", "C21", "C22", "ELL", "Q22"]:
+            for amp in ["H0", "C21", "C22", "ELL", "Q22", "SDRAT"]:
                 for det in dets:
                     tname = f"{amp}_{det}_95%UL"
 
@@ -752,13 +770,57 @@ def generate_summary_pages(**kwargs):
                         if hname not in allresultstable[psrlink]:
                             allresultstable[psrlink][hname] = {}
 
-                        allresultstable[psrlink][hname][det] = RESULTS_HEADER_FORMATS[
-                            amp
-                        ]["formatter"](
-                            tloc[tname].value
-                            if hasattr(tloc[tname], "value")
-                            else tloc[tname]
+                        quant = True if hasattr(tloc[tname], "value") else False
+                        tvalue = tloc[tname].value if quant else tloc[tname]
+                        rvalue = RESULTS_HEADER_FORMATS[amp]["formatter"](tvalue)
+
+                        if tvalue == (
+                            ultable[tname].min().value
+                            if quant
+                            else ultable[tname].min()
+                        ):
+                            # highlight minimum value (i.e., smallest upper limits)
+                            rvalue = f"<b>{rvalue}</b>"
+
+                        allresultstable[psrlink][hname][det] = rvalue
+
+            # shows odds results
+            if showodds:
+                # show signal vs noise odds for individual detectors
+                for det in oddsdets:
+                    hname = RESULTS_HEADER_FORMATS["ODDSSVN"]["htmlshort"]
+
+                    if hname not in allresultstable[psrlink]:
+                        allresultstable[psrlink][hname] = {}
+
+                    # highlight largest odds value
+                    if maxpsrodds[det][1] == psr:
+                        allresultstable[psrlink][hname][det] = (
+                            "<b>"
+                            + RESULTS_HEADER_FORMATS["ODDSSVN"]["formatter"](
+                                odds[psr][det]
+                            )
+                            + "</b>"
                         )
+                    else:
+                        allresultstable[psrlink][hname][det] = RESULTS_HEADER_FORMATS[
+                            "ODDSSVN"
+                        ]["formatter"](odds[psr][det])
+
+                if jointdets is not None:
+                    hname = RESULTS_HEADER_FORMATS["ODDSCVI"]["htmlshort"]
+                    if maxpsrodds[jointdets][1] == psr:
+                        allresultstable[psrlink][hname] = (
+                            "<b>"
+                            + RESULTS_HEADER_FORMATS["ODDSCVI"]["formatter"](
+                                odds[psr][jointdets]
+                            )
+                            + "</b>"
+                        )
+                    else:
+                        allresultstable[psrlink][hname] = RESULTS_HEADER_FORMATS[
+                            "ODDSCVI"
+                        ]["formatter"](odds[psr][jointdets])
 
         # add results tables to each page
         _ = pulsar_summary_plots(
@@ -836,7 +898,29 @@ def generate_summary_pages(**kwargs):
 
     # add the results table
     if ultable is not None:
+        homepage.add_content("<h1>Table of results</h1>\n")
         homepage.make_results_table(contents=allresultstable)
+
+        # create upper limits plots
+        if upperlimitplot:
+            ulplotdir = outpath / "ulplots"
+
+            for amp in ["H0", "C21", "C22", "ELL"]:
+                for i, det in enumerate(dets):
+                    p = RESULTS_HEADER_FORMATS[amp]["ultablename"]
+                    fig = ultable.plot(
+                        p,
+                        histogram=True,
+                        asds=asds[i] if len(det) == 2 else asds,
+                        showq22=True if amp == "ELL" else False,
+                        showtau=True if amp == "ELL" else False,
+                        tobs=1,  # FIXME: get actual observation times
+                    )
+
+                    ulplotfile = ulplotdir / f"{amp}_{det}_ulplot.png"
+                    fig.savefig(ulplotfile)
+
+                    plt.close()
 
     homepage.close()
 

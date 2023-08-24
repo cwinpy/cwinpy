@@ -252,13 +252,25 @@ class CWPage(page):
                 value = contents[psr][r]
                 if isinstance(value, dict):
                     for v in value.values():
-                        self.add_content(
-                            f"<td class='border-left'>{v}</td>\n", indent=30
-                        )
+                        if v.startswith("<b>"):
+                            # highlight the border
+                            self.add_content(
+                                f"<td class='border border-info'>{v}</td>\n", indent=30
+                            )
+                        else:
+                            self.add_content(
+                                f"<td class='border-left'>{v}</td>\n", indent=30
+                            )
                 else:
-                    self.add_content(
-                        f"<td class='border-left'>{value}</td>\n", indent=30
-                    )
+                    if value.startswith("<b>"):
+                        # highlight the border
+                        self.add_content(
+                            f"<td class='border border-info'>{value}</td>\n", indent=30
+                        )
+                    else:
+                        self.add_content(
+                            f"<td class='border-left'>{value}</td>\n", indent=30
+                        )
             self.add_content("</tr>\n", indent=28)
 
         self.add_content("</tbody>\n", indent=26)
