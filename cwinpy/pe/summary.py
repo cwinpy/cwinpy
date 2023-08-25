@@ -479,6 +479,223 @@ def pulsar_summary_plots(
     return summaryfiles
 
 
+def copy_css_and_js_scripts(webdir: Union[str, Path]):
+    """
+    Copy CSS and js scripts from the PESummary package to the web directory.
+
+    Adapted from :meth:`~pesummary.core.webpage.main._WebpageGeneration.copy_css_and_js_scripts`.
+
+    Parameters
+    ----------
+    webdir: str, Path
+        The path to the location for the files to be copied.
+    """
+    import shutil
+
+    import pkg_resources
+
+    files_to_copy = []
+
+    path = Path(pkg_resources.resource_filename("pesummary", "core"))
+    webdir = Path(webdir)
+
+    scripts = (path / "js").glob("*.js")
+    for i in scripts:
+        files_to_copy.append([i, webdir / "js" / i.name])
+
+    csss = (path / "css").glob("*.css")
+    for i in csss:
+        files_to_copy.append([i, webdir / "css" / i.name])
+
+    for _dir in ["js", "css"]:
+        (webdir / _dir).mkdir(exist_ok=True, parents=True)
+
+    for ff in files_to_copy:
+        shutil.copy(ff[0], ff[1])
+
+        # remove offending unneccessary line from grab.js that causes it
+        # to break in this use case
+        if ff[0].name == "grab.js":
+            with open(ff[1], "r") as fp:
+                grab = fp.readlines()
+
+            with open(ff[1], "w") as fp:
+                for line in grab:
+                    if "if ( param == approximant ) {" not in line:
+                        if "var approx" in line:
+                            line = line.replace("el.innerHTML", "param")
+
+                        fp.write(line)
+
+
+def generate_power_spectrum(
+    heterodyneddata: dict,
+    time_average: str = "median",
+    freq_average: str = "median",
+    asd: bool = False,
+) -> Union[dict, dict]:
+    """
+    Extract the power spectral density at the frequencies of a set of analysed
+    pulsars using their heterodyned data products.
+
+    Parameters
+    ----------
+    heterodyneddata: dict
+        The input should be a dictionary as provided by the
+        :attr:`~cwinpy.pe.pe.PEDAGRunner.datadict`, i.e., a dictionary key by
+        pulsar name, then heterodyned data frequency factor ("1f" or "2f"),
+        then a detector name, pointing to a path to some
+        :class:`~cwinpy.data.HeterodynedData`.
+    time_average: str
+        The method of averaging each pulsar's spectrogram over time. The
+        default is "median", although "harmonic_mean" may be useful. Allowed
+        values are: "median", "mean", "harmonic_mean", "max" or "min".
+    freq_average: str
+        The method of averaging each pulsar's spectrogram over frequency. The
+        default is "median", although "harmonic_mean" may be useful. Allowed
+        values are: "median", "mean", "harmonic_mean", "max" or "min".
+    asd: bool
+        If set to True, output the amplitude spectral density values rather
+        than power spectral density values.
+
+    Returns
+    -------
+    specs: dict
+        A dictionary keyed on the detector names, followed by frequency factors
+        ("1f" or "2f") with values being 2D arrays containing the frequency and
+        power spectral density (from using a median over the frequency band of
+        the heterodyned data).
+    """
+
+    if not isinstance(heterodyneddata, dict):
+        raise TypeError("heterodyneddata must be a dictionary")
+
+    if freq_average.lower() not in [
+        "median",
+        "mean",
+        "harmonic_mean",
+        "hmean",
+        "max",
+        "min",
+    ]:
+        raise ValueError(
+            'freq_average must be one of "median", "mean", "harmonic_mean", "max" or "min"'
+        )
+
+    # frequency averaging functions
+    favfunc = {
+        "mean": np.mean,
+        "min": np.min,
+        "max": np.max,
+        "median": np.median,
+        "hmean": hmean,
+        "harmonic_mean": hmean,
+    }
+
+    spec = {}
+    freqs = {}
+    for psr in heterodyneddata:
+        if not isinstance(heterodyneddata[psr], dict):
+            raise ValueError("heterodyneddata values must contain dictionaries")
+
+        for ff in heterodyneddata[psr]:
+            # check frequency factors of 1f or 2f
+            if ff not in ["1f", "2f"]:
+                raise KeyError("key must be either 1f or 2f")
+
+            for det in heterodyneddata[psr][ff]:
+                if isinstance(
+                    heterodyneddata[psr][ff][det], (str, Path, HeterodynedData)
+                ):
+                    if isinstance(heterodyneddata[psr][ff][det], HeterodynedData):
+                        het = heterodyneddata
+                    else:
+                        het = HeterodynedData.read(heterodyneddata[psr][ff][det])
+                else:
+                    raise ValueError("data is not a HeterodynedData object/path")
+
+                if det not in freqs:
+                    freqs[det] = {}
+                    spec[det] = {}
+
+                if ff not in freqs[det]:
+                    freqs[det][ff] = []
+                    spec[det][ff] = []
+
+                # get power spectral densities
+                _, power = het.power_spectrum(
+                    remove_outliers=True,
+                    plot=False,
+                    average=time_average,
+                    asd=asd,
+                )
+                spec[det][ff].append(favfunc[freq_average.lower()](power))
+
+                # get the frequency
+                freqs[det][ff].append(het.par["F0"] * int(ff[0]))
+
+    # convert to arrays and sort by frequency
+    specs = {}
+    for det in freqs:
+        specs[det] = {}
+        for ff in freqs[det]:
+            specs[det][ff] = np.array(sorted(zip(freqs[det][ff], spec[det][ff])))
+
+    return specs
+
+
+def plot_segments(segments: dict, outfile: Union[str, Path]):
+    """
+    Plot the science segments for a set of given detectors.
+
+    Parameters
+    ----------
+    segments: dict
+        A dictionary of segment lists keyed to detector names.
+    outfile: str, Path
+        A string giving the output filename for the plot.
+    """
+
+    # convert lists to arrays
+    segs = {det: np.asarray(segments[det]) for det in segments}
+
+    # get observing times from the segment lists
+    tot = {det: segs[det][-1, 1] - segs[det][0, 0] for det in segs}
+    obs = {det: np.diff(segs[det]).sum() for det in segs}
+
+    # get epoch and end time for plot
+    epoch = np.min([segs[det][0, 0] for det in segs])
+    endtime = np.max([segs[det][-1, 1] for det in segs])
+
+    fig, ax = plt.subplots(1, 1, figsize=(14, (4 / 3) * len(segs)))
+
+    for i, det in enumerate(segs):
+        ax.axhline(i, color=GW_OBSERVATORY_COLORS[det], lw=0.5)
+        for row in segs[det]:
+            ax.fill_between(
+                row - epoch,
+                [i - 0.25, i - 0.25],
+                [i + 0.25, i + 0.25],
+                color=GW_OBSERVATORY_COLORS[det],
+                alpha=0.9,
+            )
+
+    ax.set_yticks(range(len(segs)))
+    ax.set_yticklabels(list(segs.keys()))
+    ax.set_ylim([-0.7, len(segs) - 0.3])
+    ax.set_xlim([0, endtime - epoch])
+    ax.set_xlabel("GPS Time (Epoch {0:d})".format(int(epoch)))
+
+    for i, det in enumerate(segs):
+        label = "$T_\\mathrm{{obs}}$ = {0:.1f} d, {1:d}\% duty factor".format(
+            obs[det] / 86400.0, int(100 * (obs[det] / tot[det]))
+        )
+        ax.text(0.5 * (endtime - epoch), 0.34 + i, label, horizontalalignment="center")
+
+    fig.tight_layout()
+    fig.savefig(outfile, dpi=150)
+
+
 def generate_summary_pages(**kwargs):
     """
     Generate summary webpages following a ``cwinpy_knope_pipeline`` analysis
@@ -896,6 +1113,21 @@ def generate_summary_pages(**kwargs):
     }
     homepage.make_navbar(homelinks, search=False)
 
+    # create a plot of segment use (just use the first pulsar's data)
+    hetdata = list(list(pipeline_data.datadict.values())[0].values())[0]
+    segs = {
+        det: HeterodynedData(hetdata[det], remove_outliers=False).segment_list()
+        for det in hetdata
+    }
+
+    # get total observation time for each detector
+    totobs = {det: np.diff(segs[det]).sum() for det in segs}
+
+    segmentsplot = outpath / "html" / "segment_plot.png"
+    plot_segments(segs, segmentsplot)
+    homepage.add_content("<h1>Data segments</h1>\n")
+    homepage.insert_image(segmentsplot.name, width=1200)
+
     # add the results table
     if ultable is not None:
         homepage.add_content("<h1>Table of results</h1>\n")
@@ -904,23 +1136,51 @@ def generate_summary_pages(**kwargs):
         # create upper limits plots
         if upperlimitplot:
             ulplotdir = outpath / "ulplots"
+            ulplotdir.mkdir(parents=True, exist_ok=True)
 
+            ulplots = {}
             for amp in ["H0", "C21", "C22", "ELL"]:
-                for i, det in enumerate(dets):
-                    p = RESULTS_HEADER_FORMATS[amp]["ultablename"]
-                    fig = ultable.plot(
-                        p,
-                        histogram=True,
-                        asds=asds[i] if len(det) == 2 else asds,
-                        showq22=True if amp == "ELL" else False,
-                        showtau=True if amp == "ELL" else False,
-                        tobs=1,  # FIXME: get actual observation times
-                    )
+                for det in dets:
+                    p = RESULTS_HEADER_FORMATS[amp]["ultablename"].format(det)
 
-                    ulplotfile = ulplotdir / f"{amp}_{det}_ulplot.png"
-                    fig.savefig(ulplotfile)
+                    if p in ultable.colnames:
+                        if amp not in ulplots:
+                            ulplots[amp] = {}
 
-                    plt.close()
+                        # try getting ASDs to include on plots
+                        asd = None
+                        tobs = None
+                        if amp != "ELL":
+                            try:
+                                fkey = "2f" if amp in ["H0", "C22"] else "1f"
+                                asd = (
+                                    [asds[det][fkey]]
+                                    if len(det) == 2
+                                    else [asds[d][fkey] for d in asds]
+                                )
+                                tobs = (
+                                    [totobs[det]]
+                                    if len(det) == 2
+                                    else [totobs[d] for d in totobs]
+                                )
+                            except KeyError:
+                                pass
+
+                        p = RESULTS_HEADER_FORMATS[amp]["ultablename"].format(det)
+                        fig = ultable.plot(
+                            p,
+                            histogram=True,
+                            asds=asd,
+                            showq22=True if amp == "ELL" else False,
+                            showtau=True if amp == "ELL" else False,
+                            tobs=tobs,
+                        )
+
+                        ulplotfile = ulplotdir / f"{amp}_{det}_ulplot.png"
+                        fig.savefig(ulplotfile, dpi=200)
+                        ulplots[amp][det] = ulplotfile
+
+                        plt.close()
 
     homepage.close()
 
@@ -947,171 +1207,6 @@ def generate_summary_pages(**kwargs):
             p.close()
 
     return ultable
-
-
-def copy_css_and_js_scripts(webdir: Union[str, Path]):
-    """
-    Copy CSS and js scripts from the PESummary package to the web directory.
-
-    Adapted from :meth:`~pesummary.core.webpage.main._WebpageGeneration.copy_css_and_js_scripts`.
-
-    Parameters
-    ----------
-    webdir: str, Path
-        The path to the location for the files to be copied.
-    """
-    import shutil
-
-    import pkg_resources
-
-    files_to_copy = []
-
-    path = Path(pkg_resources.resource_filename("pesummary", "core"))
-    webdir = Path(webdir)
-
-    scripts = (path / "js").glob("*.js")
-    for i in scripts:
-        files_to_copy.append([i, webdir / "js" / i.name])
-
-    csss = (path / "css").glob("*.css")
-    for i in csss:
-        files_to_copy.append([i, webdir / "css" / i.name])
-
-    for _dir in ["js", "css"]:
-        (webdir / _dir).mkdir(exist_ok=True, parents=True)
-
-    for ff in files_to_copy:
-        shutil.copy(ff[0], ff[1])
-
-        # remove offending unneccessary line from grab.js that causes it
-        # to break in this use case
-        if ff[0].name == "grab.js":
-            with open(ff[1], "r") as fp:
-                grab = fp.readlines()
-
-            with open(ff[1], "w") as fp:
-                for line in grab:
-                    if "if ( param == approximant ) {" not in line:
-                        if "var approx" in line:
-                            line = line.replace("el.innerHTML", "param")
-
-                        fp.write(line)
-
-
-def generate_power_spectrum(
-    heterodyneddata: dict,
-    time_average: str = "median",
-    freq_average: str = "median",
-    asd: bool = False,
-) -> dict:
-    """
-    Extract the power spectral density at the frequencies of a set of analysed
-    pulsars using their heterodyned data products.
-
-    Parameters
-    ----------
-    heterodyneddata: dict
-        The input should be a dictionary as provided by the
-        :attr:`~cwinpy.pe.pe.PEDAGRunner.datadict`, i.e., a dictionary key by
-        pulsar name, then heterodyned data frequency factor ("1f" or "2f"),
-        then a detector name, pointing to a path to some
-        :class:`~cwinpy.data.HeterodynedData`.
-    time_average: str
-        The method of averaging each pulsar's spectrogram over time. The
-        default is "median", although "harmonic_mean" may be useful. Allowed
-        values are: "median", "mean", "harmonic_mean", "max" or "min".
-    freq_average: str
-        The method of averaging each pulsar's spectrogram over frequency. The
-        default is "median", although "harmonic_mean" may be useful. Allowed
-        values are: "median", "mean", "harmonic_mean", "max" or "min".
-    asd: bool
-        If set to True, output the amplitude spectral density values rather
-        than power spectral density values.
-
-    Returns
-    -------
-    specs: dict
-        A dictionary keyed on the detector names, followed by frequency factors
-        ("1f" or "2f") with values being 2D arrays containing the frequency and
-        power spectral density (from using a median over the frequency band of
-        the heterodyned data).
-    """
-
-    if not isinstance(heterodyneddata, dict):
-        raise TypeError("heterodyneddata must be a dictionary")
-
-    if freq_average.lower() not in [
-        "median",
-        "mean",
-        "harmonic_mean",
-        "hmean",
-        "max",
-        "min",
-    ]:
-        raise ValueError(
-            'freq_average must be one of "median", "mean", "harmonic_mean", "max" or "min"'
-        )
-
-    # frequency averaging functions
-    favfunc = {
-        "mean": np.mean,
-        "min": np.min,
-        "max": np.max,
-        "median": np.median,
-        "hmean": hmean,
-        "harmonic_mean": hmean,
-    }
-
-    spec = {}
-    freqs = {}
-    for psr in heterodyneddata:
-        if not isinstance(heterodyneddata[psr], dict):
-            raise ValueError("heterodyneddata values must contain dictionaries")
-
-        for ff in heterodyneddata[psr]:
-            # check frequency factors of 1f or 2f
-            if ff not in ["1f", "2f"]:
-                raise KeyError("key must be either 1f or 2f")
-
-            for det in heterodyneddata[psr][ff]:
-                if isinstance(
-                    heterodyneddata[psr][ff][det], (str, Path, HeterodynedData)
-                ):
-                    if isinstance(heterodyneddata[psr][ff][det], HeterodynedData):
-                        het = heterodyneddata
-                    else:
-                        het = HeterodynedData.read(heterodyneddata[psr][ff][det])
-                else:
-                    raise ValueError("data is not a HeterodynedData object/path")
-
-                if det not in freqs:
-                    freqs[det] = {}
-                    spec[det] = {}
-
-                if ff not in freqs[det]:
-                    freqs[det][ff] = []
-                    spec[det][ff] = []
-
-                # get power spectral densities
-                _, power = het.power_spectrum(
-                    remove_outliers=True,
-                    plot=False,
-                    average=time_average,
-                    asd=asd,
-                )
-                spec[det][ff].append(favfunc[freq_average.lower()](power))
-
-                # get the frequency
-                freqs[det][ff].append(het.par["F0"] * int(ff[0]))
-
-    # convert to arrays and sort by frequency
-    specs = {}
-    for det in freqs:
-        specs[det] = {}
-        for ff in freqs[det]:
-            specs[det][ff] = np.array(sorted(zip(freqs[det][ff], spec[det][ff])))
-
-    return specs
 
 
 def generate_summary_pages_cli(**kwargs):  # pragma: no cover
