@@ -2690,6 +2690,31 @@ class HeterodynedData(TimeSeriesBase):
         except Exception as e:
             raise TypeError("Value must be boolean: {}".format(e))
 
+    def segment_list(self):
+        """
+        Using the heterodyned data timestamps, generate a list of segments
+        (i.e., set of times between which there are uniformly spaced time
+        stamps). This is returns as a list of 2-lists, with each item giving
+        the start and end time (in GPS seconds) of that segment.
+        """
+
+        dt = self.dt.value
+        times = self.times.value
+
+        # initial segment
+        segs = [[times[0], times[1]]]
+
+        i = 2
+        while i < len(self):
+            if (times[i] - segs[-1][1]) == dt:
+                segs[-1][1] = times[i]
+            else:
+                segs.append([times[i], times[i + 1]])
+                i += 1
+            i += 1
+
+        return segs
+
     def plot(
         self,
         which="abs",
