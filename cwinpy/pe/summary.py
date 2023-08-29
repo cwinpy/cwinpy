@@ -15,7 +15,7 @@ from ..plot import Plot
 from ..utils import get_psr_name, is_par_file
 from .pe import pe_pipeline
 from .peutils import UpperLimitTable, optimal_snr, results_odds, set_formats
-from .webpage import CWPage, make_html, open_html
+from .webpage import SCRIPTS_AND_CSS, CWPage, make_html, open_html
 
 PULSAR_HEADER_FORMATS = {
     "F0": {
@@ -501,11 +501,13 @@ def copy_css_and_js_scripts(webdir: Union[str, Path]):
 
     scripts = (path / "js").glob("*.js")
     for i in scripts:
-        files_to_copy.append([i, webdir / "js" / i.name])
+        if str(i) in SCRIPTS_AND_CSS:
+            files_to_copy.append([i, webdir / "js" / i.name])
 
     csss = (path / "css").glob("*.css")
     for i in csss:
-        files_to_copy.append([i, webdir / "css" / i.name])
+        if str(i) in SCRIPTS_AND_CSS:
+            files_to_copy.append([i, webdir / "css" / i.name])
 
     for _dir in ["js", "css"]:
         (webdir / _dir).mkdir(exist_ok=True, parents=True)
@@ -1107,12 +1109,6 @@ def generate_summary_pages(**kwargs):
     homeurl = f"{url}/home.html"
     homepage = open_html(outpath / "html", homeurl, "home", "home")
 
-    # create homepage navbar
-    homelinks = {
-        "Pulsars": {psr: {det: f"{psr}_{det}.html" for det in dets} for psr in pages}
-    }
-    homepage.make_navbar(homelinks, search=False)
-
     # create a plot of segment use (just use the first pulsar's data)
     hetdata = list(list(pipeline_data.datadict.values())[0].values())[0]
     segs = {
@@ -1128,6 +1124,14 @@ def generate_summary_pages(**kwargs):
     homepage.add_content("<h1>Data segments</h1>\n")
     homepage.insert_image(segmentsplot.name, width=1200)
 
+    ampulpages = {}
+    ampt = {
+        "H0": "\(h_0\)",
+        "C21": "\(C_{21}\)",
+        "C22": "\(C_{22}\)",
+        "ELL": "Ellipticity",
+    }
+
     # add the results table
     if ultable is not None:
         homepage.add_content("<h1>Table of results</h1>\n")
@@ -1139,13 +1143,27 @@ def generate_summary_pages(**kwargs):
             ulplotdir.mkdir(parents=True, exist_ok=True)
 
             ulplots = {}
-            for amp in ["H0", "C21", "C22", "ELL"]:
+            for amp in ampt:
                 for det in dets:
                     p = RESULTS_HEADER_FORMATS[amp]["ultablename"].format(det)
 
                     if p in ultable.colnames:
                         if amp not in ulplots:
                             ulplots[amp] = {}
+                            ampulpages[amp] = {}
+
+                        ampultitle = f"{amp}_{det}"
+                        _ = make_html(
+                            outpath, ampultitle, title=f"{ampt[amp]} upper limits"
+                        )
+                        amphomeurl = f"{url}/{ampultitle}.html"
+                        ampulpage = open_html(
+                            outpath / "html", amphomeurl, ampultitle, ampultitle
+                        )
+                        ampulpage.add_content(
+                            f'<h1 class="display-4">{ampt[amp]} upper limits '
+                            f'<small class="text-muted">{det}</small></h1>\n'
+                        )
 
                         # try getting ASDs to include on plots
                         asd = None
@@ -1174,13 +1192,36 @@ def generate_summary_pages(**kwargs):
                             showq22=True if amp == "ELL" else False,
                             showtau=True if amp == "ELL" else False,
                             tobs=tobs,
+                            asdkwargs={
+                                "color": GW_OBSERVATORY_COLORS[det]
+                                if det in GW_OBSERVATORY_COLORS
+                                else "grey",
+                                "alpha": 0.5,
+                                "linewidth": 5,
+                            },
                         )
 
-                        ulplotfile = ulplotdir / f"{amp}_{det}_ulplot.png"
+                        ulplotfile = ulplotdir / f"{amp}_{det}.png"
                         fig.savefig(ulplotfile, dpi=200)
                         ulplots[amp][det] = ulplotfile
 
                         plt.close()
+
+                        ampulpage.insert_image(
+                            os.path.relpath(ulplotfile, ampulpage.web_dir), width=1200
+                        )
+                        ampulpages[amp][det] = ampulpage
+
+    # create homepage navbar
+    homelinks = {
+        "Pulsars": {psr: {det: f"{psr}_{det}.html" for det in dets} for psr in pages}
+    }
+    if ampulpages:
+        homelinks["Upper limit plots"] = {
+            ampt[amp]: {d: f"{amp}_{d}.html" for d in ampulpages[amp]}
+            for amp in ampulpages
+        }
+    homepage.make_navbar(homelinks, search=False)
 
     homepage.close()
 
@@ -1188,13 +1229,27 @@ def generate_summary_pages(**kwargs):
     copy_css_and_js_scripts(outpath)
 
     # add nav bars and close results pages
-    for psr in pages:
-        links = {}
-        links["home"] = "home.html"
-        links["Pulsars"] = homelinks["Pulsars"]
-        links["Detector"] = {det: f"{psr}_{det}.html" for det in pages[psr]}
+    if ampulpages:
+        pages.update(ampulpages)
 
-        for det, p in pages[psr].items():
+    links = {
+        "Home": "home.html",
+        "Pulsars": homelinks["Pulsars"],
+    }
+
+    if ampulpages:
+        links["Upper limit plots"] = homelinks["Upper limit plots"]
+
+    for psramp in pages:
+        curlinks = links.copy()
+
+        if psramp not in ampt:
+            # individual detector pages
+            curlinks["Detector"] = {
+                det: f"{psramp}_{det}.html" for det in pages[psramp]
+            }
+
+        for det, p in pages[psramp].items():
             if det in GW_OBSERVATORY_COLORS:
                 # set navbar colour based on the observatory
                 nbc = GW_OBSERVATORY_COLORS[det]
@@ -1202,7 +1257,7 @@ def generate_summary_pages(**kwargs):
                 nbc = "#777777"
 
             # nav bar
-            p.make_navbar(links, background_color=nbc)
+            p.make_navbar(curlinks, background_color=nbc)
 
             p.close()
 

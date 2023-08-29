@@ -1,12 +1,30 @@
 from pathlib import Path
 from typing import Union
 
-from pesummary.core.webpage.webpage import BOOTSTRAP, OTHER_SCRIPTS, page
+from pesummary.core.webpage.webpage import BOOTSTRAP, page
 
-# add MathJAX to HOME_SCRIPTS and OTHER_SCRIPTS
-SCRIPTS_AND_CSS = f"""   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js"></script>
-{OTHER_SCRIPTS}"""
+# CSS and Javascript (including MathJAX)
+SCRIPTS_AND_CSS = """    <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js'></script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js'></script>
+    <script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js'></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
+    <script>Fancybox.bind('[data-fancybox="gallery"]', { }); </script>
+    <script src='../js/grab.js'></script>
+    <script src='../js/modal.js'></script>
+    <script src='../js/multi_dropbar.js'></script>
+    <script src='../js/search.js'></script>
+    <script src='../js/side_bar.js'></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css"/>
+    <link rel="stylesheet" href="../css/navbar.css">
+    <link rel="stylesheet" href="../css/font.css">
+    <link rel="stylesheet" href="../css/table.css">
+    <link rel="stylesheet" href="../css/image_styles.css">
+    <link rel="stylesheet" href="../css/watermark.css">
+    <link rel="stylesheet" href="../css/toggle.css">
+"""
 
 
 class CWPage(page):
@@ -278,7 +296,13 @@ class CWPage(page):
         self.end_div(indent=20)
         self.end_div(indent=18)
 
-    def insert_image(self, path, justify="center", width=850, code=None):
+    def insert_image(
+        self,
+        path: str,
+        justify: str = "center",
+        width: int = 850,
+        fancybox: bool = True,
+    ):
         """Generate an image in bootstrap format.
 
         Parameters
@@ -288,9 +312,12 @@ class CWPage(page):
         justify: str, optional
             justifies the image to either the left, right or center
         """
+
         self.make_container()
         _id = path.split("/")[-1][:-4]
-        string = (
+        # use fancy box if requested
+        string = f"<a href='{path}' data-fancybox='gallery'>" if fancybox else ""
+        string += (
             f"<img src='{path}' id='{_id}' alt='No image available' "
             f"style='align-items:center; width:{width}px; cursor: pointer'"
         )
@@ -300,9 +327,8 @@ class CWPage(page):
             string = string[:-1] + " float:left;'"
         elif justify == "right":
             string = string[:-1] + " float:right;'"
-        if code:
-            string += " onclick='{}(\"{}\")'".format(code, _id)
-        string += ">\n"
+
+        string += "></a>\n" if fancybox else ">\n"
         self.add_content(string, indent=2)
         self.end_container()
 

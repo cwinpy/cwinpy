@@ -1539,6 +1539,20 @@ class UpperLimitTable(QTable):
             xlims = ax[0].get_xlim()
             ylims = ax[0].get_ylim()
 
+            # add band of ranges for h0
+            if axisdata["y"]["label"].startswith("H0"):
+                sfh0upper = 20  # see footnote 92 of https://arxiv.org/abs/0909.3583
+                sfh0lower = 7
+
+                ax[0].fill_between(
+                    freqbins,
+                    sfh0lower * hmean,
+                    sfh0upper * hmean,
+                    alpha=0.1,
+                    color=asdkwargs["color"],
+                    zorder=-1,
+                )
+
             # use zorder=0 to put lines behind others on the plot
             ax[0].plot(freqbins, scale * hmean, zorder=0, **asdkwargs)
             ax[0].set_xlim(xlims)
