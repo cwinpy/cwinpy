@@ -332,6 +332,40 @@ class CWPage(page):
         self.add_content(string, indent=2)
         self.end_container()
 
+    def make_heading(
+        self,
+        htext: str,
+        hsubtext: str = None,
+        hsize: Union[str, int] = "1",
+        anchor: str = None,
+    ):
+        """
+        Make a heading "h" element in a div container.
+
+        Parameters
+        ----------
+        htext: str
+            The text of the heading.
+        hsubtext: str
+            Optional small muted text after the main heading text.
+        hsize: str, int
+            The size of the heading tag. Default is "1" for <h1> tags.
+        anchor: str
+            Optional string to use as a link anchor.
+        """
+
+        self.make_div(_class="container", _style="max-width:1400px")
+
+        subtext = (
+            "" if hsubtext is None else f"<small class='text-muted'>{hsubtext}</small>"
+        )
+        anchortext = (
+            "" if anchor is None else f"<a class='anchor-link' href='#{anchor}'></a>"
+        )
+
+        self.add_content(f"<h{hsize}>{htext} {subtext} {anchortext}</h{hsize}>\n")
+        self.end_div()
+
     def close(self):
         self.add_content("</body>\n</html>\n")  # close off page
         self.html_file.close()

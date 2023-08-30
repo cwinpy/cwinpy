@@ -292,7 +292,7 @@ def pulsar_summary_plots(
 
             if isinstance(webpage, CWPage):
                 webpage.make_div()
-                webpage.add_content('<h1 class="display-4">Heterodyned data</h1>\n')
+                webpage.make_heading("Heterodyned data", anchor="heterodyned-data")
 
             # plot time series
             hetfig = het.plot(
@@ -309,9 +309,7 @@ def pulsar_summary_plots(
             plt.close()
 
             if isinstance(webpage, CWPage):
-                webpage.add_content(
-                    '<h1 class="display-5"><small class="text-muted">Time series</small></h1>\n'
-                )
+                webpage.make_heading("Time series", hsize=2, anchor="time-series")
                 webpage.insert_image(
                     os.path.relpath(summaryfiles[filename], webpage.web_dir), width=1200
                 )
@@ -326,9 +324,7 @@ def pulsar_summary_plots(
             plt.close()
 
             if isinstance(webpage, CWPage):
-                webpage.add_content(
-                    '<h1 class="display-5"><small class="text-muted">Spectrogram</small></h1>\n'
-                )
+                webpage.make_heading("Spectrogram", hsize=2, anchor="spectrogram")
                 webpage.insert_image(
                     os.path.relpath(summaryfiles[filename], webpage.web_dir),
                     width=1200,
@@ -344,8 +340,8 @@ def pulsar_summary_plots(
             plt.close()
 
             if isinstance(webpage, CWPage):
-                webpage.add_content(
-                    '<h1 class="display-5"><small class="text-muted">Amplitude spectrum</small></h1>\n'
+                webpage.make_heading(
+                    "Amplitude spectrum", hsize=2, anchor="amplitude-spectrum"
                 )
                 webpage.insert_image(
                     os.path.relpath(summaryfiles[filename], webpage.web_dir), width=650
@@ -402,15 +398,15 @@ def pulsar_summary_plots(
             if isinstance(webpage, CWPage):
                 # add plots to webpage
                 webpage.make_div()
-                webpage.add_content('<h1 class="display-4">Posteriors</h1>\n')
+                webpage.make_heading("Posteriors", anchor="posteriors")
                 webpage.insert_image(
                     os.path.relpath(summaryfiles[filename], webpage.web_dir)
                 )
 
                 if showindividualparams:
                     webpage.make_div()
-                    webpage.add_content(
-                        '<h1 class="display-5"><small class="text-muted">Individual posteriors</small></h1>\n'
+                    webpage.make_heading(
+                        "Individual posteriors", hsize=2, anchor="individual-posteriors"
                     )
                     webpage.make_container()
                     webpage.make_div(_class="row")
@@ -880,7 +876,11 @@ def generate_summary_pages(**kwargs):
 
         if upperlimitplot:
             # get power spectral densities
-            asds = generate_power_spectrum(pipeline_data.datadict, asd=True)
+            asds = generate_power_spectrum(
+                pipeline_data.datadict,
+                time_average="mean",
+                asd=True,
+            )
     else:
         ultable = None
         asds = None
@@ -969,11 +969,7 @@ def generate_summary_pages(**kwargs):
                 label=f"{psr}_{det}",
             )
 
-            pages[psr][det].make_div()
-            pages[psr][det].add_content(
-                f'<h1 class="display-4">PSR {psr} <small class="text-muted">{det}</small></h1>\n'
-            )
-            pages[psr][det].end_div()
+            pages[psr][det].make_heading(f"PSR {psr}", hsubtext=f"{det}")
 
         # add required results into a table for the main page
         if ultable is not None:
@@ -1121,7 +1117,7 @@ def generate_summary_pages(**kwargs):
 
     segmentsplot = outpath / "html" / "segment_plot.png"
     plot_segments(segs, segmentsplot)
-    homepage.add_content("<h1>Data segments</h1>\n")
+    homepage.make_heading("Data segments", anchor="data-segments")
     homepage.insert_image(segmentsplot.name, width=1200)
 
     ampulpages = {}
@@ -1134,7 +1130,7 @@ def generate_summary_pages(**kwargs):
 
     # add the results table
     if ultable is not None:
-        homepage.add_content("<h1>Table of results</h1>\n")
+        homepage.make_heading("Table of results", anchor="table-of-results")
         homepage.make_results_table(contents=allresultstable)
 
         # create upper limits plots
@@ -1160,9 +1156,10 @@ def generate_summary_pages(**kwargs):
                         ampulpage = open_html(
                             outpath / "html", amphomeurl, ampultitle, ampultitle
                         )
-                        ampulpage.add_content(
-                            f'<h1 class="display-4">{ampt[amp]} upper limits '
-                            f'<small class="text-muted">{det}</small></h1>\n'
+                        ampulpage.make_heading(
+                            f"{ampt[amp]} upper limits",
+                            hsubtext=f"{det}",
+                            anchor=f"{amp.lower()}-upper-limits",
                         )
 
                         # try getting ASDs to include on plots
