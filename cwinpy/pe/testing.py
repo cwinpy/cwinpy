@@ -10,6 +10,7 @@ import shutil
 import sys
 from argparse import ArgumentParser
 from configparser import ConfigParser
+from pathlib import Path
 
 import astropy.units as u
 import bilby
@@ -189,7 +190,7 @@ class PEPPPlotsDAG:
         A maximum on the amplitude parameter(s) to use when drawing the
         injection parameters. If none is given then this will be taken
         from the prior if using an amplitude parameter.
-    basedir: str
+    basedir: str, Path
         The base directory into which the simulations and outputs will be
         placed. If None then the current working directory will be used.
     detector: str, list
@@ -258,10 +259,10 @@ class PEPPPlotsDAG:
                 raise ValueError("Maximum amplitude must be positive")
 
         if basedir is not None:
-            self.basedir = basedir
-            self.makedirs(basedir)
+            self.basedir = Path(basedir)
+            self.basedir.mkdir(parents=True, exist_ok=True)
         else:
-            self.basedir = os.getcwd()
+            self.basedir = Path.cwd()
 
         # build output directory structure
         self.detector = detector
@@ -271,8 +272,8 @@ class PEPPPlotsDAG:
             raise TypeError("Detector must be a string or list of strings")
 
         # posterior sample results directory
-        self.resultsdir = os.path.join(self.basedir, "results")
-        self.makedirs(self.resultsdir)
+        self.resultsdir = self.basedir / "results"
+        self.resultsdir.mkdir(exist_ok=True)
 
         # create pulsar parameter files
         self.create_pulsars(freqrange=freqrange)
@@ -295,9 +296,8 @@ class PEPPPlotsDAG:
 
         # build and submit the DAG
         # write out the DAG and submit files
-        submitdir = os.path.join(self.basedir, "submit")
-        if not os.path.exists(submitdir):
-            os.makedirs(submitdir)
+        submitdir = self.basedir / "submit"
+        submitdir.mkdir(exist_ok=True)
 
         dagname = "cwinpy_pe_pp_plot"
         dag_file = write_dag(self.runner.dag, submitdir, dag_file_name=f"{dagname}.dag")
@@ -305,16 +305,6 @@ class PEPPPlotsDAG:
         # submit the DAG if requested
         if submit:
             submit_dag(dag_file)
-
-    def makedirs(self, dir):
-        """
-        Make a directory tree recursively.
-        """
-
-        try:
-            os.makedirs(dir, exist_ok=True)
-        except Exception as e:
-            raise IOError("Could not create directory: {}\n{}".format(dir, e))
 
     def create_pulsars(self, freqrange):
         """
@@ -328,8 +318,8 @@ class PEPPPlotsDAG:
         """
 
         # pulsar parameter file directory
-        self.pulsardir = os.path.join(self.basedir, "pulsars")
-        self.makedirs(self.pulsardir)
+        self.pulsardir = self.basedir / "pulsars"
+        self.pulsardir.mkdir(exist_ok=True)
 
         # "amplitude" parameters
         amppars = ["h0", "c21", "c22", "q22"]
@@ -390,14 +380,14 @@ class PEPPPlotsDAG:
             pulsar["PSRJ"] = pname
 
             # output file name
-            pfile = os.path.join(self.pulsardir, "{}.par".format(pname))
+            pfile = self.pulsardir / f"{pname}.par"
 
             with open(pfile, "w") as fp:
                 for param in pulsar:
                     fp.write("{}\t{}\n".format(param, pulsar[param]))
 
             self.pulsars[pname] = {}
-            self.pulsars[pname]["file"] = pfile
+            self.pulsars[pname]["file"] = str(pfile)
             self.pulsars[pname]["parameters"] = pulsar
 
     def create_config(self):
@@ -407,7 +397,7 @@ class PEPPPlotsDAG:
 
         self.config = ConfigParser()
 
-        self.config["run"] = {"basedir": self.basedir}
+        self.config["run"] = {"basedir": str(self.basedir)}
 
         self.config["pe_dag"] = {"build": False}
 
@@ -420,11 +410,11 @@ class PEPPPlotsDAG:
             self.config["pe_job"]["accounting_group_user"] = self.accountuser
 
         self.config["ephemerides"] = {}
-        self.config["ephemerides"]["pulsars"] = self.pulsardir
-        self.config["ephemerides"]["injections"] = self.pulsardir
+        self.config["ephemerides"]["pulsars"] = str(self.pulsardir)
+        self.config["ephemerides"]["injections"] = str(self.pulsardir)
 
         self.config["pe"] = {}
-        self.config["pe"]["results"] = self.resultsdir
+        self.config["pe"]["results"] = str(self.resultsdir)
         self.config["pe"]["numba"] = str(self.numba)
 
         # set fake data
@@ -437,10 +427,10 @@ class PEPPPlotsDAG:
 
         # set the prior file
         label = "ppplot"
-        self.priorfile = os.path.join(self.basedir, "{}.prior".format(label))
+        self.priorfile = self.basedir / f"{label}.prior"
         self.prior.to_file(outdir=self.basedir, label=label)
 
-        self.config["pe"]["priors"] = self.priorfile
+        self.config["pe"]["priors"] = str(self.priorfile)
         self.config["pe"]["sampler"] = self.sampler
         if isinstance(self.sampler_kwargs, dict):
             self.config["pe"]["sampler_kwargs"] = str(self.sampler_kwargs)
@@ -457,17 +447,17 @@ class PEPPPlotsDAG:
         jobexec = shutil.which("cwinpy_pe_generate_pp_plots")
 
         # set log directory
-        logdir = os.path.join(os.path.abspath(self.basedir), "log")
-        self.makedirs(logdir)
+        logdir = self.basedir.absolute() / "log"
+        logdir.mkdir(exist_ok=True, parents=True)
 
         subdict = {
             "universe": "local",
             "executable": jobexec,
             "getenv": self.getenv,
             "arguments": "$(ARGS)",
-            "log": os.path.join(logdir, "cwinpy_pe_pp_plots.log"),
-            "error": os.path.join(logdir, "cwinpy_pe_pp_plots.err"),
-            "output": os.path.join(logdir, "cwinpy_pe_pp_plots.out"),
+            "log": str(logdir / "cwinpy_pe_pp_plots.log"),
+            "error": str(logdir / "cwinpy_pe_pp_plots.err"),
+            "output": str(logdir / "cwinpy_pe_pp_plots.out"),
         }
 
         if self.accountgroup is not None:
@@ -478,8 +468,8 @@ class PEPPPlotsDAG:
 
         submit = Submit(subdict)
 
-        jobargs = "--path '{}' ".format(os.path.join(self.basedir, "results", "*", "*"))
-        jobargs += "--output {} ".format(os.path.join(self.basedir, "ppplot.png"))
+        jobargs = "--path '{}' ".format(self.basedir / "results" / "*" / "*")
+        jobargs += "--output {} ".format(self.basedir / "ppplot.png")
         if self.outputsnr:
             jobargs += "--snrs "
 
