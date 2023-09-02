@@ -222,7 +222,7 @@ def is_valid_psr_name(
 
     if name.startswith(("B", "J")):
         try:
-            if int(name[1:5]) < 2400 and name[5] in ("+", "-") and int(name[6:8]) < 90:
+            if int(name[1:5]) < 2400 and name[5] in ("+", "-") and int(name[6:8]) <= 90:
                 return True
         except (ValueError, IndexError):
             pass

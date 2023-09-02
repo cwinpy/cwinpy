@@ -15,7 +15,7 @@ from psrqpy import QueryATNF
 
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..parfile import PulsarParameters
-from ..utils import get_psr_name
+from ..utils import get_psr_name, is_valid_psr_name
 
 
 def results_odds(results, oddstype="svn", scale="log10", **kwargs):
@@ -98,12 +98,13 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
                 if len(resfiles) == 0:
                     raise ValueError(f"{results} contains no valid results files")
         else:
-            if all([len(k) == 2 for k in results]):
-                # check if all keys are detector names
-                resfiles = {"dummyname": results}
-            else:
+            # check if keys are valid pulsar names
+            if any(is_valid_psr_name(k) for k in results):
                 # assume dictionary keyed by pulsar name
                 resfiles = results
+            else:
+                # check if all keys are detector names
+                resfiles = {"dummyname": results}
 
         logodds = {}
 
@@ -277,10 +278,11 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
                     )
         else:
             hetfiles = {"dummyname": {"dummydet": het}}
-    elif isinstance(het, (HeterodynedData, MultiHeterodynedData)):
-        hetfiles = {"dummyname": {"dummydet": het}}
-    elif isinstance(het, dict):
-        hetfiles = het
+    elif isinstance(het, (HeterodynedData, MultiHeterodynedData, dict)):
+        if isinstance(het, dict) and any(is_valid_psr_name(k) for k in het):
+            hetfiles = het
+        else:
+            hetfiles = {"dummyname": {"dummydet": het}}
     else:
         raise TypeError("het should be a file/directory path or HeterodynedData object")
 
