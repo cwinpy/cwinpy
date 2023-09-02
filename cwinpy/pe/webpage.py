@@ -359,11 +359,16 @@ class CWPage(page):
         subtext = (
             "" if hsubtext is None else f"<small class='text-muted'>{hsubtext}</small>"
         )
-        anchortext = (
-            "" if anchor is None else f"<a class='anchor-link' href='#{anchor}'></a>"
-        )
 
-        self.add_content(f"<h{hsize}>{htext} {subtext} {anchortext}</h{hsize}>\n")
+        if anchor is None:
+            # use heading text as anchor
+            anchortext = "".join(
+                c for c in anchor.lower().replace(" ", "-") if c.isalnum()
+            )
+        else:
+            anchortext = anchor
+
+        self.add_content(f"<h{hsize} id='{anchortext}'>{htext} {subtext}</h{hsize}>\n")
         self.end_div()
 
     def close(self):
