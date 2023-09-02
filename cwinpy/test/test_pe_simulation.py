@@ -286,7 +286,9 @@ class TestPESimulation(object):
             ]
 
         for dir in ["configs", "priors", "pulsars"]:
-            assert len(glob.glob(os.path.join(testdir, dir, "*"))) == npulsars
+            assert len(glob.glob(os.path.join(testdir, dir, "*"))) == (
+                npulsars + 1 if dir == "configs" else npulsars
+            )
 
         # check priors are the same as the default
         for pname in sim.priors:
@@ -450,7 +452,9 @@ class TestPESimulation(object):
             ]
 
         for dir in ["configs", "priors", "pulsars"]:
-            assert len(glob.glob(os.path.join(testdir, dir, "*"))) == len(self.ras)
+            assert len(glob.glob(os.path.join(testdir, dir, "*"))) == (
+                len(self.ras) + 1 if dir == "configs" else len(self.ras)
+            )
 
         # check signal values are correct
         for i, pname in enumerate(self.names):
