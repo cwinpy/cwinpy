@@ -196,6 +196,44 @@ def get_psr_name(psr):
     return None
 
 
+def is_valid_psr_name(
+    name: str,
+    allowed_names: list = ["psr", "pulsar", "hwinj", "crab", "vela"],
+) -> bool:
+    """
+    Check if a string seems like it contains a valid pulsar name. If the string
+    starts with a "B" or "J" followed by 4 numbers (less than 2400), then a "+"
+    or "-", followed by 2 numbers (less than 90), it is considered a valid.
+    Otherwise, if it contains one of the user defined allowed names it is
+    considered valid.
+
+    Parameters
+    ----------
+    name: str
+        The string to check for pulsar name-likeness. If a non-string type is
+        passed the function will return False rather than raise a TypeError.
+    allowed_names: list
+        A list of allowed strings that are also considered value is the
+        ``name`` contains them in a case insensitive way.
+    """
+
+    if not isinstance(name, str):
+        return False
+
+    if name.startswith(("B", "J")):
+        try:
+            if int(name[1:5]) < 2400 and name[5] in ("+", "-") and int(name[6:8]) < 90:
+                return True
+        except (ValueError, IndexError):
+            pass
+
+    for a in allowed_names:
+        if a.lower() in name.lower():
+            return True
+
+    return False
+
+
 def int_to_alpha(pos, case="upper"):
     """
     For an integer number generate a corresponding alphabetical string
