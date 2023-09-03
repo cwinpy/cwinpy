@@ -732,6 +732,16 @@ def generate_summary_pages(**kwargs):
     showodds: bool
         Set to calculate and show the log Bayesian odds for the coherent signal
         model vs. noise/incoherent signals. The default is False.
+    sortby: str
+        Set the parameter on which to sort the table of results. The allowed
+        parameters are: 'PSRJ', 'F0', 'F1', 'DIST', 'H0', 'H0SPINDOWN', 'ELL',
+        'Q22', and 'ODDS'. When sorting on upper limits, if there are multiple
+        detectors, the results from the detector with the most constraining
+        limit will be sorted on.
+    sortdescending: bool
+        By default the table of results will be sorted in ascending order on
+        the chosen parameter. Set this argument to True to instead sort in
+        descending order.
     """
 
     if "cli" not in kwargs:
@@ -751,6 +761,9 @@ def generate_summary_pages(**kwargs):
         # upperlimitplot = kwargs.pop("upperlimitplot", True)
         showsnr = kwargs.pop("showsnr", False)
         showodds = kwargs.pop("showodds", False)
+
+        sortby = kwargs.pop("sortby", "PSRJ")
+        sortdes = kwargs.pop("sortdescending", False)
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
@@ -842,6 +855,29 @@ def generate_summary_pages(**kwargs):
                 "noise/incoherent signals."
             ),
         )
+        parser.add_argument(
+            "--sort-by",
+            default="PSRJ",
+            help=(
+                "Set the parameter by which to sort the table of results. The "
+                "default will be '%(default)s'. The allowed parameters are: "
+                "'PSRJ', 'F0', 'F1', 'DIST', 'H0', 'SDLIM' (h0 spin-down "
+                "limit), 'SDRAT' (spin-down ratio), 'ELL', 'Q22', 'SNR', and "
+                "'ODDS'. When sorting on upper limits, if there are multiple "
+                "detectors, the results from the detector with the most "
+                "constraining limit will be sorted on."
+            ),
+        )
+        parser.add_argument(
+            "--sort-descending",
+            action="store_true",
+            default=False,
+            help=(
+                "By default the table of results will be sorted in ascending "
+                "order on the chosen parameter. Set this flag to instead sort "
+                "in descending order."
+            ),
+        )
 
         args = parser.parse_args()
         configfile = args.config
@@ -858,6 +894,9 @@ def generate_summary_pages(**kwargs):
         upperlimitplot = not args.disable_upper_limit_plot
         showsnr = args.show_snr
         showodds = args.show_odds
+
+        sortby = args.sort_by
+        sortdes = args.sort_descending
 
     # make the output directory
     outpath.mkdir(parents=True, exist_ok=True)
@@ -899,6 +938,16 @@ def generate_summary_pages(**kwargs):
         # get matched filter signal-to-noise ratios
         snrs = optimal_snr(pipeline_data.resultsfiles, datadicts)
 
+        # add SNRs into the results table
+        if ultable is not None:
+            snrdets = list(list(snrs.values())[0].keys())
+            snrcols = {f"SNR_{d}": [] for d in snrdets}
+            for p in ultable["PSRJ"]:
+                for d in snrdets:
+                    snrcols[f"SNR_{d}"].append(snrs[p][d])
+
+            ultable.update(snrcols)
+
     if showodds:
         odds = {psr: {} for psr in pipeline_data.datadict}
 
@@ -936,6 +985,23 @@ def generate_summary_pages(**kwargs):
                 if odds[psr][det] > maxpsrodds[det][0]:
                     maxpsrodds[det][0] = odds[psr][det]
                     maxpsrodds[det][1] = psr
+
+    if ultable is not None:
+        # sort the table
+        if sortby.upper() in ultable.colnames:
+            ultable.sort(keys=sortby, reverse=sortdes)
+        else:
+            # get columns containing the give sort parameter
+            scols = [cname for cname in ultable.colnames if sortby.upper() in cname]
+
+            if not scols:
+                raise ValueError(
+                    f"No results columns found for the parameter '{sortby}'."
+                )
+
+            # get column with most constraining (minimum value)
+            mcol = scols[np.argmin([ultable[c].min() for c in scols])]
+            ultable.sort(keys=mcol, reverse=sortdes)
 
     # html table showing all results
     allresultstable = {}
@@ -975,6 +1041,17 @@ def generate_summary_pages(**kwargs):
         if ultable is not None:
             # show upper limit results
             tloc = ultable.loc[psr]
+
+            # show pulsar parameters
+            for par in ["F0", "2F0", "F1", "DIST", "SDLIM"]:
+                hname = PULSAR_HEADER_FORMATS[par]["html"]
+                tname = PULSAR_HEADER_FORMATS[par]["ultablename"]
+
+                quant = True if hasattr(tloc[tname], "value") else False
+                tvalue = tloc[tname].value if quant else tloc[tname]
+                rvalue = PULSAR_HEADER_FORMATS[par]["formatter"](tvalue)
+                allresultstable[psrlink][hname] = rvalue
+
             for amp in ["H0", "C21", "C22", "ELL", "Q22", "SDRAT"]:
                 for det in dets:
                     tname = f"{amp}_{det}_95%UL"
