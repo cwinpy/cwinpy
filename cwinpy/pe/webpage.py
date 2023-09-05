@@ -232,7 +232,7 @@ class CWPage(page):
 
         # first row of header
         self.add_content("<thead>\n", indent=26)
-        self.add_content("<tr>\n", indent=28)
+        self.add_content("<tr class='table-light'>\n", indent=28)
         for i, h in enumerate(h1):
             cclass = "" if not i else "class='border-left'"
 
@@ -246,7 +246,7 @@ class CWPage(page):
 
         # second row of header
         self.add_content("<thead>\n", indent=26)
-        self.add_content("<tr>\n", indent=28)
+        self.add_content("<tr class='table-light'>\n", indent=28)
         self.add_content("<th>Pulsar</th>\n", indent=30)
         for h in l1:
             # set detector name headings
@@ -264,7 +264,7 @@ class CWPage(page):
 
         for psr in contents:
             self.add_content("<tr>\n", indent=28)
-            self.add_content(f"<td>{psr}</td>\n", indent=30)
+            self.add_content(f"<td style='white-space:nowrap'>{psr}</td>\n", indent=30)
 
             for r in contents[psr]:
                 value = contents[psr][r]
@@ -273,21 +273,25 @@ class CWPage(page):
                         if v.startswith("<b>"):
                             # highlight the border
                             self.add_content(
-                                f"<td class='border border-info'>{v}</td>\n", indent=30
+                                f"<td class='table-info' style='white-space:nowrap'>{v}</td>\n",
+                                indent=30,
                             )
                         else:
                             self.add_content(
-                                f"<td class='border-left'>{v}</td>\n", indent=30
+                                f"<td class='border-left' style='white-space:nowrap'>{v}</td>\n",
+                                indent=30,
                             )
                 else:
                     if value.startswith("<b>"):
                         # highlight the border
                         self.add_content(
-                            f"<td class='border border-info'>{value}</td>\n", indent=30
+                            f"<td class='table-info' style='white-space:nowrap'>{value}</td>\n",
+                            indent=30,
                         )
                     else:
                         self.add_content(
-                            f"<td class='border-left'>{value}</td>\n", indent=30
+                            f"<td class='border-left' style='white-space:nowrap'>{value}</td>\n",
+                            indent=30,
                         )
             self.add_content("</tr>\n", indent=28)
 
@@ -363,7 +367,7 @@ class CWPage(page):
         if anchor is None:
             # use heading text as anchor
             anchortext = "".join(
-                c for c in anchor.lower().replace(" ", "-") if c.isalnum()
+                c for c in htext.lower().replace(" ", "-") if c.isalnum()
             )
         else:
             anchortext = anchor

@@ -8,7 +8,6 @@ import matplotlib as mpl
 import numpy as np
 from astropy.table import QTable, Table
 from bilby.core.result import Result, read_in_result
-from matplotlib import gridspec
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FixedLocator, FuncFormatter
 from psrqpy import QueryATNF
@@ -1788,16 +1787,21 @@ class UpperLimitTable(QTable):
             if addhistogram:
                 # set grid to add a histogram to the right hand side of the plot
                 # containing a projection of the y-axis values
-                gs = gridspec.GridSpec(
+                gridspec_kw = {
+                    "width_ratios": kwargs.pop("width_ratios", [4, 1]),
+                    "wspace": kwargs.pop("wspace", 0.03),
+                }
+                fig, ax = plt.subplots(
                     1,
                     2,
-                    width_ratios=kwargs.pop("width_ratios", [4, 1]),
-                    wspace=kwargs.pop("wspace", 0.03),
+                    gridspec_kw=gridspec_kw,
+                    figsize=figsize,
+                    layout="constrained",
+                    sharey=True,
                 )
-                ax = [plt.subplot(gs[0]), plt.subplot(gs[1])]
-                ax[0].sharey(ax[1])
             else:
-                ax = [plt.gca()]
+                fig, ax = plt.subplots(figsize=figsize)
+                ax = [ax]
 
         return fig, ax
 

@@ -719,9 +719,6 @@ def generate_summary_pages(**kwargs):
     pulsars: list, str
         A list of pulsars to show. By default all pulsars analysed will be
         shown.
-    upperlimittable: bool
-        Set to enable/disable production of a table of amplitude upper limits.
-        The default is True.
     upperlimitplot: bool
         Set to enable/disable production of a plot of amplitude upper limits
         as a function of frequency. The default is True.
@@ -757,8 +754,7 @@ def generate_summary_pages(**kwargs):
         if isinstance(pulsars, str):
             pulsars = [pulsars]
 
-        upperlimittable = kwargs.pop("upperlimittable", True)
-        # upperlimitplot = kwargs.pop("upperlimitplot", True)
+        upperlimitplot = kwargs.pop("upperlimitplot", True)
         showsnr = kwargs.pop("showsnr", False)
         showodds = kwargs.pop("showodds", False)
 
@@ -816,15 +812,6 @@ def generate_summary_pages(**kwargs):
             action="store_true",
             default=False,
             help="Set this flag to disable production of time series plots.",
-        )
-        parser.add_argument(
-            "--disable-upper-limit-table",
-            action="store_true",
-            default=False,
-            help=(
-                "Set this flag to disable production of a table of amplitude "
-                "upper limits."
-            ),
         )
         parser.add_argument(
             "--disable-upper-limit-plot",
@@ -890,7 +877,6 @@ def generate_summary_pages(**kwargs):
 
         pulsars = args.pulsars
 
-        upperlimittable = not args.disable_upper_limit_table
         upperlimitplot = not args.disable_upper_limit_plot
         showsnr = args.show_snr
         showodds = args.show_odds
@@ -904,24 +890,22 @@ def generate_summary_pages(**kwargs):
     # extract run information from configuration file
     pipeline_data = pe_pipeline(config=configfile, build=False)
 
-    if upperlimittable:
-        # get table of upper limits
-        ultable = UpperLimitTable(
-            resdir=pipeline_data.resultsbase,
-            includesdlim=True,
-            includeell=True,
-            includeq22=True,
-        )
+    # get table of upper limits
+    ultable = UpperLimitTable(
+        resdir=pipeline_data.resultsbase,
+        includesdlim=True,
+        includeell=True,
+        includeq22=True,
+    )
 
-        if upperlimitplot:
-            # get power spectral densities
-            asds = generate_power_spectrum(
-                pipeline_data.datadict,
-                time_average="mean",
-                asd=True,
-            )
+    if upperlimitplot:
+        # get power spectral densities
+        asds = generate_power_spectrum(
+            pipeline_data.datadict,
+            time_average="mean",
+            asd=True,
+        )
     else:
-        ultable = None
         asds = None
 
     if showsnr:
@@ -939,14 +923,14 @@ def generate_summary_pages(**kwargs):
         snrs = optimal_snr(pipeline_data.resultsfiles, datadicts)
 
         # add SNRs into the results table
-        if ultable is not None:
-            snrdets = list(list(snrs.values())[0].keys())
-            snrcols = {f"SNR_{d}": [] for d in snrdets}
-            for p in ultable["PSRJ"]:
-                for d in snrdets:
-                    snrcols[f"SNR_{d}"].append(snrs[p][d])
+        snrdets = list(list(snrs.values())[0].keys())
+        snrcols = {f"SNR_{d}": [] for d in snrdets}
+        for p in ultable["PSRJ"]:
+            for d in snrdets:
+                snrcols[f"SNR_{d}"].append(snrs[p][d])
 
-            ultable.update(snrcols)
+        for snrc in snrcols:
+            ultable[snrc] = snrcols[snrc]
 
     if showodds:
         odds = {psr: {} for psr in pipeline_data.datadict}
@@ -986,22 +970,28 @@ def generate_summary_pages(**kwargs):
                     maxpsrodds[det][0] = odds[psr][det]
                     maxpsrodds[det][1] = psr
 
-    if ultable is not None:
-        # sort the table
-        if sortby.upper() in ultable.colnames:
-            ultable.sort(keys=sortby, reverse=sortdes)
-        else:
-            # get columns containing the give sort parameter
-            scols = [cname for cname in ultable.colnames if sortby.upper() in cname]
+    # sort the table
+    if sortby.upper() in ultable.colnames:
+        ultable.sort(keys=sortby.upper(), reverse=sortdes)
+    else:
+        # get columns containing the given sort parameter
+        scols = [cname for cname in ultable.colnames if sortby.upper() in cname]
 
-            if not scols:
-                raise ValueError(
-                    f"No results columns found for the parameter '{sortby}'."
-                )
+        if not scols:
+            raise ValueError(f"No results columns found for the parameter '{sortby}'.")
 
-            # get column with most constraining (minimum value)
-            mcol = scols[np.argmin([ultable[c].min() for c in scols])]
-            ultable.sort(keys=mcol, reverse=sortdes)
+        # get column with most constraining (minimum value)
+        mcol = scols[
+            np.argmin(
+                [
+                    ultable[c].min().value
+                    if hasattr(ultable[c], "value")
+                    else ultable[c].min()
+                    for c in scols
+                ]
+            )
+        ]
+        ultable.sort(keys=mcol, reverse=sortdes)
 
     # html table showing all results
     allresultstable = {}
@@ -1014,7 +1004,7 @@ def generate_summary_pages(**kwargs):
     ldet = dets[np.argmax([len(d) for d in dets])]
 
     # generate pages for each pulsar
-    for psr in pipeline_data.resultsfiles:
+    for psr in ultable["PSRJ"]:
         if pulsars is not None and psr not in pulsars:
             continue
 
@@ -1038,81 +1028,76 @@ def generate_summary_pages(**kwargs):
             pages[psr][det].make_heading(f"PSR {psr}", hsubtext=f"{det}")
 
         # add required results into a table for the main page
-        if ultable is not None:
-            # show upper limit results
-            tloc = ultable.loc[psr]
+        # show upper limit results
+        tloc = ultable.loc[psr]
 
-            # show pulsar parameters
-            for par in ["F0", "2F0", "F1", "DIST", "SDLIM"]:
-                hname = PULSAR_HEADER_FORMATS[par]["html"]
-                tname = PULSAR_HEADER_FORMATS[par]["ultablename"]
+        # show pulsar parameters
+        for par in ["F0", "2F0", "F1", "DIST", "SDLIM"]:
+            hname = PULSAR_HEADER_FORMATS[par]["html"]
+            tname = PULSAR_HEADER_FORMATS[par]["ultablename"]
 
-                quant = True if hasattr(tloc[tname], "value") else False
-                tvalue = tloc[tname].value if quant else tloc[tname]
-                rvalue = PULSAR_HEADER_FORMATS[par]["formatter"](tvalue)
-                allresultstable[psrlink][hname] = rvalue
+            quant = True if hasattr(tloc[tname], "value") else False
+            tvalue = tloc[tname].value if quant else tloc[tname]
+            rvalue = PULSAR_HEADER_FORMATS[par]["formatter"](tvalue)
+            allresultstable[psrlink][hname] = rvalue
 
-            for amp in ["H0", "C21", "C22", "ELL", "Q22", "SDRAT"]:
-                for det in dets:
-                    tname = f"{amp}_{det}_95%UL"
+        for amp in ["H0", "C21", "C22", "ELL", "Q22", "SDRAT"]:
+            for det in dets:
+                tname = f"{amp}_{det}_95%UL"
 
-                    if tname in ultable.colnames:
-                        hname = RESULTS_HEADER_FORMATS[amp]["htmlshort"]
-
-                        if hname not in allresultstable[psrlink]:
-                            allresultstable[psrlink][hname] = {}
-
-                        quant = True if hasattr(tloc[tname], "value") else False
-                        tvalue = tloc[tname].value if quant else tloc[tname]
-                        rvalue = RESULTS_HEADER_FORMATS[amp]["formatter"](tvalue)
-
-                        if tvalue == (
-                            ultable[tname].min().value
-                            if quant
-                            else ultable[tname].min()
-                        ):
-                            # highlight minimum value (i.e., smallest upper limits)
-                            rvalue = f"<b>{rvalue}</b>"
-
-                        allresultstable[psrlink][hname][det] = rvalue
-
-            # shows odds results
-            if showodds:
-                # show signal vs noise odds for individual detectors
-                for det in oddsdets:
-                    hname = RESULTS_HEADER_FORMATS["ODDSSVN"]["htmlshort"]
+                if tname in ultable.colnames:
+                    hname = RESULTS_HEADER_FORMATS[amp]["htmlshort"]
 
                     if hname not in allresultstable[psrlink]:
                         allresultstable[psrlink][hname] = {}
 
-                    # highlight largest odds value
-                    if maxpsrodds[det][1] == psr:
-                        allresultstable[psrlink][hname][det] = (
-                            "<b>"
-                            + RESULTS_HEADER_FORMATS["ODDSSVN"]["formatter"](
-                                odds[psr][det]
-                            )
-                            + "</b>"
-                        )
-                    else:
-                        allresultstable[psrlink][hname][det] = RESULTS_HEADER_FORMATS[
-                            "ODDSSVN"
-                        ]["formatter"](odds[psr][det])
+                    quant = True if hasattr(tloc[tname], "value") else False
+                    tvalue = tloc[tname].value if quant else tloc[tname]
+                    rvalue = RESULTS_HEADER_FORMATS[amp]["formatter"](tvalue)
 
-                if jointdets is not None:
-                    hname = RESULTS_HEADER_FORMATS["ODDSCVI"]["htmlshort"]
-                    if maxpsrodds[jointdets][1] == psr:
-                        allresultstable[psrlink][hname] = (
-                            "<b>"
-                            + RESULTS_HEADER_FORMATS["ODDSCVI"]["formatter"](
-                                odds[psr][jointdets]
-                            )
-                            + "</b>"
+                    if tvalue == (
+                        ultable[tname].min().value if quant else ultable[tname].min()
+                    ):
+                        # highlight minimum value (i.e., smallest upper limits)
+                        rvalue = f"<b>{rvalue}</b>"
+
+                    allresultstable[psrlink][hname][det] = rvalue
+
+        # shows odds results
+        if showodds:
+            # show signal vs noise odds for individual detectors
+            for det in oddsdets:
+                hname = RESULTS_HEADER_FORMATS["ODDSSVN"]["htmlshort"]
+
+                if hname not in allresultstable[psrlink]:
+                    allresultstable[psrlink][hname] = {}
+
+                # highlight largest odds value
+                if maxpsrodds[det][1] == psr:
+                    allresultstable[psrlink][hname][det] = (
+                        "<b>"
+                        + RESULTS_HEADER_FORMATS["ODDSSVN"]["formatter"](odds[psr][det])
+                        + "</b>"
+                    )
+                else:
+                    allresultstable[psrlink][hname][det] = RESULTS_HEADER_FORMATS[
+                        "ODDSSVN"
+                    ]["formatter"](odds[psr][det])
+
+            if jointdets is not None:
+                hname = RESULTS_HEADER_FORMATS["ODDSCVI"]["htmlshort"]
+                if maxpsrodds[jointdets][1] == psr:
+                    allresultstable[psrlink][hname] = (
+                        "<b>"
+                        + RESULTS_HEADER_FORMATS["ODDSCVI"]["formatter"](
+                            odds[psr][jointdets]
                         )
-                    else:
-                        allresultstable[psrlink][hname] = RESULTS_HEADER_FORMATS[
-                            "ODDSCVI"
-                        ]["formatter"](odds[psr][jointdets])
+                        + "</b>"
+                    )
+                else:
+                    allresultstable[psrlink][hname] = RESULTS_HEADER_FORMATS["ODDSCVI"][
+                        "formatter"
+                    ](odds[psr][jointdets])
 
         # add results tables to each page
         _ = pulsar_summary_plots(
@@ -1206,85 +1191,84 @@ def generate_summary_pages(**kwargs):
     }
 
     # add the results table
-    if ultable is not None:
-        homepage.make_heading("Table of results", anchor="table-of-results")
-        homepage.make_results_table(contents=allresultstable)
+    homepage.make_heading("Table of results", anchor="table-of-results")
+    homepage.make_results_table(contents=allresultstable)
 
-        # create upper limits plots
-        if upperlimitplot:
-            ulplotdir = outpath / "ulplots"
-            ulplotdir.mkdir(parents=True, exist_ok=True)
+    # create upper limits plots
+    if upperlimitplot:
+        ulplotdir = outpath / "ulplots"
+        ulplotdir.mkdir(parents=True, exist_ok=True)
 
-            ulplots = {}
-            for amp in ampt:
-                for det in dets:
+        ulplots = {}
+        for amp in ampt:
+            for det in dets:
+                p = RESULTS_HEADER_FORMATS[amp]["ultablename"].format(det)
+
+                if p in ultable.colnames:
+                    if amp not in ulplots:
+                        ulplots[amp] = {}
+                        ampulpages[amp] = {}
+
+                    ampultitle = f"{amp}_{det}"
+                    _ = make_html(
+                        outpath, ampultitle, title=f"{ampt[amp]} upper limits"
+                    )
+                    amphomeurl = f"{url}/{ampultitle}.html"
+                    ampulpage = open_html(
+                        outpath / "html", amphomeurl, ampultitle, ampultitle
+                    )
+                    ampulpage.make_heading(
+                        f"{ampt[amp]} upper limits",
+                        hsubtext=f"{det}",
+                        anchor=f"{amp.lower()}-upper-limits",
+                    )
+
+                    # try getting ASDs to include on plots
+                    asd = None
+                    tobs = None
+                    if amp != "ELL":
+                        try:
+                            fkey = "2f" if amp in ["H0", "C22"] else "1f"
+                            asd = (
+                                [asds[det][fkey]]
+                                if len(det) == 2
+                                else [asds[d][fkey] for d in asds]
+                            )
+                            tobs = (
+                                [totobs[det]]
+                                if len(det) == 2
+                                else [totobs[d] for d in totobs]
+                            )
+                        except KeyError:
+                            pass
+
                     p = RESULTS_HEADER_FORMATS[amp]["ultablename"].format(det)
+                    fig = ultable.plot(
+                        p,
+                        histogram=True,
+                        asds=asd,
+                        showq22=True if amp == "ELL" else False,
+                        showtau=True if amp == "ELL" else False,
+                        tobs=tobs,
+                        asdkwargs={
+                            "color": GW_OBSERVATORY_COLORS[det]
+                            if det in GW_OBSERVATORY_COLORS
+                            else "grey",
+                            "alpha": 0.5,
+                            "linewidth": 5,
+                        },
+                    )
 
-                    if p in ultable.colnames:
-                        if amp not in ulplots:
-                            ulplots[amp] = {}
-                            ampulpages[amp] = {}
+                    ulplotfile = ulplotdir / f"{amp}_{det}.png"
+                    fig.savefig(ulplotfile, dpi=200)
+                    ulplots[amp][det] = ulplotfile
 
-                        ampultitle = f"{amp}_{det}"
-                        _ = make_html(
-                            outpath, ampultitle, title=f"{ampt[amp]} upper limits"
-                        )
-                        amphomeurl = f"{url}/{ampultitle}.html"
-                        ampulpage = open_html(
-                            outpath / "html", amphomeurl, ampultitle, ampultitle
-                        )
-                        ampulpage.make_heading(
-                            f"{ampt[amp]} upper limits",
-                            hsubtext=f"{det}",
-                            anchor=f"{amp.lower()}-upper-limits",
-                        )
+                    plt.close()
 
-                        # try getting ASDs to include on plots
-                        asd = None
-                        tobs = None
-                        if amp != "ELL":
-                            try:
-                                fkey = "2f" if amp in ["H0", "C22"] else "1f"
-                                asd = (
-                                    [asds[det][fkey]]
-                                    if len(det) == 2
-                                    else [asds[d][fkey] for d in asds]
-                                )
-                                tobs = (
-                                    [totobs[det]]
-                                    if len(det) == 2
-                                    else [totobs[d] for d in totobs]
-                                )
-                            except KeyError:
-                                pass
-
-                        p = RESULTS_HEADER_FORMATS[amp]["ultablename"].format(det)
-                        fig = ultable.plot(
-                            p,
-                            histogram=True,
-                            asds=asd,
-                            showq22=True if amp == "ELL" else False,
-                            showtau=True if amp == "ELL" else False,
-                            tobs=tobs,
-                            asdkwargs={
-                                "color": GW_OBSERVATORY_COLORS[det]
-                                if det in GW_OBSERVATORY_COLORS
-                                else "grey",
-                                "alpha": 0.5,
-                                "linewidth": 5,
-                            },
-                        )
-
-                        ulplotfile = ulplotdir / f"{amp}_{det}.png"
-                        fig.savefig(ulplotfile, dpi=200)
-                        ulplots[amp][det] = ulplotfile
-
-                        plt.close()
-
-                        ampulpage.insert_image(
-                            os.path.relpath(ulplotfile, ampulpage.web_dir), width=1200
-                        )
-                        ampulpages[amp][det] = ampulpage
+                    ampulpage.insert_image(
+                        os.path.relpath(ulplotfile, ampulpage.web_dir), width=1200
+                    )
+                    ampulpages[amp][det] = ampulpage
 
     # create homepage navbar
     homelinks = {
