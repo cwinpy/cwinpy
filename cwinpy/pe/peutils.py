@@ -684,6 +684,7 @@ def plot_snr_vs_odds(S, R, **kwargs):
             figkwargs["figsize"] = kwargs.pop("figsize")
         if "dpi" in kwargs:
             figkwargs["dpi"] = kwargs.pop("dpi")
+        figkwargs["layout"] = "constrained"
         fig, ax = plt.subplots(**figkwargs)
     else:
         fig = plt.gcf()
@@ -721,8 +722,6 @@ def plot_snr_vs_odds(S, R, **kwargs):
     ax.set_yscale(yscale)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-
-    fig.tight_layout()
 
     return fig, ax
 
@@ -1753,11 +1752,9 @@ class UpperLimitTable(QTable):
         ax[0].set_ylabel(self._get_label(axisdata["y"]["label"]))
 
         if len(ax) < 3:
-            fig.tight_layout()
             return fig
         else:
             # return matplotlib figure object
-            fig.figure.tight_layout()
             return fig.figure
 
     @staticmethod
@@ -1786,7 +1783,7 @@ class UpperLimitTable(QTable):
                 # default figure size
                 figsize = (12, 9)
 
-            fig = plt.figure(figsize=figsize)
+            fig = plt.figure(figsize=figsize, layout="constrained")
 
             if addhistogram:
                 # set grid to add a histogram to the right hand side of the plot
