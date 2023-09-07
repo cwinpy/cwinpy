@@ -66,7 +66,7 @@ RESULTS_HEADER_FORMATS = {
     },
     "SDRAT": {
         "html": r"\(h_0^{95\%}\,/\,h_0^{\rm spin-down}\)",
-        "htmlshort": r"\(h_0^{95\%}\,/\,h_0^{\rm sd}\)",
+        "htmlshort": r"spin-down ratio \(h_0^{95\%}\,/\,h_0^{\rm sd}\)",
         "ultablename": "SDRAT_{}_95%UL",
         "formatter": set_formats(name="SDRAT", type="html"),
     },
@@ -85,19 +85,19 @@ RESULTS_HEADER_FORMATS = {
     "SNR": {
         "html": r"Optimal signal-to-noise ratio \(\rho\)",
         "htmlshort": r"\(\rho\)",
-        "ultablename": "none",
+        "ultablename": "SNR_{}",
         "formatter": set_formats(name="SNR", type="html", dp=1, sf=2),
     },
     "ODDSSVN": {
         "html": r"\(\log{}_{10} \mathcal{O}\) signal vs. noise",
         "htmlshort": r"\(\log{}_{10} \mathcal{O}_{\rm SvN}\)",
-        "ultablename": "none",
+        "ultablename": "ODDSSVN_{}",
         "formatter": set_formats(name="ODDS", type="html", dp=1, sf=2),
     },
     "ODDSCVI": {
         "html": r"\(\log{}_{10} \mathcal{O}\) coherent vs. incoherent",
         "htmlshort": r"\(\log{}_{10} \mathcal{O}_{\rm CvI}\)",
-        "ultablename": "none",
+        "ultablename": "ODDSCVI",
         "formatter": set_formats(name="ODDS", type="html", dp=1, sf=2),
     },
 }
@@ -108,8 +108,6 @@ def pulsar_summary_plots(
     heterodyneddata: Union[str, dict, HeterodynedData, Path] = None,
     posteriordata: Union[str, dict, Path, Result] = None,
     ulresultstable: UpperLimitTable = None,
-    oddstable: dict = None,
-    snrtable: dict = None,
     outdir: Union[str, Path] = None,
     outputsuffix: str = None,
     plotformat: str = ".png",
@@ -144,14 +142,6 @@ def pulsar_summary_plots(
         A table of upper limits from which limits for the given pulsar can be
         extracted. If given, this will be included in a summary table for that
         pulsar.
-    oddstable: dict
-        A dictionary of odds results from which the value for the given pulsar
-        can be extracted. If given, this will be included in a summary table for
-        that pulsar.
-    snrtable: dict
-        A dictionary of SNR values from which the value for the given pulsar
-        can be extracted. If given, this will be included in a summary table
-        for that pulsar.
     outdir: str, Path
         The output directory into which to save the plots/summary table. If not
         given, the current working directory will be used.
@@ -225,6 +215,10 @@ def pulsar_summary_plots(
             resheader = ["Results", ""]
             restable = []
             for key in RESULTS_HEADER_FORMATS:
+                if key == "ODDSCVI" and len(det) == 2:
+                    # only do CvI odds for multiple detectors
+                    continue
+
                 tname = RESULTS_HEADER_FORMATS[key]["ultablename"].format(det)
                 if tname in ulresultstable.columns:
                     restable.append(
@@ -237,28 +231,6 @@ def pulsar_summary_plots(
                             ),
                         ]
                     )
-
-            if isinstance(snrtable, dict) and pname in snrtable:
-                restable.append(
-                    [
-                        RESULTS_HEADER_FORMATS["SNR"]["html"],
-                        RESULTS_HEADER_FORMATS["SNR"]["formatter"](
-                            snrtable[pname][det]
-                        ),
-                    ]
-                )
-
-            if isinstance(oddstable, dict) and pname in oddstable:
-                # single detector use SVN, multidetector ise CVI
-                oddstype = "ODDSSVN" if len(det) == 2 else "ODDSCVI"
-                restable.append(
-                    [
-                        RESULTS_HEADER_FORMATS[oddstype]["html"],
-                        RESULTS_HEADER_FORMATS[oddstype]["formatter"](
-                            oddstable[pname][det]
-                        ),
-                    ]
-                )
 
             webpage.make_div(_class="col")
             webpage.make_table(
@@ -275,8 +247,6 @@ def pulsar_summary_plots(
                 pulsar_summary_plots(
                     parfile,
                     ulresultstable=ulresultstable,
-                    snrtable=snrtable,
-                    oddstable=oddstable,
                     webpage=webpage[det],
                     det=det,
                 )
@@ -910,7 +880,7 @@ def generate_summary_pages(**kwargs):
 
     if showsnr:
         # switch frequency factor and detector in datadict
-        datadicts = {psr: {} for psr in pipeline_data.datadict}
+        datadicts = {psr: {} for psr in ultable["PSRJ"]}
         for psr, psrddict in pipeline_data.datadict.items():
             for ff in psrddict:
                 for det in psrddict[ff]:
@@ -933,13 +903,13 @@ def generate_summary_pages(**kwargs):
             ultable[snrc] = snrcols[snrc]
 
     if showodds:
-        odds = {psr: {} for psr in pipeline_data.datadict}
-
         oddsdets = []
-        jointdets = None
-
+        oddscols = {}
         for dets in pipeline_data.detcomb:
             if len(dets) == 1:
+                cname = RESULTS_HEADER_FORMATS["ODDSSVN"]["ultablename"].format(dets[0])
+                oddscols[cname] = []
+
                 oddsdets.append(dets[0])
                 # get single detector signal vs noise odds
                 sodds = results_odds(
@@ -949,26 +919,20 @@ def generate_summary_pages(**kwargs):
                     det=dets[0],
                 )
 
-                for psr in pipeline_data.datadict:
-                    odds[psr].update({dets[0]: sodds[psr]})
+                for psr in ultable["PSRJ"]:
+                    oddscols[cname].append(sodds[psr])
             else:
-                jointdets = "".join(dets)
                 # get multi-detector coherent vs incoherent odds
                 codds = results_odds(
                     pipeline_data.resultsfiles, oddstype="cvi", scale="log10"
                 )
 
-        maxpsrodds = {det: [-np.inf, None] for det in oddsdets}
-        if jointdets is not None:
-            maxpsrodds[jointdets] = [-np.inf, None]
+                cname = RESULTS_HEADER_FORMATS["ODDSCVI"]["ultablename"]
+                oddscols[cname] = [codds[psr] for psr in ultable["PSRJ"]]
 
-        for psr in pipeline_data.datadict:
-            odds[psr].update({jointdets: codds[psr]})
-
-            for det in maxpsrodds:
-                if odds[psr][det] > maxpsrodds[det][0]:
-                    maxpsrodds[det][0] = odds[psr][det]
-                    maxpsrodds[det][1] = psr
+        # add odds values into upper limit table
+        for ocol in oddscols:
+            ultable[ocol] = oddscols[ocol]
 
     # sort the table
     if sortby.upper() in ultable.colnames:
@@ -1032,7 +996,7 @@ def generate_summary_pages(**kwargs):
         tloc = ultable.loc[psr]
 
         # show pulsar parameters
-        for par in ["F0", "2F0", "F1", "DIST", "SDLIM"]:
+        for par in ["2F0", "F1", "DIST", "SDLIM"]:
             hname = PULSAR_HEADER_FORMATS[par]["html"]
             tname = PULSAR_HEADER_FORMATS[par]["ultablename"]
 
@@ -1041,6 +1005,7 @@ def generate_summary_pages(**kwargs):
             rvalue = PULSAR_HEADER_FORMATS[par]["formatter"](tvalue)
             allresultstable[psrlink][hname] = rvalue
 
+        # show upper limits
         for amp in ["H0", "C21", "C22", "ELL", "Q22", "SDRAT"]:
             for det in dets:
                 tname = f"{amp}_{det}_95%UL"
@@ -1063,49 +1028,42 @@ def generate_summary_pages(**kwargs):
 
                     allresultstable[psrlink][hname][det] = rvalue
 
-        # shows odds results
-        if showodds:
-            # show signal vs noise odds for individual detectors
-            for det in oddsdets:
+        # show odds if present in the table
+        for det in dets:
+            tname = f"ODDSSVN_{det}"
+
+            if tname in ultable.colnames:
                 hname = RESULTS_HEADER_FORMATS["ODDSSVN"]["htmlshort"]
 
                 if hname not in allresultstable[psrlink]:
                     allresultstable[psrlink][hname] = {}
 
-                # highlight largest odds value
-                if maxpsrodds[det][1] == psr:
-                    allresultstable[psrlink][hname][det] = (
-                        "<b>"
-                        + RESULTS_HEADER_FORMATS["ODDSSVN"]["formatter"](odds[psr][det])
-                        + "</b>"
-                    )
-                else:
-                    allresultstable[psrlink][hname][det] = RESULTS_HEADER_FORMATS[
-                        "ODDSSVN"
-                    ]["formatter"](odds[psr][det])
+                tvalue = tloc[tname]
+                rvalue = RESULTS_HEADER_FORMATS["ODDSSVN"]["formatter"](tvalue)
 
-            if jointdets is not None:
-                hname = RESULTS_HEADER_FORMATS["ODDSCVI"]["htmlshort"]
-                if maxpsrodds[jointdets][1] == psr:
-                    allresultstable[psrlink][hname] = (
-                        "<b>"
-                        + RESULTS_HEADER_FORMATS["ODDSCVI"]["formatter"](
-                            odds[psr][jointdets]
-                        )
-                        + "</b>"
-                    )
-                else:
-                    allresultstable[psrlink][hname] = RESULTS_HEADER_FORMATS["ODDSCVI"][
-                        "formatter"
-                    ](odds[psr][jointdets])
+                # highlight largest odds
+                if tvalue == ultable[tname].max():
+                    rvalue = f"<b>{rvalue}</b>"
+
+                allresultstable[psrlink][hname][det] = rvalue
+
+        if "ODDSCVI" in ultable.colnames:
+            hname = RESULTS_HEADER_FORMATS["ODDSCVI"]["htmlshort"]
+
+            tvalue = tloc["ODDSCVI"]
+            rvalue = RESULTS_HEADER_FORMATS["ODDSCVI"]["formatter"](tvalue)
+
+            # highlight largest odds
+            if tvalue == ultable["ODDSCVI"].max():
+                rvalue = f"<b>{rvalue}</b>"
+
+            allresultstable[psrlink][hname] = rvalue
 
         # add results tables to each page
         _ = pulsar_summary_plots(
             pipeline_data.pulsardict[psr],
             ulresultstable=ultable,
             webpage=pages[psr],
-            snrtable=snrs if showsnr else None,
-            oddstable=odds if showodds else None,
         )
 
     # plot posteriors
