@@ -804,6 +804,9 @@ class UpperLimitTable(QTable):
         "DIST": r"d",
         "SDLIM": r"h_0^{\rm sd}",
         "SDRAT": r"h_0{0} / h_0^{{\rm sd}}",
+        "SNR": r"\rho{0}",
+        "ODDSSVN": r"\log{{}}_{{10}} \mathcal{{O}}_{{\rm SvN}}{0}",
+        "ODDSCVI": r"\log{}_{10} \mathcal{O}_{\rm CvI}",
     }
 
     def __init__(self, resdir=None, **kwargs):
@@ -1373,7 +1376,7 @@ class UpperLimitTable(QTable):
 
         # scale rotation frequency to GW frequency if necessary
         if isinstance(column, str) and axisdata["y"]["label"].upper().startswith(
-            ("H0", "ELL", "Q22", "C22")
+            ("H0", "ELL", "Q22", "C22", "SDRAT")
         ):
             axisdata["x"]["data"] *= 2.0  # GWs at twice frot
             axisdata["x"]["label"] = "F0GW"

@@ -702,13 +702,17 @@ def generate_summary_pages(**kwargs):
     sortby: str
         Set the parameter on which to sort the table of results. The allowed
         parameters are: 'PSRJ', 'F0', 'F1', 'DIST', 'H0', 'H0SPINDOWN', 'ELL',
-        'Q22', and 'ODDS'. When sorting on upper limits, if there are multiple
+        'Q22', 'SDRAT', and 'ODDS'. When sorting on upper limits, if there are multiple
         detectors, the results from the detector with the most constraining
         limit will be sorted on.
     sortdescending: bool
         By default the table of results will be sorted in ascending order on
         the chosen parameter. Set this argument to True to instead sort in
         descending order.
+    onlyjoint: bool
+        By default all single detector and multi-detector (joint) analysis
+        results will be tabulated if present. Set this argument to True to
+        instead only show the joint analysis in the table of results.
     """
 
     if "cli" not in kwargs:
@@ -730,6 +734,7 @@ def generate_summary_pages(**kwargs):
 
         sortby = kwargs.pop("sortby", "PSRJ")
         sortdes = kwargs.pop("sortdescending", False)
+        onlyjoint = kwargs.pop("onlyjoint", False)
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
@@ -835,6 +840,15 @@ def generate_summary_pages(**kwargs):
                 "in descending order."
             ),
         )
+        parser.add_argument(
+            "--only-joint",
+            action="store_true",
+            default=False,
+            help=(
+                "Set this flag to only show joint, i.e., multi-detector, "
+                "results in the table of results."
+            ),
+        )
 
         args = parser.parse_args()
         configfile = args.config
@@ -853,6 +867,7 @@ def generate_summary_pages(**kwargs):
 
         sortby = args.sort_by
         sortdes = args.sort_descending
+        onlyjoint = args.only_joint
 
     # make the output directory
     outpath.mkdir(parents=True, exist_ok=True)
@@ -1008,6 +1023,9 @@ def generate_summary_pages(**kwargs):
         # show upper limits
         for amp in ["H0", "C21", "C22", "ELL", "Q22", "SDRAT"]:
             for det in dets:
+                if len(det) == 2 and onlyjoint:
+                    continue
+
                 tname = f"{amp}_{det}_95%UL"
 
                 if tname in ultable.colnames:
@@ -1029,35 +1047,57 @@ def generate_summary_pages(**kwargs):
                     allresultstable[psrlink][hname][det] = rvalue
 
         # show odds if present in the table
-        for det in dets:
-            tname = f"ODDSSVN_{det}"
+        if not onlyjoint:
+            for det in dets:
+                tname = RESULTS_HEADER_FORMATS["ODDSSVN"]["ultablename"].format(det)
 
-            if tname in ultable.colnames:
-                hname = RESULTS_HEADER_FORMATS["ODDSSVN"]["htmlshort"]
+                if tname in ultable.colnames:
+                    hname = RESULTS_HEADER_FORMATS["ODDSSVN"]["htmlshort"]
 
-                if hname not in allresultstable[psrlink]:
-                    allresultstable[psrlink][hname] = {}
+                    if hname not in allresultstable[psrlink]:
+                        allresultstable[psrlink][hname] = {}
 
-                tvalue = tloc[tname]
-                rvalue = RESULTS_HEADER_FORMATS["ODDSSVN"]["formatter"](tvalue)
+                    tvalue = tloc[tname]
+                    rvalue = RESULTS_HEADER_FORMATS["ODDSSVN"]["formatter"](tvalue)
 
-                # highlight largest odds
-                if tvalue == ultable[tname].max():
-                    rvalue = f"<b>{rvalue}</b>"
+                    # highlight largest odds
+                    if tvalue == ultable[tname].max():
+                        rvalue = f"<b>{rvalue}</b>"
 
-                allresultstable[psrlink][hname][det] = rvalue
+                    allresultstable[psrlink][hname][det] = rvalue
 
+        tname = RESULTS_HEADER_FORMATS["ODDSCVI"]["ultablename"]
         if "ODDSCVI" in ultable.colnames:
             hname = RESULTS_HEADER_FORMATS["ODDSCVI"]["htmlshort"]
 
-            tvalue = tloc["ODDSCVI"]
+            tvalue = tloc[tname]
             rvalue = RESULTS_HEADER_FORMATS["ODDSCVI"]["formatter"](tvalue)
 
             # highlight largest odds
-            if tvalue == ultable["ODDSCVI"].max():
+            if tvalue == ultable[tname].max():
                 rvalue = f"<b>{rvalue}</b>"
 
             allresultstable[psrlink][hname] = rvalue
+
+        # show SNR if present in the table
+        if not onlyjoint:
+            for det in dets:
+                tname = RESULTS_HEADER_FORMATS["SNR"]["ultablename"].format(det)
+
+                if tname in ultable.colnames:
+                    hname = RESULTS_HEADER_FORMATS["SNR"]["htmlshort"]
+
+                    if hname not in allresultstable[psrlink]:
+                        allresultstable[psrlink][hname] = {}
+
+                    tvalue = tloc[tname]
+                    rvalue = RESULTS_HEADER_FORMATS["SNR"]["formatter"](tvalue)
+
+                    # highlight largest SNR
+                    if tvalue == ultable[tname].max():
+                        rvalue = f"<b>{rvalue}</b>"
+
+                    allresultstable[psrlink][hname][det] = rvalue
 
         # add results tables to each page
         _ = pulsar_summary_plots(
@@ -1146,6 +1186,7 @@ def generate_summary_pages(**kwargs):
         "C21": "\(C_{21}\)",
         "C22": "\(C_{22}\)",
         "ELL": "Ellipticity",
+        "SDRAT": "Spin-down ratio",
     }
 
     # add the results table
