@@ -3,6 +3,146 @@ from typing import Union
 
 from pesummary.core.webpage.webpage import BOOTSTRAP, page
 
+from .peutils import set_formats
+
+PULSAR_HEADER_FORMATS = {
+    "F0": {
+        "html": r"\(f_{\rm rot}\) (Hz)",
+        "ultablename": "F0ROT",
+        "tooltip": "The rotation frequency of the pulsar",
+        "formatter": set_formats(name="F0ROT", type="html", dp=2),
+    },
+    "2F0": {
+        "html": r"\(f_{\rm gw}\,[2f_{\rm rot}]\) (Hz)",
+        "ultablename": "F0ROT",
+        "tooltip": (
+            "The gravitational wave frequency assuming emission from the "
+            "<i>l</i>=<i>m</i>=2 mass quadrupole (twice the rotation frequency)"
+        ),
+        "formatter": lambda x: set_formats(name="F0ROT", type="html", dp=2)(2 * x),
+    },
+    "F1": {
+        "html": r"\(\dot{f}_{\rm rot}\) (Hz/s)",
+        "ultablename": "F1ROT",
+        "tooltip": (
+            "The intrinsic first derivative of the rotation frequency "
+            "(i.e., the spin-down rate)"
+        ),
+        "formatter": set_formats(name="F1ROT", type="html", dp=2, scinot=True),
+    },
+    "DIST": {
+        "html": "distance (kpc)",
+        "ultablename": "DIST",
+        "tooltip": "The distance to the pulsar",
+        "formatter": set_formats(name="DIST", type="html", dp=1),
+    },
+    "SDLIM": {
+        "html": "\(h_0\) spin-down limit",
+        "ultablename": "SDLIM",
+        "tooltip": (
+            "The inferred spin-down limit assuming a fiducial moment of "
+            "inertia of 10<sup>38</sup> kg m<sup>2</sup>"
+        ),
+        "formatter": set_formats(name="SDLIM", type="html", dp=1, scinot=True),
+    },
+}
+
+
+RESULTS_HEADER_FORMATS = {
+    "H0": {
+        "html": r"\(h_0^{95\%}\) upper limit",
+        "htmlshort": r"\(h_0^{{95\%}}\)",
+        "tooltip": (
+            "Upper limit on the gravitational wave amplitude for a rigidly "
+            "rotating triaxial source"
+        ),
+        "ultablename": "H0_{}_95%UL",
+        "formatter": set_formats(name="H0", type="html", dp=1, scinot=True),
+        "highlight": "most constraining amplitude upper limit",
+    },
+    "ELL": {
+        "html": r"\(\varepsilon^{95\%}\) upper limit",
+        "htmlshort": r"\(\varepsilon^{{95\%}}\)",
+        "tooltip": (
+            "Upper limit on the fiducial neutron start ellipticity for a "
+            "rigidly rotating triaxial source: |<i>I</i><sub>xx</sub> - "
+            "<i>I</i><sub>yy</sub>| / <i>I<sub>zz</sub>"
+        ),
+        "ultablename": "ELL_{}_95%UL",
+        "formatter": set_formats(name="ELL", type="html", dp=1, scinot=True),
+        "highlight": "most constraining ellipiticity upper limit",
+    },
+    "Q22": {
+        "html": r"\(Q_{22}^{95\%}\) upper limit (kg m<sup>2</sup>)",
+        "htmlshort": r"\(Q_{{22}}^{{95\%}}\) kg m<sup>2</sup>",
+        "tooltip": ("Upper limit on the <i>l</i>=<i>m</i>=2\) mass quadrupole moment"),
+        "ultablename": "Q22_{}_95%UL",
+        "formatter": set_formats(name="Q22", type="html", dp=1, scinot=True),
+    },
+    "SDRAT": {
+        "html": r"\(h_0^{95\%}\,/\,h_0^{\rm spin-down}\)",
+        "htmlshort": r"spin-down ratio \(h_0^{95\%}\,/\,h_0^{\rm sd}\)",
+        "tooltip": (
+            "Ratio of the observed gravitational wave amplitude upper limit "
+            "to the inferred spin-down limit assuming a fiducial moment of "
+            "inertia of 10<sup>38</sup> kg m<sup>2</sup>"
+        ),
+        "ultablename": "SDRAT_{}_95%UL",
+        "formatter": set_formats(name="SDRAT", type="html"),
+        "highlight": "smallest spin-down ratio",
+    },
+    "C21": {
+        "html": r"\(C_{21}^{95\%}\) upper limit",
+        "htmlshort": r"\(C_{{21}}^{{95\%}}\)",
+        "tooltip": ("Upper limit on the amplitude of the <i>l</i>=2, <i>m</i>=1 mode"),
+        "ultablename": "C21_{}_95%UL",
+        "formatter": set_formats(name="C21", type="html", dp=1, scinot=True),
+        "highlight": "most constraining C<sub>21</sub> upper limit",
+    },
+    "C22": {
+        "html": r"\(C_{22}^{95\%}\) upper limit",
+        "htmlshort": r"\(C_{{22}}^{{95\%}}\)",
+        "tooltip": ("Upper limit on the amplitude of the <i>l</i>=2, <i>m</i>=2 mode"),
+        "ultablename": "C22_{}_95%UL",
+        "formatter": set_formats(name="C22", type="html", dp=1, scinot=True),
+        "highlight": "most constraining C<sub>22</sub> upper limit",
+    },
+    "SNR": {
+        "html": r"Optimal signal-to-noise ratio \(\rho\)",
+        "htmlshort": r"\(\rho\)",
+        "tooltip": (
+            "The optimal matched-filter signal-to-noise ratio of the maximum "
+            "a-posteriori source parameters"
+        ),
+        "ultablename": "SNR_{}",
+        "formatter": set_formats(name="SNR", type="html", dp=1, sf=2),
+        "highlight": "largest signal-to-noise ratio",
+    },
+    "ODDSSVN": {
+        "html": r"\(\log{}_{10} \mathcal{O}\) signal vs. noise",
+        "htmlshort": r"\(\log{}_{10} \mathcal{O}_{\rm SvN}\)",
+        "tooltip": (
+            "The odds of the data containing a coherent signal versus the "
+            "data containing purely noise"
+        ),
+        "ultablename": "ODDSSVN_{}",
+        "formatter": set_formats(name="ODDS", type="html", dp=1, sf=2),
+        "highlight": "largest signal versus noise odds",
+    },
+    "ODDSCVI": {
+        "html": r"\(\log{}_{10} \mathcal{O}\) coherent vs. incoherent",
+        "htmlshort": r"\(\log{}_{10} \mathcal{O}_{\rm CvI}\)",
+        "tooltip": (
+            "The odds the the data containing a coherent signal versus the "
+            "data containing incoherent signals <i>or</i> noise"
+        ),
+        "ultablename": "ODDSCVI",
+        "formatter": set_formats(name="ODDS", type="html", dp=1, sf=2),
+        "highlight": "largest coherent versus noise odds",
+    },
+}
+
+
 # CSS and Javascript (including MathJAX)
 SCRIPTS_AND_CSS = """    <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js'></script>
     <script src='https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js'></script>
@@ -11,6 +151,7 @@ SCRIPTS_AND_CSS = """    <script src='https://ajax.googleapis.com/ajax/libs/jque
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
     <script>Fancybox.bind('[data-fancybox="gallery"]', { }); </script>
+
     <script src='../js/grab.js'></script>
     <script src='../js/modal.js'></script>
     <script src='../js/multi_dropbar.js'></script>
@@ -187,6 +328,7 @@ class CWPage(page):
         contents: dict,
         format: str = "table-striped table-sm",
         sticky_header: bool = True,
+        highlight_psrs: dict = None,
     ):
         """
         Generate a table of pulsar results in bootstrap format. This is based
@@ -205,6 +347,9 @@ class CWPage(page):
             "table-striped table-sm".
         sticky_header: bool
             Set whether to have a sticky header on the table. Default is True.
+        highlight_psrs: dict
+            A dictionary of pulsars to highlight, keyed on the pulsar string,
+            with values being text to add to a tooltip for that table row.
         """
 
         # generate headings
@@ -230,6 +375,17 @@ class CWPage(page):
             f"<table class='table {format}' style='max-width:1400px'>\n", indent=24
         )
 
+        headertooltips = {
+            RESULTS_HEADER_FORMATS[p]["htmlshort"]: RESULTS_HEADER_FORMATS[p]["tooltip"]
+            for p in RESULTS_HEADER_FORMATS
+        }
+        headertooltips.update(
+            {
+                PULSAR_HEADER_FORMATS[p]["html"]: PULSAR_HEADER_FORMATS[p]["tooltip"]
+                for p in PULSAR_HEADER_FORMATS
+            }
+        )
+
         # first row of header
         self.add_content("<thead>\n", indent=26)
         self.add_content("<tr class='table-light'>\n", indent=28)
@@ -237,10 +393,19 @@ class CWPage(page):
             cclass = "" if not i else "class='border-left'"
 
             # set result name headings
-            self.add_content(
-                f"<th {cclass} colspan='{h1[h]}' style='text-align:center'>{h}</th>\n",
-                indent=30,
-            )
+            if h in headertooltips:
+                self.add_content(
+                    (
+                        f"<th {cclass} colspan='{h1[h]}' style='text-align:center' data-toggle='tooltip' "
+                        f"data-html='true' title='{headertooltips[h]}'>{h}</th>\n"
+                    ),
+                    indent=30,
+                )
+            else:
+                self.add_content(
+                    f"<th {cclass} colspan='{h1[h]}' style='text-align:center'>{h}</th>\n",
+                    indent=30,
+                )
         self.add_content("</tr>\n", indent=28)
         self.add_content("</thead>\n", indent=26)
 
@@ -263,7 +428,14 @@ class CWPage(page):
         self.add_content("<tbody>\n", indent=26)
 
         for psr in contents:
-            self.add_content("<tr>\n", indent=28)
+            if isinstance(highlight_psrs, dict) and psr in highlight_psrs:
+                # highlight given pulsars
+                self.add_content(
+                    f"<tr class='table-success' data-toggle='tooltip' title='{highlight_psrs[psr]}'>"
+                )
+            else:
+                self.add_content("<tr>\n", indent=28)
+
             self.add_content(f"<td style='white-space:nowrap'>{psr}</td>\n", indent=30)
 
             for r in contents[psr]:
@@ -376,6 +548,11 @@ class CWPage(page):
         self.end_div()
 
     def close(self):
+        # add data-toggle script
+        self.add_content(
+            "<script>$('[data-toggle=\"tooltip\"]').tooltip({ html:true }); </script>"
+        )
+
         self.add_content("</body>\n</html>\n")  # close off page
         self.html_file.close()
 

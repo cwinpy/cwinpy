@@ -14,93 +14,15 @@ from ..parfile import PulsarParameters
 from ..plot import Plot
 from ..utils import get_psr_name, is_par_file
 from .pe import pe_pipeline
-from .peutils import UpperLimitTable, optimal_snr, results_odds, set_formats
-from .webpage import SCRIPTS_AND_CSS, CWPage, make_html, open_html
-
-PULSAR_HEADER_FORMATS = {
-    "F0": {
-        "html": r"\(f_{\rm rot}\) (Hz)",
-        "ultablename": "F0ROT",
-        "formatter": set_formats(name="F0ROT", type="html", dp=2),
-    },
-    "2F0": {
-        "html": r"\(f_{\rm gw}\,[2f_{\rm rot}]\) (Hz)",
-        "ultablename": "F0ROT",
-        "formatter": lambda x: set_formats(name="F0ROT", type="html", dp=2)(2 * x),
-    },
-    "F1": {
-        "html": r"\(\dot{f}_{\rm rot}\) (Hz/s)",
-        "ultablename": "F1ROT",
-        "formatter": set_formats(name="F1ROT", type="html", dp=2, scinot=True),
-    },
-    "DIST": {
-        "html": "distance (kpc)",
-        "ultablename": "DIST",
-        "formatter": set_formats(name="DIST", type="html", dp=1),
-    },
-    "SDLIM": {
-        "html": "\(h_0\) spin-down limit",
-        "ultablename": "SDLIM",
-        "formatter": set_formats(name="SDLIM", type="html", dp=1, scinot=True),
-    },
-}
-
-RESULTS_HEADER_FORMATS = {
-    "H0": {
-        "html": r"\(h_0^{95\%}\) upper limit",
-        "htmlshort": r"\(h_0^{{95\%}}\)",
-        "ultablename": "H0_{}_95%UL",
-        "formatter": set_formats(name="H0", type="html", dp=1, scinot=True),
-    },
-    "ELL": {
-        "html": r"\(\varepsilon^{95\%}\) upper limit",
-        "htmlshort": r"\(\varepsilon^{{95\%}}\)",
-        "ultablename": "ELL_{}_95%UL",
-        "formatter": set_formats(name="ELL", type="html", dp=1, scinot=True),
-    },
-    "Q22": {
-        "html": r"\(Q_{22}^{95\%}\) upper limit (kg m<sup>2</sup>)",
-        "htmlshort": r"\(Q_{{22}}^{{95\%}}\) kg m<sup>2</sup>",
-        "ultablename": "Q22_{}_95%UL",
-        "formatter": set_formats(name="Q22", type="html", dp=1, scinot=True),
-    },
-    "SDRAT": {
-        "html": r"\(h_0^{95\%}\,/\,h_0^{\rm spin-down}\)",
-        "htmlshort": r"spin-down ratio \(h_0^{95\%}\,/\,h_0^{\rm sd}\)",
-        "ultablename": "SDRAT_{}_95%UL",
-        "formatter": set_formats(name="SDRAT", type="html"),
-    },
-    "C21": {
-        "html": r"\(C_{21}^{95\%}\) upper limit",
-        "htmlshort": r"\(C_{{21}}^{{95\%}}\)",
-        "ultablename": "C21_{}_95%UL",
-        "formatter": set_formats(name="C21", type="html", dp=1, scinot=True),
-    },
-    "C22": {
-        "html": r"\(C_{22}^{95\%}\) upper limit",
-        "htmlshort": r"\(C_{{22}}^{{95\%}}\)",
-        "ultablename": "C22_{}_95%UL",
-        "formatter": set_formats(name="C22", type="html", dp=1, scinot=True),
-    },
-    "SNR": {
-        "html": r"Optimal signal-to-noise ratio \(\rho\)",
-        "htmlshort": r"\(\rho\)",
-        "ultablename": "SNR_{}",
-        "formatter": set_formats(name="SNR", type="html", dp=1, sf=2),
-    },
-    "ODDSSVN": {
-        "html": r"\(\log{}_{10} \mathcal{O}\) signal vs. noise",
-        "htmlshort": r"\(\log{}_{10} \mathcal{O}_{\rm SvN}\)",
-        "ultablename": "ODDSSVN_{}",
-        "formatter": set_formats(name="ODDS", type="html", dp=1, sf=2),
-    },
-    "ODDSCVI": {
-        "html": r"\(\log{}_{10} \mathcal{O}\) coherent vs. incoherent",
-        "htmlshort": r"\(\log{}_{10} \mathcal{O}_{\rm CvI}\)",
-        "ultablename": "ODDSCVI",
-        "formatter": set_formats(name="ODDS", type="html", dp=1, sf=2),
-    },
-}
+from .peutils import UpperLimitTable, optimal_snr, results_odds
+from .webpage import (
+    PULSAR_HEADER_FORMATS,
+    RESULTS_HEADER_FORMATS,
+    SCRIPTS_AND_CSS,
+    CWPage,
+    make_html,
+    open_html,
+)
 
 
 def pulsar_summary_plots(
@@ -982,6 +904,10 @@ def generate_summary_pages(**kwargs):
     dets = list(list(pipeline_data.resultsfiles.items())[0][1].keys())
     ldet = dets[np.argmax([len(d) for d in dets])]
 
+    # pulsars to highlight in the table - this will highlight the Crab pulsar,
+    # the Vela pulsar and the pulsars with the most constraining limits
+    highlight_psrs = {}
+
     # generate pages for each pulsar
     for psr in ultable["PSRJ"]:
         if pulsars is not None and psr not in pulsars:
@@ -1041,8 +967,16 @@ def generate_summary_pages(**kwargs):
                     if tvalue == (
                         ultable[tname].min().value if quant else ultable[tname].min()
                     ):
-                        # highlight minimum value (i.e., smallest upper limits)
+                        # highlight values (i.e., smallest upper limits)
                         rvalue = f"<b>{rvalue}</b>"
+
+                        # highlight the row for joint results
+                        if len(det) > 2:
+                            highlighttxt = f"PSR {psr} has the {RESULTS_HEADER_FORMATS[amp]['highlight']}."
+                            if psrlink not in highlight_psrs:
+                                highlight_psrs[psrlink] = highlighttxt
+                            else:
+                                highlight_psrs[psrlink] += f" {highlighttxt}"
 
                     allresultstable[psrlink][hname][det] = rvalue
 
@@ -1191,7 +1125,7 @@ def generate_summary_pages(**kwargs):
 
     # add the results table
     homepage.make_heading("Table of results", anchor="table-of-results")
-    homepage.make_results_table(contents=allresultstable)
+    homepage.make_results_table(contents=allresultstable, highlight_psrs=highlight_psrs)
 
     # create upper limits plots
     if upperlimitplot:
