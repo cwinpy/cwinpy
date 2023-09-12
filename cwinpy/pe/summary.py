@@ -638,6 +638,11 @@ def generate_summary_pages(**kwargs):
         By default all single detector and multi-detector (joint) analysis
         results will be tabulated if present. Set this argument to True to
         instead only show the joint analysis in the table of results.
+    onlymsps: bool
+        Set this flag to True to only include recycled millisecond pulsars in
+        the output. We defined an MSP as having a rotation period less than 30
+        ms (rotation frequency greater than 33.3 Hz) and an estimated B-field
+        of less than 1e11 Gauss.
     """
 
     if "cli" not in kwargs:
@@ -661,6 +666,8 @@ def generate_summary_pages(**kwargs):
         sortby = kwargs.pop("sortby", "PSRJ")
         sortdes = kwargs.pop("sortdescending", False)
         onlyjoint = kwargs.pop("onlyjoint", False)
+
+        onlymsps = kwargs.pop("onlymsps", False)
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
@@ -777,6 +784,17 @@ def generate_summary_pages(**kwargs):
             ),
         )
         parser.add_argument(
+            "--show-only-msps",
+            action="store_true",
+            default=False,
+            help=(
+                "Set this flag to only include recycled millisecond pulsars "
+                "in the output. We defined an MSP as having a rotation period "
+                "less than 30 ms (rotation frequency greater than 33.3 Hz) "
+                "and an estimated B-field of less than 1e11 Gauss."
+            ),
+        )
+        parser.add_argument(
             "--only-joint",
             action="store_true",
             default=False,
@@ -804,6 +822,7 @@ def generate_summary_pages(**kwargs):
 
         sortby = args.sort_by
         sortdes = args.sort_descending
+        onlymsps = args.show_only_msps
         onlyjoint = args.only_joint
 
     # make the output directory
@@ -819,6 +838,14 @@ def generate_summary_pages(**kwargs):
         includeell=True,
         includeq22=True,
     )
+
+    if onlymsps:
+        # get the pulsars with periods less than 30 ms and B fields < 1e11 G
+        Bfield = 3.2e19 * np.sqrt(-ultable["F1"].values / ultable["F0ROT"].values ** 3)
+        idx = (
+            (Bfield > 0.0) & (Bfield <= 1e11) & (ultable["F0ROT"].values >= (1 / 30e-3))
+        )
+        ultable = ultable[idx]
 
     if upperlimitplot:
         # get power spectral densities
