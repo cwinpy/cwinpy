@@ -612,8 +612,11 @@ def generate_summary_pages(**kwargs):
         A list of pulsars to show. By default all pulsars analysed will be
         shown.
     upperlimitplot: bool
-        Set to enable/disable production of a plot of amplitude upper limits
+        Set to enable/disable production of plots of amplitude upper limits
         as a function of frequency. The default is True.
+    oddsplot: bool
+        Set to enable/disable production of plots of odds vs SNR and frequency.
+        The default is True.
     showsnr: bool
         Set to calculate and show the optimal matched filter signal-to-noise
         ratio for the recovered maximum a-posteriori waveform. The default is
@@ -651,6 +654,7 @@ def generate_summary_pages(**kwargs):
             pulsars = [pulsars]
 
         upperlimitplot = kwargs.pop("upperlimitplot", True)
+        oddsplot = kwargs.pop("oddsplot", True)
         showsnr = kwargs.pop("showsnr", False)
         showodds = kwargs.pop("showodds", False)
 
@@ -715,8 +719,18 @@ def generate_summary_pages(**kwargs):
             action="store_true",
             default=False,
             help=(
-                "Set this flag to disable production of a plot of amplitude "
+                "Set this flag to disable production of plots of amplitude "
                 "upper limits as a function of frequency."
+            ),
+        )
+        parser.add_argument(
+            "--disable-odds-plot",
+            action="store_true",
+            default=False,
+            help=(
+                "Set this flag to disable production of plots of odds versus "
+                "SNR and frequency (provided --show-snr and --show-odds are "
+                "set)."
             ),
         )
         parser.add_argument(
@@ -784,6 +798,7 @@ def generate_summary_pages(**kwargs):
         pulsars = args.pulsars
 
         upperlimitplot = not args.disable_upper_limit_plot
+        oddsplot = not args.disable_odds_plot
         showsnr = args.show_snr
         showodds = args.show_odds
 
@@ -972,11 +987,14 @@ def generate_summary_pages(**kwargs):
 
                         # highlight the row for joint results
                         if len(det) > 2:
-                            highlighttxt = f"PSR {psr} has the {RESULTS_HEADER_FORMATS[amp]['highlight']}."
                             if psrlink not in highlight_psrs:
-                                highlight_psrs[psrlink] = highlighttxt
+                                highlight_psrs[
+                                    psrlink
+                                ] = f"PSR {psr} has the {RESULTS_HEADER_FORMATS[amp]['highlight']}."
                             else:
-                                highlight_psrs[psrlink] += f" {highlighttxt}"
+                                highlight_psrs[
+                                    psrlink
+                                ] += f" It has the {RESULTS_HEADER_FORMATS[amp]['highlight']}."
 
                     allresultstable[psrlink][hname][det] = rvalue
 
@@ -1010,6 +1028,17 @@ def generate_summary_pages(**kwargs):
             # highlight largest odds
             if tvalue == ultable[tname].max():
                 rvalue = f"<b>{rvalue}</b>"
+
+                if psrlink not in highlight_psrs:
+                    highlight_psrs[
+                        psrlink
+                    ] = f"PSR {psr} has the {RESULTS_HEADER_FORMATS['ODDSCVI']['highlight']}."
+                else:
+                    highlight_psrs[
+                        psrlink
+                    ] += (
+                        f" It has the {RESULTS_HEADER_FORMATS['ODDSCVI']['highlight']}."
+                    )
 
             allresultstable[psrlink][hname] = rvalue
 
@@ -1132,14 +1161,12 @@ def generate_summary_pages(**kwargs):
         ulplotdir = outpath / "ulplots"
         ulplotdir.mkdir(parents=True, exist_ok=True)
 
-        ulplots = {}
         for amp in ampt:
             for det in dets:
                 p = RESULTS_HEADER_FORMATS[amp]["ultablename"].format(det)
 
                 if p in ultable.colnames:
-                    if amp not in ulplots:
-                        ulplots[amp] = {}
+                    if amp not in ampulpages:
                         ampulpages[amp] = {}
 
                     ampultitle = f"{amp}_{det}"
@@ -1194,7 +1221,6 @@ def generate_summary_pages(**kwargs):
 
                     ulplotfile = ulplotdir / f"{amp}_{det}.png"
                     fig.savefig(ulplotfile, dpi=200)
-                    ulplots[amp][det] = ulplotfile
 
                     plt.close()
 
@@ -1202,6 +1228,68 @@ def generate_summary_pages(**kwargs):
                         os.path.relpath(ulplotfile, ampulpage.web_dir), width=1200
                     )
                     ampulpages[amp][det] = ampulpage
+
+    oddspages = {}
+
+    # create odds plots
+    if oddsplot and showodds:
+        for det in dets:
+            if (
+                len(det) == 2
+                and RESULTS_HEADER_FORMATS["ODDSSVN"]["ultablename"].format(det)
+                in ultable.colnames
+            ):
+                # show coherent signal vs noise odds
+                oddscol = RESULTS_HEADER_FORMATS["ODDSSVN"]["ultablename"].format(det)
+                oname = RESULTS_HEADER_FORMATS["ODDSSVN"]["htmlshort"]
+            elif (
+                len(det) > 2
+                and RESULTS_HEADER_FORMATS["ODDSCVI"]["ultablename"] in ultable.colnames
+            ):
+                # show coherent signal vs incoherent or noise odds
+                oddscol = RESULTS_HEADER_FORMATS["ODDSCVI"]["ultablename"]
+                oname = RESULTS_HEADER_FORMATS["ODDSCVI"]["htmlshort"]
+            else:
+                continue
+
+            # create page
+            oddstitle = f"odds_{det}"
+            _ = make_html(outpath, oddstitle, title=f"{oname} upper limits")
+            oddshomeurl = f"{url}/{oddstitle}.html"
+            oddspage = open_html(outpath / "html", oddshomeurl, oddstitle, oddstitle)
+            oddspage.make_heading(
+                oname,
+                hsubtext=f"{det}",
+                anchor=f"odds-{det}",
+            )
+
+            # create plot of odds vs SNR
+            if showsnr:
+                snrcol = RESULTS_HEADER_FORMATS["SNR"]["ultablename"].format(det)
+                fig = ultable.plot([snrcol, oddscol], jointplot=True)
+
+                oddsplotfile = ulplotdir / f"odds_vs_snr_{det}.png"
+                fig.savefig(oddsplotfile, dpi=200)
+
+                plt.close()
+
+                oddspage.insert_image(
+                    os.path.relpath(oddsplotfile, oddspage.web_dir), width=1200
+                )
+
+            # create a plot of odds vs frequency
+            fig = ultable.plot(oddscol)
+
+            oddsplotfile = ulplotdir / f"odds_vs_freq_{det}.png"
+            fig.savefig(oddsplotfile, dpi=200)
+
+            plt.close()
+
+            oddspage.insert_image(
+                os.path.relpath(oddsplotfile, oddspage.web_dir), width=1200
+            )
+
+            oddspages[det] = oddspage
 
     # create homepage navbar
     homelinks = {
@@ -1212,6 +1300,9 @@ def generate_summary_pages(**kwargs):
             ampt[amp]: {d: f"{amp}_{d}.html" for d in ampulpages[amp]}
             for amp in ampulpages
         }
+    if oddspages:
+        homelinks["Odds plots"] = {d: f"odds_{d}.html" for d in oddspages}
+
     homepage.make_navbar(homelinks, search=False)
 
     homepage.close()
@@ -1219,17 +1310,19 @@ def generate_summary_pages(**kwargs):
     # copy required CSS and js files
     copy_css_and_js_scripts(outpath)
 
-    # add nav bars and close results pages
-    if ampulpages:
-        pages.update(ampulpages)
-
     links = {
         "Home": "home.html",
         "Pulsars": homelinks["Pulsars"],
     }
 
+    # add nav bars and close results pages
     if ampulpages:
+        pages.update(ampulpages)
         links["Upper limit plots"] = homelinks["Upper limit plots"]
+
+    if oddspages:
+        pages.update({"Odds": oddspages})
+        links["Odds plots"] = homelinks["Odds plots"]
 
     for psramp in pages:
         curlinks = links.copy()
