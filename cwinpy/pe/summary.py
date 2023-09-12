@@ -845,6 +845,11 @@ def generate_summary_pages(**kwargs):
         idx = (
             (Bfield > 0.0) & (Bfield <= 1e11) & (ultable["F0ROT"].values >= (1 / 30e-3))
         )
+
+        if np.all(~idx):
+            # there are no MSPs in the table
+            raise RuntimeError("No MSPs were found in the results.")
+
         ultable = ultable[idx]
 
     if upperlimitplot:
