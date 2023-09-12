@@ -841,9 +841,9 @@ def generate_summary_pages(**kwargs):
 
     if onlymsps:
         # get the pulsars with periods less than 30 ms and B fields < 1e11 G
-        Bfield = 3.2e19 * np.sqrt(-ultable["F1"].values / ultable["F0ROT"].values ** 3)
+        Bfield = 3.2e19 * np.sqrt(-ultable["F1ROT"].value / ultable["F0ROT"].value ** 3)
         idx = (
-            (Bfield > 0.0) & (Bfield <= 1e11) & (ultable["F0ROT"].values >= (1 / 30e-3))
+            (Bfield > 0.0) & (Bfield <= 1e11) & (ultable["F0ROT"].value >= (1 / 30e-3))
         )
 
         if np.all(~idx):
@@ -866,15 +866,24 @@ def generate_summary_pages(**kwargs):
         # switch frequency factor and detector in datadict
         datadicts = {psr: {} for psr in ultable["PSRJ"]}
         for psr, psrddict in pipeline_data.datadict.items():
-            for ff in psrddict:
-                for det in psrddict[ff]:
-                    if det not in datadicts[psr]:
-                        datadicts[psr].update({det: {}})
+            if psr in datadicts:
+                for ff in psrddict:
+                    for det in psrddict[ff]:
+                        if det not in datadicts[psr]:
+                            datadicts[psr].update({det: {}})
 
-                    datadicts[psr][det][ff] = psrddict[ff][det]
+                        datadicts[psr][det][ff] = psrddict[ff][det]
 
         # get matched filter signal-to-noise ratios
-        snrs = optimal_snr(pipeline_data.resultsfiles, datadicts)
+        snrs = optimal_snr(
+            {
+                key: value
+                for key, value in pipeline_data.resultsfiles.items()
+                if key in datadicts
+            },
+            datadicts,
+            return_dict=True,
+        )
 
         # add SNRs into the results table
         snrdets = list(list(snrs.values())[0].keys())
@@ -1018,7 +1027,7 @@ def generate_summary_pages(**kwargs):
                         rvalue = f"<b>{rvalue}</b>"
 
                         # highlight the row for joint results
-                        if len(det) > 2:
+                        if len(det) > 2 and "highlight" in RESULTS_HEADER_FORMATS[amp]:
                             if psrlink not in highlight_psrs:
                                 highlight_psrs[
                                     psrlink

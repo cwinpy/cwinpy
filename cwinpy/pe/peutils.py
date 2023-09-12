@@ -191,7 +191,15 @@ def read_in_result_wrapper(res):
     return result
 
 
-def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers=False):
+def optimal_snr(
+    res,
+    het,
+    par=None,
+    det=None,
+    which="posterior",
+    remove_outliers=False,
+    return_dict=False,
+):
     """
     Calculate the optimal matched filter signal-to-noise ratio for a signal in
     given data based on the posterior samples. This can either be the
@@ -230,6 +238,9 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
     remove_outliers: bool
         Set when to remove outliers from data before calculating the SNR. This
         defaults to False.
+    return_dict: bool
+        Strictly return the generated dictionary rather than any reduced
+        output.
 
     Returns
     -------
@@ -423,8 +434,11 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
             # get snr
             snrs[psr]["".join(ds)] = mhdmulti.signal_snr(parc)
 
+    if return_dict:
+        return snrs
+
     if len(snrs) == 1:
-        if len(list(snrs.keys())) == 1:
+        if len(snrs[list(snrs.keys())[0]]) == 1:
             # dictionary contains a single value
             return [item for p in snrs for item in snrs[p].values()][0]
         else:
