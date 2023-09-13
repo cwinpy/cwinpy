@@ -974,7 +974,10 @@ def generate_summary_pages(**kwargs):
     # generate pages for each pulsar
     for psr in ultable["PSRJ"]:
         # row containing this pulsar's results
-        psrlink = f'<a href="../html/{psr}_{ldet}.html">{psr}</a>'
+        psrlink = (
+            f'<a style="text-decoration-line: none; text-shadow: 1px 2px 2px #a1a1a1" '
+            f'href="../html/{psr}_{ldet}.html"><b color="darkslategrey">{psr}</b></a>'
+        )
         allresultstable[psrlink] = {}
 
         # create webpage
