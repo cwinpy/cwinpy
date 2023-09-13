@@ -816,11 +816,11 @@ class UpperLimitTable(QTable):
         "C21": "C_{{21}}{0}",
         "C22": "C_{{22}}{0}",
         "DIST": r"d",
-        "SDLIM": r"h_0^{\rm sd}",
+        "SDLIM": r"h_0^{{\rm sd}}{0}",
         "SDRAT": r"h_0{0} / h_0^{{\rm sd}}",
-        "SNR": r"\rho{0}",
+        "SNR": r"\rho",
         "ODDSSVN": r"\log{{}}_{{10}} \mathcal{{O}}_{{\rm SvN}}{0}",
-        "ODDSCVI": r"\log{}_{10} \mathcal{O}_{\rm CvI}",
+        "ODDSCVI": r"\log{{}}_{{10}} \mathcal{{O}}_{{\rm CvI}}{0}",
     }
 
     def __init__(self, resdir=None, **kwargs):
@@ -1349,6 +1349,13 @@ class UpperLimitTable(QTable):
 
         axisdata = {xy: {"label": "", "data": None, "y": None} for xy in ["x", "y"]}
 
+        # use GW frequency (twice rotation frequency) if requested
+        if "F0GW" in axiscols:
+            axiscols[axiscols.index("F0GW")] = "F0ROT"
+            usegwfreq = True
+        else:
+            usegwfreq = False
+
         for xy, acolumn in zip(["x", "y"], axiscols):
             if acolumn not in self.columns:
                 # if the value is in the AMPPARAMS or is "ell"
@@ -1389,9 +1396,12 @@ class UpperLimitTable(QTable):
             axisdata[xy]["label"] = colname
 
         # scale rotation frequency to GW frequency if necessary
-        if isinstance(column, str) and axisdata["y"]["label"].upper().startswith(
-            ("H0", "ELL", "Q22", "C22", "SDRAT")
-        ):
+        if (
+            isinstance(column, str)
+            and axisdata["y"]["label"]
+            .upper()
+            .startswith(("H0", "ELL", "Q22", "C22", "SDRAT"))
+        ) or usegwfreq:
             axisdata["x"]["data"] *= 2.0  # GWs at twice frot
             axisdata["x"]["label"] = "F0GW"
 

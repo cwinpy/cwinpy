@@ -654,7 +654,7 @@ def generate_summary_pages(**kwargs):
         showindividualparams = kwargs.pop("showindividualposteriors", False)
         showtimeseries = kwargs.pop("showtimeseries", True)
 
-        pulsars = kwargs.pop("pulsar", None)
+        pulsars = kwargs.pop("pulsars", None)
         if isinstance(pulsars, str):
             pulsars = [pulsars]
 
@@ -694,7 +694,7 @@ def generate_summary_pages(**kwargs):
         parser.add_argument(
             "--pulsars",
             "-p",
-            nargs="+",
+            action="append",
             help=(
                 "Provide the pulsars for which to produces summary results. "
                 "By default, all pulsars from the analysis will be used."
@@ -839,6 +839,12 @@ def generate_summary_pages(**kwargs):
         includeq22=True,
     )
 
+    # get only the requested pulsars
+    if pulsars:
+        rmidx = [i for i, psr in enumerate(ultable["PSRJ"]) if psr not in pulsars]
+        if rmidx:
+            ultable.remove_rows(rmidx)
+
     if onlymsps:
         # get the pulsars with periods less than 30 ms and B fields < 1e11 G
         Bfield = 3.2e19 * np.sqrt(-ultable["F1ROT"].value / ultable["F0ROT"].value ** 3)
@@ -850,7 +856,8 @@ def generate_summary_pages(**kwargs):
             # there are no MSPs in the table
             raise RuntimeError("No MSPs were found in the results.")
 
-        ultable = ultable[idx]
+        rmidx = [i for i, iv in enumerate(idx) if not iv]
+        ultable.remove_rows(rmidx)
 
     if upperlimitplot:
         # get power spectral densities
@@ -960,15 +967,12 @@ def generate_summary_pages(**kwargs):
     dets = list(list(pipeline_data.resultsfiles.items())[0][1].keys())
     ldet = dets[np.argmax([len(d) for d in dets])]
 
-    # pulsars to highlight in the table - this will highlight the Crab pulsar,
-    # the Vela pulsar and the pulsars with the most constraining limits
+    # pulsars to highlight in the table - this will highlight the pulsars with
+    # the most constraining limits
     highlight_psrs = {}
 
     # generate pages for each pulsar
     for psr in ultable["PSRJ"]:
-        if pulsars is not None and psr not in pulsars:
-            continue
-
         # row containing this pulsar's results
         psrlink = f'<a href="../html/{psr}_{ldet}.html">{psr}</a>'
         allresultstable[psrlink] = {}
@@ -1119,10 +1123,7 @@ def generate_summary_pages(**kwargs):
 
         posteriorplotdir = outpath / "posterior_plots"
 
-        for psr in pipeline_data.resultsfiles:
-            if pulsars is not None and psr not in pulsars:
-                continue
-
+        for psr in ultable["PSRJ"]:
             posteriorplots[psr] = pulsar_summary_plots(
                 pipeline_data.pulsardict[psr],
                 posteriordata=pipeline_data.resultsfiles[psr],
@@ -1146,10 +1147,7 @@ def generate_summary_pages(**kwargs):
 
         timeseriesplotdir = outpath / "timeseries_plots"
 
-        for psr in pipeline_data.datadict:
-            if pulsars is not None and psr not in pulsars:
-                continue
-
+        for psr in ultable["PSRJ"]:
             timeseriesplots[psr] = {}
             for freqfactor in pipeline_data.datadict[psr]:
                 timeseriesplots[psr][freqfactor] = pulsar_summary_plots(
@@ -1307,7 +1305,7 @@ def generate_summary_pages(**kwargs):
             # create plot of odds vs SNR
             if showsnr:
                 snrcol = RESULTS_HEADER_FORMATS["SNR"]["ultablename"].format(det)
-                fig = ultable.plot([snrcol, oddscol], jointplot=True)
+                fig = ultable.plot([snrcol, oddscol], jointplot=True, yscale="linear")
 
                 oddsplotfile = ulplotdir / f"odds_vs_snr_{det}.png"
                 fig.savefig(oddsplotfile, dpi=200)
@@ -1319,7 +1317,7 @@ def generate_summary_pages(**kwargs):
                 )
 
             # create a plot of odds vs frequency
-            fig = ultable.plot(oddscol)
+            fig = ultable.plot(["F0GW", oddscol], yscale="linear", histogram=True)
 
             oddsplotfile = ulplotdir / f"odds_vs_freq_{det}.png"
             fig.savefig(oddsplotfile, dpi=200)
@@ -1368,7 +1366,7 @@ def generate_summary_pages(**kwargs):
     for psramp in pages:
         curlinks = links.copy()
 
-        if psramp not in ampt:
+        if psramp not in ampt and psramp != "Odds":
             # individual detector pages
             curlinks["Detector"] = {
                 det: f"{psramp}_{det}.html" for det in pages[psramp]

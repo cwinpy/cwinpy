@@ -138,7 +138,9 @@ RESULTS_HEADER_FORMATS = {
         ),
         "ultablename": "ODDSCVI",
         "formatter": set_formats(name="ODDS", type="html", dp=1, sf=2),
-        "highlight": "largest coherent versus noise odds",
+        "highlight": (
+            "largest coherent signal versus incoherent signal <i>or</i> noise " "odds"
+        ),
     },
 }
 
@@ -431,7 +433,7 @@ class CWPage(page):
             if isinstance(highlight_psrs, dict) and psr in highlight_psrs:
                 # highlight given pulsars
                 self.add_content(
-                    f"<tr class='table-success' data-toggle='tooltip' title='{highlight_psrs[psr]}'>"
+                    f"<tr class='table-success' data-toggle='tooltip' data-html='true' title='{highlight_psrs[psr]}'>"
                 )
             else:
                 self.add_content("<tr>\n", indent=28)
