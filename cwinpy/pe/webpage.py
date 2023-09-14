@@ -370,6 +370,12 @@ class CWPage(page):
             self.add_content(f"    width: {100 / ncols}%;\n")
             self.add_content("    float: left;\n}\n</style>")
 
+        self.add_content(
+            "<style>\na.psr {\n  text-decoration-line: none;\n}\n"
+            "a.psr:hover {\n  text-decoration-line: none;\n  text-shadow: 1px 2px 2px #a1a1a1;\n}\n"
+            "</style>"
+        )
+
         self.make_div(_class="container", _style="max-width:1400px", indent=18)
 
         self.make_div(indent=20, _class="table-responsive")
