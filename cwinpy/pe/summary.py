@@ -1308,7 +1308,9 @@ def generate_summary_pages(**kwargs):
             # create plot of odds vs SNR
             if showsnr:
                 snrcol = RESULTS_HEADER_FORMATS["SNR"]["ultablename"].format(det)
-                fig = ultable.plot([snrcol, oddscol], jointplot=True, yscale="linear")
+                fig = ultable.plot(
+                    [snrcol, oddscol], jointplot=True, yscale="linear", kde=True
+                )
 
                 oddsplotfile = ulplotdir / f"odds_vs_snr_{det}.png"
                 fig.savefig(oddsplotfile, dpi=200)

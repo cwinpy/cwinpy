@@ -1781,6 +1781,7 @@ class UpperLimitTable(QTable):
             return fig
         else:
             # return matplotlib figure object
+            fig.figure.set_layout_engine("tight")
             return fig.figure
 
     @staticmethod
