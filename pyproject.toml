@@ -47,7 +47,7 @@ dependencies = [
     "gwosc >= 0.5.4",
     "gwpy >= 2.1.1",
     "healpy",
-    "htcondor >= 9.0.6",
+    "htcondor >= 10.0.0",
     "lalsuite >= 7.8",
     "lintegrate >= 0.1.7",
     "matplotlib",
