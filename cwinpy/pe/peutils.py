@@ -1810,7 +1810,7 @@ class UpperLimitTable(QTable):
                 # default figure size
                 figsize = (12, 9)
 
-            fig = plt.figure(figsize=figsize, layout="constrained")
+            fig = plt.figure(figsize=figsize, layout="tight")
 
             if addhistogram:
                 # set grid to add a histogram to the right hand side of the plot
