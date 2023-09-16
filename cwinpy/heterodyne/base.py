@@ -772,6 +772,13 @@ class Heterodyne(object):
                         raise IOError(
                             "Frame cache file '{}' could not be read".format(framecache)
                         )
+
+            # make sure the cache files are sorted in GPS time order
+            cache = [
+                c[1]
+                for c in sorted(zip([frame_information(fr)[2] for fr in cache], cache))
+            ]
+
             try:
                 # TimeSeries.read can't read from multiple files, so read individually
                 data = TimeSeriesDict()
