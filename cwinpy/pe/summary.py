@@ -1245,13 +1245,31 @@ def generate_summary_pages(**kwargs):
                             pass
 
                     p = RESULTS_HEADER_FORMATS[amp]["ultablename"].format(det)
+                    pc = (
+                        GW_OBSERVATORY_COLORS[det]
+                        if det in GW_OBSERVATORY_COLORS
+                        else "grey"
+                    )
                     fig = ultable.plot(
                         p,
                         histogram=True,
                         asds=asd,
                         showq22=True if amp == "ELL" else False,
                         showtau=True if amp == "ELL" else False,
+                        showsdlim=True if amp == "H0" else False,
                         tobs=tobs,
+                        plotkwargs={
+                            "marker": ".",
+                            "markersize": 10,
+                            "markerfacecolor": pc,
+                            "markeredgecolor": pc,
+                            "ls": "none",
+                        },
+                        histkwargs={
+                            "facecolor": pc,
+                            "alpha": 0.5,
+                            "histtype": "stepfilled",
+                        },
                         asdkwargs={
                             "color": GW_OBSERVATORY_COLORS[det]
                             if det in GW_OBSERVATORY_COLORS
