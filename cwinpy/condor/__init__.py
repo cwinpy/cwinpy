@@ -286,8 +286,7 @@ def submit_dag(dag_file):
 
     # start scheddular
     schedd = Schedd()
-    with schedd.transaction() as txn:
-        _ = dag_submit.queue(txn)
+    schedd.submit(dag_submit)
 
     # switch back to current directory
     os.chdir(cwd)
