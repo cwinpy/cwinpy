@@ -1,4 +1,5 @@
 import os
+import re
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import Union
@@ -11,7 +12,7 @@ from scipy.stats import hmean
 
 from ..data import HeterodynedData
 from ..parfile import PulsarParameters
-from ..plot import Plot
+from ..plot import LATEX_LABELS, Plot
 from ..utils import get_psr_name, is_par_file
 from .pe import pe_pipeline
 from .peutils import UpperLimitTable, optimal_snr, results_odds
@@ -261,11 +262,14 @@ def pulsar_summary_plots(
             raise TypeError("heterodyneddata is not the correct type.")
 
     if posteriordata is not None:
-        if isinstance(posteriordata, (str, Path, Result)):
-            postdata = posteriordata
+        if isinstance(posteriordata, (str, Path, Result, list)):
+            if not isinstance(posteriordata, list):
+                postdata = posteriordata
 
-            if outputsuffix is not None:
-                postdata = {outputsuffix: postdata}
+                if outputsuffix is not None:
+                    postdata = {outputsuffix: postdata}
+            else:
+                postdata = {d[0]: d[1] for d in posteriordata}
 
             # copy of plotting kwargs
             tplotkwargs = kwargs.copy()
@@ -294,6 +298,46 @@ def pulsar_summary_plots(
                 webpage.insert_image(
                     os.path.relpath(summaryfiles[filename], webpage.web_dir)
                 )
+
+                # add in table of credible intervals
+                intervals = [68, 90, 95]
+                header = ["Parameter"]
+                header.extend([f"{i}% credible interval" for i in intervals])
+
+                # convert LaTeX inline math strings delimited by $s to MathJAX delimited by \(...\)
+                credinttable = [
+                    [re.sub(r"\$(.+?)\$", r"\(\1\)", LATEX_LABELS[p])]
+                    for p in plot.parameters
+                ]
+                for i, param in enumerate(plot.parameters):
+                    for inter in intervals:
+                        ci = plot.credible_interval(
+                            param,
+                            [0.5 * (1 - (inter / 100)), 0.5 * (1 + (inter / 100))],
+                        )
+
+                        if isinstance(ci, dict) and outputsuffix is not None:
+                            ci = ci[outputsuffix]
+
+                        if param.upper() in RESULTS_HEADER_FORMATS:
+                            credinttable[i].append(
+                                (
+                                    f"[{RESULTS_HEADER_FORMATS[param.upper()]['formatter'](ci[0])}, "
+                                    f"{RESULTS_HEADER_FORMATS[param.upper()]['formatter'](ci[1])}]"
+                                )
+                            )
+                        else:
+                            credinttable[i].append(f"[{ci[0]:.2f}, {ci[1]:.2f}]")
+
+                webpage.make_container()  # div to contain tables
+                webpage.make_div(_style="padding-top:10px")  # add some extra padding
+                webpage.make_table(
+                    headings=header,
+                    accordian=False,
+                    contents=credinttable,
+                )
+                webpage.end_div()
+                webpage.end_container()
 
                 if showindividualparams:
                     webpage.make_div()
@@ -346,12 +390,24 @@ def pulsar_summary_plots(
             for suf in posteriordata:
                 if outputsuffix is None:
                     outsuf = suf
+
+                    # if suffix is a concatenation of detector names (i.e. a
+                    # multi-detector result), pass all results if present
+                    if len(suf) > 2 and len(suf) % 2 == 0:
+                        pdata = []
+                        for d in [suf[i : i + 2] for i in range(0, len(suf), 2)]:
+                            if d in posteriordata:
+                                pdata.append([d, posteriordata[d]])
+                        pdata.append([suf, posteriordata[suf]])
+                    else:
+                        pdata = posteriordata[suf]
                 else:
                     outsuf = f"{outputsuffix}_{suf}"
+                    pdata = posteriordata[suf]
 
                 sf = pulsar_summary_plots(
                     par,
-                    posteriordata=posteriordata[suf],
+                    posteriordata=pdata,
                     outputsuffix=outsuf,
                     outdir=outdir,
                     plotformat=plotformat,
