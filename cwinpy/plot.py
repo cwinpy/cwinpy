@@ -566,11 +566,22 @@ class Plot:
         colordicts = []
         for j, res in enumerate([self._samples, self._grids]):
             colordicts.append({})
+
+            # check if joint analysis key is concatenation of the other keys
+            if len(res) > 0:
+                keys = list(res.keys())
+                mlk = np.argmax([len(k) for k in keys])
+                sk = [k for k in keys if len(k) < len(keys[mlk])]
+                jointk = all([k in keys[mlk] for k in sk])
+
             for i, key in enumerate(res):
                 if key in colors:
                     colordicts[-1][key] = colors[key]
-                elif key.lower() == "joint":
-                    # if using "Joint" as the multi-detector analysis key, set the color to black
+                elif key.lower() == "joint" or (
+                    len(keys) > 2 and jointk and key == keys[mlk]
+                ):
+                    # if using "Joint" or concatenated detector string as the
+                    # multi-detector analysis key, set the color to black
                     colordicts[-1][key] = "k"
                 else:
                     # use PESummary color cycle

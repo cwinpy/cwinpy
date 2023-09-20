@@ -35,9 +35,6 @@ from ..utils import (
 )
 from .fastheterodyne import fast_heterodyne
 
-# hold PSRQPy query when/if required
-psrqpy_query = None
-
 
 class Heterodyne(object):
     """
