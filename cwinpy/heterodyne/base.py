@@ -826,7 +826,7 @@ class Heterodyne(object):
                         f"Could not read in frame data '{frfile}' from cache: {e}"
                     )
                 else:
-                    print(f"Could not read in frame data '{frfile}' from cache.")
+                    print(f"Could not read in frame data '{frfile}' from cache. {e}")
         else:
             # download data
             if host == GWOSC_DEFAULT_HOST:
