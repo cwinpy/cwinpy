@@ -153,7 +153,6 @@ SCRIPTS_AND_CSS = """    <script src='https://ajax.googleapis.com/ajax/libs/jque
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
     <script>Fancybox.bind('[data-fancybox="gallery"]', { }); </script>
-
     <script src='../js/grab.js'></script>
     <script src='../js/modal.js'></script>
     <script src='../js/multi_dropbar.js'></script>

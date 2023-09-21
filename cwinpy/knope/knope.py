@@ -597,7 +597,7 @@ def knope_pipeline(**kwargs):
     # output generated full configuration file
     fullconfigfile = os.path.join(
         fullconfig.get("run", "basedir", fallback=os.getcwd()),
-        "knope_pipeline_config.ini",
+        "knope_pipeline_config_generated.ini",
     )
     with open(fullconfigfile, "w") as fp:
         fullconfig.write(fp)

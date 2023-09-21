@@ -445,12 +445,12 @@ def copy_css_and_js_scripts(webdir: Union[str, Path]):
 
     scripts = (path / "js").glob("*.js")
     for i in scripts:
-        if str(i) in SCRIPTS_AND_CSS:
+        if i.name in SCRIPTS_AND_CSS:
             files_to_copy.append([i, webdir / "js" / i.name])
 
     csss = (path / "css").glob("*.css")
     for i in csss:
-        if str(i) in SCRIPTS_AND_CSS:
+        if i.name in SCRIPTS_AND_CSS:
             files_to_copy.append([i, webdir / "css" / i.name])
 
     for _dir in ["js", "css"]:
