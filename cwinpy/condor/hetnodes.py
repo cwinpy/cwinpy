@@ -37,6 +37,9 @@ class HeterodyneLayer(CondorLayer):
         self.osg = self.get_option("osg", default=False)
         self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
 
+        # check for use of tempo2
+        self.usetempo2 = self.get_option("usetempo2", default=False)
+
         self.log_directories = {}
         for logtype in ["log", "error", "out"]:
             self.log_directories[logtype] = self.get_option(
@@ -66,6 +69,15 @@ class HeterodyneLayer(CondorLayer):
             self.set_option(
                 "transfer_files", optionname="should_transfer_files", default="YES"
             )
+
+        if self.usetempo2:
+            tempo2 = os.environ.get("TEMPO2", None)
+
+            if tempo2 is None:
+                raise ValueError("No TEMPO2 environment variable exists")
+
+            # add TEMPO2 environment variable to the submit file
+            self.submit_options["environment"] = f'"{tempo2}"'
 
         # check whether GWOSC is required
         self.require_gwosc = kwargs.get("require_gwosc", False)
