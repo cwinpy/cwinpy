@@ -1025,7 +1025,7 @@ class HeterodynedData(TimeSeriesBase):
 
         # remove outliers
         new.outlier_mask = None
-        if remove_outliers:
+        if remove_outliers and fakeasd is None:
             new.remove_outliers(thresh=thresh)
 
         # set the (minimum) time step and sampling frequency

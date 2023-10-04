@@ -1950,7 +1950,10 @@ class PEDAGRunner(object):
                         pass
                 else:
                     try:
-                        detectors = list(simdata[freqfactor])
+                        if isinstance(simdata[freqfactor], str):
+                            detectors = [simdata[freqfactor]]
+                        else:
+                            detectors = list(simdata[freqfactor])
                     except KeyError:
                         pass
 
@@ -2058,7 +2061,7 @@ class PEDAGRunner(object):
                             pass
                     else:
                         try:
-                            if isinstance(simdata[freqfactor], list):
+                            if isinstance(simdata[freqfactor], (list, str)):
                                 # simdata is just a list of detector
                                 configdict["fake_asd_{}".format(freqfactor)] = str(dets)
                             else:
