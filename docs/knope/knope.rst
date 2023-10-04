@@ -284,9 +284,6 @@ within the associated dictionaries), and appropriate frame types, channels and s
 be provided for each run.
 
 In this example, it uses TEMPO2 (via libstempo) for calculating the phase evolution of the signal.
-Currently, this requires that ``getenv = True`` is set within the ``[heterodyne_job]`` section of
-the configuration file.
-
 Due to the ``incoherent = True`` value in the ``[pe]`` section, this analysis will perform parameter
 estimation for each pulsar for each individual detector and also for the full multi-detector data
 set.

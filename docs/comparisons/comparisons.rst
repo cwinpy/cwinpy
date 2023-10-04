@@ -112,11 +112,9 @@ The distributions of signal-to-noise ratios for these simulations is:
 
 .. literalinclude:: scripts/pptest_one_harmonic.py
    :language: python
-   :lines: 1-29,33-42,45-48,50-52
 
 .. literalinclude:: scripts/pptest_two_harmonics.py
    :language: python
-   :lines: 1-45,49-58,61-64,66-69
 
 Pipeline comparison
 ===================

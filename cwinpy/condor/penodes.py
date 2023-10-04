@@ -41,6 +41,9 @@ class PulsarPELayer(CondorLayer):
         self.osg = self.get_option("osg", default=False)
         self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
 
+        # check for use of tempo2
+        self.usetempo2 = self.get_option("usetempo2", default=False)
+
         # check number of parallel runs
         self.n_parallel = self.get_option("n_parallel", otype=int, default=1)
 
@@ -70,6 +73,15 @@ class PulsarPELayer(CondorLayer):
             "condor_job_priority", optionname="priority", otype=int, default=0
         )
         self.set_option("email", optionname="notify_user")
+
+        if self.usetempo2:
+            tempo2 = os.environ.get("TEMPO2", None)
+
+            if tempo2 is None:
+                raise ValueError("No TEMPO2 environment variable exists")
+
+            # add TEMPO2 environment variable to the submit file
+            self.submit_options["environment"] = f'"{tempo2}"'
 
         additional_options = {}
         if self.osg:

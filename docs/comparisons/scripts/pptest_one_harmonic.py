@@ -33,7 +33,6 @@ accuser = "matthew.pitkin"
 accgroup = "aluk.dev.o3.cw.targeted"
 sampler = "dynesty"
 numba = True
-getenv = True
 freqrange = (100.0, 200.0)
 
 run = PEPPPlotsDAG(
@@ -45,7 +44,6 @@ run = PEPPPlotsDAG(
     accountgroup=accgroup,
     sampler=sampler,
     numba=numba,
-    getenv=getenv,
     freqrange=freqrange,
     basedir=basedir,
     submit=True,  # submit the DAG

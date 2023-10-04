@@ -205,9 +205,6 @@ class PEPPPlotsDAG:
     accountgroup: str
         Value to give to the 'account_user_group' parameter in the Condor
         submit file. Default is to set no value.
-    getenv: bool
-        Set the value for the 'getenv' parameter in the Condor submit file.
-        Default is False.
     sampler: str
         The sampler to use. Defaults to dynesty.
     sampler_kwargs: dict
@@ -232,7 +229,6 @@ class PEPPPlotsDAG:
         submit=False,
         accountuser=None,
         accountgroup=None,
-        getenv=False,
         sampler="dynesty",
         sampler_kwargs=None,
         freqrange=(10.0, 750.0),
@@ -280,7 +276,6 @@ class PEPPPlotsDAG:
         # create dag configuration file
         self.accountuser = accountuser
         self.accountgroup = accountgroup
-        self.getenv = getenv
         self.sampler = sampler
         self.sampler_kwargs = sampler_kwargs
         self.outputsnr = outputsnr
@@ -412,7 +407,6 @@ class PEPPPlotsDAG:
         self.config["pe_dag"] = {"build": False}
 
         self.config["pe_job"] = {}
-        self.config["pe_job"]["getenv"] = str(self.getenv)
 
         if self.accountgroup is not None:
             self.config["pe_job"]["accounting_group"] = self.accountgroup
@@ -463,7 +457,6 @@ class PEPPPlotsDAG:
         subdict = {
             "universe": "local",
             "executable": jobexec,
-            "getenv": self.getenv,
             "arguments": "$(ARGS)",
             "log": os.path.join(logdir, "cwinpy_pe_pp_plots.log"),
             "error": os.path.join(logdir, "cwinpy_pe_pp_plots.err"),
