@@ -111,7 +111,7 @@ class PulsarPELayer(CondorLayer):
                     '"/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/'
                     'cwinpy-containers/cwinpy-dev-python38:latest"'
                 )
-                self.requirements.append("(HAS_SINGULARITY=?=True)")
+                self.requirements.append("(HAS_SINGULARITY =?= True)")
                 self.submit_options["transfer_executable"] = False
 
             if (
@@ -121,7 +121,7 @@ class PulsarPELayer(CondorLayer):
                 if "MY.SingularityImage" not in additional_options:
                     repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
                     self.requirements.append(
-                        f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
+                        f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)} =?= True)"
                     )
             else:
                 raise RuntimeError(

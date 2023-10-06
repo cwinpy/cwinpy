@@ -70,6 +70,7 @@ class HeterodyneLayer(CondorLayer):
                 "transfer_files", optionname="should_transfer_files", default="YES"
             )
 
+        environment = []
         if self.usetempo2:
             tempo2 = os.environ.get("TEMPO2", None)
 
@@ -77,15 +78,23 @@ class HeterodyneLayer(CondorLayer):
                 raise ValueError("No TEMPO2 environment variable exists")
 
             # add TEMPO2 environment variable to the submit file
-            self.submit_options["environment"] = f'"{tempo2}"'
+            environment.append(f"TEMPO2={tempo2}")
 
         # check whether GWOSC is required
         self.require_gwosc = kwargs.get("require_gwosc", False)
 
-        # add use_x509userproxy = True to pass on proxy certificate to jobs if
-        # needing access to proprietary data
+        # set scitokens to access proprietary data
         if not self.require_gwosc:
-            self.submit_options["use_x509userproxy"] = True
+            self.submit_options["use_oauth_services"] = "igwn"
+            self.submit_options[
+                "igwn_oauth_permissions"
+            ] = "read:/ligo read:/virgo read:/kagra"
+            environment.append(
+                "BEARER_TOKEN_FILE=$$(CondorScratchDir)/.condor_creds/igwn.use"
+            )
+
+        if environment:
+            self.submit_options["environment"] = f'"{" ".join(environment)}"'
 
         # additional options
         additional_options = {}
@@ -108,7 +117,7 @@ class HeterodyneLayer(CondorLayer):
         if self.osg:
             if self.submit_options.get("accounting_group", "").startswith("ligo."):
                 # set to check that proprietary LIGO frames are available
-                self.requirements.append("(HAS_LIGO_FRAMES=?=True)")
+                self.requirements.append("(HAS_CVMFS_IGWN_PRIVATE_DATA =?= True)")
 
             if self.submit_options.get("desired_sites", ""):
                 # allow specific OSG sites to be requested
@@ -133,10 +142,10 @@ class HeterodyneLayer(CondorLayer):
                     '"/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/'
                     'cwinpy-containers/cwinpy-dev-python38:latest"'
                 )
-                self.requirements.append("(HAS_SINGULARITY=?=True)")
+                self.requirements.append("(HAS_SINGULARITY =?= True)")
                 self.submit_options["transfer_executable"] = False
 
-            # NOTE: the next two statements are currently only require for OSG running,
+            # NOTE: the next two statements are currently only required for OSG running,
             # but at the moment not all local pools advertise the CVMFS repo flags
             if (
                 self.submit_options["executable"].startswith("/cvmfs")
@@ -145,7 +154,7 @@ class HeterodyneLayer(CondorLayer):
                 if "MY.SingularityImage" not in additional_options:
                     repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
                     self.requirements.append(
-                        f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
+                        f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)} =?= True)"
                     )
             else:
                 raise RuntimeError(
