@@ -88,6 +88,9 @@ class PulsarPELayer(CondorLayer):
             # make sure files are transferred if using the OSG
             self.submit_options["should_transfer_files"] = "YES"
 
+            # allow use of local pool (https://computing.docs.ligo.org/guide/htcondor/access/#local-access-points)
+            additional_options["MY.flock_local"] = "True"
+
             if self.submit_options.get("desired_sites", ""):
                 # allow specific OSG sites to be requested
                 additional_options["MY.DESIRED_Sites"] = self.submit_options[

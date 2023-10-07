@@ -115,16 +115,29 @@ class HeterodyneLayer(CondorLayer):
         additional_options["error"] = "$(ERRORFILE)"
 
         if self.osg:
-            if self.submit_options.get("accounting_group", "").startswith("ligo."):
+            ligojob = self.submit_options.get("accounting_group", "").startswith(
+                "ligo."
+            )
+
+            if ligojob:
                 # set to check that proprietary LIGO frames are available
                 self.requirements.append("(HAS_CVMFS_IGWN_PRIVATE_DATA =?= True)")
+
+            # allow use of local pool (https://computing.docs.ligo.org/guide/htcondor/access/#local-access-points)
+            additional_options["MY.flock_local"] = "True"
 
             if self.submit_options.get("desired_sites", ""):
                 # allow specific OSG sites to be requested
                 additional_options["MY.DESIRED_Sites"] = self.submit_options[
                     "desired_sites"
                 ]
-                self.requirements.append("(IS_GLIDEIN=?=True)")
+                self.requirements.append("(IS_GLIDEIN =?= True)")
+            elif ligojob:
+                # if desired_sites are not explicitly specified, default any
+                # "ligo" tagged jobs to only run on the local pool
+                # (heterodyning is not suited to running on the OSG due to the
+                # large amounts of frame data that must be transferred)
+                additional_options["MY.DESIRED_Sites"] = '"none"'
 
             if self.submit_options.get("undesired_sites", ""):
                 # disallow certain OSG sites to be used
@@ -159,7 +172,7 @@ class HeterodyneLayer(CondorLayer):
             else:
                 raise RuntimeError(
                     "If running on the OSG you must be using an IGWN "
-                    "environment or the CWInPy developement singularity "
+                    "environment or the CWInPy development singularity "
                     "container."
                 )
 
