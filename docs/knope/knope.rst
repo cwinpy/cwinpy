@@ -36,12 +36,13 @@ provided :ref:`here<Local use of HTCondor>`) and the instructions here will focu
 brief description of using ``cwinpy_knope`` will be provided, although this should primarily be
 used, if required, for quick testing.
 
-For LVK users, if running on proprietary data you may need to generate a proxy certificate to allow
-the analysis scripts to access frame files, e.g.,:
+For LVK users, if running on proprietary data you may need to
+`generate a SciToken <https://computing.docs.ligo.org/guide/auth/scitokens/#get>`__ to allow the
+analysis scripts to access frame files, e.g.,:
 
 .. code:: bash
 
-   ligo-proxy-init -p albert.einstein
+   htgettoken --audience https://datafind.ligo.org --scope gwdatafind.read -a vault.ligo.org --issuer igwn
 
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
 data available from the `GWOSC <https://gwosc.org/>`__ via `CVMFS
@@ -193,13 +194,16 @@ This would be run with:
 
 .. note:: 
 
-   Before running this you should run:
+   Before running this (provided you have
+   `installed the SciTokens tools <https://computing.docs.ligo.org/guide/auth/scitokens/#install>`__)
+   you should run:
 
    .. code-block:: bash
 
-      $ ligo-proxy-init -p albert.einstein
+      $ htgettoken --audience https://datafind.ligo.org --scope gwdatafind.read -a vault.ligo.org --issuer igwn
 
-   to generate the credentials for accessing the proprietary data via CVMFS.
+   to generate `SciTokens authentication <https://computing.docs.ligo.org/guide/auth/scitokens/>`__
+   for accessing the proprietary data via CVMFS.
 
 Once complete, this example should have generated the heterodyned data files for H1 and L1 (within
 the ``/home/matthew.pitkin/projects/cwinpyO1/heterodyne`` directory):

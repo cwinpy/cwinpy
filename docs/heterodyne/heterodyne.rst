@@ -71,12 +71,13 @@ as those `available to the LVK <https://computing.docs.ligo.org/guide/grid/>`__,
 Science Grid <https://opensciencegrid.org/>`__), or an individual machine (see below), running the
 `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ job scheduler system then the analysis can
 be split up using the ``cwinpy_heterodyne_pipeline`` pipeline script (see :ref:`Running using
-HTCondor`). In some cases you may need to generate a proxy certificate to allow the analysis script
-to access proprietary frame files, e.g.,:
+HTCondor`). In some cases you may need to
+`generate a SciToken <https://computing.docs.ligo.org/guide/auth/scitokens/#get>`__ to allow the
+analysis script to access proprietary frame files, e.g.,:
 
 .. code:: bash
 
-   ligo-proxy-init -p albert.einstein
+   htgettoken --audience https://datafind.ligo.org --scope gwdatafind.read -a vault.ligo.org --issuer igwn
 
 The ``cwinpy_heterodyne_pipeline`` should be used for most practical purposes, while
 ``cwinpy_heterodyne`` is generally useful for short tests.
@@ -491,7 +492,7 @@ be altered using the ``label`` option (it is recommended to stick to the default
 
 .. note::
 
-   If running on IGWN grid computing clusters the ``acounting_group`` value must
+   If running on IGWN grid computing clusters the ``accounting_group`` value must
    be specified and provide a valid tag. Valid tag names can be found `here
    <https://accounting.ligo.org/user>`__ unless custom values for a specific cluster are allowed.
 
@@ -500,17 +501,9 @@ be altered using the ``label`` option (it is recommended to stick to the default
 
    .. code-block:: bash
 
-      ligo-proxy-init -p albert.einstein
+      htgettoken --audience https://datafind.ligo.org --scope gwdatafind.read -a vault.ligo.org --issuer igwn
 
-   where ``albert.einstein`` is substituted for your username, before running the executable.
-
-Open Science Grid
-^^^^^^^^^^^^^^^^^
-
-If you have access to resources on the Open Science Grid (OSG) then the analysis can also be run on
-them. This can be achieved by setting the ``osg`` value in the configuration file to be ``True``.
-Before launching the script you should make sure that you are using CWInPy from within an `IGWN
-conda environment <https://computing.docs.ligo.org/conda/>`_ as distributed over CVMFS.
+   to generate a SciToken, before running the executable.
 
 Two stage approach
 ^^^^^^^^^^^^^^^^^^
