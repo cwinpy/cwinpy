@@ -1911,6 +1911,9 @@ class PEDAGRunner(object):
         # get the sampler keyword arguments
         samplerkwargs = self.eval(config.get("pe", "sampler_kwargs", fallback="{}"))
 
+        # get the periodic restart time
+        periodicrestarttime = config.get("pe", "periodic-restart-time", fallback=None)
+
         # get whether to use numba (default to True in DAG)
         disablenumba = config.getboolean("pe", "disable-numba", fallback=False)
 
@@ -1969,6 +1972,9 @@ class PEDAGRunner(object):
             # add checkpoint exit code if none is given
             if "exit_code" not in samplerkwargs:
                 samplerkwargs["exit_code"] = CHECKPOINT_EXIT_CODE
+
+            if periodicrestarttime is not None:
+                configdict["periodic_restart_time"] = periodicrestarttime
 
             configdict["data_kwargs"] = str(datakwargs)
 
