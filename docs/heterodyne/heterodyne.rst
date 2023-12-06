@@ -71,13 +71,40 @@ as those `available to the LVK <https://computing.docs.ligo.org/guide/grid/>`__,
 Science Grid <https://opensciencegrid.org/>`__), or an individual machine (see below), running the
 `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ job scheduler system then the analysis can
 be split up using the ``cwinpy_heterodyne_pipeline`` pipeline script (see :ref:`Running using
-HTCondor`). In some cases you may need to
-`generate a SciToken <https://computing.docs.ligo.org/guide/auth/scitokens/#get>`__ to allow the
-analysis script to access proprietary frame files, e.g.,:
+HTCondor`).
 
-.. code:: bash
+.. note::
 
-   htgettoken --audience https://datafind.ligo.org --scope gwdatafind.read -a vault.ligo.org --issuer igwn
+   For LVK users, if requiring access to `proprietary IGWN frame data
+   <https://computing.docs.ligo.org/guide/auth/scitokens/#data>`__ (i.e., non-public frames visible
+   to those within the LVK collaboration) via `CVMFS
+   <https://computing.docs.ligo.org/guide/cvmfs/>`__ rather than frames locally stored on a cluster,
+   you will need to `generate a SciToken
+   <https://computing.docs.ligo.org/guide/auth/scitokens/#get>`__ to allow the analysis script to
+   access them. To enable the pipeline script to find science segments and frame URLs you must
+   `generate a token <https://computing.docs.ligo.org/guide/auth/scitokens/#get-default>`__ with:
+
+   .. code:: bash
+
+      htgettoken -a vault.ligo.org -i igwn
+
+   .. note::
+
+      On some systems still using the `X.509 authentication
+      <https://computing.docs.ligo.org/guide/auth/x509/>`__ you may instead need to run to find the
+      science segments and frame URLs:
+
+      .. code:: bash
+
+         ligo-proxy-init -p albert.einstein
+
+   and then run:
+
+   .. code:: bash
+
+      condor_vault_storer -v igwn
+
+   to allow the HTCondor jobs to access the credentials.
 
 The ``cwinpy_heterodyne_pipeline`` should be used for most practical purposes, while
 ``cwinpy_heterodyne`` is generally useful for short tests.
