@@ -88,7 +88,7 @@ HTCondor`).
 
       htgettoken -a vault.ligo.org -i igwn
 
-   .. note::
+   .. warning::
 
       On some systems still using the `X.509 authentication
       <https://computing.docs.ligo.org/guide/auth/x509/>`__ you may instead need to run to find the
