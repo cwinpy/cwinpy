@@ -581,6 +581,7 @@ phi0 = {phi0}
         shutil.rmtree(cls.fakepardir)
         shutil.rmtree(cls.fakedatadir)
 
+    @pytest.mark.slow
     def test_heterodyne_exact(self):
         """
         Heterodyne with the exact phase parameters
@@ -649,6 +650,7 @@ phi0 = {phi0}
                 gridroq.marginalize_ln_likelihood(not_parameters=par),
             )
 
+    @pytest.mark.slow
     def test_heterodyne_offset(self):
         """
         Heterodyne with offset phase parameters
@@ -893,6 +895,7 @@ phi0 = {phi0}
         shutil.rmtree(cls.fakepardir)
         shutil.rmtree(cls.fakedatadir)
 
+    @pytest.mark.slow
     def test_heterodyne_exact(self):
         """
         Heterodyne with the exact binary parameters
@@ -960,6 +963,7 @@ phi0 = {phi0}
                 gridroq.marginalize_ln_likelihood(not_parameters=par),
             )
 
+    @pytest.mark.slow
     def test_heterodyne_offset(self):
         """
         Heterodyne with offset binary parameters
