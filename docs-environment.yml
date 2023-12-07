@@ -1,0 +1,42 @@
+name: cwinpydocs
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8
+  - lintegrate
+  - pip:
+    - appdirs
+    - arby
+    - astropy
+    - bilby
+    - black
+    - configargparse
+    - corner
+    - cweqgen
+    - cython
+    - gwosc
+    - healpy
+    - htcondor
+    - lalsuite>=7.8
+    - matplotlib
+    - numba
+    - numpy
+    - pesummary
+    - psrqpy
+    - requests
+    - scipy
+    - seaborn
+    - simpleeval
+    - solar-system-ephemerides
+    - autodoc
+    - myst-parser
+    - nbsphinx
+    - numpydoc
+    - pydata-sphinx-theme
+    - sphinx
+    - sphinx-design
+    - sphinxcontrib-images
+    - sphinxcontrib-napoleon
+    - sphinxcontrib-programoutput
+    - .
+prefix: /home/matt/miniconda3/envs/cwinpydocs
