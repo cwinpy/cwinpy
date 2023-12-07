@@ -36,12 +36,38 @@ provided :ref:`here<Local use of HTCondor>`) and the instructions here will focu
 brief description of using ``cwinpy_knope`` will be provided, although this should primarily be
 used, if required, for quick testing.
 
-For LVK users, if running on proprietary data you may need to generate a proxy certificate to allow
-the analysis scripts to access frame files, e.g.,:
+.. note::
 
-.. code:: bash
+   For LVK users, if requiring access to `proprietary IGWN frame data
+   <https://computing.docs.ligo.org/guide/auth/scitokens/#data>`__ (i.e., non-public frames visible
+   to those within the LVK collaboration) via `CVMFS
+   <https://computing.docs.ligo.org/guide/cvmfs/>`__ rather than frames locally stored on a cluster,
+   you will need to `generate a SciToken
+   <https://computing.docs.ligo.org/guide/auth/scitokens/#get>`__ to allow the analysis script to
+   access them. To enable the pipeline script to find science segments and frame URLs you must
+   `generate a token <https://computing.docs.ligo.org/guide/auth/scitokens/#get-default>`__ with:
 
-   ligo-proxy-init -p albert.einstein
+   .. code:: bash
+
+      htgettoken -a vault.ligo.org -i igwn
+
+   .. warning::
+
+      On some systems still using the `X.509 authentication
+      <https://computing.docs.ligo.org/guide/auth/x509/>`__ you may instead need to run to find the
+      science segments and frame URLs:
+
+      .. code:: bash
+
+         ligo-proxy-init -p albert.einstein
+
+   and then run:
+
+   .. code:: bash
+
+      condor_vault_storer -v igwn
+
+   to allow the HTCondor jobs to access the credentials.
 
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
 data available from the `GWOSC <https://gwosc.org/>`__ via `CVMFS
@@ -193,13 +219,16 @@ This would be run with:
 
 .. note:: 
 
-   Before running this you should run:
+   Before running this (provided you have
+   `installed the SciTokens tools <https://computing.docs.ligo.org/guide/auth/scitokens/#install>`__)
+   you should run:
 
    .. code-block:: bash
 
-      $ ligo-proxy-init -p albert.einstein
+      $ htgettoken --audience https://datafind.ligo.org --scope gwdatafind.read -a vault.ligo.org --issuer igwn
 
-   to generate the credentials for accessing the proprietary data via CVMFS.
+   to generate `SciTokens authentication <https://computing.docs.ligo.org/guide/auth/scitokens/>`__
+   for accessing the proprietary data via CVMFS.
 
 Once complete, this example should have generated the heterodyned data files for H1 and L1 (within
 the ``/home/matthew.pitkin/projects/cwinpyO1/heterodyne`` directory):

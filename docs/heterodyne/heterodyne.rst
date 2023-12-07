@@ -71,12 +71,40 @@ as those `available to the LVK <https://computing.docs.ligo.org/guide/grid/>`__,
 Science Grid <https://opensciencegrid.org/>`__), or an individual machine (see below), running the
 `HTCondor <https://htcondor.readthedocs.io/en/latest/>`_ job scheduler system then the analysis can
 be split up using the ``cwinpy_heterodyne_pipeline`` pipeline script (see :ref:`Running using
-HTCondor`). In some cases you may need to generate a proxy certificate to allow the analysis script
-to access proprietary frame files, e.g.,:
+HTCondor`).
 
-.. code:: bash
+.. note::
 
-   ligo-proxy-init -p albert.einstein
+   For LVK users, if requiring access to `proprietary IGWN frame data
+   <https://computing.docs.ligo.org/guide/auth/scitokens/#data>`__ (i.e., non-public frames visible
+   to those within the LVK collaboration) via `CVMFS
+   <https://computing.docs.ligo.org/guide/cvmfs/>`__ rather than frames locally stored on a cluster,
+   you will need to `generate a SciToken
+   <https://computing.docs.ligo.org/guide/auth/scitokens/#get>`__ to allow the analysis script to
+   access them. To enable the pipeline script to find science segments and frame URLs you must
+   `generate a token <https://computing.docs.ligo.org/guide/auth/scitokens/#get-default>`__ with:
+
+   .. code:: bash
+
+      htgettoken -a vault.ligo.org -i igwn
+
+   .. warning::
+
+      On some systems still using the `X.509 authentication
+      <https://computing.docs.ligo.org/guide/auth/x509/>`__ you may instead need to run to find the
+      science segments and frame URLs:
+
+      .. code:: bash
+
+         ligo-proxy-init -p albert.einstein
+
+   and then run:
+
+   .. code:: bash
+
+      condor_vault_storer -v igwn
+
+   to allow the HTCondor jobs to access the credentials.
 
 The ``cwinpy_heterodyne_pipeline`` should be used for most practical purposes, while
 ``cwinpy_heterodyne`` is generally useful for short tests.
@@ -491,7 +519,7 @@ be altered using the ``label`` option (it is recommended to stick to the default
 
 .. note::
 
-   If running on IGWN grid computing clusters the ``acounting_group`` value must
+   If running on IGWN grid computing clusters the ``accounting_group`` value must
    be specified and provide a valid tag. Valid tag names can be found `here
    <https://accounting.ligo.org/user>`__ unless custom values for a specific cluster are allowed.
 
@@ -500,17 +528,9 @@ be altered using the ``label`` option (it is recommended to stick to the default
 
    .. code-block:: bash
 
-      ligo-proxy-init -p albert.einstein
+      htgettoken --audience https://datafind.ligo.org --scope gwdatafind.read -a vault.ligo.org --issuer igwn
 
-   where ``albert.einstein`` is substituted for your username, before running the executable.
-
-Open Science Grid
-^^^^^^^^^^^^^^^^^
-
-If you have access to resources on the Open Science Grid (OSG) then the analysis can also be run on
-them. This can be achieved by setting the ``osg`` value in the configuration file to be ``True``.
-Before launching the script you should make sure that you are using CWInPy from within an `IGWN
-conda environment <https://computing.docs.ligo.org/conda/>`_ as distributed over CVMFS.
+   to generate a SciToken, before running the executable.
 
 Two stage approach
 ^^^^^^^^^^^^^^^^^^

@@ -88,6 +88,9 @@ class PulsarPELayer(CondorLayer):
             # make sure files are transferred if using the OSG
             self.submit_options["should_transfer_files"] = "YES"
 
+            # allow use of local pool (https://computing.docs.ligo.org/guide/htcondor/access/#local-access-points)
+            additional_options["MY.flock_local"] = "True"
+
             if self.submit_options.get("desired_sites", ""):
                 # allow specific OSG sites to be requested
                 additional_options["MY.DESIRED_Sites"] = self.submit_options[
@@ -111,7 +114,7 @@ class PulsarPELayer(CondorLayer):
                     '"/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/'
                     'cwinpy-containers/cwinpy-dev-python38:latest"'
                 )
-                self.requirements.append("(HAS_SINGULARITY=?=True)")
+                self.requirements.append("(HAS_SINGULARITY =?= True)")
                 self.submit_options["transfer_executable"] = False
 
             if (
@@ -121,7 +124,7 @@ class PulsarPELayer(CondorLayer):
                 if "MY.SingularityImage" not in additional_options:
                     repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
                     self.requirements.append(
-                        f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
+                        f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)} =?= True)"
                     )
             else:
                 raise RuntimeError(
