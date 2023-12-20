@@ -19,6 +19,7 @@ from gwpy.timeseries import TimeSeries, TimeSeriesBase
 from gwpy.types import Series
 from numba import jit
 from scipy.ndimage import median_filter
+from scipy.stats import hmean
 
 import cwinpy
 
@@ -2718,6 +2719,31 @@ class HeterodynedData(TimeSeriesBase):
         except Exception as e:
             raise TypeError("Value must be boolean: {}".format(e))
 
+    def segment_list(self):
+        """
+        Using the heterodyned data timestamps, generate a list of segments
+        (i.e., set of times between which there are uniformly spaced time
+        stamps). This is returns as a list of 2-lists, with each item giving
+        the start and end time (in GPS seconds) of that segment.
+        """
+
+        dt = self.dt.value
+        times = self.times.value
+
+        # initial segment
+        segs = [[times[0], times[1]]]
+
+        i = 2
+        while i < len(self):
+            if (times[i] - segs[-1][1]) == dt:
+                segs[-1][1] = times[i]
+            else:
+                segs.append([times[i], times[i + 1]])
+                i += 1
+            i += 1
+
+        return segs
+
     def plot(
         self,
         which="abs",
@@ -3087,8 +3113,8 @@ class HeterodynedData(TimeSeriesBase):
         ----------
         average: str, 'median'
             The method by which to "average" the spectrum in time. This can be
-            'median' (the default), 'mean', 'max' (return the maximum) or 'min'
-            (return the minimum).
+            'median' (the default), 'mean', 'harmonic_mean', 'max' (return the
+            maximum) or 'min' (return the minimum).
         asd: bool
             If True, the amplitude spectral density will be returned rather
             than the power spectrum.
@@ -3243,16 +3269,28 @@ class HeterodynedData(TimeSeriesBase):
             except Exception as e:
                 raise RuntimeError("Problem creating spectrogram: {}".format(e))
 
+            # get frequencies within +/-Fn / 2
+            fidx = (frequencies >= -Fn / 2) & (frequencies <= Fn / 2)
+            power = power[fidx, :]
+            frequencies = frequencies[fidx]
+
             # rescale power due to zero padding spreading out power and different sample rate
             power *= (Fs / Fn) ** 2
 
             if ptype == "power":
                 # average the spectrogram for a power spectrum
-                average = speckwargs.get("average", "median")
+                average = speckwargs.get("average", "median").lower()
 
-                if average not in ["median", "mean", "max", "min"]:
+                if average not in [
+                    "median",
+                    "mean",
+                    "harmonic_mean",
+                    "hmean",
+                    "max",
+                    "min",
+                ]:
                     raise ValueError(
-                        "Average method must be 'median', 'mean', 'max' or 'min'."
+                        "Average method must be 'median', 'mean', 'harmonic_mean', 'max' or 'min'."
                     )
 
                 # ignore any power time bins that are zero
@@ -3262,6 +3300,8 @@ class HeterodynedData(TimeSeriesBase):
                     power = np.median(power[:, nonzero], axis=-1)
                 elif average == "mean":
                     power = np.mean(power[:, nonzero], axis=-1)
+                elif average in ["harmonic_mean", "hmean"]:
+                    power = hmean(power[:, nonzero], axis=-1)
                 elif average == "max":
                     power = np.max(power[:, nonzero], axis=-1)
                 else:
@@ -3284,6 +3324,10 @@ class HeterodynedData(TimeSeriesBase):
             if ptype == "spectrogram":
                 return frequencies, power, stimes
             else:
+                if speckwargs.get("asd", False):
+                    # convert PSD to ASD
+                    power = np.sqrt(power)
+
                 return frequencies, power
 
         # perform plotting
@@ -3331,7 +3375,7 @@ class HeterodynedData(TimeSeriesBase):
 
                 # extents of the plot
                 if "extent" not in plotkwargs:
-                    plotkwargs["extent"] = [0, tottime, -2 / Fn, 2 / Fn]
+                    plotkwargs["extent"] = [0, tottime, -Fn / 2, Fn / 2]
 
                 if "aspect" not in plotkwargs:
                     plotkwargs["aspect"] = "auto"

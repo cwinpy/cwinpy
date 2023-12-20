@@ -2,9 +2,9 @@
 Test script for testing class.
 """
 
-import glob
 import os
 import shutil
+from pathlib import Path
 
 import bilby
 import numpy as np
@@ -22,7 +22,7 @@ class TestPEPP(object):
         """
 
         # set the base directory
-        cls.basedir = os.path.join(os.path.split(os.path.realpath(__file__))[0], "base")
+        cls.basedir = Path(os.path.split(os.path.realpath(__file__))[0]) / "base"
 
         cls.ninj = 50  # number of simulated signals
         cls.maxamp = 5e-23  # maximum amplitude
@@ -52,7 +52,7 @@ class TestPEPP(object):
         with pytest.raises(ValueError):
             PEPPPlotsDAG(self.priors, maxamp=-1.0)
 
-        with pytest.raises(IOError):
+        with pytest.raises((IOError, TypeError)):
             PEPPPlotsDAG(self.priors, basedir=1)
 
         with pytest.raises(TypeError):
@@ -103,5 +103,5 @@ class TestPEPP(object):
         assert len(run.runner.dag.nodes) == (self.ninj + 1)
 
         # check config files are present
-        configfiles = list(glob.glob(os.path.join(self.basedir, "configs", "*.ini")))
+        configfiles = list((self.basedir / "configs").glob(f"{run.detector}*.ini"))
         assert len(configfiles) == self.ninj

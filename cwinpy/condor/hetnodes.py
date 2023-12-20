@@ -203,6 +203,8 @@ class HeterodyneLayer(CondorLayer):
         if not os.path.exists(configlocation):
             os.makedirs(configlocation)
 
+        dagconfigfile = os.path.join(configlocation, "heterodyne_pipeline_config.ini")
+
         transfer_files = self.submit_options.get("should_transfer_files", "NO")
 
         for config in configurations:
@@ -233,14 +235,15 @@ class HeterodyneLayer(CondorLayer):
                 ),
             )
 
-            # make sure pulsar files in DAG config are full paths
-            if self.cf.has_option("ephemerides", "pulsarfiles"):
-                self.cf.set("ephemerides", "pulsarfiles", str(config["pulsarfiles"]))
-
             # output the DAG configuration to a file that will
             # later be read and stored in the HeterodynedData objects
-            dagconfigfile = os.path.join(configlocation, "pipeline_config.ini")
             if not os.path.isfile(dagconfigfile):
+                # make sure pulsar files in DAG config are full paths
+                if self.cf.has_option("ephemerides", "pulsarfiles"):
+                    self.cf.set(
+                        "ephemerides", "pulsarfiles", str(config["pulsarfiles"])
+                    )
+
                 with open(dagconfigfile, "w") as fp:
                     self.cf.write(fp)
 

@@ -620,7 +620,7 @@ on the star that subsequently decays away on a timescale of days-to-weeks-to-mon
 An example configuration file for performing a search for such a signal is given below. In this case
 it uses open LIGO data from the `O2 observing run <https://gwosc.org/O2/>`__ to search
 for an exponentially decaying signal following a glitch observed in the Vela pulsar on 12 December
-2016.
+2016 [4]_.
 
 .. literalinclude:: examples/knope_example_O2_vela_transient.ini
 
@@ -709,6 +709,44 @@ decay time constant :math:`\tau_{\rm{trans}}`, with a broader distribution of :m
 with smaller values of :math:`\tau_{\rm{trans}}`. This is expected, as you would expect to be more
 sensitive to longer signals.
 
+Generating results webpages
+---------------------------
+
+If you have run the ``cwinpy_knope_pipeline``, it will generate a version of the input
+:ref:`configuration file<Configuration file>` within the analysis directory called
+``knope_pipeline_config.ini``. After the analysis is complete, i.e., the HTCondor DAG has
+successfully run, this configuration file can be used as an input for generating a set of results
+pages. These pages (based on `PESummary <https://docs.ligo.org/lscsoft/pesummary/>`_ [5]_) will
+display summary tables and plots of the results for all sources, e.g., upper limits on the
+gravitational-wave amplitude, as well as pages with information and posterior plots for each
+individual pulsar.
+
+These pages can be generated using the ``cwinpy_generate_summary_pages`` command line interface
+script or the :func:`~cwinpy.pe.summary.generate_summary_pages` API, which give control over what
+information is generated and output.
+
+For example, to generate summary webpages that include a table of upper limits on gravitational-wave
+amplitude, plots of these limits (also after converting to equivalent limits on the each pulsar's
+ellipticity and mass quadrupole moment), estimates of the signal-to-noise ratio and Bayesian odds,
+and individual pages for each pulsar, one could just run:
+
+.. code-block:: bash
+
+   $ cwinpy_generate_summary_pages --outpath /home/albert.einstein/public_html/analysis \
+   --url https://ldas-jobs.ligo.caltech.edu/~albert.einstein/analysis \
+   knope_pipeline_config.ini
+
+where ``--outpath`` points to the path of a web-accessible directory and ``--url`` gives the
+associated URL of that directory (for URLs for the user webpage for each LDG cluster, see the
+appropriate cluster listed `here <https://computing.docs.ligo.org/guide/computing-centres/ldg/>`__
+and look for the "User webspace"; currently the URL is not actually used, so a dummy string can be
+passed). If you have many sources, this could takes tens of minutes to run.
+
+.. warning::
+
+   The webpage generation scripts are currently not included in the CWInPy test suite and as such
+   the interface may be buggy.
+
 .. _knope Command line arguments:
 
 *knope* Command line arguments
@@ -727,6 +765,8 @@ Knope API
 
 .. automodule:: cwinpy.knope
    :members: knope, knope_pipeline
+.. automodule:: cwinpy.pe.summary
+   :members: generate_summary_pages
 
 Knope references
 ----------------
@@ -737,5 +777,7 @@ Knope references
    *PRD*, **100**, 064058 (2019)
 .. [3] `G. Yim & D. I. Jones <https://ui.adsabs.harvard.edu/abs/2020MNRAS.498.3138Y/abstract>`_,
    *MNRAS*, **498**, 3138-3152 (2020)
-.. [4] `J. Palfreyman <https://ui.adsabs.harvard.edu/abs/2016ATel.9847....1P/abstract>_`,
+.. [4] `J. Palfreyman <https://ui.adsabs.harvard.edu/abs/2016ATel.9847....1P/abstract>`_,
    *Astron. Telegram*, **9847** (2016)
+.. [5] `C. Hoy & V. Raymond <https://ui.adsabs.harvard.edu/abs/2021SoftX..1500765H/abstract>`_,
+   *SoftwareX*, **15**, 100765 (2021)

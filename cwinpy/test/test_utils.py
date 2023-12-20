@@ -19,6 +19,7 @@ from cwinpy.utils import (
     initialise_ephemeris,
     int_to_alpha,
     is_par_file,
+    is_valid_psr_name,
     logfactorial,
     overlap,
     q22_to_ellipticity,
@@ -121,6 +122,38 @@ def test_get_psr_name():
         psr[item] = name
 
         assert get_psr_name(psr) == name
+
+
+def test_valid_psr_name():
+    """
+    Test check for valid pulsar names.
+    """
+
+    testnames = {
+        "J0962-6529": True,
+        "CRAB": True,  # crab is a default allowed name
+        "B3485+89": False,  # RA outside range
+        "B2182+89": True,
+        "J0625-99": False,  # dec outside range
+        "HWINJ01": True,  # hwinj is a default allowed name
+        "JPULSAR00": True,
+        "PSRJNAME": True,  # psr is a default allowed name
+        "J0737-3039A": True,
+        "B1259-28_other": True,  # stuff after name is allowed
+        20: False,  # non-strings return False
+        "adjfj*23*": False,
+        "J": False,
+    }
+
+    for name, test in testnames.items():
+        assert is_valid_psr_name(name) == test
+
+    # different allowed names
+    assert is_valid_psr_name("Matthew", allowed_names=["matthew"])
+
+    # check when no other names are allowed
+    assert not is_valid_psr_name("Crab", allowed_names=[])
+    assert is_valid_psr_name("J0657+76", allowed_names=[])
 
 
 def test_ellipticity_to_q22():

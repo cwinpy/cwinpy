@@ -177,10 +177,13 @@ class PulsarPELayer(CondorLayer):
         if not os.path.exists(configlocation):
             os.makedirs(configlocation)
 
+        dagconfigfile = os.path.join(configlocation, "pe_pipeline_config.ini")
+
         # get results directory
-        self.resdir = os.path.join(
-            self.outdir, self.get_option("results", default="results"), self.psrname
+        self.resbase = os.path.join(
+            self.outdir, self.get_option("results", default="results")
         )
+        self.resdir = os.path.join(self.resbase, self.psrname)
         if not os.path.exists(self.resdir):
             os.makedirs(self.resdir)
 
@@ -292,10 +295,17 @@ class PulsarPELayer(CondorLayer):
 
             # write out configuration file
             parseobj = DefaultConfigFileParser()
-            with open(configfile, "w") as fp:
-                fp.write(parseobj.serialize(curconfig))
+            if not os.path.isfile(configfile):
+                with open(configfile, "w") as fp:
+                    fp.write(parseobj.serialize(curconfig))
 
             self.vars.append(vardict)
+
+            # output the DAG configuration to a file
+            if not os.path.isfile(dagconfigfile):
+                # make sure pulsar files in DAG config are full paths
+                with open(dagconfigfile, "w") as fp:
+                    self.cf.write(fp)
 
 
 class MergePELayer(CondorLayer):
@@ -354,6 +364,10 @@ class MergePELayer(CondorLayer):
             f"{self.parent_layer_class.psrname}"
         )
         arglist.append(f"--label {label}")
+
+        self.resultsfile = os.path.join(
+            os.path.abspath(self.parent_layer_class.resdir), label + "*"
+        )
 
         # set merge flag
         arglist.append("--merge")

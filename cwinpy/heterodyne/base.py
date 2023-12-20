@@ -35,9 +35,6 @@ from ..utils import (
 )
 from .fastheterodyne import fast_heterodyne
 
-# hold PSRQPy query when/if required
-psrqpy_query = None
-
 
 class Heterodyne(object):
     """
@@ -826,7 +823,7 @@ class Heterodyne(object):
                         f"Could not read in frame data '{frfile}' from cache: {e}"
                     )
                 else:
-                    print(f"Could not read in frame data '{frfile}' from cache.")
+                    print(f"Could not read in frame data '{frfile}' from cache. {e}")
         else:
             # download data
             if host == GWOSC_DEFAULT_HOST:

@@ -1,4 +1,5 @@
 import configparser
+import copy
 import os
 from argparse import ArgumentParser
 
@@ -588,6 +589,18 @@ def knope_pipeline(**kwargs):
     # create PE DAG
     kwargs["dag"] = hetdag.dag  # add heterodyne DAG
     pedag = PEDAGRunner(peconfig, **kwargs)
+
+    # generated full configuration file
+    fullconfig = copy.deepcopy(hetconfig)
+    fullconfig.update(peconfig)
+
+    # output generated full configuration file
+    fullconfigfile = os.path.join(
+        fullconfig.get("run", "basedir", fallback=os.getcwd()),
+        "knope_pipeline_config_generated.ini",
+    )
+    with open(fullconfigfile, "w") as fp:
+        fullconfig.write(fp)
 
     # return the full DAG
     return pedag

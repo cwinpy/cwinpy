@@ -8,14 +8,13 @@ import matplotlib as mpl
 import numpy as np
 from astropy.table import QTable, Table
 from bilby.core.result import Result, read_in_result
-from matplotlib import gridspec
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FixedLocator, FuncFormatter
 from psrqpy import QueryATNF
 
 from ..data import HeterodynedData, MultiHeterodynedData
 from ..parfile import PulsarParameters
-from ..utils import get_psr_name
+from ..utils import get_psr_name, is_valid_psr_name
 
 
 def results_odds(results, oddstype="svn", scale="log10", **kwargs):
@@ -42,12 +41,13 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
         ``log_10_noise_evidence`` with the former providing the base-10
         logarithm for the signal model and the latter the base-10 logarithm of
         the data being consistent with noise. If inputting a dictionary, it
-        should be keyed by two-character detector names, e.g., "H1", for the
-        results from individual detectors, or the string "joint", "coherent" or
-        a concatenation of all detector names for a coherent multi-detector
-        result. Alternatively, ``results`` can be a directory, within which it
-        is assumed that each subdirectory is named after a pulsar and contains
-        results files with the format
+        should be either i) keyed by two-character detector names, e.g., "H1",
+        for the results from individual detectors, or the string "joint",
+        "coherent" or a concatenation of all detector names for a coherent
+        multi-detector result, or ii) keyed by pulsar name with values assuming
+        the previous structure. Alternatively, ``results`` can be a directory,
+        within which it is assumed that each subdirectory is named after a
+        pulsar and contains results files with the format
         ``{fnamestr}_{det}_{psrname}_result.[hdf5,json]``, where the default
         ``fnamestr`` is ``cwinpy_pe``, ``det`` is the two-character detector
         name, or concantenation of multiple detector names, and ``psrname`` is
@@ -97,7 +97,13 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
                 if len(resfiles) == 0:
                     raise ValueError(f"{results} contains no valid results files")
         else:
-            resfiles = {"dummyname": results}
+            # check if keys are valid pulsar names
+            if any(is_valid_psr_name(k) for k in results):
+                # assume dictionary keyed by pulsar name
+                resfiles = results
+            else:
+                # check if all keys are detector names
+                resfiles = {"dummyname": results}
 
         logodds = {}
 
@@ -185,7 +191,15 @@ def read_in_result_wrapper(res):
     return result
 
 
-def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers=False):
+def optimal_snr(
+    res,
+    het,
+    par=None,
+    det=None,
+    which="posterior",
+    remove_outliers=False,
+    return_dict=False,
+):
     """
     Calculate the optimal matched filter signal-to-noise ratio for a signal in
     given data based on the posterior samples. This can either be the
@@ -224,6 +238,9 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
     remove_outliers: bool
         Set when to remove outliers from data before calculating the SNR. This
         defaults to False.
+    return_dict: bool
+        Strictly return the generated dictionary rather than any reduced
+        output.
 
     Returns
     -------
@@ -243,6 +260,8 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
             resfiles = {"dummyname": {"dummydet": res}}
     elif isinstance(res, Result):
         resfiles = {"dummyname": {"dummydet": res}}
+    elif isinstance(res, dict):
+        resfiles = res
     else:
         raise TypeError("res should be a file/directory path or Result object")
 
@@ -270,7 +289,10 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
         else:
             hetfiles = {"dummyname": {"dummydet": het}}
     elif isinstance(het, (HeterodynedData, MultiHeterodynedData, dict)):
-        hetfiles = {"dummyname": {"dummydet": het}}
+        if isinstance(het, dict) and any(is_valid_psr_name(k) for k in het):
+            hetfiles = het
+        else:
+            hetfiles = {"dummyname": {"dummydet": het}}
     else:
         raise TypeError("het should be a file/directory path or HeterodynedData object")
 
@@ -342,8 +364,14 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
                     for hd in hetfiles[psr][d]:
                         if isinstance(hd, HeterodynedData):
                             mhddet.add_data(hd)
+
+                            if len(muldets) > 0:
+                                mhd.add_data(hd)
                         else:
                             mhddet.add_data(hetfiles[psr][d][hd])
+
+                            if len(muldets) > 0:
+                                mhd.add_data(hetfiles[psr][d][hd])
                 else:
                     mhddet.add_data(hetfiles[psr][d])
 
@@ -406,8 +434,11 @@ def optimal_snr(res, het, par=None, det=None, which="posterior", remove_outliers
             # get snr
             snrs[psr]["".join(ds)] = mhdmulti.signal_snr(parc)
 
+    if return_dict:
+        return snrs
+
     if len(snrs) == 1:
-        if len(list(snrs.keys())) == 1:
+        if len(snrs[list(snrs.keys())[0]]) == 1:
             # dictionary contains a single value
             return [item for p in snrs for item in snrs[p].values()][0]
         else:
@@ -666,6 +697,7 @@ def plot_snr_vs_odds(S, R, **kwargs):
             figkwargs["figsize"] = kwargs.pop("figsize")
         if "dpi" in kwargs:
             figkwargs["dpi"] = kwargs.pop("dpi")
+        figkwargs["layout"] = "constrained"
         fig, ax = plt.subplots(**figkwargs)
     else:
         fig = plt.gcf()
@@ -704,9 +736,69 @@ def plot_snr_vs_odds(S, R, **kwargs):
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
 
-    fig.tight_layout()
-
     return fig, ax
+
+
+class set_formats:
+    def __init__(self, name=None, type=None, dp=2, sf=3, scinot=True):
+        """
+        Defaults to rounding to two decimal places (or three significant
+        figures for spin-down ratios)
+        """
+        self.name = name
+        self.type = type
+        self.dp = dp
+        self.sf = sf
+        self.scinot = scinot
+
+    def __call__(self, x):
+        if isinstance(x, np.ma.core.MaskedConstant):
+            return
+
+        def splitexponent(y):
+            # get exponent
+            exp = int(np.floor(np.log10(abs(y))))
+            val = y / 10**exp
+            return val, exp
+
+        if hasattr(x, "value"):
+            num = deepcopy(x.value)
+        else:
+            num = deepcopy(x)
+
+        if self.name == "PSRJ":
+            if "-" in num and self.type == "latex":
+                return num.replace("-", r"\textminus")
+            else:
+                return num
+        if self.name in ["F0ROT", "DIST"]:
+            return f"%.{self.dp}f" % num
+        elif (
+            self.name.startswith("SDRAT")
+            or self.name == "SNR"
+            or self.name.startswith("ODDS")
+        ) and 1e-3 < abs(num) < 1000:
+            num = round(num, self.sf - int(np.floor(np.log10(abs(num)))) - 1)
+            if abs(num) > 10:
+                return f"{int(num)}"
+            else:
+                return f"{num}"
+        else:
+            val, exp = splitexponent(num)
+            val = round(val, self.dp)
+
+            if self.scinot:
+                if self.type == "latex":
+                    # LaTeX formating
+                    return rf"{val}\!\times\!10^{{{exp}}}"
+                elif self.type == "html":
+                    return rf"{val}×10<sup>{exp}</sup>"
+                elif self.type == "rst":
+                    return rf"{val}×10\ :sup:`{exp}`"
+                else:
+                    return f"{val}e{exp}"
+            else:
+                return f"{val}e{exp}"
 
 
 class UpperLimitTable(QTable):
@@ -724,8 +816,11 @@ class UpperLimitTable(QTable):
         "C21": "C_{{21}}{0}",
         "C22": "C_{{22}}{0}",
         "DIST": r"d",
-        "SDLIM": r"h_0^{\rm sd}",
+        "SDLIM": r"h_0^{{\rm sd}}{0}",
         "SDRAT": r"h_0{0} / h_0^{{\rm sd}}",
+        "SNR": r"\rho",
+        "ODDSSVN": r"\log{{}}_{{10}} \mathcal{{O}}_{{\rm SvN}}{0}",
+        "ODDSCVI": r"\log{{}}_{{10}} \mathcal{{O}}_{{\rm CvI}}{0}",
     }
 
     def __init__(self, resdir=None, **kwargs):
@@ -1107,63 +1202,6 @@ class UpperLimitTable(QTable):
         if not format.startswith("ascii."):
             format = f"ascii.{format}"
 
-        class set_formats:
-            def __init__(self, name=None, type=None, dp=2, sf=3, scinot=True):
-                """
-                Defaults to rounding to two decimal places (or three significant
-                figures for spin-down ratios)
-                """
-                self.name = name
-                self.type = type
-                self.dp = dp
-                self.sf = sf
-                self.scinot = scinot
-
-            def __call__(self, x):
-                if isinstance(x, np.ma.core.MaskedConstant):
-                    return
-
-                def splitexponent(y):
-                    # get exponent
-                    exp = int(np.floor(np.log10(abs(y))))
-                    val = y / 10**exp
-                    return val, exp
-
-                if hasattr(x, "value"):
-                    num = deepcopy(x.value)
-                else:
-                    num = deepcopy(x)
-
-                if self.name == "PSRJ":
-                    if "-" in num and self.type == "latex":
-                        return num.replace("-", r"\textminus")
-                    else:
-                        return num
-                if self.name in ["F0ROT", "DIST"]:
-                    return f"%.{self.dp}f" % num
-                elif self.name.startswith("SDRAT") and 1e-3 < num < 1000:
-                    num = round(num, self.sf - int(np.floor(np.log10(num))) - 1)
-                    if num > 10:
-                        return f"{int(num)}"
-                    else:
-                        return f"{num}"
-                else:
-                    val, exp = splitexponent(num)
-                    val = round(val, self.dp)
-
-                    if self.scinot:
-                        if self.type == "latex":
-                            # LaTeX formating
-                            return rf"{val}\!\times\!10^{{{exp}}}"
-                        elif self.type == "html":
-                            return f"{val}×10<sup>{exp}</sup>"
-                        elif self.type == "rst":
-                            return rf"{val}×10\ :sup:`{exp}`"
-                        else:
-                            return f"{val}e{exp}"
-                    else:
-                        return f"{val}e{exp}"
-
         # set default output formatting
         formats = kwargs.pop("formats", {})
         sf = kwargs.pop("sigfig", 3)
@@ -1186,6 +1224,10 @@ class UpperLimitTable(QTable):
         with StringIO() as sp:
             ct.write(sp, format=format, formats=formats, **kwargs)
             stringtab = sp.getvalue()
+
+        if format.strip("ascii.") == "html":
+            # convert &lt; and &gt; back to < and >
+            stringtab = stringtab.replace("&lt;", "<").replace("&gt;", ">")
 
         return stringtab
 
@@ -1263,20 +1305,20 @@ class UpperLimitTable(QTable):
             keyword. If a list of numbers is given these will be used for the
             characteristic age assuming that they are given in years.
         asds: list
-            A list of paths to files containing the amplitude spectral density
-            for the detectors used in producing the upper limit. These files
-            should have two columns: frequency and amplitude spectral density.
-            If given, and plotting the amplitudes, "H0", "C21" or "C22", these
-            will be used to plot an estimate of the search sensitivity. Note
-            that these sensitivity estimates are based on the *median expected
-            95% upper limit* on Gaussian noise (i.e., they aren't valid if
-            plotting upper limits for a different credibility value). The
-            scaling factors used in producing the sensitivity estimates are
-            given in Appendix C of [7]_. If multiple files are given, the
-            observation time weighted harmonic mean of the amplitudes will be
-            used to calculate the sensitivity. Keyword arguments used by
-            :func:`~matplotlib.pyplot.plot` when plotting the sensitivity can
-            be passed using the ``asdkwargs`` keyword.
+            A list of paths to files or arrays containing the amplitude
+            spectral density for the detectors used in producing the upper
+            limit. These files/arrays should contain two columns: frequency and
+            amplitude spectral density. If given, and plotting the amplitudes,
+            "H0", "C21" or "C22", these will be used to plot an estimate of the
+            search sensitivity. Note that these sensitivity estimates are based
+            on the *median expected 95% upper limit* on Gaussian noise (i.e.,
+            they aren't valid if plotting upper limits for a different
+            credibility value). The scaling factors used in producing the
+            sensitivity estimates are given in Appendix C of [7]_. If multiple
+            files are given, the observation time weighted harmonic mean of the
+            amplitudes will be used to calculate the sensitivity. Keyword
+            arguments used by :func:`~matplotlib.pyplot.plot` when plotting the
+            sensitivity can be passed using the ``asdkwargs`` keyword.
         tobs: list
             The observation times (in seconds) for each of the detectors
             associated with the ASD files given in the ``asds`` keyword. These
@@ -1306,6 +1348,13 @@ class UpperLimitTable(QTable):
         pulsars = self["PSRJ"]
 
         axisdata = {xy: {"label": "", "data": None, "y": None} for xy in ["x", "y"]}
+
+        # use GW frequency (twice rotation frequency) if requested
+        if "F0GW" in axiscols:
+            axiscols[axiscols.index("F0GW")] = "F0ROT"
+            usegwfreq = True
+        else:
+            usegwfreq = False
 
         for xy, acolumn in zip(["x", "y"], axiscols):
             if acolumn not in self.columns:
@@ -1347,9 +1396,12 @@ class UpperLimitTable(QTable):
             axisdata[xy]["label"] = colname
 
         # scale rotation frequency to GW frequency if necessary
-        if isinstance(column, str) and axisdata["y"]["label"].upper().startswith(
-            ("H0", "ELL", "Q22", "C22")
-        ):
+        if (
+            isinstance(column, str)
+            and axisdata["y"]["label"]
+            .upper()
+            .startswith(("H0", "ELL", "Q22", "C22", "SDRAT"))
+        ) or usegwfreq:
             axisdata["x"]["data"] *= 2.0  # GWs at twice frot
             axisdata["x"]["label"] = "F0GW"
 
@@ -1469,10 +1521,14 @@ class UpperLimitTable(QTable):
             lowfreq = -np.inf
             highfreq = np.inf
             for i in range(nasds):
-                try:
-                    asddata = np.loadtxt(asds[i], comments=["#", "%"])
-                except (ValueError, OSError):
-                    raise IOError(f"Could not read in ASD file '{asds[i]}'")
+                if isinstance(asds[i], (str, Path)):
+                    try:
+                        asddata = np.loadtxt(asds[i], comments=["#", "%"])
+                    except (ValueError, OSError):
+                        raise IOError(f"Could not read in ASD file '{asds[i]}'")
+                else:
+                    # assume it is a NumPy array
+                    asddata = asds[i]
 
                 freqs.append(asddata[:, 0])
                 weightedpsds.append(asddata[:, 1] ** 2 / tobs[i])
@@ -1509,6 +1565,20 @@ class UpperLimitTable(QTable):
 
             xlims = ax[0].get_xlim()
             ylims = ax[0].get_ylim()
+
+            # add band of ranges for h0
+            if axisdata["y"]["label"].startswith("H0"):
+                sfh0upper = 20  # see footnote 92 of https://arxiv.org/abs/0909.3583
+                sfh0lower = 7
+
+                ax[0].fill_between(
+                    freqbins,
+                    sfh0lower * hmean,
+                    sfh0upper * hmean,
+                    alpha=0.1,
+                    color=asdkwargs["color"],
+                    zorder=-1,
+                )
 
             # use zorder=0 to put lines behind others on the plot
             ax[0].plot(freqbins, scale * hmean, zorder=0, **asdkwargs)
@@ -1708,11 +1778,10 @@ class UpperLimitTable(QTable):
         ax[0].set_ylabel(self._get_label(axisdata["y"]["label"]))
 
         if len(ax) < 3:
-            fig.tight_layout()
             return fig
         else:
             # return matplotlib figure object
-            fig.figure.tight_layout()
+            fig.figure.set_layout_engine("tight")
             return fig.figure
 
     @staticmethod
@@ -1741,21 +1810,26 @@ class UpperLimitTable(QTable):
                 # default figure size
                 figsize = (12, 9)
 
-            fig = plt.figure(figsize=figsize)
+            fig = plt.figure(figsize=figsize, layout="tight")
 
             if addhistogram:
                 # set grid to add a histogram to the right hand side of the plot
                 # containing a projection of the y-axis values
-                gs = gridspec.GridSpec(
+                gridspec_kw = {
+                    "width_ratios": kwargs.pop("width_ratios", [4, 1]),
+                    "wspace": kwargs.pop("wspace", 0.03),
+                }
+                fig, ax = plt.subplots(
                     1,
                     2,
-                    width_ratios=kwargs.pop("width_ratios", [4, 1]),
-                    wspace=kwargs.pop("wspace", 0.03),
+                    gridspec_kw=gridspec_kw,
+                    figsize=figsize,
+                    layout="constrained",
+                    sharey=True,
                 )
-                ax = [plt.subplot(gs[0]), plt.subplot(gs[1])]
-                ax[0].sharey(ax[1])
             else:
-                ax = [plt.gca()]
+                fig, ax = plt.subplots(figsize=figsize)
+                ax = [ax]
 
         return fig, ax
 
