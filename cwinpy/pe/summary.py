@@ -768,7 +768,7 @@ def generate_summary_pages(**kwargs):
             default=False,
             help=(
                 "Set this flag to enable to produciton of marginal posterior "
-                "plots for each individual parameters."
+                "plots for each individual parameter."
             ),
         )
         parser.add_argument(
