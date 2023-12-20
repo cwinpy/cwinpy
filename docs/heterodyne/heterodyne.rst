@@ -91,12 +91,13 @@ HTCondor`).
    .. warning::
 
       On some systems still using the `X.509 authentication
-      <https://computing.docs.ligo.org/guide/auth/x509/>`__ you may instead need to run to find the
-      science segments and frame URLs:
+      <https://computing.docs.ligo.org/guide/auth/x509/>`__ you may instead need to run
 
       .. code:: bash
 
          ligo-proxy-init -p albert.einstein
+
+      to find the science segments and frame URLs.
 
    and then run:
 
