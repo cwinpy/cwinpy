@@ -265,10 +265,6 @@ def write_hdf5_series(series, output, path="HeterodynedData", **kwargs):
         "xindex",
     ]
 
-    if series.input_stds:
-        # allow vars to be included
-        badslots.remove("vars")
-
     for slot in series._metadata_slots:
         if slot not in badslots:
             slots += (slot,)

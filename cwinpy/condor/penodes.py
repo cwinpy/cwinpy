@@ -41,6 +41,9 @@ class PulsarPELayer(CondorLayer):
         self.osg = self.get_option("osg", default=False)
         self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
 
+        # check for use of tempo2
+        self.usetempo2 = self.get_option("usetempo2", default=False)
+
         # check number of parallel runs
         self.n_parallel = self.get_option("n_parallel", otype=int, default=1)
 
@@ -71,10 +74,22 @@ class PulsarPELayer(CondorLayer):
         )
         self.set_option("email", optionname="notify_user")
 
+        if self.usetempo2:
+            tempo2 = os.environ.get("TEMPO2", None)
+
+            if tempo2 is None:
+                raise ValueError("No TEMPO2 environment variable exists")
+
+            # add TEMPO2 environment variable to the submit file
+            self.submit_options["environment"] = f'"{tempo2}"'
+
         additional_options = {}
         if self.osg:
             # make sure files are transferred if using the OSG
             self.submit_options["should_transfer_files"] = "YES"
+
+            # allow use of local pool (https://computing.docs.ligo.org/guide/htcondor/access/#local-access-points)
+            additional_options["MY.flock_local"] = "True"
 
             if self.submit_options.get("desired_sites", ""):
                 # allow specific OSG sites to be requested
@@ -99,7 +114,7 @@ class PulsarPELayer(CondorLayer):
                     '"/cvmfs/singularity.opensciencegrid.org/matthew-pitkin/'
                     'cwinpy-containers/cwinpy-dev-python38:latest"'
                 )
-                self.requirements.append("(HAS_SINGULARITY=?=True)")
+                self.requirements.append("(HAS_SINGULARITY =?= True)")
                 self.submit_options["transfer_executable"] = False
 
             if (
@@ -109,7 +124,7 @@ class PulsarPELayer(CondorLayer):
                 if "MY.SingularityImage" not in additional_options:
                     repo = self.submit_options["executable"].split(os.path.sep, 3)[2]
                     self.requirements.append(
-                        f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)}=?=True)"
+                        f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)} =?= True)"
                     )
             else:
                 raise RuntimeError(

@@ -132,9 +132,6 @@ class PEPulsarSimulationDAG(object):
     accountgroup: str
         Value to give to the 'account_user_group' parameter in the Condor
         submit file. Default is to set no value.
-    getenv: bool
-        Set the value for the ``'getenv'`` parameter in the Condor submit file.
-        Default is False.
     sampler: str
         The sampler to use. Defaults to dynesty.
     sampler_kwargs: dict
@@ -170,7 +167,6 @@ class PEPulsarSimulationDAG(object):
         submit=False,
         accountuser=None,
         accountgroup=None,
-        getenv=False,
         sampler="dynesty",
         sampler_kwargs=None,
         outputsnr=True,
@@ -224,7 +220,6 @@ class PEPulsarSimulationDAG(object):
         # create dag configuration file
         self.accountuser = accountuser
         self.accountgroup = accountgroup
-        self.getenv = getenv
         self.submit = submit
         self.sampler = sampler
         self.sampler_kwargs = sampler_kwargs
@@ -633,7 +628,6 @@ class PEPulsarSimulationDAG(object):
         self.config["pe_dag"] = {"submitdag": self.submit}
 
         self.config["pe_job"] = {}
-        self.config["pe_job"]["getenv"] = str(self.getenv)
 
         if self.accountgroup is not None:  # pragma: no cover
             self.config["pe_job"]["accounting_group"] = self.accountgroup

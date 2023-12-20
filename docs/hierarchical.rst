@@ -161,7 +161,6 @@ and will assume the distance to each is precisely know and equal to the simulate
        npulsars=npulsars, 
        detector=detectors,
        basedir="/home/user/exponential",  # base directory for analysis output
-       getenv=True,  # use current host environment variables if working on a cluster 
        submit=True,  # automatically submit the HTCondor DAG
        numba=True,   # use numba for likelihood evaluation
        sampler_kwargs={'Nlive': 1000, 'sample': 'rwalk'},

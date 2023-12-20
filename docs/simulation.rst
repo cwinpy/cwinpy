@@ -412,7 +412,6 @@ distribution using:
         prior=prior,
         datafiles=datafiles,
         parfiles=parfiles,
-        getenv=True,
     )
 
 .. note::

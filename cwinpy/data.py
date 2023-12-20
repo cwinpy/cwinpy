@@ -1026,7 +1026,7 @@ class HeterodynedData(TimeSeriesBase):
 
         # remove outliers
         new.outlier_mask = None
-        if remove_outliers:
+        if remove_outliers and fakeasd is None:
             new.remove_outliers(thresh=thresh)
 
         # set the (minimum) time step and sampling frequency
@@ -1858,6 +1858,35 @@ class HeterodynedData(TimeSeriesBase):
         between the heterodyne parameters and any injected parameters (if
         specified as different) and just produced a point estimate at the data
         timestamp.
+
+        Note
+        ----
+        If generating a simulated signal in IPython or a Jupyter notebook, this
+        function can be very slow (taking minutes compared to a fraction of a
+        second), due to redirections of ``stdout``/``stderr`` in the
+        SWIG-wrapped ``LIGOTimeGPS`` class. To avoid this the call to
+        :meth:`~cwinpy.data.HeterodynedData.make_signal` should be either done
+        within a context manager, e.g.,:
+
+        .. code-block:: python
+
+            import lal
+
+            hetdata = HeterodynedData(...)
+
+            with lal.no_swig_redirect_standard_output_error():
+                hetdata.make_signal(...)
+
+        or by globally disabling redirection with:
+
+        .. code-block:: python
+
+            import lal
+
+            lal.swig_redirect_standard_output_error(True)
+
+            hetdata = HeterodynedData(...)
+            hetdata.make_signal(...)
 
         Parameters
         ----------

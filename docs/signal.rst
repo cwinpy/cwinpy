@@ -25,7 +25,33 @@ returned.
 The signal model at the rotation frequency, i.e., from the :math:`l=2,m=1` mode, can be set by
 passing ``freqfactor=1.0`` as an argument to :meth:`~cwinpy.signal.HeterodynedCWSimulator.model`.
 This requires that the file/object containing the source parameters has the :math:`C_{21}` and
-:math:`Phi_{21}` parameters defined as given in Equation 7 of [1]_.
+:math:`\Phi_{21}` parameters defined as given in Equation 7 of [1]_.
+
+.. note::
+   
+   If generating a simulated signal in IPython or a Jupyter notebook,
+   creating an instance of this class can be very slow (taking minutes
+   compared to a fraction of a second), due to redirections of
+   ``stdout``/``stderr`` in the SWIG-wrapped ``LIGOTimeGPS`` class. To
+   avoid this the call to :class:`~cwinpy.signal.HeterodynedCWSimulator`
+   should be either done within a context manager, e.g.,:
+
+   .. code-block:: python
+
+      import lal
+
+      with lal.no_swig_redirect_standard_output_error():
+            sim = HeterodyneCWSimulator(...)
+
+   or by globally disabling redirection with:
+
+   .. code-block:: python
+
+      import lal
+
+      lal.swig_redirect_standard_output_error(True)
+
+      sim = HeterodyneCWSimulator(...)
 
 Phase offset signal
 ===================

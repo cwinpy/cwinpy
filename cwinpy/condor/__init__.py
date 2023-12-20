@@ -10,7 +10,6 @@ class CondorLayer:
     # general options (name: (type, default))
     OPTIONS = {
         "universe": (str, "vanilla"),
-        "getenv": (bool, False),
         "accounting_group": (str, None),
         "accounting_group_user": (str, None),
         "notification": (str, "Never"),
