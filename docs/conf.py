@@ -240,8 +240,8 @@ numpydoc_show_class_members = False
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
-    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
-    "matplotlib": ("https://matplotlib.org/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
     "astropy": ("https://docs.astropy.org/en/stable/", None),
     "bilby": ("https://lscsoft.docs.ligo.org/bilby/", None),
     "numba": ("http://numba.pydata.org/numba-doc/latest/", None),
@@ -251,4 +251,5 @@ intersphinx_mapping = {
     "healpy": ("https://healpy.readthedocs.io/en/stable/", None),
     "seaborn": ("https://seaborn.pydata.org/", None),
     "cweqgen": ("https://cweqgen.readthedocs.io/en/latest/", None),
+    "pesummary": ("https://docs.ligo.org/lscsoft/pesummary/stable_docs/", None),
 }
