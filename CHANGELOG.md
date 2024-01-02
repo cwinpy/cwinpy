@@ -1,5 +1,19 @@
 # Notable changes between versions
 
+## [1.1.0] 2024-01-02
+
+Changes for this release:
+
+- Add script to generate results summary pages (!155).
+- Switch to using SciTokens for authentication when accessing proprietary frames over CVMFS (!165).
+- Allow `periodic_restart_time` to be passed in a DAG pipeline configuration file (!166).
+- Remove use of `getenv=True` in HTCondor files (!160).
+- Fix writing out heterodyned data to HDF5 files when standard deviations are supplied (!164).
+- Sort frame cache files by GPS time (!162).
+- Update deprecated htcondor functions (!161).
+- No longer use temporary files when using the "Quick Setup" pipeline (!158).
+- Make the [arby](https://arby.readthedocs.io/en/latest/) package a full requirement of CWInPy (!156).
+
 ## [1.0.2] 2023-06-17
 
 Changes for this release:
