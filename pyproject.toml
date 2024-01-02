@@ -1,6 +1,8 @@
 # to build a release of cwinpy requires the "build" package:
 # pip install build
 # python -m build --sdist --outdir .
+# Upload to PyPI with:
+# twine upload --repository cwinpy cwinpy-*.tar.gz
 
 [build-system]
 requires = [
