@@ -1,9 +1,7 @@
 include LICENSE README.md
 include cwinpy/_version.py
 include cwinpy/heterodyne/*.c
-include cwinpy/heterodyne/*.h
-recursive-include test/ *.py
-recursive-include test/data *
+recursive-include cwinpy/test/data *
 include cwinpy/pkg_data/S5/hw_inj/*.par
 include cwinpy/pkg_data/S6/hw_inj/*.par
 include cwinpy/pkg_data/O1/hw_inj/*.par
