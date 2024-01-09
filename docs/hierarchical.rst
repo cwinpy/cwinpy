@@ -230,7 +230,6 @@ uses the default nested sampling routine to draw the samples from :math:`\mu`.
 
    # set the sampler keyword arguments
    sampler_kwargs = {
-       "sample": "unif",
        "nlive": 500,
        "gzip": True,
        "outdir": "exponential_distribution",
@@ -249,7 +248,7 @@ uses the default nested sampling routine to draw the samples from :math:`\mu`.
    )
 
    # run the sampler
-   res = mqd.sample()
+   res = mqd.sample(sample="unif")
 
 The ``res`` value returned by :meth:`~cwinpy.hierarchical.MassQuadrupoleDistribution.sample` will be
 a :class:`~bilby.core.result.Result` object containing the posterior samples for :math:`\mu`.
