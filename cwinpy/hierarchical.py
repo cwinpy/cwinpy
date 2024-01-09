@@ -766,6 +766,9 @@ class PowerLawDistribution(BaseDistribution):
         elif np.any(value > maximum):
             return -np.inf
 
+        if maximum <= minimum:
+            return -np.inf
+
         # get log pdf
         logpdf = bilby.core.prior.PowerLaw(alpha, minimum, maximum).ln_prob(value)
 
