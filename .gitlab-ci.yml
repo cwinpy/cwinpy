@@ -13,10 +13,10 @@ stages:
   - test
   - release
 
-# test on python 3.8
-python-3.8:
+# test on python 3.9
+python-3.9:
   stage: test
-  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python38
+  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python39
   script:
     # install in "editable" mode, so pytest runs with Cython code - see https://stackoverflow.com/a/48331262/1862861
     - python -m pip install -e .
@@ -30,19 +30,19 @@ python-3.8:
     - make html
 
 
-# test on python 3.9
-python-3.9:
+# test on python 3.10
+python-3.10:
   stage: test
-  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python39
+  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python310
   script:
     - python -m pip install -e .
     - pytest
 
 
 # test pre-commit has picked up black/flake8 requirements
-pre-commit-python-3.8:
+pre-commit-python-3.9:
   stage: test
-  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python38
+  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python39
   script:
     - python -m pip install .[dev]
 
