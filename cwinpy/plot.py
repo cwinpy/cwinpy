@@ -1275,16 +1275,16 @@ class Plot:
         :class:`~bilby.core.grid.Grid` object.
         """
 
-        from pesummary.utils.array import Array
+        from pesummary.utils.credible_interval import weighted_credible_interval
 
         margpost = grid.marginalize_posterior(not_parameters=parameter)
-        intervals = Array.percentile(
+        intervals = weighted_credible_interval(
             grid.sample_points[parameter],
             weights=margpost,
             percentile=[100 * val for val in interval],
         )
 
-        return intervals if len(interval) > 1 else intervals[0]
+        return intervals
 
     def upper_limit(self, parameter, bound=0.95):
         """
