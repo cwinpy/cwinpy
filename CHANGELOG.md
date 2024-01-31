@@ -1,5 +1,13 @@
 # Notable changes between versions
 
+## [1.2.0] 2024-01-31
+
+Changes for this release:
+
+- Remove support for Python < 3.9 and require PESummary >= 1.1.1 (!170).
+- Suppress SWIGLAL and htcondor warning when importing cwinpy in IPython (!171).
+- Fix evaluation of `noise_log_likelihood` for the power law distribution in the hierarchical module (!169).
+
 ## [1.1.0] 2024-01-02
 
 Changes for this release:
