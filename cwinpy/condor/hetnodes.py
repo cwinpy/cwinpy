@@ -84,7 +84,8 @@ class HeterodyneLayer(CondorLayer):
         self.require_gwosc = kwargs.get("require_gwosc", False)
 
         # set scitokens to access proprietary data
-        if not self.require_gwosc:
+        host = self.get_option("host", section="heterodyne", default=None)
+        if not self.require_gwosc and "datafind.ligo.org" in host:
             self.submit_options["use_oauth_services"] = "igwn"
             self.submit_options[
                 "igwn_oauth_permissions"
