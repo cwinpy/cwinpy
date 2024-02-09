@@ -1935,6 +1935,11 @@ class PEDAGRunner:
         self.coherent = config.getboolean("pe", "coherent", fallback=True)
         self.incoherent = config.getboolean("pe", "incoherent", fallback=False)
 
+        # force incoherent to False and coherent to True if there is only 1 detector
+        if len(detectors) == 1:
+            self.incoherent = False
+            self.coherent = True
+
         if len(self.pulsardict) == 0:
             raise ValueError("No pulsars have been specified!")
 
