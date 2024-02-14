@@ -293,6 +293,9 @@ class TestUpperLimitTable:
         cls.asdfile = "ALIGO_ASD.txt"
         np.savetxt(cls.asdfile, asd)
 
+        # pin version of ATNF pulsar catalogue for tests
+        cls.qkwargs = {"version": "1.70"}
+
     @classmethod
     def teardown_class(cls):
         """
@@ -306,25 +309,29 @@ class TestUpperLimitTable:
         Test that an empty table is returned in certain circumstances.
         """
 
-        t = UpperLimitTable()
+        t = UpperLimitTable(querykwargs=self.qkwargs)
 
         assert len(t) == 0
         assert isinstance(t, UpperLimitTable)
 
         # pass invalid path
-        t = UpperLimitTable(resdir=self.invaliddir)
+        t = UpperLimitTable(resdir=self.invaliddir, querykwargs=self.qkwargs)
 
         assert len(t) == 0
         assert isinstance(t, UpperLimitTable)
 
         # ask for pulsar that does not exist in results
-        t = UpperLimitTable(resdir=self.resdirO2, pulsars="J0534+2200")
+        t = UpperLimitTable(
+            resdir=self.resdirO2, pulsars="J0534+2200", querykwargs=self.qkwargs
+        )
 
         assert len(t) == 0
         assert isinstance(t, UpperLimitTable)
 
         # ask for results from detector that does not exist in results
-        t = UpperLimitTable(resdir=self.resdirO2, detector="K1")
+        t = UpperLimitTable(
+            resdir=self.resdirO2, detector="K1", querykwargs=self.qkwargs
+        )
 
         assert len(t) == 0
         assert isinstance(t, UpperLimitTable)
@@ -332,21 +339,29 @@ class TestUpperLimitTable:
     def test_errors(self):
         # pass invalid path
         with pytest.raises(ValueError):
-            UpperLimitTable(resdir="Blah")
+            UpperLimitTable(resdir="Blah", querykwargs=self.qkwargs)
 
         # ask for invalid amplitude parameter
         with pytest.raises(ValueError):
-            UpperLimitTable(resdir=self.resdirO2, ampparam="Z0")
+            UpperLimitTable(
+                resdir=self.resdirO2, ampparam="Z0", querykwargs=self.qkwargs
+            )
 
         # give invalid upper limit quantile
         with pytest.raises(TypeError):
-            UpperLimitTable(resdir=self.resdirO2, upperlimit="Z0")
+            UpperLimitTable(
+                resdir=self.resdirO2, upperlimit="Z0", querykwargs=self.qkwargs
+            )
 
         with pytest.raises(ValueError):
-            UpperLimitTable(resdir=self.resdirO2, upperlimit=1.1)
+            UpperLimitTable(
+                resdir=self.resdirO2, upperlimit=1.1, querykwargs=self.qkwargs
+            )
 
         with pytest.raises(ValueError):
-            UpperLimitTable(resdir=self.resdirO2, upperlimit=-0.1)
+            UpperLimitTable(
+                resdir=self.resdirO2, upperlimit=-0.1, querykwargs=self.qkwargs
+            )
 
     def test_O2(self):
         """
@@ -360,6 +375,7 @@ class TestUpperLimitTable:
             detector="H1",
             upperlimit=0.9,
             pulsars=self.pnamesO2[0],
+            querykwargs=self.qkwargs,
         )
 
         for colname in ["PSRJ", "F0ROT", "F1ROT", "DIST", "H0_90%UL"]:
@@ -368,7 +384,11 @@ class TestUpperLimitTable:
 
         # just get h0 90% credible upper limits for H1 detector
         t = UpperLimitTable(
-            resdir=self.resdirO2, ampparam="h0", detector="H1", upperlimit=0.9
+            resdir=self.resdirO2,
+            ampparam="h0",
+            detector="H1",
+            upperlimit=0.9,
+            querykwargs=self.qkwargs,
         )
 
         for colname in ["PSRJ", "F0ROT", "F1ROT", "DIST", "H0_90%UL"]:
@@ -384,6 +404,7 @@ class TestUpperLimitTable:
             includeell=True,
             includeq22=True,
             includesdlim=True,
+            querykwargs=self.qkwargs,
         )
 
         assert sorted(t["PSRJ"].value.tolist()) == sorted(self.pnamesO2)
@@ -413,6 +434,7 @@ class TestUpperLimitTable:
             f0={psr: self.pfreqsO2[i] for i, psr in enumerate(self.pnamesO2)},
             fdot={psr: self.pfdotsO2[i] for i, psr in enumerate(self.pnamesO2)},
             distances={psr: self.pdistsO2[i] for i, psr in enumerate(self.pnamesO2)},
+            querykwargs=self.qkwargs,
         )
 
         # check various values are the same as to expected values
@@ -427,7 +449,11 @@ class TestUpperLimitTable:
         """
 
         t = UpperLimitTable(
-            resdir=self.resdirO2, ampparam="h0", detector="H1", upperlimit=0.9
+            resdir=self.resdirO2,
+            ampparam="h0",
+            detector="H1",
+            upperlimit=0.9,
+            querykwargs=self.qkwargs,
         )
 
         ts = t.table_string(format="rst", scinot=False)
@@ -473,6 +499,7 @@ class TestUpperLimitTable:
             includeell=True,
             includeq22=True,
             includesdlim=True,
+            querykwargs=self.qkwargs,
         )
 
         with pytest.raises(TypeError):
