@@ -1935,11 +1935,6 @@ class PEDAGRunner:
         self.coherent = config.getboolean("pe", "coherent", fallback=True)
         self.incoherent = config.getboolean("pe", "incoherent", fallback=False)
 
-        # force incoherent to False and coherent to True if there is only 1 detector
-        if len(detectors) == 1:
-            self.incoherent = False
-            self.coherent = True
-
         if len(self.pulsardict) == 0:
             raise ValueError("No pulsars have been specified!")
 
@@ -1973,6 +1968,14 @@ class PEDAGRunner:
                             detectors = list(simdata[freqfactor])
                     except KeyError:
                         pass
+
+            if len(detectors) == 1:
+                # force incoherent to False and coherent to True if there is only 1 detector
+                incoherent = False
+                coherent = True
+            else:
+                incoherent = self.incoherent
+                coherent = self.conherent
 
             # add injection if given
             if injfiles is not None:
@@ -2049,15 +2052,15 @@ class PEDAGRunner:
 
             # set combinations of detectors
             self.detcomb = []
-            if not self.coherent and not self.incoherent:
+            if not coherent and not incoherent:
                 raise ValueError(
                     "'coherent' and 'incoherent' options cannot both be False"
                 )
 
-            if self.coherent:
+            if coherent:
                 # add all detectors
                 self.detcomb.append(detectors)
-            if self.incoherent:
+            if incoherent:
                 # add individual detectors
                 for det in detectors:
                     self.detcomb.append([det])
