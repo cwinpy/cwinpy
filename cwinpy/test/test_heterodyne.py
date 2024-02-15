@@ -815,10 +815,13 @@ transientTau = {tau}
         Test setting of pulsar parameter files.
         """
 
-        with pytest.raises(TypeError):
-            Heterodyne(pulsarfiles=1.2)
+        # pin ATNF pulsar catalogue version for testing
+        atnf_version = "1.70"
 
-        het = Heterodyne(pulsarfiles=self.fakepardir)
+        with pytest.raises(TypeError):
+            Heterodyne(pulsarfiles=1.2, atnf_version=atnf_version)
+
+        het = Heterodyne(pulsarfiles=self.fakepardir, atnf_version=atnf_version)
 
         assert sorted(list(het.pulsarfiles.keys())) == [
             "J0000+0000",
@@ -834,24 +837,24 @@ transientTau = {tau}
         )
         assert sorted(het.pulsars) == ["J0000+0000", "J1111+1111", "J2222+2222"]
 
-        het = Heterodyne(pulsarfiles=self.fakeparfile[0])
+        het = Heterodyne(pulsarfiles=self.fakeparfile[0], atnf_version=atnf_version)
         assert het.pulsarfiles == {"J0000+0000": self.fakeparfile[0]}
         assert het.pulsars == ["J0000+0000"]
 
-        het = Heterodyne(pulsarfiles=self.fakeparfile[1])
+        het = Heterodyne(pulsarfiles=self.fakeparfile[1], atnf_version=atnf_version)
         assert het.pulsarfiles == {"J1111+1111": self.fakeparfile[1]}
         assert het.pulsars == ["J1111+1111"]
 
-        het = Heterodyne(pulsarfiles=self.fakeparfile[2])
+        het = Heterodyne(pulsarfiles=self.fakeparfile[2], atnf_version=atnf_version)
         assert het.pulsarfiles == {"J2222+2222": self.fakeparfile[2]}
         assert het.pulsars == ["J2222+2222"]
 
-        het = Heterodyne(pulsarfiles=[self.fakeparfile[0]])
+        het = Heterodyne(pulsarfiles=[self.fakeparfile[0]], atnf_version=atnf_version)
 
         assert het.pulsarfiles == {"J0000+0000": self.fakeparfile[0]}
         assert het.pulsars == ["J0000+0000"]
 
-        het = Heterodyne(pulsarfiles=self.fakeparfile)
+        het = Heterodyne(pulsarfiles=self.fakeparfile, atnf_version=atnf_version)
 
         assert sorted(list(het.pulsarfiles.keys())) == [
             "J0000+0000",
@@ -866,13 +869,23 @@ transientTau = {tau}
         assert sorted(het.pulsars) == ["J0000+0000", "J1111+1111", "J2222+2222"]
 
         with pytest.raises(TypeError):
-            Heterodyne(pulsarfiles=self.fakeparfile, pulsars=3.4)
+            Heterodyne(
+                pulsarfiles=self.fakeparfile, pulsars=3.4, atnf_version=atnf_version
+            )
 
         # check that ValueError is raised if pulsar does not exist in supplied par files
         with pytest.raises(ValueError):
-            het = Heterodyne(pulsarfiles=self.fakeparfile, pulsars="J0328+5323")
+            het = Heterodyne(
+                pulsarfiles=self.fakeparfile,
+                pulsars="J0328+5323",
+                atnf_version=atnf_version,
+            )
 
-        het = Heterodyne(pulsarfiles=[self.fakeparfile[0]], pulsars=["J0000+0000"])
+        het = Heterodyne(
+            pulsarfiles=[self.fakeparfile[0]],
+            pulsars=["J0000+0000"],
+            atnf_version=atnf_version,
+        )
 
         assert het.pulsarfiles == {"J0000+0000": self.fakeparfile[0]}
         assert het.pulsars == ["J0000+0000"]
@@ -882,7 +895,7 @@ transientTau = {tau}
 
         pulsarfiles = {}
         pulsarfiles["J0000+0000"] = "kgsdkgf"
-        het = Heterodyne(pulsarfiles=pulsarfiles)
+        het = Heterodyne(pulsarfiles=pulsarfiles, atnf_version=atnf_version)
         captured = capsys.readouterr()
         assert len(het.pulsarfiles) == 0
         assert (
@@ -892,7 +905,7 @@ transientTau = {tau}
 
         pulsarfiles = {}
         pulsarfiles["J0000+0001"] = os.path.realpath(self.fakeparfile[0])
-        het = Heterodyne(pulsarfiles=pulsarfiles)
+        het = Heterodyne(pulsarfiles=pulsarfiles, atnf_version=atnf_version)
         captured = capsys.readouterr()
         assert len(het.pulsarfiles) == 1
         assert (
@@ -902,7 +915,7 @@ transientTau = {tau}
 
         pulsarfiles = {}
         pulsarfiles["J0000+0000"] = os.path.realpath(self.fakeparfile[0])
-        het = Heterodyne(pulsarfiles=pulsarfiles)
+        het = Heterodyne(pulsarfiles=pulsarfiles, atnf_version=atnf_version)
         assert het.pulsarfiles == {"J0000+0000": os.path.realpath(self.fakeparfile[0])}
         assert het.pulsars == ["J0000+0000"]
 
@@ -912,7 +925,7 @@ transientTau = {tau}
         """
 
         psr = "J0534+2200"
-        het = Heterodyne(pulsarfiles=psr)
+        het = Heterodyne(pulsarfiles=psr, atnf_version="1.70")
         captured = capsys.readouterr()
 
         assert (

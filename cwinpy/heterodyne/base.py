@@ -36,7 +36,7 @@ from ..utils import (
 from .fastheterodyne import fast_heterodyne
 
 
-class Heterodyne(object):
+class Heterodyne:
     """
     Heterodyne gravitational-wave strain data based on a source's phase evolution.
 
@@ -144,6 +144,9 @@ class Heterodyne(object):
         files it will attempt to extract an ephemeris for that pulsar from the
         ATNF pulsar catalogue. If such an ephemeris is available then that will
         be used (notification will be given when this is the case).
+    atnf_version: str
+        If checking the ATNF pulsar catalogue for pulsars, the version of the
+        catalogue can be set. By default, the latest version will be used.
     pulsars: str, list
         You can analyse only particular pulsars from those specified by
         parameter files found through the ``pulsarfiles`` argument by passing a
@@ -257,6 +260,7 @@ class Heterodyne(object):
         segmentserver=None,
         heterodyneddata=None,
         pulsarfiles=None,
+        atnf_version="latest",
         pulsars=None,
         output=None,
         label=None,
@@ -308,6 +312,7 @@ class Heterodyne(object):
             self.segmentserver = segmentserver
 
         # set the pulsars
+        self.atnf_version = atnf_version
         self.pulsarfiles = pulsarfiles
         if pulsars is not None:
             self.pulsars = pulsars
@@ -1133,7 +1138,7 @@ class Heterodyne(object):
                     if not hasattr(self, "_psrqpy_query"):
                         from psrqpy import QueryATNF
 
-                        self._psrqpy_query = QueryATNF()
+                        self._psrqpy_query = QueryATNF(version=self.atnf_version)
 
                     # create directory called atnf_pulsars within the current
                     # working directory to contain downloaded par files

@@ -290,6 +290,15 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         ),
     )
     pulsarparser.add(
+        "--atnf-version",
+        default="latest",
+        help=(
+            "If checking the ATNF pulsar catalogue for pulsars, the version "
+            "of the catalogue can be set. By default, the latest version will "
+            "be used."
+        ),
+    )
+    pulsarparser.add(
         "--pulsars",
         action="append",
         help=(
@@ -752,6 +761,7 @@ class HeterodyneDAGRunner(object):
 
         # get pulsar information
         pulsarfiles = self.eval(config.get("ephemerides", "pulsarfiles", fallback=None))
+        atnf_version = config.get("ephemerides", "atnf_version", fallback="latest")
         pulsars = self.eval(config.get("ephemerides", "pulsars", fallback=None))
         if pulsarfiles is None:
             raise ValueError("A set of pulsar parameter files must be supplied")
@@ -1167,6 +1177,7 @@ class HeterodyneDAGRunner(object):
 
             hets[det] = Heterodyne(
                 pulsarfiles=pulsarfiles,
+                atnf_version=atnf_version,
                 pulsars=pulsars,
                 heterodyneddata=hetdata,
                 detector=det,
