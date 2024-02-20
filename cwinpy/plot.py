@@ -1284,7 +1284,7 @@ class Plot:
             percentile=[100 * val for val in interval],
         )
 
-        return intervals
+        return intervals[0] if len(interval) == 1 else intervals
 
     def upper_limit(self, parameter, bound=0.95):
         """
