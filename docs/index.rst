@@ -142,3 +142,8 @@ Pitkin, M., (2022). CWInPy: A Python package for inference with continuous gravi
    Analysis pipelines <pipelines>
    API interface <api>
    Validation <comparisons/comparisons>
+
+.. toctree::
+   :hidden:
+
+   Change log <https://git.ligo.org/cwinpy/cwinpy/-/blob/master/CHANGELOG.md>
