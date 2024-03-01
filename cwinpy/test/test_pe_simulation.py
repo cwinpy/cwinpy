@@ -30,9 +30,7 @@ class TestPESimulation(object):
         os.makedirs(cls.basedir, exist_ok=True)
 
         # create pulsar parameter files for testing
-        cls.pardir = os.path.join(
-            os.path.split(os.path.realpath(__file__))[0], "test_pardir"
-        )
+        cls.pardir = os.path.join(cls.basedir, "test_pardir")
         os.makedirs(cls.pardir, exist_ok=True)
 
         cls.names = ["J0000+0000", "J0100+0000"]
@@ -53,9 +51,7 @@ class TestPESimulation(object):
             cls.pardict[name] = os.path.join(cls.pardir, "{}.par".format(name))
 
         # create heterodyned data for testing
-        cls.hetdir = os.path.join(
-            os.path.split(os.path.realpath(__file__))[0], "test_hetdir"
-        )
+        cls.hetdir = os.path.join(cls.basedir, "test_hetdir")
         os.makedirs(cls.hetdir, exist_ok=True)
 
         cls.hetfiles = {}
@@ -75,8 +71,6 @@ class TestPESimulation(object):
         """
 
         shutil.rmtree(cls.basedir)
-        shutil.rmtree(cls.pardir)
-        shutil.rmtree(cls.hetdir)
 
     def test_failures(self):
         with pytest.raises(TypeError):
@@ -236,14 +230,13 @@ class TestPESimulation(object):
 
         npulsars = 2
         detectors = "H1"
-        testdir = os.path.join(self.basedir, "test_sim_pulsar")
         sim = PEPulsarSimulationDAG(
             ampdist=ampprior,
             oridist=oridist,
             posdist=posdist,
             npulsars=npulsars,
             detector=detectors,
-            basedir=testdir,
+            basedir=self.basedir,
             fdist=fdist,
         )
 
@@ -255,12 +248,12 @@ class TestPESimulation(object):
                 posdist=posdist,
                 npulsars=npulsars,
                 detector=detectors,
-                basedir=testdir,
+                basedir=self.basedir,
                 fdist=fdist,
                 starttime=1020304050,
             )
 
-        shutil.rmtree(testdir)
+        self.clear_base_dir()
 
         sim = PEPulsarSimulationDAG(
             ampdist=ampprior,
@@ -268,25 +261,26 @@ class TestPESimulation(object):
             posdist=posdist,
             npulsars=npulsars,
             detector=detectors,
-            basedir=testdir,
+            basedir=self.basedir,
             fdist=fdist,
         )
 
         # check directories
-        for dir in glob.glob(os.path.join(testdir, "*")):
-            assert os.path.basename(dir) in [
-                "configs",
-                "error",
-                "log",
-                "out",
-                "priors",
-                "pulsars",
-                "results",
-                "submit",
-            ]
+        dnames = [
+            os.path.basename(d) for d in glob.glob(os.path.join(self.basedir, "*"))
+        ]
+        for dir in [
+            "configs",
+            "log",
+            "priors",
+            "pulsars",
+            "results",
+            "submit",
+        ]:
+            assert dir in dnames
 
         for dir in ["configs", "priors", "pulsars"]:
-            assert len(glob.glob(os.path.join(testdir, dir, "*"))) == (
+            assert len(glob.glob(os.path.join(self.basedir, dir, "*"))) == (
                 npulsars + 1 if dir == "configs" else npulsars
             )
 
@@ -296,7 +290,7 @@ class TestPESimulation(object):
 
             # check fake pulsars contain the same values
             psr = PulsarParameters(
-                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+                os.path.join(self.basedir, "pulsars", "{}.par".format(pname))
             )
 
             assert psr["PSRJ"] == pname
@@ -309,7 +303,7 @@ class TestPESimulation(object):
             assert psr["PHI0"] == phi0
             assert np.allclose(psr["DIST"], (dist * u.kpc).to("m").value)
 
-        shutil.rmtree(testdir)
+        self.clear_base_dir()
 
         # test galactic and galactocentric position distributions
         l = 0.3  # noqa: E741
@@ -328,7 +322,7 @@ class TestPESimulation(object):
             posdist=posdist,
             npulsars=npulsars,
             detector=detectors,
-            basedir=testdir,
+            basedir=self.basedir,
             fdist=fdist,
         )
 
@@ -338,7 +332,7 @@ class TestPESimulation(object):
         for pname in sim.priors:
             # check fake pulsars contain the same values
             psr = PulsarParameters(
-                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+                os.path.join(self.basedir, "pulsars", "{}.par".format(pname))
             )
 
             ras.append(psr["RAJ"])
@@ -348,7 +342,7 @@ class TestPESimulation(object):
         for vals in [ras, decs, dists]:
             assert np.all(np.array(vals) == vals[0])
 
-        shutil.rmtree(testdir)
+        self.clear_base_dir()
 
         x = 0.3
         y = 1.1
@@ -367,7 +361,7 @@ class TestPESimulation(object):
             posdist=posdist,
             npulsars=npulsars,
             detector=detectors,
-            basedir=testdir,
+            basedir=self.basedir,
             fdist=fdist,
         )
 
@@ -377,7 +371,7 @@ class TestPESimulation(object):
         for pname in sim.priors:
             # check fake pulsars contain the same values
             psr = PulsarParameters(
-                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+                os.path.join(self.basedir, "pulsars", "{}.par".format(pname))
             )
 
             ras.append(psr["RAJ"])
@@ -387,7 +381,7 @@ class TestPESimulation(object):
         for vals in [ras, decs, dists]:
             assert np.all(np.array(vals) == vals[0])
 
-        shutil.rmtree(testdir)
+        self.clear_base_dir()
 
     def test_data_pulsars(self):
         """
@@ -414,8 +408,6 @@ class TestPESimulation(object):
         )
         fdist = bilby.core.prior.DeltaFunction(f0, name="f0")
 
-        testdir = os.path.join(self.basedir, "test_data_pulsar")
-
         # set different priors for the pulsars
         priors = {}
         disterrs = {}
@@ -424,6 +416,8 @@ class TestPESimulation(object):
                 {"q22": bilby.core.prior.Uniform(0.0, (i + 1) * 1e40, name="q22")}
             )
             disterrs[name] = (i + 1) * 0.2
+
+        self.clear_base_dir()
 
         # pass directory of par files and data files
         sim = PEPulsarSimulationDAG(
@@ -434,25 +428,26 @@ class TestPESimulation(object):
             posdist=posdist,
             parfiles=self.pardir,
             datafiles=self.hetfiles,
-            basedir=testdir,
+            basedir=self.basedir,
             fdist=fdist,
             overwrite_parameters=False,
         )
 
-        for dir in glob.glob(os.path.join(testdir, "*")):
-            assert os.path.basename(dir) in [
-                "configs",
-                "error",
-                "log",
-                "out",
-                "priors",
-                "pulsars",
-                "results",
-                "submit",
-            ]
+        dnames = [
+            os.path.basename(d) for d in glob.glob(os.path.join(self.basedir, "*"))
+        ]
+        for dir in [
+            "configs",
+            "log",
+            "priors",
+            "pulsars",
+            "results",
+            "submit",
+        ]:
+            assert dir in dnames
 
         for dir in ["configs", "priors", "pulsars"]:
-            assert len(glob.glob(os.path.join(testdir, dir, "*"))) == (
+            assert len(glob.glob(os.path.join(self.basedir, dir, "*"))) == (
                 len(self.ras) + 1 if dir == "configs" else len(self.ras)
             )
 
@@ -460,7 +455,7 @@ class TestPESimulation(object):
         for i, pname in enumerate(self.names):
             # check fake pulsars contain the same values
             psr = PulsarParameters(
-                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+                os.path.join(self.basedir, "pulsars", "{}.par".format(pname))
             )
 
             assert psr["PSRJ"] == pname
@@ -499,7 +494,7 @@ class TestPESimulation(object):
             assert sim.priors[pname]["dist"].minimum == 0.0
             assert not np.isfinite(sim.priors[pname]["dist"].maximum)
 
-        shutil.rmtree(testdir)
+        self.clear_base_dir()
 
         # now add distance errors with a single float and with individual distributions
         disterrs = 0.3
@@ -511,7 +506,7 @@ class TestPESimulation(object):
             posdist=posdist,
             parfiles=self.pardict,  # pass dictionary or par files this time
             datafiles=self.hetfiles,
-            basedir=testdir,
+            basedir=self.basedir,
             fdist=fdist,
             overwrite_parameters=True,
         )
@@ -520,7 +515,7 @@ class TestPESimulation(object):
         for i, pname in enumerate(self.names):
             # check fake pulsars contain the same values
             psr = PulsarParameters(
-                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+                os.path.join(self.basedir, "pulsars", "{}.par".format(pname))
             )
 
             assert psr["PSRJ"] == pname
@@ -549,7 +544,7 @@ class TestPESimulation(object):
             assert sim.priors[pname]["dist"].minimum == 0.0
             assert not np.isfinite(sim.priors[pname]["dist"].maximum)
 
-        shutil.rmtree(testdir)
+        self.clear_base_dir()
 
         disterrs = {
             self.names[0]: bilby.core.prior.Uniform(
@@ -566,7 +561,7 @@ class TestPESimulation(object):
             posdist=posdist,
             parfiles=self.pardict,  # pass dictionary or par files this time
             datafiles=self.hetfiles,
-            basedir=testdir,
+            basedir=self.basedir,
             fdist=fdist,
             sampler_kwargs={"nlive": 2000},
             overwrite_parameters=False,
@@ -576,7 +571,7 @@ class TestPESimulation(object):
         for i, pname in enumerate(self.names):
             # check fake pulsars contain the same values
             psr = PulsarParameters(
-                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+                os.path.join(self.basedir, "pulsars", "{}.par".format(pname))
             )
 
             assert psr["PSRJ"] == pname
@@ -602,7 +597,7 @@ class TestPESimulation(object):
             else:
                 assert "dist" not in sim.priors[pname]
 
-        shutil.rmtree(testdir)
+        self.clear_base_dir()
 
         # use a single prior for every pulsar
         priors = bilby.core.prior.PriorDict(
@@ -621,7 +616,7 @@ class TestPESimulation(object):
             posdist=posdist,
             parfiles=self.pardir,
             datafiles=self.hetfiles,
-            basedir=testdir,
+            basedir=self.basedir,
             fdist=fdist,
         )
 
@@ -629,7 +624,7 @@ class TestPESimulation(object):
         for i, pname in enumerate(self.names):
             # check fake pulsars contain the same values
             psr = PulsarParameters(
-                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+                os.path.join(self.basedir, "pulsars", "{}.par".format(pname))
             )
 
             assert psr["H0"] == h0
@@ -640,15 +635,15 @@ class TestPESimulation(object):
             # check the priors
             assert sim.priors[pname] == priors
 
-        shutil.rmtree(testdir)
+        self.clear_base_dir()
 
         # use a single prior file for each pulsar
-        os.makedirs(os.path.join(testdir, "test_prior"), exist_ok=True)
+        os.makedirs(os.path.join(self.basedir, "test_prior"), exist_ok=True)
         priors = bilby.core.prior.PriorDict(
             {"q22": bilby.core.prior.Uniform(0.0, 1e40, name="q22")}
         )
-        priors.to_file(outdir=os.path.join(testdir, "test_prior"), label="test")
-        priorfile = os.path.join(testdir, "test_prior", "test.prior")
+        priors.to_file(outdir=os.path.join(self.basedir, "test_prior"), label="test")
+        priorfile = os.path.join(self.basedir, "test_prior", "test.prior")
 
         # use ellipticity to set amplitude distribution
         epsilon = 1e-7
@@ -662,7 +657,7 @@ class TestPESimulation(object):
             posdist=posdist,
             parfiles=self.pardir,
             datafiles=self.hetfiles,
-            basedir=testdir,
+            basedir=self.basedir,
             fdist=fdist,
         )
 
@@ -670,7 +665,7 @@ class TestPESimulation(object):
         for i, pname in enumerate(self.names):
             # check fake pulsars contain the same values
             psr = PulsarParameters(
-                os.path.join(testdir, "pulsars", "{}.par".format(pname))
+                os.path.join(self.basedir, "pulsars", "{}.par".format(pname))
             )
 
             assert psr["Q22"] == epsilon * 1e38 * np.sqrt(15 / (8 * np.pi))
@@ -681,4 +676,18 @@ class TestPESimulation(object):
             # check the priors
             assert sim.priors[pname] == priors
 
-        shutil.rmtree(testdir)
+    def clear_base_dir(self):
+        for dir in [
+            "configs",
+            "error",
+            "log",
+            "out",
+            "priors",
+            "pulsars",
+            "results",
+            "submit",
+        ]:
+            try:
+                shutil.rmtree(os.path.join(self.basedir, dir))
+            except Exception:
+                pass
