@@ -5,13 +5,13 @@ A selection of general utility functions.
 import ast
 import ctypes
 import os
-import pathlib
 import re
 import string
 import sys
 from copy import deepcopy
 from functools import reduce
 from math import gcd
+from pathlib import Path
 
 import appdirs
 import lalpulsar
@@ -637,15 +637,27 @@ def check_for_tempo2():
     return hastempo2
 
 
-def relative_topdir(path, reference):
+def relative_topdir(
+    path, reference, no_symlinks: bool = False, is_parent: bool = False
+):
     """
     Returns the top-level directory name of a path relative to a reference.
     """
 
-    try:
-        return os.path.relpath(
-            pathlib.Path(path).resolve(), pathlib.Path(reference).resolve()
+    if no_symlinks and Path(path).is_symlink():
+        # fail if path is a symlink
+        raise ValueError(
+            f"{path} is a symlink. Please move an actual copy into the {reference} path."
         )
+
+    if is_parent and Path(reference) not in Path(path).parents:
+        # fail if the reference is not a parent of the path
+        raise ValueError(
+            f"{reference} must be a parent directory of {path}. Please move {reference} into {path}."
+        )
+
+    try:
+        return os.path.relpath(Path(path).resolve(), Path(reference).resolve())
     except ValueError as exc:
         exc.args = (f"cannot format {path} relative to {reference}",)
         raise
@@ -657,7 +669,7 @@ def sighandler(signum, frame):
     sys.exit(CHECKPOINT_EXIT_CODE)
 
 
-class MuteStream(object):
+class MuteStream:
     """
     Class used to mute the output from a stream, e.g., ``stderr`` or
     ``stdout``.
