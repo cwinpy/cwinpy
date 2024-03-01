@@ -58,6 +58,7 @@ dependencies = [
     "psrqpy >= 1.1.7",
     "requests",
     "scipy",
+    "scitokens",
     "simpleeval",
     "solar-system-ephemerides>=1.0.0",
 ]
