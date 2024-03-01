@@ -84,7 +84,7 @@ HTCondor`).
    access them. To enable the pipeline script to find science segments and frame URLs you must
    `generate a token <https://computing.docs.ligo.org/guide/auth/scitokens/#get-default>`__ with:
 
-   .. code:: bash
+   .. code-block:: bash
 
       htgettoken -a vault.ligo.org -i igwn
 
@@ -93,7 +93,7 @@ HTCondor`).
       On some systems still using the `X.509 authentication
       <https://computing.docs.ligo.org/guide/auth/x509/>`__ you may instead need to run
 
-      .. code:: bash
+      .. code-block:: bash
 
          ligo-proxy-init -p albert.einstein
 
@@ -101,11 +101,22 @@ HTCondor`).
 
    and then run:
 
-   .. code:: bash
+   .. code-block:: bash
 
       condor_vault_storer -v igwn
 
    to allow the HTCondor jobs to access the credentials.
+
+   By default, if you specify the `datafind server host
+   <https://computing.docs.ligo.org/guide/data/discovery/#servers>`_ as ``datafind.ligo.org`` for a
+   ``cwinpy_heterodyne_pipeline`` job, it will assume that you are using SciToken authentication
+   when creating the HTCondor DAG. You can force the requirement of using SciToken by adding
+
+   .. code-block:: ini
+
+      use_scitokens = True
+
+   in the job configuration file.
 
 The ``cwinpy_heterodyne_pipeline`` should be used for most practical purposes, while
 ``cwinpy_heterodyne`` is generally useful for short tests.
