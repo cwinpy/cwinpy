@@ -3,6 +3,7 @@ import os
 import re
 
 from configargparse import DefaultConfigFileParser
+from scitokens import SciToken
 
 from ..heterodyne.base import Heterodyne
 from ..utils import relative_topdir
@@ -95,6 +96,18 @@ class HeterodyneLayer(CondorLayer):
             environment.append(
                 "BEARER_TOKEN_FILE=$$(CondorScratchDir)/.condor_creds/igwn.use"
             )
+
+            # check whether SciToken has been created
+            try:
+                _ = SciToken.discover(audience="igwn")
+            except OSError:
+                print(
+                    "No SciToken has been found, you will need to generate "
+                    "a SciToken using:\n\n"
+                    "$ htgettoken -a vault.ligo.org -i igwn\n"
+                    "$ condor_vault_storer -v igwn\n\n"
+                    "before submitting the DAG."
+                )
 
         if environment:
             self.submit_options["environment"] = f'"{" ".join(environment)}"'
