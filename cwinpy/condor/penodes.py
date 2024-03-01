@@ -2,6 +2,7 @@ import ast
 import copy
 import os
 import re
+from pathlib import Path
 
 import bilby
 from configargparse import DefaultConfigFileParser
@@ -39,7 +40,9 @@ class PulsarPELayer(CondorLayer):
 
         # check for use of OSG
         self.osg = self.get_option("osg", default=False)
-        self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
+        self.outdir = Path(
+            self.get_option("basedir", section="run", default=os.getcwd())
+        )
 
         # check for use of tempo2
         self.usetempo2 = self.get_option("usetempo2", default=False)
@@ -146,9 +149,9 @@ class PulsarPELayer(CondorLayer):
             additional_options["when_to_transfer_output"] = "ON_EXIT_OR_EVICT"
             additional_options["stream_error"] = True
             additional_options["stream_output"] = True
+            additional_options["preserve_relative_paths"] = True
 
-        additional_options["MY.SuccessCheckpointExitCode"] = "77"
-        additional_options["MY.WantFTOnCheckpoint"] = True
+        additional_options["checkpoint_exit_code"] = "77"
 
         additional_options["log"] = "$(LOGFILE)"
         additional_options["output"] = "$(OUTPUTFILE)"
@@ -172,20 +175,16 @@ class PulsarPELayer(CondorLayer):
         self.vars = []
 
         # get location to output individual configuration files to
-        configdir = self.get_option("config", section="pe", default="configs")
-        configlocation = os.path.join(self.outdir, configdir)
-        if not os.path.exists(configlocation):
-            os.makedirs(configlocation)
+        configdir = Path(self.get_option("config", section="pe", default="configs"))
+        configlocation = self.outdir / configdir
+        configlocation.mkdir(parents=True, exist_ok=True)
 
-        dagconfigfile = os.path.join(configlocation, "pe_pipeline_config.ini")
+        dagconfigfile = configlocation / "pe_pipeline_config.ini"
 
         # get results directory
-        self.resbase = os.path.join(
-            self.outdir, self.get_option("results", default="results")
-        )
-        self.resdir = os.path.join(self.resbase, self.psrname)
-        if not os.path.exists(self.resdir):
-            os.makedirs(self.resdir)
+        self.resbase = self.outdir / self.get_option("results", default="results")
+        self.resdir = self.resbase / self.psrname
+        self.resdir.mkdir(parents=True, exist_ok=True)
 
         transfer_files = self.submit_options.get("should_transfer_files", "NO")
 
@@ -201,20 +200,19 @@ class PulsarPELayer(CondorLayer):
             label = f"{self.submit_options.get('name', 'cwinpy_pe')}_{''.join(self.dets)}_{self.psrname}"
 
             if self.n_parallel > 1:
-                configfile = os.path.join(
-                    configlocation,
-                    "{}_{}_{}.ini".format("".join(self.dets), self.psrname, i),
+                configfile = configlocation / "{}_{}_{}.ini".format(
+                    "".join(self.dets), self.psrname, i
                 )
 
                 label += f"_{i}"
             else:
-                configfile = os.path.join(
-                    configlocation, "{}_{}.ini".format("".join(self.dets), self.psrname)
+                configfile = configlocation / "{}_{}.ini".format(
+                    "".join(self.dets), self.psrname
                 )
 
             self.resultsfiles.append(
                 bilby.core.result.result_file_name(
-                    os.path.abspath(self.resdir), label, extension=extension, gzip=gzip
+                    self.resdir.absolute(), label, extension=extension, gzip=gzip
                 )
             )
 
@@ -224,7 +222,11 @@ class PulsarPELayer(CondorLayer):
             if transfer_files == "YES":
                 transfer_input = []
 
-                transfer_input.append(relative_topdir(configfile, self.resdir))
+                # transfer_input.append(relative_topdir(configfile, self.resdir))
+                relconfigpath = relative_topdir(
+                    configfile, self.outdir, no_symlinks=True, is_parent=True
+                )
+                transfer_input.append(relconfigpath)
 
                 for key in [
                     "par_file",
@@ -236,21 +238,23 @@ class PulsarPELayer(CondorLayer):
                     if key in list(config.keys()):
                         if key in ["data_file_1f", "data_file_2f"]:
                             for detkey in config[key]:
-                                transfer_input.append(
-                                    relative_topdir(config[key][detkey], self.resdir)
+                                relfile = relative_topdir(
+                                    config[key][detkey],
+                                    self.outdir,
+                                    no_symlinks=True,
+                                    is_parent=True,
                                 )
-
-                                # exclude full path as the transfer directory is flat
-                                curconfig[key][detkey] = os.path.basename(
-                                    config[key][detkey]
-                                )
+                                transfer_input.append(relfile)
+                                curconfig[key][detkey] = relfile
                         else:
-                            transfer_input.append(
-                                relative_topdir(config[key], self.resdir)
+                            relfile = relative_topdir(
+                                config[key],
+                                self.outdir,
+                                no_symlinks=True,
+                                is_parent=True,
                             )
-
-                            # exclude full path as the transfer directory is flat
-                            curconfig[key] = os.path.basename(config[key])
+                            transfer_input.append(relfile)
+                            curconfig[key] = relfile
 
                 # transfer ephemeris files
                 for ephem in ["earth", "sun"]:
@@ -258,29 +262,35 @@ class PulsarPELayer(CondorLayer):
                     if key in config:
                         if isinstance(config[key], dict):
                             for etype in copy.deepcopy(config[key]):
-                                transfer_input.append(
-                                    relative_topdir(config[key][etype], self.resdir)
+                                relfile = relative_topdir(
+                                    config[key][etype],
+                                    self.outdir,
+                                    no_symlinks=True,
+                                    is_parent=True,
                                 )
-                                curconfig[key][etype] = os.path.basename(
-                                    config[key][etype]
-                                )
+                                transfer_input.append(relfile)
+                                curconfig[key][etype] = relfile
                         else:
-                            transfer_input.append(
-                                relative_topdir(config[key], self.resdir)
+                            relfile = relative_topdir(
+                                config[key],
+                                self.outdir,
+                                no_symlinks=True,
+                                is_parent=True,
                             )
-                            curconfig[key] = os.path.basename(config[key])
+                            transfer_input.append(relfile)
+                            curconfig[key] = relfile
 
-                curconfig["outdir"] = "results/"
+                curconfig["outdir"] = f"results/{self.psrname}"
 
                 # add output directory to inputs in case resume file exists
-                transfer_input.append(".")
+                transfer_input.append(curconfig["outdir"])
 
-                vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
-                vardict["INITIALDIR"] = self.resdir
+                vardict["ARGS"] = f"--config {relconfigpath}"
+                vardict["INITIALDIR"] = str(self.outdir)
                 vardict["TRANSFERINPUT"] = ",".join(transfer_input)
                 vardict["TRANSFEROUTPUT"] = curconfig["outdir"]
             else:
-                vardict["ARGS"] = f"--config {os.path.basename(configfile)}"
+                vardict["ARGS"] = f"--config {configfile}"
 
             # set log files
             vardict["LOGFILE"] = os.path.join(
@@ -295,14 +305,14 @@ class PulsarPELayer(CondorLayer):
 
             # write out configuration file
             parseobj = DefaultConfigFileParser()
-            if not os.path.isfile(configfile):
+            if not configfile.exists():
                 with open(configfile, "w") as fp:
                     fp.write(parseobj.serialize(curconfig))
 
             self.vars.append(vardict)
 
             # output the DAG configuration to a file
-            if not os.path.isfile(dagconfigfile):
+            if not dagconfigfile.exists():
                 # make sure pulsar files in DAG config are full paths
                 with open(dagconfigfile, "w") as fp:
                     self.cf.write(fp)
