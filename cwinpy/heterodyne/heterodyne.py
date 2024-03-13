@@ -1020,7 +1020,9 @@ class HeterodyneDAGRunner(object):
                             "segments_{0:d}-{1:d}_{2}.txt".format(
                                 starttimes[det][i],
                                 endtimes[det][i],
-                                includeflags[det][i].replace(":", "_"),
+                                includeflags[det][i]
+                                .replace(":", "_")
+                                .replace(",", "-"),
                             ),
                         )
                         _ = generate_segments(
@@ -1077,7 +1079,9 @@ class HeterodyneDAGRunner(object):
                             "segments_{0:d}-{1:d}_{2}.txt".format(
                                 starttime,
                                 endtime,
-                                includeflags[det][idx].replace(":", "_"),
+                                includeflags[det][idx]
+                                .replace(":", "_")
+                                .replace(",", "-"),
                             ),
                         )
                         segmentlist = generate_segments(
