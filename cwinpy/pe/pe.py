@@ -1975,7 +1975,7 @@ class PEDAGRunner:
                 coherent = True
             else:
                 incoherent = self.incoherent
-                coherent = self.conherent
+                coherent = self.coherent
 
             # add injection if given
             if injfiles is not None:
