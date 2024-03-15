@@ -1102,7 +1102,7 @@ class UpperLimitTable(QTable):
                                 distance=distances[psr],
                                 izz=izz,
                             )
-                            if psr in distances
+                            if psr in distances and np.isfinite(distances[psr])
                             else np.nan
                         )
 
@@ -1122,7 +1122,7 @@ class UpperLimitTable(QTable):
                                 frot=f0s[psr],
                                 distance=distances[psr],
                             )
-                            if psr in distances
+                            if psr in distances and np.isfinite(distances[psr])
                             else np.nan
                         )
 
@@ -1139,7 +1139,7 @@ class UpperLimitTable(QTable):
                         )
 
                         h0sd = np.nan
-                        if psr in f1s and psr in distances:
+                        if psr in f1s and psr in distances and and np.isfinite(distances[psr]):
                             if f1s[psr] < 0.0:
                                 h0sd = sdeq(
                                     rotationfdot=f1s[psr],
