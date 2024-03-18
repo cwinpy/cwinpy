@@ -120,7 +120,11 @@ def pulsar_summary_plots(
                     psrtable.append(
                         [
                             PULSAR_HEADER_FORMATS[key]["html"],
-                            PULSAR_HEADER_FORMATS[key]["formatter"](tloc[tname].value),
+                            PULSAR_HEADER_FORMATS[key]["formatter"](
+                                tloc[tname].value
+                                if hasattr(tloc[tname], "value")
+                                else tloc[tname]
+                            ),
                         ]
                     )
 
@@ -1004,9 +1008,11 @@ def generate_summary_pages(**kwargs):
         mcol = scols[
             np.argmin(
                 [
-                    ultable[c].min().value
-                    if hasattr(ultable[c], "value")
-                    else ultable[c].min()
+                    (
+                        ultable[c].min().value
+                        if hasattr(ultable[c], "value")
+                        else ultable[c].min()
+                    )
                     for c in scols
                 ]
             )
@@ -1327,9 +1333,11 @@ def generate_summary_pages(**kwargs):
                             "histtype": "stepfilled",
                         },
                         asdkwargs={
-                            "color": GW_OBSERVATORY_COLORS[det]
-                            if det in GW_OBSERVATORY_COLORS
-                            else "grey",
+                            "color": (
+                                GW_OBSERVATORY_COLORS[det]
+                                if det in GW_OBSERVATORY_COLORS
+                                else "grey"
+                            ),
                             "alpha": 0.5,
                             "linewidth": 5,
                         },
