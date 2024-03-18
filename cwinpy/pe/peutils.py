@@ -766,14 +766,15 @@ class set_formats:
         else:
             num = deepcopy(x)
 
-        if not np.isfinite(num):
-            return "NaN"
-
         if self.name == "PSRJ":
             if "-" in num and self.type == "latex":
                 return num.replace("-", r"\textminus")
             else:
                 return num
+
+        if not np.isfinite(num):
+            return "NaN"
+
         if self.name in ["F0ROT", "DIST"]:
             return f"%.{self.dp}f" % num
         elif (
