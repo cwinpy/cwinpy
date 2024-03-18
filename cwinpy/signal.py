@@ -178,7 +178,7 @@ class HeterodynedCWSimulator(object):
         ra = self.hetpar["RA"] if self.hetpar["RAJ"] is None else self.hetpar["RAJ"]
         dec = self.hetpar["DEC"] if self.hetpar["DECJ"] is None else self.hetpar["DECJ"]
         if ra is None or dec is None:
-            raise ValueError("Right ascension and/or declination have not " "been set!")
+            raise ValueError("Right ascension and/or declination have not been set!")
 
         self.__resp = lalpulsar.DetResponseLookupTable(
             self.__t0, self.detector, ra, dec, 2880, self.__dt
@@ -548,7 +548,8 @@ class HeterodynedCWSimulator(object):
     def _check_nonGR(self, par):
         """
         Check if the source parameters are for a non-GR model, i.e., are any of
-        the amplitude/phase parameters for a non-GR model set
+        the amplitude/phase parameters for a non-GR model set. If there is a
+        `H0` parameter, then return 0 for a GR model.
         """
 
         # non-GR amplitude parameters
@@ -566,6 +567,10 @@ class HeterodynedCWSimulator(object):
             "HSCALARB_F",
             "HSCALARL_F",
         ]
+
+        if "H0" in par.keys():
+            # it is a GR model if it contains H0
+            return 0
 
         for param in nonGRparams:
             if param in par.keys():
