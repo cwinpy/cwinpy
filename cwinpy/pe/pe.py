@@ -13,6 +13,7 @@ import signal
 import sys
 import warnings
 from argparse import ArgumentParser
+from pathlib import Path
 
 import bilby
 import numpy as np
@@ -1545,16 +1546,14 @@ class PEDAGRunner:
                 pulsars = []
                 for parfile in parfiles:
                     # add "*.par" wildcard to any directories
-                    if os.path.isdir(parfile):
-                        parfile = os.path.join(parfile, "*.par")
+                    if Path(parfile).is_dir():
+                        parfile = Path(parfile).rglob("*.par")
+                    else:
+                        parfile = [Path(parfile)]
 
                     # get all parameter files
                     pulsars.extend(
-                        [
-                            par
-                            for par in glob.glob(parfile)
-                            if os.path.splitext(par)[1] == ".par"
-                        ]
+                        [str(par) for par in parfile if par.suffix == ".par"]
                     )
 
                 # get names of all the pulsars
