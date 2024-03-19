@@ -1260,11 +1260,13 @@ def generate_summary_pages(**kwargs):
     homepage.make_heading("Table of results", anchor="table-of-results")
     homepage.make_results_table(contents=allresultstable, highlight_psrs=highlight_psrs)
 
-    # create upper limits plots
-    if upperlimitplot:
+    # create upper limit plot directory
+    if upperlimitplot or (oddsplot and showodds):
         ulplotdir = outpath / "ulplots"
         ulplotdir.mkdir(parents=True, exist_ok=True)
 
+    # create upper limits plots
+    if upperlimitplot:
         for amp in ampt:
             for det in dets:
                 p = RESULTS_HEADER_FORMATS[amp]["ultablename"].format(det)
