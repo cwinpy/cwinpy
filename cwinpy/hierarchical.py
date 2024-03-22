@@ -7,7 +7,8 @@ from itertools import compress
 import bilby
 import numpy as np
 from lintegrate import logtrapz
-from scipy.interpolate import splev, splrep
+
+# from scipy.interpolate import splev, splrep
 from scipy.stats import expon, gaussian_kde, truncnorm
 
 from .utils import ellipticity_to_q22, q22_to_ellipticity
@@ -22,7 +23,7 @@ DISTRIBUTION_REQUIREMENTS = {
 }
 
 
-class BaseDistribution(object):
+class BaseDistribution:
     """
     The base class for the distribution, as defined by a set of
     hyperparameters, that you want to fit.
@@ -1143,7 +1144,7 @@ def create_distribution(name, distribution, distkwargs={}):
         raise TypeError("Unknown distribution")
 
 
-class MassQuadrupoleDistribution(object):
+class MassQuadrupoleDistribution:
     """
     A class to infer the hyperparameters of the :math:`l=m=2` mass quadrupole
     distribution (or fiducial ellipticity :math:`\\varepsilon`) for a given
@@ -1172,18 +1173,18 @@ class MassQuadrupoleDistribution(object):
         should be interpolated, or a lower and upper bound in the range of
         values, which will be split into ``bins`` points spaced linearly in
         log-space (unless ``gridtype'' is set to a value other than ``"log"``).
-        If not supplied this will instead be set using the posterior samples,
-        with a minimum value at zero and a maximum given by the maximum of all
-        posterior samples.
+        If not supplied, then a individual grids for each set of posterior
+        samples, will be created.
     bins: int
         The number of bins at which the posterior will be interpolated.
     gridtype: str
         This sets the grid bin spacing used for assigning the interpolation
-        grid. It defaults to spacings that are uniform in log-space for
-        distributions other than
+        grid. If the grid range is supplied, it defaults to spacings that are
+        uniform in log-space for distributions other than
         :class:`cwinpy.hierarchical.HistogramDistribution` for which case the
         spacing defaults to linear. Values can either be ``"log"`` or
-        ``"linear"`` to force one or other spacing.
+        ``"linear"`` to force one or other spacing. If setting grids for each
+        posterior individually, then these will be linearly spaced.
     distribution: :class:`cwinpy.hierarchical.BaseDistribution`, str
         A predefined distribution, or string giving a valid distribution name.
         This is the distribution for which the hyperparameters are going to be
@@ -1552,6 +1553,7 @@ class MassQuadrupoleDistribution(object):
 
         samples = None
         grid = None
+        gridlist = False
         likelihoods = None
 
         # set the grid
@@ -1559,19 +1561,25 @@ class MassQuadrupoleDistribution(object):
             samples = self._posterior_samples
         else:
             if self._grid_interp_values is None:
-                # set parameter range from data
-                minmax = [np.inf, -np.inf]
+                # set parameter range from data (with a 10% extension)
+                grid = []
+
                 for psamples in self._posterior_samples:
                     minval = psamples.min()
                     maxval = psamples.max()
-                    if minval < minmax[0]:
-                        minmax[0] = minval
-                    if maxval > minmax[1]:
-                        minmax[1] = maxval
 
-                self.set_range(minmax, self._bins)
+                    prange = maxval - minval
+                    minval = max(0, minval - 0.1 * prange)
+                    maxval += 0.1 * prange
 
-            grid = self._grid_interp_values
+                    grid.append(np.linspace(minval, maxval, self._bins))
+                gridlist = True
+            else:
+                grid = self._grid_interp_values
+
+            from matplotlib import pyplot as plt
+
+            fig, ax = plt.subplots()
 
             # generate KDEs from samples and create spline interpolants
             nkdes = len(self._likelihood_kdes_interp)
@@ -1593,9 +1601,11 @@ class MassQuadrupoleDistribution(object):
                         kde = gaussian_kde(samps, bw_method=bw)
 
                         # use log pdf for the kde
-                        interpvals = kde.logpdf(self._grid_interp_values) + np.log(
+                        interpvals = kde.logpdf(grid[i] if gridlist else grid) + np.log(
                             2.0
                         )  # multiply by 2 so pdf normalises to 1
+
+                        ax.plot(grid[i], interpvals)
 
                         # replace any infinity values with small number (logpdf
                         # returns inf rather than -inf, so we need to flip the
@@ -1615,15 +1625,19 @@ class MassQuadrupoleDistribution(object):
 
                     # divide by prior
                     interpvals -= self._pulsar_priors[i].ln_prob(
-                        self._grid_interp_values
+                        grid[i] if gridlist else grid
                     )
 
                     # create and add interpolator (the tck tuple for a B-spline)
-                    self._likelihood_kdes_interp.append(
-                        splrep(self._grid_interp_values, interpvals)
-                    )
+                    # self._likelihood_kdes_interp.append(
+                    #    splrep(grid[i] if gridlist else grid, interpvals)
+                    # )
+                    self._likelihood_kdes_interp.append(interpvals)
 
             likelihoods = self._likelihood_kdes_interp
+
+        ax.set_xscale("log")
+        fig.savefig("/home/matt/plot.png", dpi=200)
 
         self._likelihood = MassQuadrupoleDistributionLikelihood(
             self._distribution, likelihoods=likelihoods, samples=samples, grid=grid
@@ -1742,7 +1756,7 @@ class MassQuadrupoleDistribution(object):
                 priors=self._prior,
                 sampler=self._sampler,
                 **self._sampler_kwargs,
-                **run_kwargs
+                **run_kwargs,
             )
 
         return self.result
@@ -1856,8 +1870,11 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
             if self.grid is not None:
                 # evaluate the interpolated (log) likelihoods on the grid
                 self._likelihoods = []
-                for ll in like:
-                    self._likelihoods.append(splev(self.grid, ll))
+                for i, ll in enumerate(like):
+                    self._likelihoods.append(
+                        ll
+                        # splev(self.grid if self.grid.ndim == 1 else self.grid[i], ll)
+                    )
                 self._nsources = len(like)
             else:
                 raise ValueError("Grid must be set to evaluate likelihoods")
@@ -1917,11 +1934,18 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
             log_like = np.nan_to_num(log_like)
         else:
             # evaluate the hyperparameter distribution
-            logp = self.distribution.log_pdf(self.grid, self.parameters)
+            if self.grid.ndim == 1:
+                # the grid is the same for all likelihoods
+                grid = self.grid
+                logp = self.distribution.log_pdf(grid, self.parameters)
 
             # log-likelihood numerically integrating over grid
-            for logl in self.likelihoods:
-                log_like += logtrapz(logp + logl, self.grid, disable_checks=True)
+            for i, logl in enumerate(self.likelihoods):
+                if self.grid.ndim == 2:
+                    grid = self.grid[i]
+                    logp = self.distribution.log_pdf(grid, self.parameters)
+
+                log_like += logtrapz(logp + logl, grid, disable_checks=True)
 
         return log_like
 
