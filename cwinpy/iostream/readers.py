@@ -127,6 +127,7 @@ def read_hdf5_series(
 
     if datasetstds is None:
         array = array_type(data, **kwargs)
+        array.vars = None  # set vars to None, so it is calculated later
     else:
         array = array_type(
             np.column_stack((data.real, data.imag, datasetstds[()])), **kwargs
