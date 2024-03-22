@@ -950,6 +950,7 @@ def generate_summary_pages(**kwargs):
             },
             datadicts,
             return_dict=True,
+            remove_outliers=True,
         )
 
         # add SNRs into the results table
