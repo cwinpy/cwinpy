@@ -1067,10 +1067,11 @@ def generate_summary_pages(**kwargs):
             hname = PULSAR_HEADER_FORMATS[par]["html"]
             tname = PULSAR_HEADER_FORMATS[par]["ultablename"]
 
-            quant = True if hasattr(tloc[tname], "value") else False
-            tvalue = tloc[tname].value if quant else tloc[tname]
-            rvalue = PULSAR_HEADER_FORMATS[par]["formatter"](tvalue)
-            allresultstable[psrlink][hname] = rvalue
+            if tname in ultable.colnames:
+                quant = True if hasattr(tloc[tname], "value") else False
+                tvalue = tloc[tname].value if quant else tloc[tname]
+                rvalue = PULSAR_HEADER_FORMATS[par]["formatter"](tvalue)
+                allresultstable[psrlink][hname] = rvalue
 
         # show upper limits
         for amp in ["H0", "C21", "C22", "ELL", "Q22", "SDRAT"]:
