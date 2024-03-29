@@ -7,19 +7,18 @@ from itertools import compress
 import bilby
 import numpy as np
 from lintegrate import logtrapz
-
-# from scipy.interpolate import splev, splrep
+from scipy.interpolate import splev, splrep
 from scipy.stats import expon, gaussian_kde, truncnorm
 
 from .utils import ellipticity_to_q22, q22_to_ellipticity
 
-#: Allowed distributions and their required hyperparameters
+#: Allowed distributions and their required hyperparameters (allow with names of any scale hyperparameters)
 DISTRIBUTION_REQUIREMENTS = {
-    "exponential": ["mu"],
-    "gaussian": ["mu", "sigma", "weight"],
-    "deltafunction": ["peak"],
-    "powerlaw": ["alpha", "minimum", "maximum"],
-    "histogram": ["weight"],
+    "exponential": {"parameters": ["mu"], "scale": ["mu"]},
+    "gaussian": {"parameters": ["mu", "sigma", "weight"], "scale": ["sigma"]},
+    "deltafunction": {"parameters": ["peak"], "scale": []},
+    "powerlaw": {"parameters": ["alpha", "minimum", "maximum"], "scale": ["alpha"]},
+    "histogram": {"parameters": ["weight"], "scale": []},
 }
 
 
@@ -74,7 +73,10 @@ class BaseDistribution:
         if isinstance(hyperparameters, dict):
             # check is contains the required parameter names
             for key in hyperparameters.keys():
-                if key.lower() not in DISTRIBUTION_REQUIREMENTS[self.disttype]:
+                if (
+                    key.lower()
+                    not in DISTRIBUTION_REQUIREMENTS[self.disttype]["parameters"]
+                ):
                     raise KeyError(
                         'Unknown parameter "{}" for distribution '
                         '"{}"'.format(key, self.disttype)
@@ -123,14 +125,14 @@ class BaseDistribution:
             return self.hyperparameters[item.lower()]
         elif item.lower() in self.unpacked_parameters:
             return self.unpacked_values[self.unpacked_parameters.index(item.lower())]
-        elif item.lower() in DISTRIBUTION_REQUIREMENTS[self.disttype]:
+        elif item.lower() in DISTRIBUTION_REQUIREMENTS[self.disttype]["parameters"]:
             return None
         else:
             raise KeyError('"{}" is not a parameter in this distribution'.format(item))
 
     def __setitem__(self, item, value):
         if item.lower() not in self.hyperparameters.keys():
-            if item.lower() in DISTRIBUTION_REQUIREMENTS[self.disttype]:
+            if item.lower() in DISTRIBUTION_REQUIREMENTS[self.disttype]["parameters"]:
                 self._hyperparameters[item.lower()] = value
             else:
                 raise KeyError(
@@ -216,6 +218,15 @@ class BaseDistribution:
             )
         )
 
+    @property
+    def scale_parameters(self):
+        """
+        A list to the hyperparameters from the distribution that are scale
+        parameters.
+        """
+
+        return DISTRIBUTION_REQUIREMENTS[self.disttype]["scale"]
+
     def log_pdf(self, value, hyperparameters):
         """
         The natural logarithm of the distribution's probability density
@@ -257,7 +268,7 @@ class BaseDistribution:
 
         return np.exp(self.log_pdf(value, hyperparameters))
 
-    def sample(self, hyperparameters, size=1):
+    def sample(self, hyperparameters, size=1, random_state=None):
         """
         Draw a sample from the distribution as defined by the given
         hyperparameters.
@@ -269,6 +280,8 @@ class BaseDistribution:
             state of the distribution.
         size: int
             The number of samples to draw from the distribution.
+        random_state:
+            A random state for drawing the samples.
 
         Returns
         -------
@@ -475,7 +488,7 @@ class BoundedGaussianDistribution(BaseDistribution):
 
         return logpdf
 
-    def sample(self, hyperparameters={}, size=1):
+    def sample(self, hyperparameters={}, size=1, random_state=None):
         """
         Draw a sample from the bounded Gaussian distribution as defined by the
         given hyperparameters.
@@ -489,6 +502,8 @@ class BoundedGaussianDistribution(BaseDistribution):
             weights values, where ``n`` is the number of modes.
         size: int
             The number of samples to draw. Default is 1.
+        random_state:
+            A random state for drawing the samples.
 
         Returns
         -------
@@ -556,6 +571,7 @@ class BoundedGaussianDistribution(BaseDistribution):
                 loc=mus[0],
                 scale=sigmas[0],
                 size=size,
+                random_state=random_state,
             )
         else:
             sample = np.zeros(size)
@@ -568,6 +584,7 @@ class BoundedGaussianDistribution(BaseDistribution):
                     loc=mus[mode],
                     scale=sigmas[mode],
                     size=1,
+                    random_state=random_state,
                 )
 
             if size == 1:
@@ -630,7 +647,7 @@ class ExponentialDistribution(BaseDistribution):
 
         return logpdf
 
-    def sample(self, hyperparameters={}, size=1):
+    def sample(self, hyperparameters={}, size=1, random_state=None):
         """
         Draw a sample from the exponential distribution as defined by the
         given hyperparameters.
@@ -642,6 +659,8 @@ class ExponentialDistribution(BaseDistribution):
             current state of the distribution.
         size: int
             The number of samples to draw from the distribution.
+        random_state:
+            A random state for drawing the samples.
 
         Returns
         -------
@@ -656,14 +675,16 @@ class ExponentialDistribution(BaseDistribution):
             except KeyError:
                 raise KeyError("Cannot evaluate the probability when mu is not given")
 
-        samples = expon.rvs(scale=mu, size=size)
+        samples = expon.rvs(scale=mu, size=size, random_state=random_state)
 
         while 1:
             idx = (samples > self.low) & (samples < self.high)
             nvalid = np.sum(idx)
 
             if nvalid != size:
-                sample = expon.rvs(scale=mu, size=(size - nvalid))
+                sample = expon.rvs(
+                    scale=mu, size=(size - nvalid), random_state=random_state
+                )
                 samples[~idx] = sample
             else:
                 break
@@ -775,7 +796,7 @@ class PowerLawDistribution(BaseDistribution):
 
         return logpdf
 
-    def sample(self, hyperparameters={}, size=1):
+    def sample(self, hyperparameters={}, size=1, random_state=None):
         """
         Draw a sample from the exponential distribution as defined by the
         given hyperparameters.
@@ -787,12 +808,20 @@ class PowerLawDistribution(BaseDistribution):
             and ``maximum``) that define the current state of the distribution.
         size: int
             The number of samples to draw from the distribution.
+        random_state:
+            A random state for drawing the samples.
 
         Returns
         -------
         sample:
             A sample, or set of samples, from the distribution.
         """
+
+        if random_state is not None:
+            from bilby.core.utils.random import seed
+
+            # use random state to set the seed for the bilby PowerLaw sampler
+            seed(random_state.integers(0, 2**63 - 1))
 
         alpha = self["alpha"]
         if not self.fixed["alpha"]:
@@ -1019,7 +1048,7 @@ class HistogramDistribution(BaseDistribution):
 
         return logpdf
 
-    def sample(self, hyperparameters={}, size=1):
+    def sample(self, hyperparameters={}, size=1, random_state=None):
         """
         Draw a sample from the histogram distribution as defined by the
         given hyperparameters.
@@ -1033,6 +1062,8 @@ class HistogramDistribution(BaseDistribution):
             values.
         size: int
             The number of samples to draw. Default is 1.
+        random_state:
+            A random state for drawing the samples.
 
         Returns
         -------
@@ -1040,7 +1071,7 @@ class HistogramDistribution(BaseDistribution):
             A sample, or set of samples, from the distribution.
         """
 
-        rng = np.random.default_rng()
+        rng = np.random.default_rng() if random_state is None else random_state
         weights = np.zeros(self.nbins)
 
         # get current weights
@@ -1306,7 +1337,6 @@ class MassQuadrupoleDistribution:
                 raise ValueError("Grid range is badly defined")
 
             # set grid spacing (either linear or linear in log10-space)
-            lower, upper = gridrange
             if (
                 gridtype is None
                 and not isinstance(self._distribution, HistogramDistribution)
@@ -1561,25 +1591,30 @@ class MassQuadrupoleDistribution:
             samples = self._posterior_samples
         else:
             if self._grid_interp_values is None:
+                # set parameter range from the data
+                # minmax = [np.inf, -np.inf]
+
+                ranges = np.asarray(
+                    [(ps.min(), ps.max()) for ps in self._posterior_samples]
+                )
+                prange = [ranges[:, 0].min(), ranges[:, 1].max()]
+                self.set_range(prange, self._bins)
+
                 # set parameter range from data (with a 10% extension)
-                grid = []
+                # grid = []
 
-                for psamples in self._posterior_samples:
-                    minval = psamples.min()
-                    maxval = psamples.max()
+                # for psamples in self._posterior_samples:
+                # minval = psamples.min()
+                # maxval = psamples.max()
 
-                    prange = maxval - minval
-                    minval = max(0, minval - 0.1 * prange)
-                    maxval += 0.1 * prange
+                # prange = maxval - minval
+                # minval = max(0, minval - 0.1 * prange)
+                # maxval += 0.1 * prange
 
-                    grid.append(np.linspace(minval, maxval, self._bins))
-                gridlist = True
-            else:
-                grid = self._grid_interp_values
-
-            from matplotlib import pyplot as plt
-
-            fig, ax = plt.subplots()
+                # grid.append(np.linspace(minval, maxval, self._bins))
+                # gridlist = True
+            # else:
+            grid = self._grid_interp_values
 
             # generate KDEs from samples and create spline interpolants
             nkdes = len(self._likelihood_kdes_interp)
@@ -1605,8 +1640,6 @@ class MassQuadrupoleDistribution:
                             2.0
                         )  # multiply by 2 so pdf normalises to 1
 
-                        ax.plot(grid[i], interpvals)
-
                         # replace any infinity values with small number (logpdf
                         # returns inf rather than -inf, so we need to flip the
                         # sign)
@@ -1629,15 +1662,12 @@ class MassQuadrupoleDistribution:
                     )
 
                     # create and add interpolator (the tck tuple for a B-spline)
-                    # self._likelihood_kdes_interp.append(
-                    #    splrep(grid[i] if gridlist else grid, interpvals)
-                    # )
-                    self._likelihood_kdes_interp.append(interpvals)
+                    self._likelihood_kdes_interp.append(
+                        splrep(grid[i] if gridlist else grid, interpvals)
+                    )
+                    # self._likelihood_kdes_interp.append(interpvals)
 
             likelihoods = self._likelihood_kdes_interp
-
-        ax.set_xscale("log")
-        fig.savefig("/home/matt/plot.png", dpi=200)
 
         self._likelihood = MassQuadrupoleDistributionLikelihood(
             self._distribution, likelihoods=likelihoods, samples=samples, grid=grid
@@ -1871,10 +1901,10 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
                 # evaluate the interpolated (log) likelihoods on the grid
                 self._likelihoods = []
                 for i, ll in enumerate(like):
-                    self._likelihoods.append(
-                        ll
-                        # splev(self.grid if self.grid.ndim == 1 else self.grid[i], ll)
-                    )
+                    # self._likelihoods.append(
+                    #    splev(self.grid if self.grid.ndim == 1 else self.grid[i], ll)
+                    # )
+                    self._likelihoods.append(ll)
                 self._nsources = len(like)
             else:
                 raise ValueError("Grid must be set to evaluate likelihoods")
@@ -1935,8 +1965,79 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         else:
             # evaluate the hyperparameter distribution
             if self.grid.ndim == 1:
-                # the grid is the same for all likelihoods
-                grid = self.grid
+                if self.distribution.scale_parameters and np.all(
+                    np.array(list(self.parameters.values())) != 0.0
+                ):
+                    # if distribution has scale parameters add points to the
+                    # grid to make sure the pdf is well enough samples to avoid
+                    # trapezium integration pathologies
+
+                    nsigmas = 6.0
+                    nbins = 100
+
+                    if isinstance(self.distribution, BoundedGaussianDistribution):
+                        # for mixture of Gaussian's use the actual Gaussian
+                        # modes to define the finer grid points
+                        grid = np.copy(self.grid)
+                        for i in range(self.distribution.nmodes):
+                            sample_std = self.parameters[f"sigma{i}"]
+                            sample_mean = self.parameters[f"mu{i}"]
+
+                            grid = np.concatenate(
+                                (
+                                    grid,
+                                    np.linspace(
+                                        max(
+                                            self.grid.min(),
+                                            sample_mean - nsigmas * sample_std,
+                                        ),
+                                        min(
+                                            self.grid.max(),
+                                            sample_mean + nsigmas * sample_std,
+                                        ),
+                                        nbins,
+                                    ),
+                                )
+                            )
+
+                        grid = np.unique(grid)
+                    else:
+                        # draw samples from distribution to get mean/standard
+                        # deviation and set additional fine grid points around
+                        # the mean
+
+                        # make sure identical parameters give identical likelihood by seeding the RNG
+                        seed = np.binary_repr(
+                            sum(self.parameters.values()).as_integer_ratio()[0]
+                        )[:63]
+                        rng = np.random.default_rng(int(seed, 2))
+
+                        samples = self.distribution.sample(
+                            self.parameters, 100, random_state=rng
+                        )
+                        sample_std = samples.std()
+                        sample_mean = samples.mean()
+                        grid = np.concatenate(
+                            (
+                                self.grid,
+                                np.linspace(
+                                    max(
+                                        self.grid.min(),
+                                        sample_mean - nsigmas * sample_std,
+                                    ),
+                                    min(
+                                        self.grid.max(),
+                                        sample_mean + nsigmas * sample_std,
+                                    ),
+                                    nbins,
+                                ),
+                            )
+                        )
+
+                    grid = np.unique(grid)
+                else:
+                    # the grid is the same for all likelihoods
+                    grid = self.grid
                 logp = self.distribution.log_pdf(grid, self.parameters)
 
             # log-likelihood numerically integrating over grid
@@ -1945,7 +2046,9 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
                     grid = self.grid[i]
                     logp = self.distribution.log_pdf(grid, self.parameters)
 
-                log_like += logtrapz(logp + logl, grid, disable_checks=True)
+                log_like += logtrapz(
+                    logp + splev(grid, logl), grid, disable_checks=True
+                )
 
         return log_like
 
