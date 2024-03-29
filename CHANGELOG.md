@@ -1,5 +1,13 @@
 # Notable changes between versions
 
+## [1.3.0] 2024-03-27
+
+Changes for this release:
+
+- Fix the calculation of variances for read in `HeterodynedData` objects (!185).
+- Only set heterodyned signal simulator to use non-GR parameters if `H0` is not provided in the parameters (!183).
+- Only require SciToken use for proprietary CVMFS data and allow SciToken use to be specified in configuration files (!174).
+
 ## [1.2.0] 2024-01-31
 
 Changes for this release:

@@ -120,7 +120,11 @@ def pulsar_summary_plots(
                     psrtable.append(
                         [
                             PULSAR_HEADER_FORMATS[key]["html"],
-                            PULSAR_HEADER_FORMATS[key]["formatter"](tloc[tname].value),
+                            PULSAR_HEADER_FORMATS[key]["formatter"](
+                                tloc[tname].value
+                                if hasattr(tloc[tname], "value")
+                                else tloc[tname]
+                            ),
                         ]
                     )
 
@@ -946,6 +950,7 @@ def generate_summary_pages(**kwargs):
             },
             datadicts,
             return_dict=True,
+            remove_outliers=True,
         )
 
         # add SNRs into the results table
@@ -1004,9 +1009,11 @@ def generate_summary_pages(**kwargs):
         mcol = scols[
             np.argmin(
                 [
-                    ultable[c].min().value
-                    if hasattr(ultable[c], "value")
-                    else ultable[c].min()
+                    (
+                        ultable[c].min().value
+                        if hasattr(ultable[c], "value")
+                        else ultable[c].min()
+                    )
                     for c in scols
                 ]
             )
@@ -1060,10 +1067,11 @@ def generate_summary_pages(**kwargs):
             hname = PULSAR_HEADER_FORMATS[par]["html"]
             tname = PULSAR_HEADER_FORMATS[par]["ultablename"]
 
-            quant = True if hasattr(tloc[tname], "value") else False
-            tvalue = tloc[tname].value if quant else tloc[tname]
-            rvalue = PULSAR_HEADER_FORMATS[par]["formatter"](tvalue)
-            allresultstable[psrlink][hname] = rvalue
+            if tname in ultable.colnames:
+                quant = True if hasattr(tloc[tname], "value") else False
+                tvalue = tloc[tname].value if quant else tloc[tname]
+                rvalue = PULSAR_HEADER_FORMATS[par]["formatter"](tvalue)
+                allresultstable[psrlink][hname] = rvalue
 
         # show upper limits
         for amp in ["H0", "C21", "C22", "ELL", "Q22", "SDRAT"]:
@@ -1254,11 +1262,13 @@ def generate_summary_pages(**kwargs):
     homepage.make_heading("Table of results", anchor="table-of-results")
     homepage.make_results_table(contents=allresultstable, highlight_psrs=highlight_psrs)
 
-    # create upper limits plots
-    if upperlimitplot:
+    # create upper limit plot directory
+    if upperlimitplot or (oddsplot and showodds):
         ulplotdir = outpath / "ulplots"
         ulplotdir.mkdir(parents=True, exist_ok=True)
 
+    # create upper limits plots
+    if upperlimitplot:
         for amp in ampt:
             for det in dets:
                 p = RESULTS_HEADER_FORMATS[amp]["ultablename"].format(det)
@@ -1327,9 +1337,11 @@ def generate_summary_pages(**kwargs):
                             "histtype": "stepfilled",
                         },
                         asdkwargs={
-                            "color": GW_OBSERVATORY_COLORS[det]
-                            if det in GW_OBSERVATORY_COLORS
-                            else "grey",
+                            "color": (
+                                GW_OBSERVATORY_COLORS[det]
+                                if det in GW_OBSERVATORY_COLORS
+                                else "grey"
+                            ),
                             "alpha": 0.5,
                             "linewidth": 5,
                         },
