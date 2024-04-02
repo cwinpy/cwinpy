@@ -112,7 +112,7 @@ class BaseDistribution:
     @property
     def unpacked_values(self):
         values = []
-        for key, value in self.hyperparameters.items():
+        for value in self.hyperparameters.values():
             if isinstance(value, (list, np.ndarray)):
                 for i in range(len(value)):
                     values.append(value[i])
@@ -1214,8 +1214,7 @@ class MassQuadrupoleDistribution:
         uniform in log-space for distributions other than
         :class:`cwinpy.hierarchical.HistogramDistribution` for which case the
         spacing defaults to linear. Values can either be ``"log"`` or
-        ``"linear"`` to force one or other spacing. If setting grids for each
-        posterior individually, then these will be linearly spaced.
+        ``"linear"`` to force one or other spacing.
     distribution: :class:`cwinpy.hierarchical.BaseDistribution`, str
         A predefined distribution, or string giving a valid distribution name.
         This is the distribution for which the hyperparameters are going to be
@@ -1592,28 +1591,12 @@ class MassQuadrupoleDistribution:
         else:
             if self._grid_interp_values is None:
                 # set parameter range from the data
-                # minmax = [np.inf, -np.inf]
-
                 ranges = np.asarray(
                     [(ps.min(), ps.max()) for ps in self._posterior_samples]
                 )
                 prange = [ranges[:, 0].min(), ranges[:, 1].max()]
                 self.set_range(prange, self._bins)
 
-                # set parameter range from data (with a 10% extension)
-                # grid = []
-
-                # for psamples in self._posterior_samples:
-                # minval = psamples.min()
-                # maxval = psamples.max()
-
-                # prange = maxval - minval
-                # minval = max(0, minval - 0.1 * prange)
-                # maxval += 0.1 * prange
-
-                # grid.append(np.linspace(minval, maxval, self._bins))
-                # gridlist = True
-            # else:
             grid = self._grid_interp_values
 
             # generate KDEs from samples and create spline interpolants
@@ -1657,15 +1640,10 @@ class MassQuadrupoleDistribution:
                         interpvals += self._log_evidence[i]
 
                     # divide by prior
-                    interpvals -= self._pulsar_priors[i].ln_prob(
-                        grid[i] if gridlist else grid
-                    )
+                    interpvals -= self._pulsar_priors[i].ln_prob(grid)
 
                     # create and add interpolator (the tck tuple for a B-spline)
-                    self._likelihood_kdes_interp.append(
-                        splrep(grid[i] if gridlist else grid, interpvals)
-                    )
-                    # self._likelihood_kdes_interp.append(interpvals)
+                    self._likelihood_kdes_interp.append(splrep(grid, interpvals))
 
             likelihoods = self._likelihood_kdes_interp
 
@@ -1858,10 +1836,21 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
         function for a single source.
     grid: array_like
         If given, the integration over the mass quadrupole distribution for
-        each source is performed numerically on at these grid points. If not
+        each source is performed numerically at these grid points. If not
         given, individual samples from :math:`Q_{22}` will be drawn from each
         source (i.e., equivalent to having a new :math:`Q_{22}` parameter for
         each source in the sampler).
+
+        .. note::
+
+           If the mass quadrupole distribution contains scale parameters (and
+           particularly if their prior distribution spans a large dynamic
+           range) it can lead to pathological breakdown of the trapezium rule
+           integration approximation, e.g., when the grid bins for integration
+           are much larger than the scale parameters values. To avoid this,
+           internally the supplied grid will actually be augmented with
+           additional finer grid points around the mode (±6σ) of the
+           distribution as evaluated with the current hyperparameter values.
     samples: list
         A list of arrays of :math:`Q_{22}` samples for each source. If this is
         given then these samples will be used to approximate the integral over
@@ -1900,10 +1889,7 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
             if self.grid is not None:
                 # evaluate the interpolated (log) likelihoods on the grid
                 self._likelihoods = []
-                for i, ll in enumerate(like):
-                    # self._likelihoods.append(
-                    #    splev(self.grid if self.grid.ndim == 1 else self.grid[i], ll)
-                    # )
+                for ll in like:
                     self._likelihoods.append(ll)
                 self._nsources = len(like)
             else:
@@ -1964,62 +1950,28 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
             log_like = np.nan_to_num(log_like)
         else:
             # evaluate the hyperparameter distribution
-            if self.grid.ndim == 1:
-                if self.distribution.scale_parameters and np.all(
-                    np.array(list(self.parameters.values())) != 0.0
-                ):
-                    # if distribution has scale parameters add points to the
-                    # grid to make sure the pdf is well enough samples to avoid
-                    # trapezium integration pathologies
+            if self.distribution.scale_parameters and np.all(
+                np.array(list(self.parameters.values())) != 0.0
+            ):
+                # if distribution has scale parameters add points to the
+                # grid to make sure the pdf is well enough samples to avoid
+                # trapezium integration pathologies. NOTE: the check for all
+                # parameters being non-zero is to prevent this being called
+                # when calculating the null likelihood.
+                nsigmas = 6.0
+                nbins = 100
 
-                    nsigmas = 6.0
-                    nbins = 100
+                if isinstance(self.distribution, BoundedGaussianDistribution):
+                    # for mixture of Gaussian's use the actual Gaussian
+                    # modes to define the finer grid points
+                    grid = np.copy(self.grid)
+                    for i in range(self.distribution.nmodes):
+                        sample_std = self.parameters[f"sigma{i}"]
+                        sample_mean = self.parameters[f"mu{i}"]
 
-                    if isinstance(self.distribution, BoundedGaussianDistribution):
-                        # for mixture of Gaussian's use the actual Gaussian
-                        # modes to define the finer grid points
-                        grid = np.copy(self.grid)
-                        for i in range(self.distribution.nmodes):
-                            sample_std = self.parameters[f"sigma{i}"]
-                            sample_mean = self.parameters[f"mu{i}"]
-
-                            grid = np.concatenate(
-                                (
-                                    grid,
-                                    np.linspace(
-                                        max(
-                                            self.grid.min(),
-                                            sample_mean - nsigmas * sample_std,
-                                        ),
-                                        min(
-                                            self.grid.max(),
-                                            sample_mean + nsigmas * sample_std,
-                                        ),
-                                        nbins,
-                                    ),
-                                )
-                            )
-
-                        grid = np.unique(grid)
-                    else:
-                        # draw samples from distribution to get mean/standard
-                        # deviation and set additional fine grid points around
-                        # the mean
-
-                        # make sure identical parameters give identical likelihood by seeding the RNG
-                        seed = np.binary_repr(
-                            sum(self.parameters.values()).as_integer_ratio()[0]
-                        )[:63]
-                        rng = np.random.default_rng(int(seed, 2))
-
-                        samples = self.distribution.sample(
-                            self.parameters, 100, random_state=rng
-                        )
-                        sample_std = samples.std()
-                        sample_mean = samples.mean()
                         grid = np.concatenate(
                             (
-                                self.grid,
+                                grid,
                                 np.linspace(
                                     max(
                                         self.grid.min(),
@@ -2036,16 +1988,46 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
 
                     grid = np.unique(grid)
                 else:
-                    # the grid is the same for all likelihoods
-                    grid = self.grid
-                logp = self.distribution.log_pdf(grid, self.parameters)
+                    # draw samples from distribution to get mean/standard
+                    # deviation and set additional fine grid points around
+                    # the mean
+
+                    # make sure identical parameters give identical likelihood by seeding the RNG
+                    seed = np.binary_repr(
+                        sum(self.parameters.values()).as_integer_ratio()[0]
+                    )[:63]
+                    rng = np.random.default_rng(int(seed, 2))
+
+                    samples = self.distribution.sample(
+                        self.parameters, 100, random_state=rng
+                    )
+                    sample_std = samples.std()
+                    sample_mean = samples.mean()
+                    grid = np.concatenate(
+                        (
+                            self.grid,
+                            np.linspace(
+                                max(
+                                    self.grid.min(),
+                                    sample_mean - nsigmas * sample_std,
+                                ),
+                                min(
+                                    self.grid.max(),
+                                    sample_mean + nsigmas * sample_std,
+                                ),
+                                nbins,
+                            ),
+                        )
+                    )
+
+                grid = np.unique(grid)
+            else:
+                # the grid is the same for all likelihoods
+                grid = self.grid
+            logp = self.distribution.log_pdf(grid, self.parameters)
 
             # log-likelihood numerically integrating over grid
-            for i, logl in enumerate(self.likelihoods):
-                if self.grid.ndim == 2:
-                    grid = self.grid[i]
-                    logp = self.distribution.log_pdf(grid, self.parameters)
-
+            for logl in self.likelihoods:
                 log_like += logtrapz(
                     logp + splev(grid, logl), grid, disable_checks=True
                 )
