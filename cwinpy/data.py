@@ -3255,7 +3255,10 @@ class HeterodynedData(TimeSeriesBase):
                 raise TypeError("Overlap must be an integer or float")
 
             if window is None:
-                from scipy.signal import tukey
+                try:
+                    from scipy.signal import tukey
+                except ImportError:
+                    from scipy.signal.windows import tukey
 
                 window = tukey(nfft, alpha=0.1)
 
