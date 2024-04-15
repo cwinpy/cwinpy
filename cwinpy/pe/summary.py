@@ -891,12 +891,21 @@ def generate_summary_pages(**kwargs):
     # extract run information from configuration file
     pipeline_data = pe_pipeline(config=configfile, build=False)
 
+    # extract any distances from pulsar .par files
+    distances = {}
+    for psr in pipeline_data.pulsardict:
+        if is_par_file(pipeline_data.pulsardict[psr]):
+            p = PulsarParameters(pipeline_data.pulsardict[psr])
+            if p["DIST"] is not None:
+                distances[psr] = p["DIST"]
+
     # get table of upper limits
     ultable = UpperLimitTable(
         resdir=pipeline_data.resultsbase,
         includesdlim=True,
         includeell=True,
         includeq22=True,
+        distances=distances,
     )
 
     # get only the requested pulsars
