@@ -560,7 +560,9 @@ def generate_power_spectrum(
                     if isinstance(heterodyneddata[psr][ff][det], HeterodynedData):
                         het = heterodyneddata
                     else:
-                        het = HeterodynedData.read(heterodyneddata[psr][ff][det])
+                        het = HeterodynedData.read(
+                            heterodyneddata[psr][ff][det], bbminlength=np.inf
+                        )
                 else:
                     raise ValueError("data is not a HeterodynedData object/path")
 
