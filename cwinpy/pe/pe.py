@@ -477,8 +477,18 @@ class PERunner:
             self.datakwargs["remove_outliers"] = True
 
         # get solar system ephemeris information if provided
-        self.datakwargs.setdefault("earthephemeris", kwargs.get("earthephemeris", None))
-        self.datakwargs.setdefault("sunephemeris", kwargs.get("sunephemeris", None))
+        try:
+            earthephem = convert_string_to_dict(kwargs.get("earthephemeris", None))
+        except TypeError:
+            earthephem = kwargs.get("earthephemeris", None)
+
+        try:
+            sunephem = convert_string_to_dict(kwargs.get("sunephemeris", None))
+        except TypeError:
+            sunephem = kwargs.get("sunephemeris", None)
+
+        self.datakwargs.setdefault("earthephemeris", earthephem)
+        self.datakwargs.setdefault("sunephemeris", sunephem)
 
         # data parameters
         if "detector" in kwargs:
@@ -1151,6 +1161,8 @@ class PERunner:
 
         likelihoodkwargs = self.roq_kwargs.copy()
         likelihoodkwargs["usetempo2"] = self.usetempo2
+        likelihoodkwargs["earthephemeris"] = self.datakwargs["earthephemeris"]
+        likelihoodkwargs["sunephemeris"] = self.datakwargs["sunephemeris"]
 
         self.likelihood = TargetedPulsarLikelihood(
             data=self.hetdata,

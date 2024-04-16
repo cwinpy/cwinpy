@@ -95,11 +95,29 @@ class HeterodynedCWSimulator(object):
             self.units = units
 
             # initialise the solar system ephemeris files
+            if isinstance(earth_ephem, dict):
+                if self.ephem in earth_ephem:
+                    earth_ephem_file = earth_ephem[self.ephem]
+                else:
+                    # fall back to looking up ephemeris
+                    earth_ephem_file = None
+            else:
+                earth_ephem_file = earth_ephem
+
+            if isinstance(sun_ephem, dict):
+                if self.ephem in sun_ephem:
+                    sun_ephem_file = sun_ephem[self.ephem]
+                else:
+                    # fall back to looking up ephemeris
+                    sun_ephem_file = None
+            else:
+                sun_ephem_file = earth_ephem
+
             self.__edat, self.__tdat = initialise_ephemeris(
                 ephem=self.ephem,
                 units=self.units,
-                earthfile=earth_ephem,
-                sunfile=sun_ephem,
+                earthfile=earth_ephem_file,
+                sunfile=sun_ephem_file,
             )
 
             # set the "heterodyne" SSB time delay

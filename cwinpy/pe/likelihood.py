@@ -286,8 +286,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                     het.detector,
                     times=times,
                     dt=dt,
-                    earth_ephem=het.ephemearth,
-                    sun_ephem=het.ephemsun,
+                    earth_ephem=self.kwargs.get("earthephemeris", het.ephemearth),
+                    sun_ephem=self.kwargs.get("sunephemeris", het.ephemsun),
                     usetempo2=self.kwargs.get("usetempo2", False),
                 )
             )
