@@ -111,7 +111,7 @@ class HeterodynedCWSimulator(object):
                     # fall back to looking up ephemeris
                     sun_ephem_file = None
             else:
-                sun_ephem_file = earth_ephem
+                sun_ephem_file = sun_ephem
 
             self.__edat, self.__tdat = initialise_ephemeris(
                 ephem=self.ephem,
