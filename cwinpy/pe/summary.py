@@ -895,11 +895,19 @@ def generate_summary_pages(**kwargs):
 
     # extract any distances from pulsar .par files
     distances = {}
+    f0s = {}
+    fdots = {}
     for psr in pipeline_data.pulsardict:
         if is_par_file(pipeline_data.pulsardict[psr]):
             p = PulsarParameters(pipeline_data.pulsardict[psr])
             if p["DIST"] is not None:
                 distances[psr] = p["DIST"]
+
+            if p["F0"] is not None:
+                f0s[psr] = p["F0"]
+
+            if p["F1"] is not None:
+                fdots[psr] = p["F1"]
 
     # get table of upper limits
     ultable = UpperLimitTable(
@@ -908,6 +916,8 @@ def generate_summary_pages(**kwargs):
         includeell=True,
         includeq22=True,
         distances=distances,
+        f0=f0s,
+        fdot=fdots,
     )
 
     # get only the requested pulsars
