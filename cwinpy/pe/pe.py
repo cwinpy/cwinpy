@@ -479,12 +479,12 @@ class PERunner:
         # get solar system ephemeris information if provided
         try:
             earthephem = convert_string_to_dict(kwargs.get("earthephemeris", None))
-        except TypeError:
+        except (AttributeError, TypeError):
             earthephem = kwargs.get("earthephemeris", None)
 
         try:
             sunephem = convert_string_to_dict(kwargs.get("sunephemeris", None))
-        except TypeError:
+        except (AttributeError, TypeError):
             sunephem = kwargs.get("sunephemeris", None)
 
         self.datakwargs.setdefault("earthephemeris", earthephem)
