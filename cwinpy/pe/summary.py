@@ -901,7 +901,7 @@ def generate_summary_pages(**kwargs):
         if is_par_file(pipeline_data.pulsardict[psr]):
             p = PulsarParameters(pipeline_data.pulsardict[psr])
             if p["DIST"] is not None:
-                distances[psr] = p["DIST"]
+                distances[psr] = p.convert_to_tempo_units("DIST", p["DIST"]).value
 
             if p["F0"] is not None:
                 f0s[psr] = p["F0"]
