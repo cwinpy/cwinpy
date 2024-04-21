@@ -901,12 +901,12 @@ def generate_summary_pages(**kwargs):
         if is_par_file(pipeline_data.pulsardict[psr]):
             p = PulsarParameters(pipeline_data.pulsardict[psr])
             if p["DIST"] is not None:
-                distances[psr] = p["DIST"]
+                distances[psr] = p.convert_to_tempo_units("DIST", p["DIST"]).value
 
             if p["F0"] is not None:
                 f0s[psr] = p["F0"]
 
-            if p["F1"] is not None:
+            if len(p["F"]) > 1 and p["F1"] is not None:
                 fdots[psr] = p["F1"]
 
     # get table of upper limits
