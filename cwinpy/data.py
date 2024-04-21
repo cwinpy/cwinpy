@@ -1157,6 +1157,9 @@ class HeterodynedData(TimeSeriesBase):
 
         return io_registry.write(self, target, *args, **kwargs)
 
+    # make save alias of write
+    save = write
+
     def merge(self, other, sort=True):
         """
         Merge another class:`~cwinpy.data.HeterodynedData` with the current one
