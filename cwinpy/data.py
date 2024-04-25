@@ -1157,6 +1157,9 @@ class HeterodynedData(TimeSeriesBase):
 
         return io_registry.write(self, target, *args, **kwargs)
 
+    # make save alias of write
+    save = write
+
     def merge(self, other, sort=True):
         """
         Merge another class:`~cwinpy.data.HeterodynedData` with the current one
@@ -3255,7 +3258,10 @@ class HeterodynedData(TimeSeriesBase):
                 raise TypeError("Overlap must be an integer or float")
 
             if window is None:
-                from scipy.signal import tukey
+                try:
+                    from scipy.signal import tukey
+                except ImportError:
+                    from scipy.signal.windows import tukey
 
                 window = tukey(nfft, alpha=0.1)
 

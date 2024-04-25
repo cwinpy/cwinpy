@@ -1023,7 +1023,9 @@ class UpperLimitTable(QTable):
                 else:  # pragma: no cover
                     f0s[psr] = np.nan
 
-            if psr not in f1s:
+            if psr not in f1s or (
+                psrrow is not None and np.isfinite(psrrow["P1_I"][0])
+            ):
                 if psrrow is not None:
                     if np.isfinite(psrrow["P1_I"][0]):
                         # use intrinsic Pdot
