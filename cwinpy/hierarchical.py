@@ -6,6 +6,7 @@ from itertools import compress
 
 import bilby
 import numpy as np
+from cweqgen import equations
 from lintegrate import logtrapz
 from scipy.interpolate import splev, splrep
 from scipy.stats import expon, gaussian_kde, truncnorm
@@ -1254,7 +1255,6 @@ class MassQuadrupoleDistribution:
     use_ellipticity: bool
         If True, work with fiducial ellipticity :math:`\\varepsilon` rather
         than mass quadrupole.
-
     """
 
     def __init__(
@@ -1272,6 +1272,7 @@ class MassQuadrupoleDistribution:
         integration_method="numerical",
         nsamples=None,
         use_ellipticity=False,
+        **kwargs,
     ):
         self._posterior_samples = []
         self._pulsar_priors = []
@@ -1290,7 +1291,7 @@ class MassQuadrupoleDistribution:
         self.set_integration_method(integration_method)
 
         # set the data
-        self.add_data(data, bw=bw, nsamples=nsamples)
+        self.add_data(data, bw=bw, nsamples=nsamples, **kwargs)
 
         # set the sampler
         if grid is None:
@@ -1362,14 +1363,19 @@ class MassQuadrupoleDistribution:
 
         return self._likelihood_kdes_interp
 
-    def add_data(self, data, bw="scott", nsamples=None):
+    def add_data(self, data, bw="scott", nsamples=None, **kwargs):
         """
         Set the data, i.e., the individual source posterior distributions, on
         which the hierarchical analysis will be performed.
 
         The posterior samples must include the ``Q22`` :math:`l=m=2` parameter,
-        or the fiducial ellipticity parameter ``ELL``, for this inference to be
-        performed.
+        the fiducial ellipticity parameter ``ELL``, or gravitational wave
+        amplitude ``H0``, for this inference to be performed. In the latter
+        case, it will only work if you also supply distances and rotation
+        frequency values for each source (a single value for each if adding a
+        single source, otherwise lists of values matching each source supplied
+        in ``data``) via ``dist`` and ``f0`` keyword arguments. This case also
+        requires that the ``H0`` samples were obtained using a uniform prior.
 
         If using the "numerical" integration method, upon running the
         :meth:`~cwinpy.hierarchical.MassQuadrupoleDistribution.sample` method,
@@ -1404,6 +1410,13 @@ class MassQuadrupoleDistribution:
             pulsar, then all samples will be used in that case. The default
             will be to use all samples, but this may lead to memory issues when
             using large numbers of pulsars.
+        dist: list, float
+            A distance value (kpc) for each source supplied in the ``data``
+            argument, which is required if the posteriors sampled in ``H0``.
+        f0: list, float
+            A rotation frequency value (Hz) for each source supplied in the
+            ``data`` argument, which is required if the posteriors sampled in
+            ``H0``.
         """
 
         # check the data is a ResultList
@@ -1420,7 +1433,7 @@ class MassQuadrupoleDistribution:
 
         self._bw = bw
 
-        for result in data:
+        for i, result in enumerate(data):
             # check all posteriors contain Q22 or ellipticity
             if (
                 "Q22" not in result.posterior.columns
@@ -1436,8 +1449,45 @@ class MassQuadrupoleDistribution:
                         result.posterior["q22"] = ellipticity_to_q22(
                             result.posterior[priorkey]
                         )
+                elif (
+                    "H0" in result.posterior.columns or "h0" in result.posterior.columns
+                ):
+                    # convert h0 values to Q22/ELL
+                    if "dist" not in kwargs or "f0" not in kwargs:
+                        raise RuntimeError(
+                            "If converting from h0 values, distances and rotation frequencies must be supplied"
+                        )
+
+                    priorkey = "h0" if "h0" in result.posterior.columns else "H0"
+
+                    h0 = equations("h0")
+
+                    try:
+                        d = kwargs["dist"][i]
+                    except TypeError:
+                        d = kwargs["dist"]
+
+                    try:
+                        f0 = kwargs["f0"][i]
+                    except TypeError:
+                        f0 = kwargs["f0"]
+
+                    priorkey = "h0" if "h0" in result.posterior.columns else "H0"
+                    if self.use_ellipticity:
+                        convert = h0.rearrange("ellipticity")
+                        result.posterior["ell"] = convert(
+                            d=d, frot=f0, h0=result.posterior[priorkey]
+                        ).value
+                    else:
+                        q22 = equations("massquadrupole")
+                        convert = h0.substitute(q22.rearrange("ellipticity")).rearrange(
+                            "massquadrupole"
+                        )
+                        result.posterior["q22"] = convert(
+                            d=d, frot=f0, h0=result.posterior[priorkey]
+                        ).value
                 else:
-                    raise RuntimeError("Results do not contain Q22")
+                    raise RuntimeError("Results do not contain Q22, ELL or H0")
             else:
                 priorkey = "q22" if "q22" in result.posterior.columns else "Q22"
                 if self.use_ellipticity:
@@ -1445,7 +1495,22 @@ class MassQuadrupoleDistribution:
                         result.posterior[priorkey]
                     )
 
-            self._pulsar_priors.append(result.priors[priorkey])
+            if priorkey.lower() == "h0":
+                if not isinstance(result.priors[priorkey], bilby.core.prior.Uniform):
+                    raise TypeError(
+                        "h0 samples can only be used when uniform priors were used"
+                    )
+
+                # add uniform prior on q22/ell
+                self._pulsar_priors.append(
+                    bilby.core.prior.Uniform(
+                        convert(h0=result.priors[priorkey].minimum, d=d, frot=f0).value,
+                        convert(h0=result.priors[priorkey].maximum, d=d, frot=f0).value,
+                        name="ell" if self.use_ellipticity else "q22",
+                    )
+                )
+            else:
+                self._pulsar_priors.append(result.priors[priorkey])
 
         if nsamples is not None:
             if not isinstance(nsamples, int):
