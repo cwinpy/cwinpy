@@ -903,7 +903,13 @@ class DeltaFunctionDistribution(BaseDistribution):
             except KeyError:
                 raise KeyError("Cannot evaluate the probability when peak is not given")
 
-        if value != peak:
+        if isinstance(value, (np.ndarray, list)):
+            values = np.asarray(value)
+            logpdf = np.zeros_like(values)
+            logpdf[values != peak] = -np.inf
+
+            return logpdf
+        elif value != peak:
             return -np.inf
         return 0.0
 
@@ -1205,8 +1211,11 @@ class MassQuadrupoleDistribution:
         should be interpolated, or a lower and upper bound in the range of
         values, which will be split into ``bins`` points spaced linearly in
         log-space (unless ``gridtype'' is set to a value other than ``"log"``).
-        If not supplied, then a individual grids for each set of posterior
+        If not supplied, then individual grids for each set of posterior
         samples, will be created.
+    include_zero: bool
+        Set this to True to make sure that zero is included as the lower bound
+        of the grid range. Defaults to False.
     bins: int
         The number of bins at which the posterior will be interpolated.
     gridtype: str
@@ -1263,6 +1272,7 @@ class MassQuadrupoleDistribution:
         gridrange=None,
         bins=100,
         gridtype=None,
+        include_zero=False,
         distribution=None,
         distkwargs=None,
         bw="scott",
@@ -1285,6 +1295,7 @@ class MassQuadrupoleDistribution:
 
         # set the values of q22/ellipticity at which to calculate the KDE
         # interpolator
+        self.include_zero = include_zero
         self.set_range(gridrange, bins, gridtype=gridtype)
 
         # set integration method
@@ -1352,6 +1363,9 @@ class MassQuadrupoleDistribution:
             self._grid_interp_values = gridrange
         else:
             raise ValueError("Grid range is badly defined")
+
+        if self.include_zero:
+            self._grid_interp_values = np.concatenate(([0], self._grid_interp_values))
 
     @property
     def interpolated_log_kdes(self):
@@ -1802,6 +1816,18 @@ class MassQuadrupoleDistribution:
             else:
                 return None
 
+    def log_likelihood(self, parameters):
+        """
+        Get the value of the log-likeihood for the supplied hyperparameters.
+        """
+
+        if self._likelihood is None:
+            self._set_likelihood()
+
+        self._likelihood.parameters = parameters
+
+        return self._likelihood.log_likelihood()
+
     def sample(self, **run_kwargs):
         """
         Sample the posterior distribution using ``bilby``. This can take
@@ -2118,3 +2144,4 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
 
     def __len__(self):
         return self._nsources
+

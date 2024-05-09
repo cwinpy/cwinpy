@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Union
 
@@ -174,6 +175,33 @@ class CWPage(page):
     A child class of :class:`pesummary.core.webpage.webpage.page` for
     generating CWInPy-specific summary pages.
     """
+
+    def __init__(self, html_file, web_dir, base_url, label):
+        if hasattr(html_file, "close") and hasattr(html_file, "name"):
+            # passing an file pointer, so close and get name
+            self.html_file = html_file.name
+            html_file.close()
+        elif isinstance(html_file, (str, os.PathLike)):
+            self.html_file = html_file
+        else:
+            raise TypeError("html_file must be a file path or file pointer.")
+
+        self.web_dir = web_dir
+        self.base_url = base_url
+        self.label = label
+        self.content = []
+
+    def add_content(self, content, indent=0):
+        """
+        Add content into list for writing at close time rather than writing
+        to an open file.
+        """
+
+        if isinstance(content, list):
+            for c in content:
+                self.content.append(" " * indent + self._check_content(c))
+        else:
+            self.content.append(" " * indent + self._check_content(content))
 
     def _setup_navbar(self, background_colour: str = None):
         if background_colour == "navbar-dark" or background_colour is None:
@@ -561,7 +589,11 @@ class CWPage(page):
         )
 
         self.add_content("</body>\n</html>\n")  # close off page
-        self.html_file.close()
+
+        # write content to file
+        with open(self.html_file, "a") as fp:
+            for line in self.content:
+                fp.write(line)
 
 
 def make_html(
@@ -627,6 +659,6 @@ def open_html(web_dir, base_url, html_page, label):
         pass
 
     htmlfile = Path(web_dir) / f"{html_page}.html"
-    f = open(htmlfile, "a")
+    htmlfile.touch()  # create file (if non-existant)
 
-    return CWPage(f, web_dir, base_url, label)
+    return CWPage(htmlfile, web_dir, base_url, label)
