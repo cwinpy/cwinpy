@@ -872,7 +872,13 @@ class DeltaFunctionDistribution(BaseDistribution):
             except KeyError:
                 raise KeyError("Cannot evaluate the probability when peak is not given")
 
-        if np.any(value != peak):
+        if isinstance(value, (np.ndarray, list)):
+            values = np.asarray(value)
+            logpdf = np.zeros_like(values)
+            logpdf[values != peak] = -np.inf
+
+            return logpdf
+        elif value != peak:
             return -np.inf
         return 0.0
 
@@ -1175,6 +1181,9 @@ class MassQuadrupoleDistribution(object):
         If not supplied this will instead be set using the posterior samples,
         with a minimum value at zero and a maximum given by the maximum of all
         posterior samples.
+    include_zero: bool
+        Set this to True to make sure that zero is included as the lower bound
+        of the grid range. Defaults to False.
     bins: int
         The number of bins at which the posterior will be interpolated.
     gridtype: str
@@ -1232,6 +1241,7 @@ class MassQuadrupoleDistribution(object):
         gridrange=None,
         bins=100,
         gridtype=None,
+        include_zero=False,
         distribution=None,
         distkwargs=None,
         bw="scott",
@@ -1253,6 +1263,7 @@ class MassQuadrupoleDistribution(object):
 
         # set the values of q22/ellipticity at which to calculate the KDE
         # interpolator
+        self.include_zero = include_zero
         self.set_range(gridrange, bins, gridtype=gridtype)
 
         # set integration method
@@ -1321,6 +1332,9 @@ class MassQuadrupoleDistribution(object):
             self._grid_interp_values = gridrange
         else:
             raise ValueError("Grid range is badly defined")
+
+        if self.include_zero:
+            self._grid_interp_values = np.concatenate(([0], self._grid_interp_values))
 
     @property
     def interpolated_log_kdes(self):
@@ -1714,6 +1728,18 @@ class MassQuadrupoleDistribution(object):
                 return self._result
             else:
                 return None
+
+    def log_likelihood(self, parameters):
+        """
+        Get the value of the log-likeihood for the supplied parameters.
+        """
+
+        if self._likelihood is None:
+            self._set_likelihood()
+
+        self._likelihood.parameters = parameters
+
+        return self._likelihood.log_likelihood()
 
     def sample(self, **run_kwargs):
         """
