@@ -872,7 +872,7 @@ class DeltaFunctionDistribution(BaseDistribution):
             except KeyError:
                 raise KeyError("Cannot evaluate the probability when peak is not given")
 
-        if value != peak:
+        if np.any(value != peak):
             return -np.inf
         return 0.0
 
