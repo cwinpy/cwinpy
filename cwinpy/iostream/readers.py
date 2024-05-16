@@ -1,6 +1,7 @@
 import ast
 import copy
 import os
+import tempfile
 
 import numpy as np
 from gwpy.io import hdf5 as io_hdf5
@@ -88,9 +89,8 @@ def read_hdf5_series(
     for par in ["par", "injpar"]:
         if par in kwargs:
             # convert parameter file string to file
-            import tempfile
-
-            parfiles[par] = tempfile.mkstemp(suffix=".par")[1]
+            fp, parfiles[par] = tempfile.mkstemp(suffix=".par")
+            os.close(fp)  # close the open file descriptor
             with open(parfiles[par], "w") as fp:
                 fp.write(kwargs[par])
             kwargs[par] = parfiles[par]
