@@ -653,7 +653,7 @@ def relative_topdir(
     if is_parent and Path(reference) not in Path(path).parents:
         # fail if the reference is not a parent of the path
         raise ValueError(
-            f"{reference} must be a parent directory of {path}. Please move {reference} into {path}."
+            f"{reference} must be a parent directory of {path}. Please move {path} into {reference}."
         )
 
     try:
