@@ -1308,7 +1308,8 @@ class MassQuadrupoleDistribution:
         self.set_integration_method(integration_method)
 
         # set the data
-        self.add_data(data, bw=bw, nsamples=nsamples, fixed_prior=fixed_prior, **kwargs)
+        self.fixed_prior = fixed_prior
+        self.add_data(data, bw=bw, nsamples=nsamples, **kwargs)
 
         # set the sampler
         if grid is None:
@@ -1434,7 +1435,9 @@ class MassQuadrupoleDistribution:
             Use a fixed prior for each of the CW sources passes in as ``data``.
             This is useful if any of the items in the
             :class:`bilby.core.result.ResultList` do not contain prior
-            information.
+            information. Values passed directly to this method will override
+            any value set on initialisation of the class, otherwise the class
+            attribute will be used.
         dist: list, float
             A distance value (kpc) for each source supplied in the ``data``
             argument, which is required if the posteriors sampled in ``H0``.
@@ -1520,7 +1523,7 @@ class MassQuadrupoleDistribution:
                         result.posterior[priorkey]
                     )
 
-            if fixed_prior is None:
+            if fixed_prior is None and self.fixed_prior is None:
                 if priorkey.lower() == "h0":
                     if not isinstance(result.priors[priorkey], bilby.core.prior.Uniform):
                         raise TypeError(
@@ -1538,6 +1541,8 @@ class MassQuadrupoleDistribution:
                 else:
                     self._pulsar_priors.append(result.priors[priorkey])
             else:
+                fixed_prior = self.fixed_prior if fixed_prior is None else fixed_prior 
+
                 # use fixed prior
                 if not isinstance(fixed_prior, bilby.core.prior.Prior):
                     raise TypeError(
