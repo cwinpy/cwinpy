@@ -1264,6 +1264,11 @@ class MassQuadrupoleDistribution:
     use_ellipticity: bool
         If True, work with fiducial ellipticity :math:`\\varepsilon` rather
         than mass quadrupole.
+    fixed_prior: bilby.core.prior.Prior
+        Use a fixed prior for each of the CW sources passes in as ``data``.
+        This is useful if any of the items in the
+        :class:`bilby.core.result.ResultList` do not contain prior
+        information.
     """
 
     def __init__(
@@ -1282,6 +1287,7 @@ class MassQuadrupoleDistribution:
         integration_method="numerical",
         nsamples=None,
         use_ellipticity=False,
+        fixed_prior=None,
         **kwargs,
     ):
         self._posterior_samples = []
@@ -1302,7 +1308,7 @@ class MassQuadrupoleDistribution:
         self.set_integration_method(integration_method)
 
         # set the data
-        self.add_data(data, bw=bw, nsamples=nsamples, **kwargs)
+        self.add_data(data, bw=bw, nsamples=nsamples, fixed_prior=fixed_prior, **kwargs)
 
         # set the sampler
         if grid is None:
@@ -1377,7 +1383,7 @@ class MassQuadrupoleDistribution:
 
         return self._likelihood_kdes_interp
 
-    def add_data(self, data, bw="scott", nsamples=None, **kwargs):
+    def add_data(self, data, bw="scott", nsamples=None, fixed_prior=None, **kwargs):
         """
         Set the data, i.e., the individual source posterior distributions, on
         which the hierarchical analysis will be performed.
@@ -1424,6 +1430,11 @@ class MassQuadrupoleDistribution:
             pulsar, then all samples will be used in that case. The default
             will be to use all samples, but this may lead to memory issues when
             using large numbers of pulsars.
+        fixed_prior: :class:`bilby.core.prior.Prior`
+            Use a fixed prior for each of the CW sources passes in as ``data``.
+            This is useful if any of the items in the
+            :class:`bilby.core.result.ResultList` do not contain prior
+            information.
         dist: list, float
             A distance value (kpc) for each source supplied in the ``data``
             argument, which is required if the posteriors sampled in ``H0``.
@@ -1509,22 +1520,31 @@ class MassQuadrupoleDistribution:
                         result.posterior[priorkey]
                     )
 
-            if priorkey.lower() == "h0":
-                if not isinstance(result.priors[priorkey], bilby.core.prior.Uniform):
+            if fixed_prior is None:
+                if priorkey.lower() == "h0":
+                    if not isinstance(result.priors[priorkey], bilby.core.prior.Uniform):
+                        raise TypeError(
+                            "h0 samples can only be used when uniform priors were used"
+                        )
+
+                    # add uniform prior on q22/ell
+                    self._pulsar_priors.append(
+                        bilby.core.prior.Uniform(
+                            convert(h0=result.priors[priorkey].minimum, d=d, frot=f0).value,
+                            convert(h0=result.priors[priorkey].maximum, d=d, frot=f0).value,
+                            name="ell" if self.use_ellipticity else "q22",
+                        )
+                    )
+                else:
+                    self._pulsar_priors.append(result.priors[priorkey])
+            else:
+                # use fixed prior
+                if not isinstance(fixed_prior, bilby.core.prior.Prior):
                     raise TypeError(
-                        "h0 samples can only be used when uniform priors were used"
+                        "If specifiying a fixed prior, it must be a Prior object"
                     )
 
-                # add uniform prior on q22/ell
-                self._pulsar_priors.append(
-                    bilby.core.prior.Uniform(
-                        convert(h0=result.priors[priorkey].minimum, d=d, frot=f0).value,
-                        convert(h0=result.priors[priorkey].maximum, d=d, frot=f0).value,
-                        name="ell" if self.use_ellipticity else "q22",
-                    )
-                )
-            else:
-                self._pulsar_priors.append(result.priors[priorkey])
+                    self._pulsar_priors.append(fixed_prior)
 
         if nsamples is not None:
             if not isinstance(nsamples, int):
