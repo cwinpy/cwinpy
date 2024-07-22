@@ -1548,7 +1548,7 @@ class MassQuadrupoleDistribution:
                     raise TypeError(
                         "If specifiying a fixed prior, it must be a Prior object"
                     )
-
+                else:
                     self._pulsar_priors.append(fixed_prior)
 
         if nsamples is not None:
