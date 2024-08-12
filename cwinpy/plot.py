@@ -38,6 +38,7 @@ LATEX_LABELS = {
     "psitensor": r"$\psi^{\rm{t}}$ (rad)",
     "psivector": r"$\psi^{\rm{v}}$ (rad)",
     "psiscalar": r"$\psi^{\rm{s}}$ (rad)",
+    "glph_1": r"$\phi^{\rm gl}_1$",
     "transienttau": r"$\tau_{\rm{trans}}$",
     "transientstarttime": r"$T_0^{\rm{trans}}$",
     "f0": r"$f$ (Hz)",
