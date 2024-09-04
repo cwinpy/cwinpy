@@ -113,6 +113,13 @@ class PEPulsarSimulationDAG(object):
         simulated data. This defaults to a single detector - the LIGO Hanford
         Observatory - from which the simulated noise will be drawn from the
         advanced detector design sensitivity curve (e.g., [3]_).
+    asdfile: str
+        If you want the simulated noises to not be set by the given detector's
+        design sensitivity, you can explicitly provide the path to a file
+        containing an arbitrary amplitude spectral density (ASD). This file
+        should contain two columns: frequency, ASD. You must still provide a
+        detector, which will be used to define the location and antenna
+        response.
     starttime: int, float, dict
         A GPS time, or dictionary of GPS times keyed to detectors, giving the
         start time for any simulated data being generated. If not given the
@@ -158,6 +165,7 @@ class PEPulsarSimulationDAG(object):
         npulsars=None,
         basedir=None,
         detector="H1",
+        asdfile=None,
         starttime=None,
         endtime=None,
         timestep=None,
@@ -203,6 +211,7 @@ class PEPulsarSimulationDAG(object):
 
         # check whether detectors or data files are specified
         self.detector = detector
+        self.asdfile = asdfile
         if self.detector is not None:
             if isinstance(self.detector, str):
                 self.detector = [self.detector]
@@ -649,7 +658,16 @@ class PEPulsarSimulationDAG(object):
 
         # set fake data
         if self.datafiles is None and self.detector is not None:
-            self.config["pe"]["fake-asd-2f"] = str(self.detector)
+            if self.asdfile is None:
+                self.config["pe"]["fake-asd-2f"] = str(self.detector)
+            else:
+                if os.path.isfile(self.asdfile):
+                    self.config["pe"]["detector"] = str(self.detector)
+                    self.config["pe"]["fake-asd-2f"] = self.asdfile
+                else:
+                    raise ValueError(
+                        f"The supplied ASD file '{self.asdfile}' does not exist!"
+                    )
         elif self.datafiles is not None:
             self.config["pe"]["data-file-2f"] = str(self.datafiles)
         else:
