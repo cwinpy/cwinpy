@@ -233,6 +233,8 @@ class PulsarPELayer(CondorLayer):
                     "inj_par",
                     "data_file_1f",
                     "data_file_2f",
+                    "fake_asd_1f",
+                    "fake_asd_2f",
                     "prior",
                 ]:
                     if key in list(config.keys()):
@@ -247,14 +249,17 @@ class PulsarPELayer(CondorLayer):
                                 transfer_input.append(relfile)
                                 curconfig[key][detkey] = relfile
                         else:
-                            relfile = relative_topdir(
-                                config[key],
-                                self.outdir,
-                                no_symlinks=True,
-                                is_parent=True,
-                            )
-                            transfer_input.append(relfile)
-                            curconfig[key] = relfile
+                            if isinstance(config[key], str) and os.path.isfile(
+                                config[key]
+                            ):
+                                relfile = relative_topdir(
+                                    config[key],
+                                    self.outdir,
+                                    no_symlinks=True,
+                                    is_parent=True,
+                                )
+                                transfer_input.append(relfile)
+                                curconfig[key] = relfile
 
                 # transfer ephemeris files
                 for ephem in ["earth", "sun"]:
