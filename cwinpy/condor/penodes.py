@@ -238,9 +238,7 @@ class PulsarPELayer(CondorLayer):
                     "prior",
                 ]:
                     if key in list(config.keys()):
-                        if isinstance(config[key], str) and os.path.isfile(
-                            config[key]
-                        ):
+                        if isinstance(config[key], str) and os.path.isfile(config[key]):
                             relfile = relative_topdir(
                                 config[key],
                                 self.outdir,
@@ -270,9 +268,7 @@ class PulsarPELayer(CondorLayer):
                                 transfer_input.append(relfile)
                                 curconfig[key][i] = relfile
                         else:
-                            raise TypeError(
-                                f"{config[key]} is not the correct type."
-                            )
+                            raise TypeError(f"{config[key]} is not the correct type.")
 
                 # transfer ephemeris files
                 for ephem in ["earth", "sun"]:
