@@ -674,14 +674,15 @@ class PEPulsarSimulationDAG(object):
             if self.asdfile is None:
                 self.config["pe"]["fake-asd-2f"] = str(self.detector)
             else:
-                if os.path.isfile(self.asdfile):
-                    self.config["pe"]["fake-asd-2f"] = str(
-                        {det: asd for det, asd in zip(self.detector, self.asdfile)}
-                    )
-                else:
-                    raise ValueError(
-                        f"The supplied ASD file '{self.asdfile}' does not exist!"
-                    )
+                for asdfile in self.asdfile:
+                    if not os.path.isfile(asdfile):
+                        raise ValueError(
+                            f"The supplied ASD file '{asdfile}' does not exist!"
+                        )
+
+                self.config["pe"]["fake-asd-2f"] = str(
+                    {det: asd for det, asd in zip(self.detector, self.asdfile)}
+                )
         elif self.datafiles is not None:
             self.config["pe"]["data-file-2f"] = str(self.datafiles)
         else:

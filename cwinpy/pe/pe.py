@@ -2103,12 +2103,7 @@ class PEDAGRunner:
                                 configdict["fake_asd_{}".format(freqfactor)] = str(dets)
                             else:
                                 # simdata is a dictionary
-                                configdict["fake_asd_{}".format(freqfactor)] = str(
-                                    {
-                                        "{}:{}".format(det, simdata[freqfactor][det])
-                                        for det in dets
-                                    }
-                                )
+                                configdict["fake_asd_{}".format(freqfactor)] = simdata[freqfactor]
                         except KeyError:
                             pass
 
