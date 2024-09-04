@@ -260,7 +260,7 @@ class PulsarPELayer(CondorLayer):
                                 transfer_input.append(relfile)
                                 curconfig[key][detkey] = relfile
                         elif isinstance(config[key], list):
-                            for i in range(len(config[key)):
+                            for i in range(len(config[key])):
                                 relfile = relative_topdir(
                                     config[key][i],
                                     self.outdir,
