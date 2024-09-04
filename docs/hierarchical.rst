@@ -296,7 +296,7 @@ pass a dictionary, keyed on the hyperparameter names and with values giving the 
        distribution="exponential",
        distkwargs=distkwargs,
        integration_method=intmethod,
-       nsamples=500,
+       grid=grid,
    )
 
    # evaluate on the grid
