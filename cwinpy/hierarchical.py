@@ -1525,7 +1525,9 @@ class MassQuadrupoleDistribution:
 
             if fixed_prior is None and self.fixed_prior is None:
                 if priorkey.lower() == "h0":
-                    if not isinstance(result.priors[priorkey], bilby.core.prior.Uniform):
+                    if not isinstance(
+                        result.priors[priorkey], bilby.core.prior.Uniform
+                    ):
                         raise TypeError(
                             "h0 samples can only be used when uniform priors were used"
                         )
@@ -1533,15 +1535,19 @@ class MassQuadrupoleDistribution:
                     # add uniform prior on q22/ell
                     self._pulsar_priors.append(
                         bilby.core.prior.Uniform(
-                            convert(h0=result.priors[priorkey].minimum, d=d, frot=f0).value,
-                            convert(h0=result.priors[priorkey].maximum, d=d, frot=f0).value,
+                            convert(
+                                h0=result.priors[priorkey].minimum, d=d, frot=f0
+                            ).value,
+                            convert(
+                                h0=result.priors[priorkey].maximum, d=d, frot=f0
+                            ).value,
                             name="ell" if self.use_ellipticity else "q22",
                         )
                     )
                 else:
                     self._pulsar_priors.append(result.priors[priorkey])
             else:
-                fixed_prior = self.fixed_prior if fixed_prior is None else fixed_prior 
+                fixed_prior = self.fixed_prior if fixed_prior is None else fixed_prior
 
                 # use fixed prior
                 if not isinstance(fixed_prior, bilby.core.prior.Prior):
@@ -2169,4 +2175,3 @@ class MassQuadrupoleDistributionLikelihood(bilby.core.likelihood.Likelihood):
 
     def __len__(self):
         return self._nsources
-
