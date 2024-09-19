@@ -988,6 +988,12 @@ def generate_summary_pages(**kwargs):
         oddsdets = []
         oddscols = {}
         for dets in pipeline_data.detcomb:
+            resfilestmp = {
+                key: value
+                for key, value in pipeline_data.resultsfiles.items()
+                if key in ultable["PSRJ"]
+            }
+
             if len(dets) == 1:
                 cname = RESULTS_HEADER_FORMATS["ODDSSVN"]["ultablename"].format(dets[0])
                 oddscols[cname] = []
@@ -995,7 +1001,7 @@ def generate_summary_pages(**kwargs):
                 oddsdets.append(dets[0])
                 # get single detector signal vs noise odds
                 sodds = results_odds(
-                    pipeline_data.resultsfiles,
+                    resfilestmp,
                     oddstype="svn",
                     scale="log10",
                     det=dets[0],
@@ -1005,9 +1011,7 @@ def generate_summary_pages(**kwargs):
                     oddscols[cname].append(sodds[psr])
             else:
                 # get multi-detector coherent vs incoherent odds
-                codds = results_odds(
-                    pipeline_data.resultsfiles, oddstype="cvi", scale="log10"
-                )
+                codds = results_odds(resfilestmp, oddstype="cvi", scale="log10")
 
                 cname = RESULTS_HEADER_FORMATS["ODDSCVI"]["ultablename"]
                 oddscols[cname] = [codds[psr] for psr in ultable["PSRJ"]]
