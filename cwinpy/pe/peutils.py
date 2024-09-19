@@ -106,14 +106,14 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
                 resfiles = {"dummyname": results}
 
         logodds = {}
+        key = None
 
         for pname, resultd in resfiles.items():
-            # list of detectors
             if oddstype == "svn" and "det" in kwargs:
                 key = kwargs.pop("det")
                 if key not in resultd:
                     raise KeyError(f"{key} not in {list(resultd.keys())}")
-            else:
+            elif key is None:
                 dets = [det for det in resultd if len(det) == 2]
 
                 if len(dets) == len(resultd) and len(resultd) > 1:
