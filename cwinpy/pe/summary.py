@@ -922,7 +922,6 @@ def generate_summary_pages(**kwargs):
 
     # get only the requested pulsars
     if pulsars:
-        print(pulsars)
         rmidx = [i for i, psr in enumerate(ultable["PSRJ"]) if psr not in pulsars]
         if rmidx:
             ultable.remove_rows(rmidx)
@@ -955,7 +954,6 @@ def generate_summary_pages(**kwargs):
         # switch frequency factor and detector in datadict
         datadicts = {psr: {} for psr in ultable["PSRJ"]}
         for psr, psrddict in pipeline_data.datadict.items():
-            print(psr)
             if psr in datadicts:
                 for ff in psrddict:
                     for det in psrddict[ff]:
