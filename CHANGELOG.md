@@ -1,5 +1,11 @@
 # Notable changes between versions
 
+## [1.3.1] 2024-10-10
+
+Changes for this release:
+
+- Fix failure with SciPy 1.13 (!186).
+
 ## [1.3.0] 2024-03-27
 
 Changes for this release:
