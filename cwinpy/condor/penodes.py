@@ -267,7 +267,8 @@ class PulsarPELayer(CondorLayer):
                                 )
                                 transfer_input.append(relfile)
                                 curconfig[key][i] = relfile
-                        else:
+                        elif not key.startswith("fake_asd"):
+                            # all bar fake_asd should be a file
                             raise TypeError(f"{config[key]} is not the correct type.")
 
                 # transfer ephemeris files
