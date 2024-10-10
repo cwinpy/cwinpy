@@ -23,7 +23,6 @@ ext_modules = [
             "-Wall",
             "-O3",
             "-Wextra",
-            "-m64",
             "-ffast-math",
             "-fno-finite-math-only",
             "-funroll-loops",
