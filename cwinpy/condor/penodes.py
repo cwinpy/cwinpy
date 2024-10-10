@@ -233,10 +233,21 @@ class PulsarPELayer(CondorLayer):
                     "inj_par",
                     "data_file_1f",
                     "data_file_2f",
+                    "fake_asd_1f",
+                    "fake_asd_2f",
                     "prior",
                 ]:
                     if key in list(config.keys()):
-                        if key in ["data_file_1f", "data_file_2f"]:
+                        if isinstance(config[key], str) and os.path.isfile(config[key]):
+                            relfile = relative_topdir(
+                                config[key],
+                                self.outdir,
+                                no_symlinks=True,
+                                is_parent=True,
+                            )
+                            transfer_input.append(relfile)
+                            curconfig[key] = relfile
+                        elif isinstance(config[key], dict):
                             for detkey in config[key]:
                                 relfile = relative_topdir(
                                     config[key][detkey],
@@ -246,15 +257,19 @@ class PulsarPELayer(CondorLayer):
                                 )
                                 transfer_input.append(relfile)
                                 curconfig[key][detkey] = relfile
-                        else:
-                            relfile = relative_topdir(
-                                config[key],
-                                self.outdir,
-                                no_symlinks=True,
-                                is_parent=True,
-                            )
-                            transfer_input.append(relfile)
-                            curconfig[key] = relfile
+                        elif isinstance(config[key], list):
+                            for i in range(len(config[key])):
+                                relfile = relative_topdir(
+                                    config[key][i],
+                                    self.outdir,
+                                    no_symlinks=True,
+                                    is_parent=True,
+                                )
+                                transfer_input.append(relfile)
+                                curconfig[key][i] = relfile
+                        elif not key.startswith("fake_asd"):
+                            # all bar fake_asd should be a file
+                            raise TypeError(f"{config[key]} is not the correct type.")
 
                 # transfer ephemeris files
                 for ephem in ["earth", "sun"]:

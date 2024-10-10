@@ -113,6 +113,14 @@ class PEPulsarSimulationDAG(object):
         simulated data. This defaults to a single detector - the LIGO Hanford
         Observatory - from which the simulated noise will be drawn from the
         advanced detector design sensitivity curve (e.g., [3]_).
+    asdfile: str, list
+        If you want the simulated noises to not be set by the given detector's
+        design sensitivity, you can explicitly provide the path to a file (or
+        files) containing an arbitrary amplitude spectral density (ASD) for
+        each supplied detector. These files should contain two whitespace
+        separated columns: frequency and ASD. You must still provide a
+        detector, which will be used to define the location and antenna
+        response.
     starttime: int, float, dict
         A GPS time, or dictionary of GPS times keyed to detectors, giving the
         start time for any simulated data being generated. If not given the
@@ -158,6 +166,7 @@ class PEPulsarSimulationDAG(object):
         npulsars=None,
         basedir=None,
         detector="H1",
+        asdfile=None,
         starttime=None,
         endtime=None,
         timestep=None,
@@ -208,6 +217,19 @@ class PEPulsarSimulationDAG(object):
                 self.detector = [self.detector]
             if not isinstance(self.detector, list):
                 raise TypeError("Detector must be a string or list of strings")
+        self.asdfile = asdfile
+        if self.asdfile is not None:
+            if self.detector is None:
+                raise ValueError("A detector must be specified when using ASD files.")
+
+            if isinstance(self.asdfile, str):
+                self.asdfile = [self.asdfile] * len(self.detector)
+            if not isinstance(self.asdfile, list):
+                raise TypeError("asdfile must be a string or list of strings")
+
+            if len(self.asdfile) != len(self.detector):
+                raise ValueError("Number of ASD files and detector must be the same")
+
         self.datafiles = datafiles
         self.starttime = starttime
         self.endtime = endtime
@@ -649,7 +671,18 @@ class PEPulsarSimulationDAG(object):
 
         # set fake data
         if self.datafiles is None and self.detector is not None:
-            self.config["pe"]["fake-asd-2f"] = str(self.detector)
+            if self.asdfile is None:
+                self.config["pe"]["fake-asd-2f"] = str(self.detector)
+            else:
+                for asdfile in self.asdfile:
+                    if not os.path.isfile(asdfile):
+                        raise ValueError(
+                            f"The supplied ASD file '{asdfile}' does not exist!"
+                        )
+
+                self.config["pe"]["fake-asd-2f"] = str(
+                    {det: asd for det, asd in zip(self.detector, self.asdfile)}
+                )
         elif self.datafiles is not None:
             self.config["pe"]["data-file-2f"] = str(self.datafiles)
         else:
