@@ -1209,9 +1209,12 @@ class Plot:
 
         # update the legend
         handles = []
-        for legtext, leghandle in zip(
-            fig.legends[0].texts, fig.legends[0].legendHandles
-        ):
+        try:
+            leg_handles = fig.legends[0].legend_handles
+        except AttributeError:  # matplotlib < 3.7.0
+            leg_handles = fig.legends[0].legendHandles
+
+        for legtext, leghandle in zip(fig.legends[0].texts, leg_handles):
             label = legtext.get_text()
             legcolor = leghandle.get_color()
 
