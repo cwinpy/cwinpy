@@ -3536,8 +3536,8 @@ class HeterodynedData(TimeSeriesBase):
         tottime = times[-1] - times[0]
         newtimes = np.linspace(times[0], times[-1], 1 + int(tottime) // gcd)
 
-        # get indices of original times im new times
-        tidxs = np.where(np.in1d(newtimes, times))[0]
+        # get indices of original times in new times
+        tidxs = np.where(np.isin(newtimes, times))[0]
 
         # get zero array and add data
         padded = np.zeros(len(newtimes), dtype=complex)
