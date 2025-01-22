@@ -5,7 +5,7 @@ import re
 from configargparse import DefaultConfigFileParser
 from scitokens import SciToken
 
-from ..heterodyne.base import Heterodyne
+from ..heterodyne.base import Heterodyne, frame_information
 from ..utils import relative_topdir
 from . import CondorLayer
 
@@ -36,6 +36,9 @@ class HeterodyneLayer(CondorLayer):
 
         # check for use of OSG
         self.osg = self.get_option("osg", default=False)
+        self.urltype = self.get_option(
+            "urltype", default="osdf" if self.osg else "file"
+        )
         self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
 
         # check for use of tempo2
@@ -338,10 +341,32 @@ class HeterodyneLayer(CondorLayer):
                 # transfer frame cache files
                 if "framecache" in config:
                     if os.path.isfile(config["framecache"]):
-                        transfer_input.append(
-                            relative_topdir(config["framecache"], resultsdir)
-                        )
-                        config["framecache"] = os.path.basename(config["framecache"])
+                        if self.urltype == "osdf":
+                            # transfer all required files via OSDF
+                            with open(config["framecache"], "r") as fp:
+                                frames = [
+                                    line.strip()
+                                    for line in fp.readlines()
+                                    if len(line) > 0
+                                ]
+                            frame_info = [frame_information(fr) for fr in frames]
+
+                            # transfer frames required for job
+                            for fidx, fi in enumerate(frame_info):
+                                st = fi[2]  # frame start time
+                                dur = fi[3]  # frame duration
+                                if starttime <= st and endtime >= st + dur:
+                                    transfer_input.append(f"igwn+{frames[fidx]}")
+
+                            # use transfered frame files in current directory (CHECK THIS WORKS)
+                            config["framecache"] = "."
+                        else:
+                            transfer_input.append(
+                                relative_topdir(config["framecache"], resultsdir)
+                            )
+                            config["framecache"] = os.path.basename(
+                                config["framecache"]
+                            )
 
                 # transfer segment list files
                 if "segmentlist" in config:

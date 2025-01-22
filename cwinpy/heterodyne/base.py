@@ -68,7 +68,7 @@ class Heterodyne:
         ``L1:GWOSC-4KHZ_R1_STRAIN``.
     host: str
         The server name for finding the gravitational-wave data files. Use
-        ``datafind.ligo.org:443`` for open data available via CVMFS. To use
+        ``datafind.ligo.org:443`` for open data available via OSDF. To use
         open data available from the `GWOSC <https://gwosc.org>`__
         use ``https://gwosc.org``. See also
         :func:`gwpy.timeseries.TimeSeries.get`.
@@ -711,6 +711,7 @@ class Heterodyne:
             framecache if isinstance(framecache, (str, list)) else self.framecache
         )
         frametype = frametype if isinstance(frametype, str) else self.frametype
+        urltype = kwargs["urltype"] if "urltype" in kwargs else self.urltype
         host = host if isinstance(host, str) else self.host
         outputframecache = (
             outputframecache
@@ -857,6 +858,7 @@ class Heterodyne:
                             write=outputframecache,
                             append=appendframecache,
                             host=host,
+                            urltype=urltype,
                         )
                         data = TimeSeries.read(
                             [item for key in cache for item in cache[key]],
@@ -2565,7 +2567,7 @@ def remote_frame_cache(
     Generate a cache list of frame files for two LIGO detectors for all O2
     data (this assumes you are accessing data on a LVC cluster, or have set
     the environment variable ``LIGO_DATAFIND_SERVER=datafind.ligo.org:443``
-    for accessing data hosted via CVMFS):
+    for accessing data hosted via OSDF):
 
     >>> start = 1164556817  # GPS for 2016-11-30 16:00:00 UTC
     >>> end = 1187733618    # GPS for 2017-08-25 22:00:00 UTC
@@ -2594,7 +2596,7 @@ def remote_frame_cache(
         Output verbose information.
     host: str
         The server host. If not set this will be automatically determine if
-        possible. To list access data available via CVMFS either set host to
+        possible. To list access data available via OSDF either set host to
         ``'datafind.ligo.org:443'`` or set the environment variable
         ``LIGO_DATAFIND_SERVER=datafind.ligo.org:443`.
     write: str
@@ -2603,6 +2605,9 @@ def remote_frame_cache(
     append: bool
         If writing out to a file, this says to append to the file if it already
         exists. The default is False.
+    urltype: str
+        The format type of the URLs to return. If using OSDF, this should be
+        set to "osdf". It defaults to "file".
     **kwargs:
         See :meth:`gwpy.io.datafind.find_best_frametype` for additional
         keyword arguments.
@@ -2679,6 +2684,7 @@ def remote_frame_cache(
             end,
             on_gaps=kwargs.get("on_gaps", "ignore"),
             host=kwargs.get("host", None),
+            urltype=kwargs.get("urltype", "file").lower(),
         )
 
         if not subcache:

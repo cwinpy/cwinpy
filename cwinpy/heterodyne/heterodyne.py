@@ -156,7 +156,7 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         type=str,
         help=(
             "The server name for finding the gravitational-wave data files. "
-            'Use "datafind.ligo.org:443" for open data available via CVMFS. '
+            'Use "datafind.ligo.org:443" for open data available via OSDF. '
             "To use open data available from the GWOSC use "
             '"https://gwosc.org".'
         ),
@@ -959,6 +959,11 @@ class HeterodyneDAGRunner(object):
         earthephemeris = self.eval(config.get("ephemerides", "earth", fallback=None))
         sunephemeris = self.eval(config.get("ephemerides", "sun", fallback=None))
 
+        osg = config.getboolean(dagsection, "osg", fallback=False)
+        urltype = config.getboolean(
+            dagsection, "urltype", fallback="osdf" if osg else "file"
+        )
+
         # get all the split segment times and frame caches
         if joblength == 0:
             starttimes = fullstarttimes
@@ -989,6 +994,7 @@ class HeterodyneDAGRunner(object):
                                 frametype=frametypes[det][i],
                                 host=config.get("heterodyne", "host", fallback=None),
                                 write=frinfo["framecache"],
+                                urltype=urltype,
                             )
                         else:
                             frinfo["framecache"] = framecaches[det][i]
@@ -1127,6 +1133,7 @@ class HeterodyneDAGRunner(object):
                                 frametype=frametypes[det][idx],
                                 host=config.get("heterodyne", "host", fallback=None),
                                 write=frinfo["framecache"],
+                                urltype=urltype,
                             )
                         else:
                             frinfo["framecache"] = framecaches[det][idx]
@@ -1295,7 +1302,6 @@ class HeterodyneDAGRunner(object):
         # create copy of each ephemeris file to a unique name in case of identical
         # filenames, which causes problems if requiring files be transferred
         transfer_files = config.get(dagsection, "transfer_files", fallback="YES")
-        osg = config.getboolean(dagsection, "osg", fallback=False)
         if (transfer_files == "YES" or osg) and earthephemeris:
             for edat, ename in zip([earthephemeris, sunephemeris], ["earth", "sun"]):
                 if (
@@ -1719,7 +1725,7 @@ def heterodyne_pipeline(**kwargs):
         given run. If no ``pulsar`` argument is given then all hardware
         injections will be analysed. To specify particular hardware injections
         the names can be given using the ``pulsar`` argument.
-    samplerate: str:
+    samplerate: str
         Select the sample rate of the data to use. This can either be 4k or
         16k for data sampled at 4096 or 16384 Hz, respectively. The default
         is 4k, except if running on hardware injections for O1 or later, for
@@ -1735,7 +1741,11 @@ def heterodyne_pipeline(**kwargs):
     osg: bool
         Set this to True to run on the Open Science Grid rather than a local
         computer cluster.
-    output: str,
+    urltype: str
+        Set the URL type returned during finding of the GW data files. By
+        default, this will be 'file' except if ``osg`` argument has been
+        been specified as True, in which canse it will be 'osdf'.
+    output: str
         The location for outputting the heterodyned data. By default the
         current directory will be used. Within this directory, subdirectories
         for each detector will be created.
@@ -1838,6 +1848,15 @@ def heterodyne_pipeline(**kwargs):
                 "Set this flag to run on the Open Science Grid rather than a "
                 "local computer cluster."
             ),
+        )
+        optional.add_argument(
+            "--urltype",
+            help=(
+                "Set the URL type returned during finding of the GW data "
+                "files. By default, this will be 'file' except if --osg has "
+                "been specified, in which canse it will be 'osdf'."
+            ),
+            default="file",
         )
         optional.add_argument(
             "--output",
@@ -1989,6 +2008,9 @@ def heterodyne_quick_setup(args, **kwargs):
     configfile["heterodyne_dag"]["submitdag"] = "True"
     if kwargs.get("osg", args.osg):
         configfile["heterodyne_dag"]["osg"] = "True"
+        configfile["heterodyne_dag"]["urltype"] = "osdf"
+    else:
+        configfile["heterodyne_dag"]["urltype"] = kwargs.get("urltype", args.urltype)
 
     configfile["heterodyne_job"] = {}
     configfile["heterodyne_job"]["getenv"] = "True"

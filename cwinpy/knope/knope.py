@@ -516,6 +516,7 @@ def knope_pipeline(**kwargs):
     osg = hetconfig.get("knope_dag", "osg", fallback=None)
     if osg is not None:
         hetconfig["heterodyne_dag"]["osg"] = osg
+        hetconfig["heterodyne_dag"]["urltype"] = "osdf"
         peconfig["pe_dag"]["osg"] = osg
 
         desiredsites = hetconfig.get("knope_dag", "desired_sites", fallback=None)
