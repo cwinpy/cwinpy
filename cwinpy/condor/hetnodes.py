@@ -36,9 +36,7 @@ class HeterodyneLayer(CondorLayer):
 
         # check for use of OSG
         self.osg = self.get_option("osg", default=False)
-        self.urltype = self.get_option(
-            "urltype", default="osdf" if self.osg else "file"
-        )
+        self.urltype = self.get_option("urltype", default="osdf")
         self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
 
         # check for use of tempo2
@@ -66,7 +64,7 @@ class HeterodyneLayer(CondorLayer):
         )
         self.set_option("email", optionname="notify_user")
 
-        if self.osg:
+        if self.osg or self.urltype == "osdf":
             # make sure files are transferred if using the OSG
             self.submit_options["should_transfer_files"] = "YES"
         else:

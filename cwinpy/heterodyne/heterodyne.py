@@ -960,9 +960,7 @@ class HeterodyneDAGRunner(object):
         sunephemeris = self.eval(config.get("ephemerides", "sun", fallback=None))
 
         osg = config.getboolean(dagsection, "osg", fallback=False)
-        urltype = config.getboolean(
-            dagsection, "urltype", fallback="osdf" if osg else "file"
-        )
+        urltype = config.getboolean(dagsection, "urltype", fallback="osdf")
 
         # get all the split segment times and frame caches
         if joblength == 0:
@@ -1302,7 +1300,7 @@ class HeterodyneDAGRunner(object):
         # create copy of each ephemeris file to a unique name in case of identical
         # filenames, which causes problems if requiring files be transferred
         transfer_files = config.get(dagsection, "transfer_files", fallback="YES")
-        if (transfer_files == "YES" or osg) and earthephemeris:
+        if (transfer_files == "YES" or osg or urltype == "osdf") and earthephemeris:
             for edat, ename in zip([earthephemeris, sunephemeris], ["earth", "sun"]):
                 if (
                     len(set([os.path.basename(edat[etype]) for etype in edat]))
@@ -1853,10 +1851,11 @@ def heterodyne_pipeline(**kwargs):
             "--urltype",
             help=(
                 "Set the URL type returned during finding of the GW data "
-                "files. By default, this will be 'file' except if --osg has "
-                "been specified, in which canse it will be 'osdf'."
+                "files. By default, this will be 'osdf', which will use the "
+                "OSDF distributed dataset. To explicitly use a local dataset, "
+                "set this to 'file'."
             ),
-            default="file",
+            default="osdf",
         )
         optional.add_argument(
             "--output",
@@ -2006,11 +2005,10 @@ def heterodyne_quick_setup(args, **kwargs):
 
     configfile["heterodyne_dag"] = {}
     configfile["heterodyne_dag"]["submitdag"] = "True"
+    configfile["heterodyne_dag"]["urltype"] = kwargs.get("urltype", args.urltype)
     if kwargs.get("osg", args.osg):
         configfile["heterodyne_dag"]["osg"] = "True"
-        configfile["heterodyne_dag"]["urltype"] = "osdf"
-    else:
-        configfile["heterodyne_dag"]["urltype"] = kwargs.get("urltype", args.urltype)
+        configfile["heterodyne_dag"]["urltype"] = "osdf"  # force OSDF use
 
     configfile["heterodyne_job"] = {}
     configfile["heterodyne_job"]["getenv"] = "True"
