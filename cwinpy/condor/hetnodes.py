@@ -57,7 +57,9 @@ class HeterodyneLayer(CondorLayer):
         # set memory
         self.set_option("request_memory", default="16 GB")
         self.set_option("request_cpus", otype=int, default=1)
-        self.set_option("request_disk", default="2 GB")
+        self.set_option(
+            "request_disk", default="2 GB" if self.urltype == "file" else "40 GB"
+        )
 
         self.set_option(
             "condor_job_priority", optionname="priority", otype=int, default=0
