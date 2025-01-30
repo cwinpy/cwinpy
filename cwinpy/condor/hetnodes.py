@@ -10,6 +10,20 @@ from ..utils import relative_topdir
 from . import CondorLayer
 
 
+def _is_htcondor_scitoken_local_issuer():
+    """
+    Test whether the machine being used is configured to use a local issuer
+    or not. See `here <https://git.ligo.org/lscsoft/bilby_pipe/-/issues/304#note_1033251>`_
+    for where this logic comes from. This code is copied from bilby_pipe.
+    """
+    try:
+        from htcondor import param
+    except ModuleNotFoundError:
+        return True
+
+    return param.get("LOCAL_CREDMON_ISSUER", None) is not None
+
+
 class HeterodyneLayer(CondorLayer):
     def __init__(self, dag, cf, configurations, **kwargs):
         """
@@ -84,33 +98,27 @@ class HeterodyneLayer(CondorLayer):
             # add TEMPO2 environment variable to the submit file
             environment.append(f"TEMPO2={tempo2}")
 
-        # check whether GWOSC is required
-        self.require_gwosc = kwargs.get("require_gwosc", False)
-
         # set scitokens to access proprietary data
-        host = self.get_option("host", section="heterodyne", default=None)
-        if (
-            not self.require_gwosc and host is not None and "datafind.ligo.org" in host
-        ) or self.get_option("use_scitokens", default=False):
-            self.submit_options["use_oauth_services"] = "igwn"
-            self.submit_options[
-                "igwn_oauth_permissions"
-            ] = "read:/ligo read:/virgo read:/kagra"
-            environment.append(
-                "BEARER_TOKEN_FILE=$$(CondorScratchDir)/.condor_creds/igwn.use"
+        self.issuer = None
+        if self.get_option("use_scitokens", default=False) or self.urltype == "osdf":
+            self.issuer = (
+                "scitokens" if _is_htcondor_scitoken_local_issuer() else "igwn"
             )
 
+            self.submit_options["use_oauth_services"] = self.issuer
+
             # check whether SciToken has been created
-            try:
-                _ = SciToken.discover(audience="igwn")
-            except OSError:
-                print(
-                    "No SciToken has been found, you will need to generate "
-                    "a SciToken using:\n\n"
-                    "$ htgettoken -a vault.ligo.org -i igwn\n"
-                    "$ condor_vault_storer -v igwn\n\n"
-                    "before submitting the DAG."
-                )
+            if self.issuer == "igwn":
+                try:
+                    _ = SciToken.discover(audience=self.issuer)
+                except OSError:
+                    print(
+                        "No SciToken has been found, you will need to generate "
+                        "a SciToken using:\n\n"
+                        "$ htgettoken -a vault.ligo.org -i igwn\n"
+                        "$ condor_vault_storer -v igwn\n\n"
+                        "before submitting the DAG."
+                    )
 
         if environment:
             self.submit_options["environment"] = f'"{" ".join(environment)}"'
@@ -137,10 +145,6 @@ class HeterodyneLayer(CondorLayer):
             ligojob = self.submit_options.get("accounting_group", "").startswith(
                 "ligo."
             )
-
-            if ligojob:
-                # set to check that proprietary LIGO frames are available
-                self.requirements.append("(HAS_CVMFS_IGWN_PRIVATE_DATA =?= True)")
 
             # allow use of local pool (https://computing.docs.ligo.org/guide/htcondor/access/#local-access-points)
             additional_options["MY.flock_local"] = "True"
@@ -194,10 +198,6 @@ class HeterodyneLayer(CondorLayer):
                     "environment or the CWInPy development singularity "
                     "container."
                 )
-
-            # check if using GWOSC frames from CVMFS
-            if self.require_gwosc:
-                self.requirements.append("(HAS_CVMFS_gwosc_osgstorage_org =?= TRUE)")
 
         # generate the node variables
         self.generate_node_vars(configurations)
@@ -356,7 +356,8 @@ class HeterodyneLayer(CondorLayer):
                                 st = fi[2]  # frame start time
                                 dur = fi[3]  # frame duration
                                 if starttime <= st and endtime >= st + dur:
-                                    transfer_input.append(f"igwn+{frames[fidx]}")
+                                    issuer = "igwn+" if self.issuer == "igwn" else ""
+                                    transfer_input.append(f"{issuer}{frames[fidx]}")
 
                             # use transfered frame files in current directory (CHECK THIS WORKS)
                             config["framecache"] = "."
