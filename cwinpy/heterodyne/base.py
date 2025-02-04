@@ -60,6 +60,11 @@ class Heterodyne:
         `here <https://gwpy.github.io/docs/stable/timeseries/datafind.html#available-datasets>`__
         for information on frame types. If this is not given the correct data
         set will be attempted to be found using the ``channel`` name.
+    urltype: str
+        The URL type for the frame location. This is only needed if not
+        providing a frame cache file. It should be either "file", if using
+        local data, or "osdf", if using OSDF data. The default, if not using
+        the HTCondor heterodyne pipeline, is "file".
     channel: str
         The "channel" within the gravitational-wave data file(s) (either a GW
         frame ``.gwf``, or HDF5 file) containing the strain data to be
@@ -246,6 +251,7 @@ class Heterodyne:
         stride=3600,
         detector=None,
         frametype=None,
+        urltype="file",
         channel=None,
         host=None,
         outputframecache=None,
@@ -295,6 +301,7 @@ class Heterodyne:
         self.channel = channel
         if framecache is None:
             self.frametype = frametype
+            self.urltype = urltype
             self.host = host
             self.outputframecache = outputframecache
             self.appendframecache = appendframecache
@@ -510,6 +517,24 @@ class Heterodyne:
             raise TypeError("Frame type must be a string")
 
     @property
+    def urltype(self):
+        """
+        The URL type for the data server.
+        """
+
+        if hasattr(self, "_urltype"):
+            return self._urltype
+        else:
+            return "file"
+
+    @urltype.setter
+    def urltype(self, urltype):
+        if isinstance(urltype, str) and urltype.lower() in ["osdf", "file"]:
+            self._urltype = urltype
+        else:
+            raise TypeError("URL type must be a 'osdf' or 'file'")
+
+    @property
     def channel(self):
         """
         The data channel within a gravitational-wave data frame to use.
@@ -711,7 +736,7 @@ class Heterodyne:
             framecache if isinstance(framecache, (str, list)) else self.framecache
         )
         frametype = frametype if isinstance(frametype, str) else self.frametype
-        urltype = kwargs["urltype"] if "urltype" in kwargs else self.urltype
+        urltype = kwargs.get("urltype", self.urltype)
         host = host if isinstance(host, str) else self.host
         outputframecache = (
             outputframecache
