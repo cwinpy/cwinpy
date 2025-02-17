@@ -1,5 +1,18 @@
 # Notable changes between versions
 
+## [1.4.0] 2025-02-17
+
+Changes for this release:
+
+- Fix Matplotlib v3.9 compatibility issue (!198).
+- Results page fixes (!196).
+- NumPy v2 compatibility changes (!195).
+- Set individual grids for evaluating pulsars in hiearchical analysis (!179).
+- Allow upper limit table to be construted with `F0` and `F1` values from the par file (!190).
+- Fix file IO issues for webpage generation (!191, !192).
+- Add glitch phase to `LATEX_LABELS` for results pages (!193).
+- Allow simulations to use amplitude spectral density vales from a supplied noise spectrum file (!194).
+
 ## [1.3.1] 2024-10-10
 
 Changes for this release:
