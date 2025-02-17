@@ -38,6 +38,13 @@ python-3.10:
     - python -m pip install -e .
     - pytest
 
+# test on python 3.11
+python-3.11:
+  stage: test
+  image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python311
+  script:
+    - python -m pip install -e .
+    - pytest
 
 # test pre-commit has picked up black/flake8 requirements
 pre-commit-python-3.9:
