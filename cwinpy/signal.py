@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import lal
 import lalpulsar
 import numpy as np
@@ -350,6 +352,7 @@ class HeterodynedCWSimulator(object):
         freqfactor=2.0,
         outputampcoeffs=False,
         roq=False,
+        phase_only=False,
     ):
         """
         Compute the heterodyned strain model using
@@ -392,6 +395,9 @@ class HeterodynedCWSimulator(object):
         roq: bool
             A boolean value to set to ``True`` if requiring the output for
             a ROQ model (NOT YET IMPLEMENTED).
+        phase_only: bool
+            Just return the phase evolution of the signal. If a ``newpar`` is
+            supplied it will return the phase difference.
 
         Returns
         -------
@@ -402,21 +408,27 @@ class HeterodynedCWSimulator(object):
         if newpar is not None:
             parupdate, parfile = self._read_par(newpar)
         else:
-            parupdate = self.hetpar
+            parupdate = deepcopy(self.hetpar)
 
         # get signal amplitude model
         self.__nonGR = self._check_nonGR(parupdate)
-        compstrain = lalpulsar.HeterodynedPulsarGetAmplitudeModel(
-            parupdate.PulsarParameters(),
-            freqfactor,
-            int(not outputampcoeffs),
-            int(roq),
-            self.__nonGR,
-            self.gpstimes,
-            self.resp,
-        )
 
-        if (not outputampcoeffs and newpar is None) or roq or outputampcoeffs:
+        if not phase_only:
+            compstrain = lalpulsar.HeterodynedPulsarGetAmplitudeModel(
+                parupdate.PulsarParameters(),
+                freqfactor,
+                int(not outputampcoeffs),
+                int(roq),
+                self.__nonGR,
+                self.gpstimes,
+                self.resp,
+            )
+
+        if (
+            (not (outputampcoeffs or phase_only) and newpar is None)
+            or roq
+            or outputampcoeffs
+        ):
             return compstrain.data.data
         else:
             from .heterodyne.fastheterodyne import fast_heterodyne
@@ -442,8 +454,10 @@ class HeterodynedCWSimulator(object):
                     )
 
                 phase = lalpulsar.HeterodynedPulsarPhaseDifference(
-                    parupdate.PulsarParameters(),
-                    origpar.PulsarParameters(),
+                    parupdate.PulsarParameters()
+                    if newpar is not None
+                    else origpar.PulsarParameters(),
+                    origpar.PulsarParameters() if newpar is not None else None,
                     self.gpstimes,
                     freqfactor,
                     self.ssbdelay,
@@ -495,28 +509,44 @@ class HeterodynedCWSimulator(object):
                         epoch=psrorig["PEPOCH"].val,
                     )
 
-                with MuteStream(stream=sys.stdout):
-                    psrnew = tempopulsar(
-                        parfile=parfile,
-                        toas=mjdtimes,
-                        toaerrs=toaerr,
-                        observatory=TEMPO2_GW_ALIASES[self.__detector_name],
-                        dofit=False,
-                        obsfreq=0.0,  # set to 0 so as not to calculate DM delay
-                    )
+                    if phase_only and newpar is None:
+                        # get the correction for the phase epoch
+                        phasenum = tempopulsar.pulsenumbers(
+                            updatebats=False,
+                            formresiduals=False,
+                            removemean=False,
+                        )
 
-                    # get phase residuals
-                    phasenew = psrnew.phaseresiduals(
-                        removemean="refphs",
-                        site="@",
-                        epoch=psrorig["PEPOCH"].val,
-                    )
+                        phaseorig += phasenum - phasenum[0]
+
+                if newpar is not None:
+                    with MuteStream(stream=sys.stdout):
+                        psrnew = tempopulsar(
+                            parfile=parfile,
+                            toas=mjdtimes,
+                            toaerrs=toaerr,
+                            observatory=TEMPO2_GW_ALIASES[self.__detector_name],
+                            dofit=False,
+                            obsfreq=0.0,  # set to 0 so as not to calculate DM delay
+                        )
+
+                        # get phase residuals
+                        phasenew = psrnew.phaseresiduals(
+                            removemean="refphs",
+                            site="@",
+                            epoch=psrorig["PEPOCH"].val,
+                        )
+                else:
+                    phasenew = 0.0
 
                 # get phase difference
                 self._phasediff = freqfactor * (phaseorig - phasenew).astype(float)
 
-            # re-heterodyne with phase difference
-            return fast_heterodyne(compstrain.data.data, self.phasediff)
+            if phase_only:
+                return self.phasediff
+            else:
+                # re-heterodyne with phase difference
+                return fast_heterodyne(compstrain.data.data, self.phasediff)
 
     def _read_par(self, par):
         """
@@ -542,6 +572,35 @@ class HeterodynedCWSimulator(object):
                 return PulsarParameters(par), par
         else:
             raise TypeError("The parameter file must be a string")
+
+    def phase_evolution(
+        self,
+        newpar=None,
+        updateSSB=False,
+        updateBSB=False,
+        updateglphase=False,
+        updatefitwaves=False,
+        freqfactor=2.0,
+    ):
+        """
+        Return the phase evolution of the signal. If ``newpar`` is supplied
+        then the phase difference will be output, otherwise phase evolution of
+        the original input par file will be output. See
+        :meth:`~cwinpy.signal.HeterodynedCWSimulator.model` for input
+        arguments.
+        """
+
+        return self.model(
+            newpar=newpar,
+            updateSSB=updateSSB,
+            updateBSB=updateBSB,
+            updateglphase=updateglphase,
+            updatefitwaves=updatefitwaves,
+            freqfactor=freqfactor,
+            outputampcoeffs=False,
+            roq=False,
+            phase_only=True,
+        )
 
     @property
     def phasediff(self):
