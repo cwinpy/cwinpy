@@ -511,7 +511,7 @@ class HeterodynedCWSimulator(object):
 
                     if phase_only and newpar is None:
                         # get the correction for the phase epoch
-                        phasenum = tempopulsar.pulsenumbers(
+                        phasenum = psrorig.pulsenumbers(
                             updatebats=False,
                             formresiduals=False,
                             removemean=False,
