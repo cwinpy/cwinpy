@@ -549,11 +549,11 @@ class PERunner:
                 ):
                     data1f = kwargs["data_file_1f"]
 
-            if isinstance(data2f, str):
+            if isinstance(data2f, (str, HeterodynedData)):
                 # make into a list
                 data2f = [data2f]
 
-            if isinstance(data1f, str):
+            if isinstance(data1f, (str, HeterodynedData)):
                 # make into a list
                 data1f = [data1f]
 
@@ -574,34 +574,37 @@ class PERunner:
                 if isinstance(data, list):
                     # pass through list and check strings
                     for i, dfile in enumerate(data):
-                        detdata = dfile.split(":")  # split detector and path
-
-                        if len(detdata) == 2:
-                            if detectors is not None:
-                                if detdata[0] not in detectors:
-                                    raise ValueError(
-                                        "Data file does not have consistent detector"
-                                    )
-                            thisdet = detdata[0]
-                            thisdata = detdata[1]
-                        elif len(detdata) == 1 and detectors is not None:
-                            try:
-                                thisdet = detectors[i]
-                            except Exception as e:
-                                raise ValueError(
-                                    "Detectors is not a list: {}".format(e)
-                                )
-                            thisdata = dfile
+                        if isinstance(dfile, HeterodynedData):
+                            self.hetdata.add_data(dfile)
                         else:
-                            raise ValueError(
-                                "Data string must be of the form 'DET:FILEPATH'"
-                            )
+                            detdata = dfile.split(":")  # split detector and path
 
-                        self.hetdata.add_data(
-                            HeterodynedData(
-                                data=thisdata, detector=thisdet, **self.datakwargs
+                            if len(detdata) == 2:
+                                if detectors is not None:
+                                    if detdata[0] not in detectors:
+                                        raise ValueError(
+                                            "Data file does not have consistent detector"
+                                        )
+                                thisdet = detdata[0]
+                                thisdata = detdata[1]
+                            elif len(detdata) == 1 and detectors is not None:
+                                try:
+                                    thisdet = detectors[i]
+                                except Exception as e:
+                                    raise ValueError(
+                                        "Detectors is not a list: {}".format(e)
+                                    )
+                                thisdata = dfile
+                            else:
+                                raise ValueError(
+                                    "Data string must be of the form 'DET:FILEPATH'"
+                                )
+
+                            self.hetdata.add_data(
+                                HeterodynedData(
+                                    data=thisdata, detector=thisdet, **self.datakwargs
+                                )
                             )
-                        )
                 else:
                     raise TypeError("Data files are not of a recognised type")
 
@@ -1283,7 +1286,7 @@ def pe(**kwargs):
     detector: str, list
         A string, or list of strings, containing the abbreviated names for
         the detectors being analysed (e.g., "H1", "L1", "V1").
-    data_file: str, list, dict
+    data_file: str, list, dict, HeterodynedData
         A string, list, or dictionary contain paths to the heterodyned data
         to be used in the analysis. For a single detector this can be a single
         string. For multiple detectors a list can be passed with the file path
