@@ -3893,9 +3893,9 @@ class HeterodynedData(TimeSeriesBase):
             idx1 = np.floor((end - t0) / self.dt.value)
 
         # get data values (without any outlier removal)
-        data = super(HeterodynedData, self).data[idx0:idx1]
+        data = self.value[idx0:idx1]
         times = times[idx0:idx1]
-        stds = self._stds[idx0:idx1]
+        stds = np.sqrt(self._vars[idx0:idx1])
         outlier_mask = (
             self._outlier_mask[idx0:idx1] if self._outlier_mask is not None else None
         )
@@ -3919,10 +3919,8 @@ class HeterodynedData(TimeSeriesBase):
         )
 
         if outlier_mask is not None:
-            out._outlier_mask = outlier_mask
-
             # remove outliers and recalculate running medians, change points
-            out.remove()
+            out.remove(outlier_mask)
 
         return out
 
