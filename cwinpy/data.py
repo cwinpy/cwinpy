@@ -3876,13 +3876,20 @@ class HeterodynedData(TimeSeriesBase):
         else:
             irregular = False
 
+        # pin start and end times to data range
+        if start is None or start <= t0:
+            start = None
+
+        if end is None or end >= times[-1]:
+            end = None
+
         # find start index
         if start is None:
             idx0 = None
         elif irregular:
             idx0 = np.searchsorted(times, start, side="left")
         else:
-            idx0 = np.floor((start - t0) / self.dt.value)
+            idx0 = int(np.floor((start - t0) / self.dt.value))
 
         # find end index
         if end is None:
@@ -3890,7 +3897,7 @@ class HeterodynedData(TimeSeriesBase):
         elif irregular:
             idx1 = np.searchsorted(times, end, side="left")
         else:
-            idx1 = np.floor((end - t0) / self.dt.value)
+            idx1 = int(np.floor((end - t0) / self.dt.value))
 
         # get data values (without any outlier removal)
         data = self.value[idx0:idx1]
@@ -3917,6 +3924,8 @@ class HeterodynedData(TimeSeriesBase):
             bbmaxlength=self.bbmaxlength,
             window=self.window,
         )
+
+        out.outlier_thresh = self.outlier_thresh
 
         if outlier_mask is not None:
             # remove outliers and recalculate running medians, change points
