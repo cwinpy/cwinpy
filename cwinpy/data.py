@@ -3917,6 +3917,7 @@ class HeterodynedData(TimeSeriesBase):
             data,
             times=times,
             par=self.par,
+            injpar=self.injpar,
             detector=self.detector,
             remove_outliers=False,
             freqfactor=self.freqfactor,
@@ -3926,6 +3927,7 @@ class HeterodynedData(TimeSeriesBase):
         )
 
         out.outlier_thresh = self.outlier_thresh
+        out.injtimes = self.injtimes
 
         if outlier_mask is not None:
             # remove outliers and recalculate running medians, change points
