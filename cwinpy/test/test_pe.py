@@ -188,6 +188,12 @@ class TestPE(object):
 
         datafile = self.H1file[1]
         datakwargs = {"remove_outliers": False}
+        hetdataH1 = HeterodynedData(
+            self.H1file[1], detector="H1", par=self.parfile, **datakwargs
+        )
+        hetdataL1 = HeterodynedData(
+            self.L1file[1], detector="L1", par=self.parfile, **datakwargs
+        )
 
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, datafile, self.priorfile, datakwargs))
@@ -230,6 +236,13 @@ class TestPE(object):
             data_kwargs=datakwargs,
         )
 
+        # pass as a HeterodynedData object
+        t1kw4 = pe(
+            par_file=self.parfile,
+            data_file=hetdataH1,
+            prior=self.priorbilby,
+        )
+
         # pass as config file
         config = (
             "par-file = {}\ndata-file = {}\nprior = {}\ndetector = H1\ndata-kwargs = {}"
@@ -239,7 +252,7 @@ class TestPE(object):
         t1c1 = pe(config=configfile)
 
         # use the data_file_2f option instead
-        t1kw4 = pe(
+        t1kw5 = pe(
             par_file=self.parfile,
             data_file_2f=datafile,
             detector="H1",
@@ -248,7 +261,7 @@ class TestPE(object):
         )
 
         # pass as keyword arguments (detector in data file string)
-        t1kw5 = pe(
+        t1kw6 = pe(
             par_file=self.parfile,
             data_file_2f="{}:{}".format("H1", datafile),
             prior=self.priorbilby,
@@ -256,11 +269,18 @@ class TestPE(object):
         )
 
         # pass as keyword arguments (detector in data file dict)
-        t1kw6 = pe(
+        t1kw7 = pe(
             par_file=self.parfile,
             data_file_2f={"H1": datafile},
             prior=self.priorbilby,
             data_kwargs=datakwargs,
+        )
+
+        # pass as HeterodynedData (detector in data file dict)
+        t1kw8 = pe(
+            par_file=self.parfile,
+            data_file_2f={"H1": hetdataH1},
+            prior=self.priorbilby,
         )
 
         # pass as config file
@@ -270,7 +290,7 @@ class TestPE(object):
         t1c2 = pe(config=configfile)
 
         # perform consistency checks
-        for tv in [t1kw1, t1kw2, t1kw3, t1c1, t1kw4, t1kw5, t1kw6, t1c2]:
+        for tv in [t1kw1, t1kw2, t1kw3, t1c1, t1kw4, t1kw5, t1kw6, t1kw7, t1kw8, t1c2]:
             assert len(tv.hetdata) == 1
             assert tv.hetdata["H1"][0].par["F"][0] == self.f0
             assert tv.hetdata.detectors[0] == "H1"
@@ -309,6 +329,13 @@ class TestPE(object):
             data_kwargs=datakwargs,
         )
 
+        # pass as HeterodynedData objects (detector in data file dict)
+        t2kw4 = pe(
+            par_file=self.parfile,
+            data_file={"H1": hetdataH1, "L1": hetdataL1},
+            prior=self.priorbilby,
+        )
+
         # pass as config file
         config = (
             "par-file = {}\n"
@@ -330,7 +357,7 @@ class TestPE(object):
         t2c1 = pe(config=configfile)
 
         # use the data_file_2f option instead
-        t2kw4 = pe(
+        t2kw5 = pe(
             par_file=self.parfile,
             data_file_2f=[self.H1file[1], self.L1file[1]],
             detector=["H1", "L1"],
@@ -339,7 +366,7 @@ class TestPE(object):
         )
 
         # pass as keyword arguments (detector in data file string)
-        t2kw5 = pe(
+        t2kw6 = pe(
             par_file=self.parfile,
             data_file_2f=[
                 "{}:{}".format("H1", self.H1file[1]),
@@ -350,11 +377,19 @@ class TestPE(object):
         )
 
         # pass as keyword arguments (detector in data file dict)
-        t2kw6 = pe(
+        t2kw7 = pe(
             par_file=self.parfile,
             data_file_2f={"H1": self.H1file[1], "L1": self.L1file[1]},
             prior=self.priorbilby,
             data_kwargs=datakwargs,
+        )
+
+        # pass as HeterodynedData objects)
+        t2kw8 = pe(
+            par_file=self.parfile,
+            data_file_2f=[hetdataH1, hetdataL1],
+            detector=["H1", "L1"],
+            prior=self.priorbilby,
         )
 
         # pass as config file
@@ -378,7 +413,7 @@ class TestPE(object):
         t2c2 = pe(config=configfile)
 
         # perform consistency checks
-        for tv in [t2kw1, t2kw2, t2kw3, t2c1, t2kw4, t2kw5, t2kw6, t2c2]:
+        for tv in [t2kw1, t2kw2, t2kw3, t2c1, t2kw4, t2kw5, t2kw6, t2kw7, t2kw8, t2c2]:
             assert len(tv.hetdata) == 2
             for i, det, data in zip(
                 range(2), ["H1", "L1"], [self.H1data[1], self.L1data[1]]
@@ -469,6 +504,21 @@ class TestPE(object):
             data_kwargs=datakwargs,
         )
 
+        # pass as HeterodynedData objects
+        datakwargs["freqfactor"] = 1.0
+        hetdataH1_1f = HeterodynedData(
+            self.H1file[0], detector="H1", par=self.parfile, **datakwargs
+        )
+        hetdataL1_1f = HeterodynedData(
+            self.L1file[0], detector="L1", par=self.parfile, **datakwargs
+        )
+        t4kw4 = pe(
+            par_file=self.parfile,
+            data_file_1f={"H1": hetdataH1_1f, "L1": hetdataL1_1f},
+            data_file_2f={"H1": hetdataH1, "L1": hetdataL1},
+            prior=self.priorbilby,
+        )
+
         # pass as config file
         config = (
             "par-file = {}\n"
@@ -493,7 +543,7 @@ class TestPE(object):
         t4c1 = pe(config=configfile)
 
         # perform consistency checks
-        for tv in [t4kw1, t4kw2, t4kw3, t4c1]:
+        for tv in [t4kw1, t4kw2, t4kw3, t4kw4, t4c1]:
             assert len(tv.hetdata) == 4
             for i, det, data1f, data2f in zip(
                 range(2),
