@@ -474,6 +474,10 @@ class PERunner:
         crop_start = kwargs.get("crop_start", None)
         crop_end = kwargs.get("crop_end", None)
 
+        if crop_start is not None and crop_end is not None:
+            if crop_end <= crop_start:
+                raise ValueError("Crop end time is before crop start time")
+
         if "par_file" in kwargs:
             self.datakwargs["par"] = kwargs["par_file"]
 
