@@ -525,6 +525,7 @@ class PERunner:
                     try:
                         data2f = convert_string_to_dict(kwargs[kw][0], kw)
                     except (
+                        AttributeError,
                         ValueError,
                         SyntaxError,
                         TypeError,
@@ -541,6 +542,7 @@ class PERunner:
                         kwargs["data_file_1f"][0], "data_file_1f"
                     )
                 except (
+                    AttributeError,
                     ValueError,
                     SyntaxError,
                     TypeError,
