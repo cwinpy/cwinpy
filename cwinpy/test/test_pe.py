@@ -188,6 +188,12 @@ class TestPE(object):
 
         datafile = self.H1file[1]
         datakwargs = {"remove_outliers": False}
+        hetdataH1 = HeterodynedData(
+            self.H1file[1], detector="H1", par=self.parfile, **datakwargs
+        )
+        hetdataL1 = HeterodynedData(
+            self.L1file[1], detector="L1", par=self.parfile, **datakwargs
+        )
 
         with open(configfile, "w") as fp:
             fp.write(config.format(self.parfile, datafile, self.priorfile, datakwargs))
@@ -230,6 +236,13 @@ class TestPE(object):
             data_kwargs=datakwargs,
         )
 
+        # pass as a HeterodynedData object
+        t1kw4 = pe(
+            par_file=self.parfile,
+            data_file=hetdataH1,
+            prior=self.priorbilby,
+        )
+
         # pass as config file
         config = (
             "par-file = {}\ndata-file = {}\nprior = {}\ndetector = H1\ndata-kwargs = {}"
@@ -239,7 +252,7 @@ class TestPE(object):
         t1c1 = pe(config=configfile)
 
         # use the data_file_2f option instead
-        t1kw4 = pe(
+        t1kw5 = pe(
             par_file=self.parfile,
             data_file_2f=datafile,
             detector="H1",
@@ -248,7 +261,7 @@ class TestPE(object):
         )
 
         # pass as keyword arguments (detector in data file string)
-        t1kw5 = pe(
+        t1kw6 = pe(
             par_file=self.parfile,
             data_file_2f="{}:{}".format("H1", datafile),
             prior=self.priorbilby,
@@ -256,11 +269,18 @@ class TestPE(object):
         )
 
         # pass as keyword arguments (detector in data file dict)
-        t1kw6 = pe(
+        t1kw7 = pe(
             par_file=self.parfile,
             data_file_2f={"H1": datafile},
             prior=self.priorbilby,
             data_kwargs=datakwargs,
+        )
+
+        # pass as HeterodynedData (detector in data file dict)
+        t1kw8 = pe(
+            par_file=self.parfile,
+            data_file_2f={"H1": hetdataH1},
+            prior=self.priorbilby,
         )
 
         # pass as config file
@@ -270,7 +290,7 @@ class TestPE(object):
         t1c2 = pe(config=configfile)
 
         # perform consistency checks
-        for tv in [t1kw1, t1kw2, t1kw3, t1c1, t1kw4, t1kw5, t1kw6, t1c2]:
+        for tv in [t1kw1, t1kw2, t1kw3, t1c1, t1kw4, t1kw5, t1kw6, t1kw7, t1kw8, t1c2]:
             assert len(tv.hetdata) == 1
             assert tv.hetdata["H1"][0].par["F"][0] == self.f0
             assert tv.hetdata.detectors[0] == "H1"
@@ -309,6 +329,13 @@ class TestPE(object):
             data_kwargs=datakwargs,
         )
 
+        # pass as HeterodynedData objects (detector in data file dict)
+        t2kw4 = pe(
+            par_file=self.parfile,
+            data_file={"H1": hetdataH1, "L1": hetdataL1},
+            prior=self.priorbilby,
+        )
+
         # pass as config file
         config = (
             "par-file = {}\n"
@@ -330,7 +357,7 @@ class TestPE(object):
         t2c1 = pe(config=configfile)
 
         # use the data_file_2f option instead
-        t2kw4 = pe(
+        t2kw5 = pe(
             par_file=self.parfile,
             data_file_2f=[self.H1file[1], self.L1file[1]],
             detector=["H1", "L1"],
@@ -339,7 +366,7 @@ class TestPE(object):
         )
 
         # pass as keyword arguments (detector in data file string)
-        t2kw5 = pe(
+        t2kw6 = pe(
             par_file=self.parfile,
             data_file_2f=[
                 "{}:{}".format("H1", self.H1file[1]),
@@ -350,11 +377,19 @@ class TestPE(object):
         )
 
         # pass as keyword arguments (detector in data file dict)
-        t2kw6 = pe(
+        t2kw7 = pe(
             par_file=self.parfile,
             data_file_2f={"H1": self.H1file[1], "L1": self.L1file[1]},
             prior=self.priorbilby,
             data_kwargs=datakwargs,
+        )
+
+        # pass as HeterodynedData objects)
+        t2kw8 = pe(
+            par_file=self.parfile,
+            data_file_2f=[hetdataH1, hetdataL1],
+            detector=["H1", "L1"],
+            prior=self.priorbilby,
         )
 
         # pass as config file
@@ -378,7 +413,7 @@ class TestPE(object):
         t2c2 = pe(config=configfile)
 
         # perform consistency checks
-        for tv in [t2kw1, t2kw2, t2kw3, t2c1, t2kw4, t2kw5, t2kw6, t2c2]:
+        for tv in [t2kw1, t2kw2, t2kw3, t2c1, t2kw4, t2kw5, t2kw6, t2kw7, t2kw8, t2c2]:
             assert len(tv.hetdata) == 2
             for i, det, data in zip(
                 range(2), ["H1", "L1"], [self.H1data[1], self.L1data[1]]
@@ -469,6 +504,21 @@ class TestPE(object):
             data_kwargs=datakwargs,
         )
 
+        # pass as HeterodynedData objects
+        datakwargs["freqfactor"] = 1.0
+        hetdataH1_1f = HeterodynedData(
+            self.H1file[0], detector="H1", par=self.parfile, **datakwargs
+        )
+        hetdataL1_1f = HeterodynedData(
+            self.L1file[0], detector="L1", par=self.parfile, **datakwargs
+        )
+        t4kw4 = pe(
+            par_file=self.parfile,
+            data_file_1f={"H1": hetdataH1_1f, "L1": hetdataL1_1f},
+            data_file_2f={"H1": hetdataH1, "L1": hetdataL1},
+            prior=self.priorbilby,
+        )
+
         # pass as config file
         config = (
             "par-file = {}\n"
@@ -493,7 +543,7 @@ class TestPE(object):
         t4c1 = pe(config=configfile)
 
         # perform consistency checks
-        for tv in [t4kw1, t4kw2, t4kw3, t4c1]:
+        for tv in [t4kw1, t4kw2, t4kw3, t4kw4, t4c1]:
             assert len(tv.hetdata) == 4
             for i, det, data1f, data2f in zip(
                 range(2),
@@ -513,6 +563,96 @@ class TestPE(object):
                 assert np.allclose(tv.hetdata[det][1].data.imag, data2f[:, 2])
                 assert np.allclose(tv.hetdata[det][1].times.value, self.times)
                 assert PriorDict(tv.prior) == self.priorbilby
+
+        os.remove(configfile)
+
+    def test_cropping_data_input(self):
+        """
+        Test cropping of input data when passing to PE.
+        """
+
+        # single detector and single data file
+        configfile = "config_test.ini"
+
+        datafile = self.H1file[1]
+        datakwargs = {"remove_outliers": False}
+        hetdataH1 = HeterodynedData(
+            self.H1file[1], detector="H1", par=self.parfile, **datakwargs
+        )
+
+        # not prior file specified
+        with pytest.raises(ValueError):
+            pe(par_file=self.parfile, data_file=datafile, detector="H1")
+
+        # crop values out of bounds
+        with pytest.raises(ValueError):
+            pe(
+                par_file=self.parfile,
+                data_file=datafile,
+                detector="H1",
+                crop_start=0.0,
+                crop_end=-1.0,
+            )
+
+        # comparisons
+        for crop_start, crop_end in [
+            [None, None],
+            [None, self.times[200]],
+            [self.times[200], self.times[400]],
+            [self.times[400], None],
+        ]:
+            # pass as keyword arguments (detector as keyword)
+            t1kw1 = pe(
+                par_file=self.parfile,
+                data_file=datafile,
+                detector="H1",
+                prior=self.priorbilby,
+                data_kwargs=datakwargs,
+                crop_start=crop_start,
+                crop_end=crop_end,
+            )
+
+            # pass as a HeterodynedData object
+            t1kw2 = pe(
+                par_file=self.parfile,
+                data_file=hetdataH1,
+                prior=self.priorbilby,
+                crop_start=crop_start,
+                crop_end=crop_end,
+            )
+
+            # pass as config file
+            crop_start_string = (
+                "" if crop_start is None else f"\ncrop-start = {crop_start}"
+            )
+            crop_end_string = "" if crop_end is None else f"\ncrop-end = {crop_end}"
+            config = (
+                f"par-file = {self.parfile}\ndata-file = {datafile}\nprior = {self.priorfile}"
+                f"\ndetector = H1\ndata-kwargs = {datakwargs}{crop_start_string}{crop_end_string}"
+            )
+            with open(configfile, "w") as fp:
+                fp.write(config)
+            t1c1 = pe(config=configfile)
+
+            # perform consistency checks
+            for tv in [t1kw2, t1c1]:
+                assert len(tv.hetdata) == 1
+                assert (
+                    tv.hetdata["H1"][0].par["F"][0]
+                    == t1kw1.hetdata["H1"][0].par["F"][0]
+                )
+                assert tv.hetdata.detectors[0] == t1kw1.hetdata.detectors[0]
+                assert tv.hetdata.freq_factors[0] == t1kw1.hetdata.freq_factors[0]
+                assert np.allclose(
+                    tv.hetdata["H1"][0].data.real, t1kw1.hetdata["H1"][0].data.real
+                )
+                assert np.allclose(
+                    tv.hetdata["H1"][0].data.imag, t1kw1.hetdata["H1"][0].data.imag
+                )
+                assert np.allclose(
+                    tv.hetdata["H1"][0].times.value, t1kw1.hetdata["H1"][0].times.value
+                )
+
         os.remove(configfile)
 
     def test_no_par_input(self):

@@ -135,6 +135,24 @@ continuous gravitational-wave signal from a known pulsar."""
         ),
     )
     dataparser.add(
+        "--crop-start",
+        type=float,
+        help=(
+            "The GPS start time to crop the data to. If not given the data "
+            "will not be cropped."
+        ),
+        default=None,
+    )
+    dataparser.add(
+        "--crop-end",
+        type=float,
+        help=(
+            "The GPS end time to crop the data to. If not given the data will "
+            "not be cropped."
+        ),
+        default=None,
+    )
+    dataparser.add(
         "--data-kwargs",
         help=(
             "A Python dictionary containing keywords to pass to "
@@ -452,6 +470,14 @@ class PERunner:
             # value is already a dictionary
             self.datakwargs = copy.deepcopy(kwargs["data_kwargs"])
 
+        # get crop start and end times
+        crop_start = kwargs.get("crop_start", None)
+        crop_end = kwargs.get("crop_end", None)
+
+        if crop_start is not None and crop_end is not None:
+            if crop_end <= crop_start:
+                raise ValueError("Crop end time is before crop start time")
+
         if "par_file" in kwargs:
             self.datakwargs["par"] = kwargs["par_file"]
 
@@ -525,6 +551,7 @@ class PERunner:
                     try:
                         data2f = convert_string_to_dict(kwargs[kw][0], kw)
                     except (
+                        AttributeError,
                         ValueError,
                         SyntaxError,
                         TypeError,
@@ -541,6 +568,7 @@ class PERunner:
                         kwargs["data_file_1f"][0], "data_file_1f"
                     )
                 except (
+                    AttributeError,
                     ValueError,
                     SyntaxError,
                     TypeError,
@@ -549,11 +577,11 @@ class PERunner:
                 ):
                     data1f = kwargs["data_file_1f"]
 
-            if isinstance(data2f, str):
+            if isinstance(data2f, (str, HeterodynedData)):
                 # make into a list
                 data2f = [data2f]
 
-            if isinstance(data1f, str):
+            if isinstance(data1f, (str, HeterodynedData)):
                 # make into a list
                 data1f = [data1f]
 
@@ -574,34 +602,51 @@ class PERunner:
                 if isinstance(data, list):
                     # pass through list and check strings
                     for i, dfile in enumerate(data):
-                        detdata = dfile.split(":")  # split detector and path
-
-                        if len(detdata) == 2:
-                            if detectors is not None:
-                                if detdata[0] not in detectors:
-                                    raise ValueError(
-                                        "Data file does not have consistent detector"
-                                    )
-                            thisdet = detdata[0]
-                            thisdata = detdata[1]
-                        elif len(detdata) == 1 and detectors is not None:
-                            try:
-                                thisdet = detectors[i]
-                            except Exception as e:
-                                raise ValueError(
-                                    "Detectors is not a list: {}".format(e)
-                                )
-                            thisdata = dfile
+                        if isinstance(dfile, HeterodynedData):
+                            if crop_start is not None or crop_end is not None:
+                                self.hetdata.add_data(dfile.crop(crop_start, crop_end))
+                            else:
+                                self.hetdata.add_data(dfile)
                         else:
-                            raise ValueError(
-                                "Data string must be of the form 'DET:FILEPATH'"
-                            )
+                            detdata = dfile.split(":")  # split detector and path
 
-                        self.hetdata.add_data(
-                            HeterodynedData(
-                                data=thisdata, detector=thisdet, **self.datakwargs
-                            )
-                        )
+                            if len(detdata) == 2:
+                                if detectors is not None:
+                                    if detdata[0] not in detectors:
+                                        raise ValueError(
+                                            "Data file does not have consistent detector"
+                                        )
+                                thisdet = detdata[0]
+                                thisdata = detdata[1]
+                            elif len(detdata) == 1 and detectors is not None:
+                                try:
+                                    thisdet = detectors[i]
+                                except Exception as e:
+                                    raise ValueError(
+                                        "Detectors is not a list: {}".format(e)
+                                    )
+                                thisdata = dfile
+                            else:
+                                raise ValueError(
+                                    "Data string must be of the form 'DET:FILEPATH'"
+                                )
+
+                            if crop_start is not None or crop_end is not None:
+                                self.hetdata.add_data(
+                                    HeterodynedData(
+                                        data=thisdata,
+                                        detector=thisdet,
+                                        **self.datakwargs,
+                                    ).crop(crop_start, crop_end)
+                                )
+                            else:
+                                self.hetdata.add_data(
+                                    HeterodynedData(
+                                        data=thisdata,
+                                        detector=thisdet,
+                                        **self.datakwargs,
+                                    )
+                                )
                 else:
                     raise TypeError("Data files are not of a recognised type")
 
@@ -1283,7 +1328,7 @@ def pe(**kwargs):
     detector: str, list
         A string, or list of strings, containing the abbreviated names for
         the detectors being analysed (e.g., "H1", "L1", "V1").
-    data_file: str, list, dict
+    data_file: str, list, dict, HeterodynedData
         A string, list, or dictionary contain paths to the heterodyned data
         to be used in the analysis. For a single detector this can be a single
         string. For multiple detectors a list can be passed with the file path
@@ -1301,6 +1346,12 @@ def pe(**kwargs):
     data_file_1f: str, list, dict
         Data files that have been heterodyned at the source's rotation
         frequency. See the documentation for ``data_file`` above for usage.
+    crop_start: float:
+        A GPS time to crop the data from before performing parameter
+        estimation. If not give, the data will be used from the start.
+    crop_end: float:
+        A GPS time to crop the data until before performing parameter
+        estimation. If not give, the data will be used up to the end.
     fake_asd: float, str, list, dict
         This specifies the creation of fake Gaussian data drawn from a
         distribution with a given noise amplitude spectral density (ASD). If
@@ -1770,6 +1821,8 @@ class PEDAGRunner:
 
         # get keyword arguments to pass to HeterodynedData
         datakwargs = self.eval(config.get("pe", "data_kwargs", fallback="{}"))
+        crop_start = config.get("pe", "crop_start", fallback=None)
+        crop_end = config.get("pe", "crop_end", fallback=None)
 
         # set some default bilby-style priors
         DEFAULTPRIORS2F = (
@@ -2005,6 +2058,11 @@ class PEDAGRunner:
                 configdict["periodic_restart_time"] = periodicrestarttime
 
             configdict["data_kwargs"] = str(datakwargs)
+
+            if crop_start is not None:
+                configdict["crop_start"] = str(crop_start)
+            if crop_end is not None:
+                configdict["crop_end"] = str(crop_end)
 
             configdict["sampler_kwargs"] = str(samplerkwargs)
             configdict["roq"] = roq
