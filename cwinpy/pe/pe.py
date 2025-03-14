@@ -135,6 +135,24 @@ continuous gravitational-wave signal from a known pulsar."""
         ),
     )
     dataparser.add(
+        "--crop-start",
+        type=float,
+        help=(
+            "The GPS start time to crop the data to. If not given the data "
+            "will not be cropped."
+        ),
+        default=None,
+    )
+    dataparser.add(
+        "--crop-end",
+        type=float,
+        help=(
+            "The GPS end time to crop the data to. If not given the data will "
+            "not be cropped."
+        ),
+        default=None,
+    )
+    dataparser.add(
         "--data-kwargs",
         help=(
             "A Python dictionary containing keywords to pass to "
@@ -452,6 +470,10 @@ class PERunner:
             # value is already a dictionary
             self.datakwargs = copy.deepcopy(kwargs["data_kwargs"])
 
+        # get crop start and end times
+        crop_start = kwargs.get("crop_start", None)
+        crop_end = kwargs.get("crop_end", None)
+
         if "par_file" in kwargs:
             self.datakwargs["par"] = kwargs["par_file"]
 
@@ -577,7 +599,10 @@ class PERunner:
                     # pass through list and check strings
                     for i, dfile in enumerate(data):
                         if isinstance(dfile, HeterodynedData):
-                            self.hetdata.add_data(dfile)
+                            if crop_start is not None or crop_end is not None:
+                                self.hetdata.add_data(dfile.crop(crop_start, crop_end))
+                            else:
+                                self.hetdata.add_data(dfile)
                         else:
                             detdata = dfile.split(":")  # split detector and path
 
@@ -602,11 +627,22 @@ class PERunner:
                                     "Data string must be of the form 'DET:FILEPATH'"
                                 )
 
-                            self.hetdata.add_data(
-                                HeterodynedData(
-                                    data=thisdata, detector=thisdet, **self.datakwargs
+                            if crop_start is not None or crop_end is not None:
+                                self.hetdata.add_data(
+                                    HeterodynedData(
+                                        data=thisdata,
+                                        detector=thisdet,
+                                        **self.datakwargs,
+                                    ).crop(crop_start, crop_end)
                                 )
-                            )
+                            else:
+                                self.hetdata.add_data(
+                                    HeterodynedData(
+                                        data=thisdata,
+                                        detector=thisdet,
+                                        **self.datakwargs,
+                                    )
+                                )
                 else:
                     raise TypeError("Data files are not of a recognised type")
 
@@ -1306,6 +1342,12 @@ def pe(**kwargs):
     data_file_1f: str, list, dict
         Data files that have been heterodyned at the source's rotation
         frequency. See the documentation for ``data_file`` above for usage.
+    crop_start: float:
+        A GPS time to crop the data from before performing parameter
+        estimation. If not give, the data will be used from the start.
+    crop_end: float:
+        A GPS time to crop the data until before performing parameter
+        estimation. If not give, the data will be used up to the end.
     fake_asd: float, str, list, dict
         This specifies the creation of fake Gaussian data drawn from a
         distribution with a given noise amplitude spectral density (ASD). If
@@ -1775,6 +1817,8 @@ class PEDAGRunner:
 
         # get keyword arguments to pass to HeterodynedData
         datakwargs = self.eval(config.get("pe", "data_kwargs", fallback="{}"))
+        crop_start = config.get("pe", "crop_start", fallback=None)
+        crop_end = config.get("pe", "crop_end", fallback=None)
 
         # set some default bilby-style priors
         DEFAULTPRIORS2F = (
@@ -2010,6 +2054,11 @@ class PEDAGRunner:
                 configdict["periodic_restart_time"] = periodicrestarttime
 
             configdict["data_kwargs"] = str(datakwargs)
+
+            if crop_start is not None:
+                configdict["crop_start"] = str(crop_start)
+            if crop_end is not None:
+                configdict["crop_end"] = str(crop_end)
 
             configdict["sampler_kwargs"] = str(samplerkwargs)
             configdict["roq"] = roq
