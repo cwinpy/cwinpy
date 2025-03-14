@@ -563,6 +563,96 @@ class TestPE(object):
                 assert np.allclose(tv.hetdata[det][1].data.imag, data2f[:, 2])
                 assert np.allclose(tv.hetdata[det][1].times.value, self.times)
                 assert PriorDict(tv.prior) == self.priorbilby
+
+        os.remove(configfile)
+
+    def test_cropping_data_input(self):
+        """
+        Test cropping of input data when passing to PE.
+        """
+
+        # single detector and single data file
+        configfile = "config_test.ini"
+
+        datafile = self.H1file[1]
+        datakwargs = {"remove_outliers": False}
+        hetdataH1 = HeterodynedData(
+            self.H1file[1], detector="H1", par=self.parfile, **datakwargs
+        )
+
+        # not prior file specified
+        with pytest.raises(ValueError):
+            pe(par_file=self.parfile, data_file=datafile, detector="H1")
+
+        # crop values out of bounds
+        with pytest.raises(ValueError):
+            pe(
+                par_file=self.parfile,
+                data_file=datafile,
+                detector="H1",
+                crop_start=0.0,
+                crop_end=-1.0,
+            )
+
+        # comparisons
+        for crop_start, crop_end in [
+            [None, None],
+            [None, self.times[200]],
+            [self.times[200], self.times[400]],
+            [self.times[400], None],
+        ]:
+            # pass as keyword arguments (detector as keyword)
+            t1kw1 = pe(
+                par_file=self.parfile,
+                data_file=datafile,
+                detector="H1",
+                prior=self.priorbilby,
+                data_kwargs=datakwargs,
+                crop_start=crop_start,
+                crop_end=crop_end,
+            )
+
+            # pass as a HeterodynedData object
+            t1kw2 = pe(
+                par_file=self.parfile,
+                data_file=hetdataH1,
+                prior=self.priorbilby,
+                crop_start=crop_start,
+                crop_end=crop_end,
+            )
+
+            # pass as config file
+            crop_start_string = (
+                "" if crop_start is None else f"\ncrop-start = {crop_start}"
+            )
+            crop_end_string = "" if crop_end is None else f"\ncrop-end = {crop_end}"
+            config = (
+                f"par-file = {self.parfile}\ndata-file = {datafile}\nprior = {self.priorfile}"
+                f"\ndetector = H1\ndata-kwargs = {datakwargs}{crop_start_string}{crop_end_string}"
+            )
+            with open(configfile, "w") as fp:
+                fp.write(config)
+            t1c1 = pe(config=configfile)
+
+            # perform consistency checks
+            for tv in [t1kw2, t1c1]:
+                assert len(tv.hetdata) == 1
+                assert (
+                    tv.hetdata["H1"][0].par["F"][0]
+                    == t1kw1.hetdata["H1"][0].par["F"][0]
+                )
+                assert tv.hetdata.detectors[0] == t1kw1.hetdata.detectors[0]
+                assert tv.hetdata.freq_factors[0] == t1kw1.hetdata.freq_factors[0]
+                assert np.allclose(
+                    tv.hetdata["H1"][0].data.real, t1kw1.hetdata["H1"][0].data.real
+                )
+                assert np.allclose(
+                    tv.hetdata["H1"][0].data.imag, t1kw1.hetdata["H1"][0].data.imag
+                )
+                assert np.allclose(
+                    tv.hetdata["H1"][0].times.value, t1kw1.hetdata["H1"][0].times.value
+                )
+
         os.remove(configfile)
 
     def test_no_par_input(self):
