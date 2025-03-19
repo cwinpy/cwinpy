@@ -2,6 +2,7 @@ import os
 import pathlib
 import re
 
+import astropy.coordinates as coords
 import lal
 import lalpulsar
 import numpy as np
@@ -23,6 +24,12 @@ PPUNITS = {
     "PMDEC": u.rad / u.s,  # rad/s
     "ELONG": u.rad,  # rad
     "ELAT": u.rad,  # rad
+    "PMELONG": u.rad / u.s,  # rad/s
+    "PMELAT": u.rad / u.s,  # rad/s
+    "BETA": u.rad,  # rad
+    "LAMBDA": u.rad,  # rad
+    "PMBETA": u.rad / u.s,  # rad/s
+    "PMLAMBDA": u.rad / u.s,  # rad/s
     "PEPOCH": u.s,  # GPS seconds
     "POSEPOCH": u.s,  # GPS seconds
     "DMEPOCH": u.s,  # GPS seconds
@@ -135,6 +142,12 @@ TEMPOUNITS = {
     "PMDEC": u.mas / u.yr,  # milliarcsecs/year
     "ELONG": u.deg,  # degrees
     "ELAT": u.deg,  # degrees
+    "PMELONG": u.mas / u.yr,  # milliarcsecs/year
+    "PMELAT": u.mas / u.yr,  # milliarcsecs/year
+    "BETA": u.deg,  # degrees
+    "LAMBDA": u.deg,  # degrees
+    "PMBETA": u.mas / u.yr,  # milliarcsecs/year
+    "PMLAMBDA": u.mas / u.yr,  # milliarcsecs/year
     "PEPOCH": u.d,  # MJD(TT) (day)
     "POSEPOCH": u.d,  # MJD(TT) (day)
     "DMEPOCH": u.d,  # MJD(TT) (day)
@@ -268,6 +281,39 @@ add_alias(
     lambda n, pp: n * pp["F1"] ** 2 / pp["F0"],
 )
 
+# obliquity from PINT file ecliptic.dat
+OBL = {
+    "TEMPO": 84381.412 * u.arcsec,
+    "TEMPO2": 84381.4059 * u.arcsec,
+}
+
+
+class PulsarEcliptic(coords.BaseCoordinateFrame):
+    """
+    A Pulsar Ecliptic coordinate system is defined by rotating ICRS coordinate
+    about x-axis by obliquity angle. Historical, This coordinate is used by
+    tempo/tempo2 for a better fitting error treatment.
+    The obliquity angle values respect to time are given in the file named "ecliptic.dat"
+    in the pint/datafile directory. This is based on the class from PINT.
+
+    Parameters
+    ----------
+    representation : `BaseRepresentation` or None
+        A representation object or None to have no data (or use the other keywords)
+    Lambda : `Angle`, optional, must be keyword
+        The longitude-like angle corresponding to Sagittarius' orbit.
+    Beta : `Angle`, optional, must be keyword
+        The latitude-like angle corresponding to Sagittarius' orbit.
+    distance : `Quantity`, optional, must be keyword
+        The Distance for this object along the line-of-sight.
+    """
+
+    default_representation = coords.SphericalRepresentation
+    default_differential = coords.SphericalCosLatDifferential
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
 
 class PulsarParameters:
     keynames = []  # parameter names in PulsarParameters structure
@@ -365,6 +411,51 @@ class PulsarParameters:
         if key[-4:].upper() == "_ERR":
             geterr = True
             tkey = key[:-4]  # get the actual parameter key name
+
+        # check if key is asking for equatorial coordinate value when only
+        # ecliptic coordinates exist
+        if key.upper() in ["RAJ", "DECJ", "RA", "DEC", "PMRA", "PMDEC"]:
+            if self[key] is None:
+                poskeys = [["ELONG", "ELAT"], ["LAMBDA", "BETA"]]
+
+                for pvals in poskeys:
+                    pvals.extend([f"PM{p}" for p in pvals])
+
+                    if any([self[p] is not None for p in pvals]):
+                        longkey = pvals[0]
+                        latkey = pvals[1]
+                        pmlongkey = pvals[2]
+                        pmlatkey = pvals[3]
+
+                        long = 0.0 if self[longkey] is None else self[longkey]
+                        lat = 0.0 if self[latkey] is None else self[latkey]
+                        pmlong = 0.0 if self[pmlongkey] is None else self[pmlongkey]
+                        pmlat = 0.0 if self[pmlatkey] is None else self[pmlatkey]
+
+                        eclcoords = coords.SkyCoord(
+                            obliquity=OBL[
+                                self["UNITS"].upper()
+                                if self["UNITS"] is not None
+                                else "TEMPO2"
+                            ],
+                            lon=long * PPUNITS[longkey],
+                            lat=lat * PPUNITS[latkey],
+                            pm_lon_coslat=pmlong * PPUNITS[pmlongkey],
+                            pm_lat=pmlat * PPUNITS[pmlatkey],
+                            obstime=self["POSEPOCH"] * PPUNITS["POSEPOCH"],
+                            frame=PulsarEcliptic,
+                        ).transform_to(coords.ICRS)
+
+                        if key.upper() == "RAJ":
+                            return eclcoords.ra.to(PPUNITS[key.upper()])
+                        elif key.upper() == "DECJ":
+                            return eclcoords.dec.to(PPUNITS[key.upper()])
+                        elif key.upper() == "PMRA":
+                            return eclcoords.pm_ra_cosdec.to(PPUNITS[key.upper()])
+                        else:
+                            return eclcoords.pm_dec.to(PPUNITS[key.upper()])
+                else:
+                    return None
 
         # check if the key is asking for an individual parameter from a vector parameter
         # (e.g. 'F0' gets the first value from the 'F' vector.
