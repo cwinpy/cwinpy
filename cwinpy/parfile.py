@@ -7,6 +7,7 @@ import lal
 import lalpulsar
 import numpy as np
 from astropy import units as u
+from astropy.time import Time
 
 # set units of parameters in the PulsarParameters structure
 PPUNITS = {
@@ -293,26 +294,49 @@ class PulsarEcliptic(coords.BaseCoordinateFrame):
     A Pulsar Ecliptic coordinate system is defined by rotating ICRS coordinate
     about x-axis by obliquity angle. Historical, This coordinate is used by
     tempo/tempo2 for a better fitting error treatment.
-    The obliquity angle values respect to time are given in the file named "ecliptic.dat"
-    in the pint/datafile directory. This is based on the class from PINT.
+    The obliquity angle values respect to time are given in the file named
+    "ecliptic.dat" in the pint/datafile directory.
 
-    Parameters
-    ----------
-    representation : `BaseRepresentation` or None
-        A representation object or None to have no data (or use the other keywords)
-    Lambda : `Angle`, optional, must be keyword
-        The longitude-like angle corresponding to Sagittarius' orbit.
-    Beta : `Angle`, optional, must be keyword
-        The latitude-like angle corresponding to Sagittarius' orbit.
-    distance : `Quantity`, optional, must be keyword
-        The Distance for this object along the line-of-sight.
+    This is based on the :class:`~pint.pulsar_ecliptic.PulsarEcliptic` class
+    from PINT.
     """
 
     default_representation = coords.SphericalRepresentation
     default_differential = coords.SphericalCosLatDifferential
+    obliquity = coords.QuantityAttribute(
+        default=84381.4059 * u.arcsecond, unit=u.arcsec
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+
+def _ecliptic_rotation_matrix_pulsar(obl) -> np.ndarray:
+    """
+    Here we only do the obliquity angle rotation. Astropy will add the
+    precession-nutation correction.
+
+    This is copied from PINT.
+    """
+    return coords.matrix_utilities.rotation_matrix(obl, "x")
+
+
+@coords.frame_transform_graph.transform(
+    coords.DynamicMatrixTransform, coords.ICRS, PulsarEcliptic
+)
+def icrs_to_pulsarecliptic(
+    from_coo: coords.BaseCoordinateFrame, to_frame: coords.BaseCoordinateFrame
+) -> np.ndarray:
+    return _ecliptic_rotation_matrix_pulsar(to_frame.obliquity)
+
+
+@coords.frame_transform_graph.transform(
+    coords.DynamicMatrixTransform, PulsarEcliptic, coords.ICRS
+)
+def pulsarecliptic_to_icrs(
+    from_coo: coords.BaseCoordinateFrame, to_frame: coords.BaseCoordinateFrame
+) -> np.ndarray:
+    return icrs_to_pulsarecliptic(to_frame, from_coo).T
 
 
 class PulsarParameters:
@@ -415,7 +439,7 @@ class PulsarParameters:
         # check if key is asking for equatorial coordinate value when only
         # ecliptic coordinates exist
         if key.upper() in ["RAJ", "DECJ", "RA", "DEC", "PMRA", "PMDEC"]:
-            if self[key] is None:
+            if not lalpulsar.PulsarCheckParam(self._pulsarparameters, key.upper()):
                 poskeys = [["ELONG", "ELAT"], ["LAMBDA", "BETA"]]
 
                 for pvals in poskeys:
@@ -434,26 +458,24 @@ class PulsarParameters:
 
                         eclcoords = coords.SkyCoord(
                             obliquity=OBL[
-                                self["UNITS"].upper()
-                                if self["UNITS"] is not None
-                                else "TEMPO2"
+                                "TEMPO" if self["T2CMETHOD"] == "TEMPO" else "TEMPO2"
                             ],
                             lon=long * PPUNITS[longkey],
                             lat=lat * PPUNITS[latkey],
                             pm_lon_coslat=pmlong * PPUNITS[pmlongkey],
                             pm_lat=pmlat * PPUNITS[pmlatkey],
-                            obstime=self["POSEPOCH"] * PPUNITS["POSEPOCH"],
+                            obstime=Time(self["POSEPOCH"], format="gps"),
                             frame=PulsarEcliptic,
                         ).transform_to(coords.ICRS)
 
                         if key.upper() == "RAJ":
-                            return eclcoords.ra.to(PPUNITS[key.upper()])
+                            return eclcoords.ra.to(PPUNITS[key.upper()]).value
                         elif key.upper() == "DECJ":
-                            return eclcoords.dec.to(PPUNITS[key.upper()])
+                            return eclcoords.dec.to(PPUNITS[key.upper()]).value
                         elif key.upper() == "PMRA":
-                            return eclcoords.pm_ra_cosdec.to(PPUNITS[key.upper()])
+                            return eclcoords.pm_ra_cosdec.to(PPUNITS[key.upper()]).value
                         else:
-                            return eclcoords.pm_dec.to(PPUNITS[key.upper()])
+                            return eclcoords.pm_dec.to(PPUNITS[key.upper()]).value
                 else:
                     return None
 
