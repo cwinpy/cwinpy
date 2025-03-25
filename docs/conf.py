@@ -252,4 +252,5 @@ intersphinx_mapping = {
     "seaborn": ("https://seaborn.pydata.org/", None),
     "cweqgen": ("https://cweqgen.readthedocs.io/en/latest/", None),
     "pesummary": ("https://docs.ligo.org/lscsoft/pesummary/stable_docs/", None),
+    "pint": ("https://nanograv-pint.readthedocs.io/en/latest/", None),
 }

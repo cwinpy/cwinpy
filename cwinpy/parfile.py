@@ -2,10 +2,12 @@ import os
 import pathlib
 import re
 
+import astropy.coordinates as coords
 import lal
 import lalpulsar
 import numpy as np
 from astropy import units as u
+from astropy.time import Time
 
 # set units of parameters in the PulsarParameters structure
 PPUNITS = {
@@ -23,6 +25,12 @@ PPUNITS = {
     "PMDEC": u.rad / u.s,  # rad/s
     "ELONG": u.rad,  # rad
     "ELAT": u.rad,  # rad
+    "PMELONG": u.rad / u.s,  # rad/s
+    "PMELAT": u.rad / u.s,  # rad/s
+    "BETA": u.rad,  # rad
+    "LAMBDA": u.rad,  # rad
+    "PMBETA": u.rad / u.s,  # rad/s
+    "PMLAMBDA": u.rad / u.s,  # rad/s
     "PEPOCH": u.s,  # GPS seconds
     "POSEPOCH": u.s,  # GPS seconds
     "DMEPOCH": u.s,  # GPS seconds
@@ -87,7 +95,7 @@ PPUNITS = {
     "PHI22": u.rad,  # radians
     "PHI21": u.rad,  # radians
     "CGW": u.dimensionless_unscaled,
-    "LAMBDA": u.rad,  # radians
+    "LAMBDAPIN": u.rad,  # radians
     "COSTHETA": u.dimensionless_unscaled,
     "THETA": u.rad,
     "I21": u.dimensionless_unscaled,
@@ -135,6 +143,12 @@ TEMPOUNITS = {
     "PMDEC": u.mas / u.yr,  # milliarcsecs/year
     "ELONG": u.deg,  # degrees
     "ELAT": u.deg,  # degrees
+    "PMELONG": u.mas / u.yr,  # milliarcsecs/year
+    "PMELAT": u.mas / u.yr,  # milliarcsecs/year
+    "BETA": u.deg,  # degrees
+    "LAMBDA": u.deg,  # degrees
+    "PMBETA": u.mas / u.yr,  # milliarcsecs/year
+    "PMLAMBDA": u.mas / u.yr,  # milliarcsecs/year
     "PEPOCH": u.d,  # MJD(TT) (day)
     "POSEPOCH": u.d,  # MJD(TT) (day)
     "DMEPOCH": u.d,  # MJD(TT) (day)
@@ -268,6 +282,62 @@ add_alias(
     lambda n, pp: n * pp["F1"] ** 2 / pp["F0"],
 )
 
+# obliquity from PINT file ecliptic.dat
+OBL = {
+    "TEMPO": 84381.412 * u.arcsec,
+    "TEMPO2": 84381.4059 * u.arcsec,
+}
+
+
+class PulsarEcliptic(coords.BaseCoordinateFrame):
+    """
+    A Pulsar Ecliptic coordinate system is defined by rotating ICRS coordinate
+    about x-axis by obliquity angle. Historical, This coordinate is used by
+    tempo/tempo2 for a better fitting error treatment.
+    The obliquity angle values respect to time are given in the file named
+    "ecliptic.dat" in the pint/datafile directory.
+
+    This is based on the :class:`~pint.pulsar_ecliptic.PulsarEcliptic` class
+    from PINT.
+    """
+
+    default_representation = coords.SphericalRepresentation
+    default_differential = coords.SphericalCosLatDifferential
+    obliquity = coords.QuantityAttribute(
+        default=84381.4059 * u.arcsecond, unit=u.arcsec
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+def _ecliptic_rotation_matrix_pulsar(obl) -> np.ndarray:
+    """
+    Here we only do the obliquity angle rotation. Astropy will add the
+    precession-nutation correction.
+
+    This is copied from PINT.
+    """
+    return coords.matrix_utilities.rotation_matrix(obl, "x")
+
+
+@coords.frame_transform_graph.transform(
+    coords.DynamicMatrixTransform, coords.ICRS, PulsarEcliptic
+)
+def icrs_to_pulsarecliptic(
+    from_coo: coords.BaseCoordinateFrame, to_frame: coords.BaseCoordinateFrame
+) -> np.ndarray:
+    return _ecliptic_rotation_matrix_pulsar(to_frame.obliquity)
+
+
+@coords.frame_transform_graph.transform(
+    coords.DynamicMatrixTransform, PulsarEcliptic, coords.ICRS
+)
+def pulsarecliptic_to_icrs(
+    from_coo: coords.BaseCoordinateFrame, to_frame: coords.BaseCoordinateFrame
+) -> np.ndarray:
+    return icrs_to_pulsarecliptic(to_frame, from_coo).T
+
 
 class PulsarParameters:
     keynames = []  # parameter names in PulsarParameters structure
@@ -365,6 +435,49 @@ class PulsarParameters:
         if key[-4:].upper() == "_ERR":
             geterr = True
             tkey = key[:-4]  # get the actual parameter key name
+
+        # check if key is asking for equatorial coordinate value when only
+        # ecliptic coordinates exist
+        if key.upper() in ["RAJ", "DECJ", "RA", "DEC", "PMRA", "PMDEC"]:
+            if not lalpulsar.PulsarCheckParam(self._pulsarparameters, key.upper()):
+                poskeys = [["ELONG", "ELAT"], ["LAMBDA", "BETA"]]
+
+                for pvals in poskeys:
+                    pvals.extend([f"PM{p}" for p in pvals])
+
+                    if any([self[p] is not None for p in pvals]):
+                        longkey = pvals[0]
+                        latkey = pvals[1]
+                        pmlongkey = pvals[2]
+                        pmlatkey = pvals[3]
+
+                        long = 0.0 if self[longkey] is None else self[longkey]
+                        lat = 0.0 if self[latkey] is None else self[latkey]
+                        pmlong = 0.0 if self[pmlongkey] is None else self[pmlongkey]
+                        pmlat = 0.0 if self[pmlatkey] is None else self[pmlatkey]
+
+                        eclcoords = coords.SkyCoord(
+                            obliquity=OBL[
+                                "TEMPO" if self["T2CMETHOD"] == "TEMPO" else "TEMPO2"
+                            ],
+                            lon=long * PPUNITS[longkey],
+                            lat=lat * PPUNITS[latkey],
+                            pm_lon_coslat=pmlong * PPUNITS[pmlongkey],
+                            pm_lat=pmlat * PPUNITS[pmlatkey],
+                            obstime=Time(self["POSEPOCH"], format="gps"),
+                            frame=PulsarEcliptic,
+                        ).transform_to(coords.ICRS)
+
+                        if key.upper() == "RAJ":
+                            return eclcoords.ra.to(PPUNITS[key.upper()]).value
+                        elif key.upper() == "DECJ":
+                            return eclcoords.dec.to(PPUNITS[key.upper()]).value
+                        elif key.upper() == "PMRA":
+                            return eclcoords.pm_ra_cosdec.to(PPUNITS[key.upper()]).value
+                        else:
+                            return eclcoords.pm_dec.to(PPUNITS[key.upper()]).value
+                else:
+                    return None
 
         # check if the key is asking for an individual parameter from a vector parameter
         # (e.g. 'F0' gets the first value from the 'F' vector.
