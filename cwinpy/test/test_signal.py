@@ -54,7 +54,7 @@ def mismatch(model1, model2):
     return 1.0 - np.abs(np.vdot(model1, model2) / np.vdot(model1, model1))
 
 
-class TestSignal(object):
+class TestSignal:
     """
     Test the HeterodynedCWSimulator class.
     """
@@ -258,3 +258,90 @@ class TestSignal(object):
             )
             assert np.std(phasediff) < 0.01
             assert np.max(phasediff) - np.min(phasediff) < 0.1
+
+
+class TestPhaseOnly:
+    """
+    Test the simulator when it just outputs phase.
+    """
+
+    def test_slow_signal(self):
+        """
+        Test a slowly varying signal at 0.0001 Hz for the correct phase.
+        """
+
+        times = np.arange(1000000000.0, 1008640000.0, 10000, dtype=np.float128)
+
+        par = PulsarParameters()
+        par["F"] = [0.0001]
+        par["PEPOCH"] = 55818.0  # roughly GPS time of 1000000000
+
+        # set pulsar at roughly the ecliptic pole
+        par["DECJ"] = 1.16
+        par["RAJ"] = 4.71
+
+        pulsar = HeterodynedCWSimulator(par, "H1", times=times)
+
+        phase = pulsar.model(freqfactor=1.0, phase_only=True)
+        phase -= phase[0]
+        print(phase.min(), phase.max(), phase.argmin(), phase.argmax())
+
+        assert np.allclose(phase, np.zeros_like(phase), atol=1e-4)
+
+    def test_signal_frequency(self):
+        """
+        Calculate the signal frequency using the derivative of the phase and
+        check it matches the expected frequency.
+        """
+
+        dt = 0.01
+        duration = 86400 * 365  # one year
+        times = np.arange(1000000000.0, 1000000000 + duration, 10, dtype=np.float128)
+        times2 = times + dt
+
+        par = PulsarParameters()
+        par["F"] = [1.0]
+        par["PEPOCH"] = 55818.0  # roughly GPS time of 1000000000
+
+        # set pulsar near ecliptic plane (first point of Aries)
+        par["DECJ"] = 0.0
+        par["RAJ"] = 0.0
+
+        pulsar = HeterodynedCWSimulator(par, "L1", times=times)
+        pulsar2 = HeterodynedCWSimulator(par, "L1", times=times2)
+
+        phase1 = pulsar.model(freqfactor=1.0, phase_only=True)
+        phase2 = pulsar2.model(freqfactor=1.0, phase_only=True)
+
+        freqs = np.mod(phase2 - phase1, 1.0) / dt
+        maxdfplane = np.max(np.abs(freqs - par["F0"]))
+
+        # approximate maximum Doppler shift from Earth orbit + rotation
+        dfmax = par["F0"] * ((29.78e3 + 460) / 3e8)
+
+        # make sure frequencies are below max Doppler shift (with 10% leeway)
+        assert maxdfplane < 1.1 * dfmax
+
+        # set pulsar near ecliptic pole
+        par["DECJ"] = 1.16
+        par["RAJ"] = 4.71
+
+        pulsar = HeterodynedCWSimulator(par, "L1", times=times)
+        pulsar2 = HeterodynedCWSimulator(par, "L1", times=times2)
+
+        phase1 = pulsar.model(freqfactor=1.0, phase_only=True)
+        phase2 = pulsar2.model(freqfactor=1.0, phase_only=True)
+
+        freqs = np.mod(phase2 - phase1, 1.0) / dt
+        maxdfpole = np.max(np.abs(freqs - par["F0"]))
+
+        # make sure frequencies are below 20% of max Doppler shift
+        assert maxdfpole < 0.2 * dfmax
+        assert maxdfpole < maxdfplane
+
+    def test_tempo2(self):
+        """
+        Test the phase only when calculated with Tempo2 vs LAL.
+        """
+
+        pass
