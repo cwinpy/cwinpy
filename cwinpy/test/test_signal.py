@@ -311,7 +311,9 @@ class TestPhaseOnly:
         pulsar2 = HeterodynedCWSimulator(par, "L1", times=times2)
 
         phase1 = pulsar.model(freqfactor=1.0, phase_only=True)
-        phase2 = pulsar2.model(freqfactor=1.0, phase_only=True)
+
+        # use phase_evolution method interface as test
+        phase2 = pulsar2.phase_evolution(freqfactor=1.0)
 
         freqs = np.mod(phase2 - phase1, 1.0) / dt
         maxdfplane = np.max(np.abs(freqs - par["F0"]))
@@ -329,8 +331,9 @@ class TestPhaseOnly:
         pulsar = HeterodynedCWSimulator(par, "L1", times=times)
         pulsar2 = HeterodynedCWSimulator(par, "L1", times=times2)
 
-        phase1 = pulsar.model(freqfactor=1.0, phase_only=True)
-        phase2 = pulsar2.model(freqfactor=1.0, phase_only=True)
+        # use call method
+        phase1 = pulsar(freqfactor=1.0, phase_only=True)
+        phase2 = pulsar2.phase_evolution(freqfactor=1.0)
 
         freqs = np.mod(phase2 - phase1, 1.0) / dt
         maxdfpole = np.max(np.abs(freqs - par["F0"]))
