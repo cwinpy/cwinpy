@@ -116,7 +116,7 @@ An example usage to generate the complex heterodyned signal time series is:
    det = "H1"  # the LIGO Hanford Observatory
 
    # create the HeterodynedCWSimulator object
-   het = HeterodynedCWSimulator(par, det, times=times)
+   het = HeterodynedCWSimulator(par=par, det=det, times=times)
 
    # get the model complex strain time series
    model = het.model()
@@ -129,7 +129,7 @@ An example usage to generate the complex heterodyned signal time series is:
    .. code-block:: python
 
       par = "J0537-6910.par"
-      het = HeterodynedCWSimulator(par, det, times=times)
+      het = HeterodynedCWSimulator(par=par, det=det, times=times)
 
 An example (showing both use of the default phase evolution calculation and that using Tempo2) of
 getting the time series for a signal that has phase parameters that are not identical to the
@@ -164,7 +164,7 @@ heterodyned parameters would be:
    det = "H1"  # the LIGO Hanford Observatory
 
    # create the HeterodynedCWSimulator object
-   het = HeterodynedCWSimulator(par, det, times=times)
+   het = HeterodynedCWSimulator(par=par, det=det, times=times)
 
    # set the updated parameters
    parupdate = deepcopy(par)
@@ -176,7 +176,7 @@ heterodyned parameters would be:
    model = het.model(parupdate, updateSSB=True)
 
    # do the same but using Tempo2
-   hettempo2 = HeterodynedCWSimulator(par, det, times=times, usetempo2=True)
+   hettempo2 = HeterodynedCWSimulator(par=par, det=det, times=times, usetempo2=True)
    modeltempo2 = hettempo2.model(parupdate)
 
 Overplotting these (the Tempo2 version is shown as black dashed lines) we see:

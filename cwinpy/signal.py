@@ -18,8 +18,8 @@ from .utils import (
 class HeterodynedCWSimulator(object):
     def __init__(
         self,
-        par,
-        det,
+        par=None,
+        det=None,
         times=None,
         earth_ephem=None,
         sun_ephem=None,
@@ -28,7 +28,8 @@ class HeterodynedCWSimulator(object):
         usetempo2=False,
         t0=None,
         dt=None,
-        zero_delays=False,
+        ref_freq=None,
+        ref_epoch=None,
     ):
         """
         A class to simulate strain data for a continuous gravitational-wave
@@ -43,9 +44,11 @@ class HeterodynedCWSimulator(object):
             A Tempo-style text file, or a
             :class:`~cwinpy.parfile.PulsarParameters` object, containing the
             parameters for the source, in particular the phase parameters at
-            which the data is "heterodyned".
+            which the data is "heterodyned". This is required unless you are
+            specifying a ``ref_freq`` for a static frame.
         det: str
-            The name of a gravitational-wave detector.
+            The name of a gravitational-wave detector at with to simulate the
+            signal. This is required.
         times: array_like
             An array of GPS times at which to calculate the heterodyned strain.
         t0: float
@@ -80,10 +83,17 @@ class HeterodynedCWSimulator(object):
             ``units`` arguments are not required. Information on the correct
             ephemeris will all be calculated internally by TEMPO2 using the
             information from the pulsar parameter file.
-        zero_delays: bool
-            Set to True to initialise the solar system and binary system delays
-            to zero. This can be used to initialise the model to have a phase
-            in a static frame.
+        ref_freq: float
+            Use this to set the source rotation frequency in (Hz) if simulating
+            an initial heterodyne at a fixed frequency without and
+            barycentring. This will set the barycentring delays to zero, or, if
+            using Tempo2, the "original" phase will be calculated at the SSB.
+            This will be ignored if a ``par`` file is supplied. A reference
+            epoch must either be supplied using the ``ref_epoch`` argument, or
+            will be the first supplied time stamp. If the reference epoch is
+            too far from the epoch that in any "updated" ``par`` file, it can
+            result in numerical problems that will case the calculations to
+            fail.
         """
 
         self.usetempo2 = check_for_tempo2() if usetempo2 else False
@@ -92,10 +102,36 @@ class HeterodynedCWSimulator(object):
                 "TEMPO2 is not available, so the usetempo2 option cannot be used"
             )
 
-        self.__hetpar, self.__parfile = self._read_par(par)
+        if det is None:
+            raise ValueError("A detector must be supplied")
 
         self.detector = det
         self.times = times
+
+        self.ref_freq = None
+        if par is not None:
+            self.__hetpar, self.__parfile = self._read_par(par)
+        elif ref_freq is not None:
+            # using reference frequency for original heterodyne
+            self.ref_freq = ref_freq
+
+            par = PulsarParameters()
+            par["F"] = [ref_freq]
+            par["RAJ"] = 0.0  # dummy RA
+            par["DECJ"] = 0.0  # dummy dec
+
+            if ref_epoch is not None:
+                par["PEPOCH"] = ref_epoch
+            elif self.times is not None:
+                par["PEPOCH"] = self.times[0].astype(np.float64)
+            else:
+                raise ValueError(
+                    "Times or a reference epoch must be specified to use reference frequency"
+                )
+
+            self.__hetpar, self.__parfile = self._read_par(par)
+        else:
+            raise ValueError("No par file or reference frequency specified")
 
         if not self.usetempo2:
             self.ephem = ephem
@@ -129,7 +165,7 @@ class HeterodynedCWSimulator(object):
 
             # set the "heterodyne" SSB time delay
             if self.times is not None:
-                if not zero_delays:
+                if self.ref_freq is None:
                     self.__hetSSBdelay = lalpulsar.HeterodynedPulsarGetSSBDelay(
                         self.hetpar.PulsarParameters(),
                         self.gpstimes,
@@ -139,6 +175,7 @@ class HeterodynedCWSimulator(object):
                         self.__units_type,
                     )
                 else:
+                    # set SSB delay to zero, i.e., a static frame
                     self.__hetSSBdelay = lal.CreateREAL8Vector(len(self.times))
                     self.__hetSSBdelay.data[:] = 0.0
             else:
@@ -146,7 +183,7 @@ class HeterodynedCWSimulator(object):
 
             # set the "heterodyne" BSB time delay
             if self.times is not None and self.hetpar["BINARY"] is not None:
-                if not zero_delays:
+                if self.ref_freq is None:
                     self.__hetBSBdelay = lalpulsar.HeterodynedPulsarGetBSBDelay(
                         self.hetpar.PulsarParameters(),
                         self.gpstimes,
@@ -154,6 +191,7 @@ class HeterodynedCWSimulator(object):
                         self.__edat,
                     )
                 else:
+                    # set BSB delay to zero, i.e., a static frame
                     self.__hetBSBdelay = lal.CreateREAL8Vector(len(self.times))
                     self.__hetBSBdelay.data[:] = 0.0
             else:
@@ -508,7 +546,9 @@ class HeterodynedCWSimulator(object):
                         parfile=self.parfile,
                         toas=mjdtimes,
                         toaerrs=toaerr,
-                        observatory=TEMPO2_GW_ALIASES[self.__detector_name],
+                        observatory=TEMPO2_GW_ALIASES[self.__detector_name]
+                        if self.ref_freq is None
+                        else "@",
                         dofit=False,
                         obsfreq=0.0,  # set to 0 so as not to calculate DM delay
                     )
@@ -592,26 +632,31 @@ class HeterodynedCWSimulator(object):
     def phase_evolution(
         self,
         newpar=None,
-        updateSSB=False,
-        updateBSB=False,
-        updateglphase=False,
-        updatefitwaves=False,
         freqfactor=2.0,
+        **kwargs,
     ):
         """
         Return the phase evolution of the signal. If ``newpar`` is supplied
         then the phase difference will be output, otherwise phase evolution of
         the original input par file will be output. See
         :meth:`~cwinpy.signal.HeterodynedCWSimulator.model` for input
-        arguments.
+        arguments. If you created the
+        :class:`~cwinpy.signal.HeterodynedCWSimulator` using a reference
+        frequency and you are supplying a ``newpar``,the "update" keyword
+        arguments will all default to ``True``, but otherwise default to
+        ``False``.
         """
+
+        ref_freq_used = newpar is not None and self.ref_freq is not None
 
         return self(
             newpar=newpar,
-            updateSSB=updateSSB,
-            updateBSB=updateBSB,
-            updateglphase=updateglphase,
-            updatefitwaves=updatefitwaves,
+            updateSSB=kwargs.get("updateSSB", True if ref_freq_used else False),
+            updateBSB=kwargs.get("updateBSB", True if ref_freq_used else False),
+            updateglphase=kwargs.get("updateglphase", True if ref_freq_used else False),
+            updatefitwaves=kwargs.get(
+                "updatefitwaves", True if ref_freq_used else False
+            ),
             freqfactor=freqfactor,
             outputampcoeffs=False,
             roq=False,

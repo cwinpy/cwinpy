@@ -1093,8 +1093,8 @@ transientTau = {tau}
 
             # set expected model
             sim = HeterodynedCWSimulator(
-                hetdata.par,
-                hetdata.detector,
+                par=hetdata.par,
+                det=hetdata.detector,
                 times=hetdata.times.value,
                 earth_ephem=hetdata.ephemearth,
                 sun_ephem=hetdata.ephemsun,
@@ -1252,8 +1252,8 @@ transientTau = {tau}
 
             # set expected model
             sim = HeterodynedCWSimulator(
-                hetdata.par,
-                hetdata.detector,
+                par=hetdata.par,
+                det=hetdata.detector,
                 times=hetdata.times.value,
                 earth_ephem=hetdata.ephemearth,
                 sun_ephem=hetdata.ephemsun,
@@ -1319,8 +1319,8 @@ transientTau = {tau}
 
             # set expected model
             sim = HeterodynedCWSimulator(
-                hetdata.par,
-                hetdata.detector,
+                par=hetdata.par,
+                det=hetdata.detector,
                 times=hetdata.times.value,
                 earth_ephem=hetdata.ephemearth,
                 sun_ephem=hetdata.ephemsun,
