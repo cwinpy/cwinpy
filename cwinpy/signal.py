@@ -28,6 +28,7 @@ class HeterodynedCWSimulator(object):
         usetempo2=False,
         t0=None,
         dt=None,
+        zero_delays=False,
     ):
         """
         A class to simulate strain data for a continuous gravitational-wave
@@ -79,6 +80,10 @@ class HeterodynedCWSimulator(object):
             ``units`` arguments are not required. Information on the correct
             ephemeris will all be calculated internally by TEMPO2 using the
             information from the pulsar parameter file.
+        zero_delays: bool
+            Set to True to initialise the solar system and binary system delays
+            to zero. This can be used to initialise the model to have a phase
+            in a static frame.
         """
 
         self.usetempo2 = check_for_tempo2() if usetempo2 else False
@@ -124,25 +129,33 @@ class HeterodynedCWSimulator(object):
 
             # set the "heterodyne" SSB time delay
             if self.times is not None:
-                self.__hetSSBdelay = lalpulsar.HeterodynedPulsarGetSSBDelay(
-                    self.hetpar.PulsarParameters(),
-                    self.gpstimes,
-                    self.detector,
-                    self.__edat,
-                    self.__tdat,
-                    self.__units_type,
-                )
+                if not zero_delays:
+                    self.__hetSSBdelay = lalpulsar.HeterodynedPulsarGetSSBDelay(
+                        self.hetpar.PulsarParameters(),
+                        self.gpstimes,
+                        self.detector,
+                        self.__edat,
+                        self.__tdat,
+                        self.__units_type,
+                    )
+                else:
+                    self.__hetSSBdelay = lal.CreateREAL8Vector(len(self.times))
+                    self.__hetSSBdelay.data[:] = 0.0
             else:
                 self.__hetSSBdelay = None
 
             # set the "heterodyne" BSB time delay
             if self.times is not None and self.hetpar["BINARY"] is not None:
-                self.__hetBSBdelay = lalpulsar.HeterodynedPulsarGetBSBDelay(
-                    self.hetpar.PulsarParameters(),
-                    self.gpstimes,
-                    self.__hetSSBdelay,
-                    self.__edat,
-                )
+                if not zero_delays:
+                    self.__hetBSBdelay = lalpulsar.HeterodynedPulsarGetBSBDelay(
+                        self.hetpar.PulsarParameters(),
+                        self.gpstimes,
+                        self.__hetSSBdelay,
+                        self.__edat,
+                    )
+                else:
+                    self.__hetBSBdelay = lal.CreateREAL8Vector(len(self.times))
+                    self.__hetBSBdelay.data[:] = 0.0
             else:
                 self.__hetBSBdelay = None
 
