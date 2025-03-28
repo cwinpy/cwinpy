@@ -548,6 +548,9 @@ class HeterodynedCWSimulator(object):
                 # re-heterodyne with phase difference
                 return fast_heterodyne(compstrain.data.data, self.phasediff)
 
+    def __call__(self, *args, **kwargs):
+        return self.model(*args, **kwargs)
+
     def _read_par(self, par):
         """
         Read a TEMPO-style parameter file into a
@@ -590,7 +593,7 @@ class HeterodynedCWSimulator(object):
         arguments.
         """
 
-        return self.model(
+        return self(
             newpar=newpar,
             updateSSB=updateSSB,
             updateBSB=updateBSB,
