@@ -88,12 +88,13 @@ class HeterodynedCWSimulator(object):
             an initial heterodyne at a fixed frequency without and
             barycentring. This will set the barycentring delays to zero, or, if
             using Tempo2, the "original" phase will be calculated at the SSB.
-            This will be ignored if a ``par`` file is supplied. A reference
-            epoch must either be supplied using the ``ref_epoch`` argument, or
-            will be the first supplied time stamp. If the reference epoch is
-            too far from the epoch that in any "updated" ``par`` file, it can
-            result in numerical problems that will case the calculations to
-            fail.
+            This will be ignored if a ``par`` file is supplied.
+
+            A reference epoch must either be supplied using the ``ref_epoch``
+            argument, or it will be taken to be the first supplied time stamp.
+            Note that, if the reference epoch is too far from the epoch that in
+            any "updated" ``par`` file, it can result in numerical problems
+            that will case the calculations to fail.
         """
 
         self.usetempo2 = check_for_tempo2() if usetempo2 else False
@@ -132,6 +133,11 @@ class HeterodynedCWSimulator(object):
             self.__hetpar, self.__parfile = self._read_par(par)
         else:
             raise ValueError("No par file or reference frequency specified")
+
+        self.__hetSSBdelay = None
+        self.__hetBSBdelay = None
+        self.__hetglitchphase = None
+        self.__hetfitwavesphase = None
 
         if not self.usetempo2:
             self.ephem = ephem
@@ -178,8 +184,6 @@ class HeterodynedCWSimulator(object):
                     # set SSB delay to zero, i.e., a static frame
                     self.__hetSSBdelay = lal.CreateREAL8Vector(len(self.times))
                     self.__hetSSBdelay.data[:] = 0.0
-            else:
-                self.__hetSSBdelay = None
 
             # set the "heterodyne" BSB time delay
             if self.times is not None and self.hetpar["BINARY"] is not None:
@@ -194,8 +198,6 @@ class HeterodynedCWSimulator(object):
                     # set BSB delay to zero, i.e., a static frame
                     self.__hetBSBdelay = lal.CreateREAL8Vector(len(self.times))
                     self.__hetBSBdelay.data[:] = 0.0
-            else:
-                self.__hetBSBdelay = None
 
             # set the "heterodyne" glitch phase
             if self.times is not None and self.hetpar["GLEP"] is not None:
@@ -205,8 +207,6 @@ class HeterodynedCWSimulator(object):
                     self.__hetSSBdelay,
                     self.__hetBSBdelay,
                 )
-            else:
-                self.__hetglitchphase = None
 
             # set the "heterodyne" FITWAVES phase
             if (
@@ -220,8 +220,6 @@ class HeterodynedCWSimulator(object):
                     self.__hetSSBdelay,
                     self.hetpar["F0"],
                 )
-            else:
-                self.__hetfitwavesphase = None
 
         # set the response function
         if self.times is None and t0 is None:
@@ -484,6 +482,7 @@ class HeterodynedCWSimulator(object):
         else:
             from .heterodyne.fastheterodyne import fast_heterodyne
 
+            origpar = None
             if not self.usetempo2:
                 # use LAL function for phase calculation
                 origpar = self.hetpar
@@ -508,7 +507,9 @@ class HeterodynedCWSimulator(object):
                     parupdate.PulsarParameters()
                     if newpar is not None
                     else origpar.PulsarParameters(),
-                    origpar.PulsarParameters() if newpar is not None else None,
+                    origpar.PulsarParameters()
+                    if newpar is not None or self.usetempo2
+                    else None,
                     self.gpstimes,
                     freqfactor,
                     self.ssbdelay,
@@ -530,7 +531,8 @@ class HeterodynedCWSimulator(object):
                 )
 
                 self._phasediff = -phase.data.astype(float)
-            else:
+
+            if self.usetempo2:
                 # use TEMPO2 for phase calculation
                 import sys
 
@@ -541,36 +543,40 @@ class HeterodynedCWSimulator(object):
                 mjdtimes = Time(self.times, format="gps", scale="utc").mjd
 
                 toaerr = 1e-15  # add tiny error value to stop errors
-                with MuteStream(stream=sys.stdout):
-                    psrorig = tempopulsar(
-                        parfile=self.parfile,
-                        toas=mjdtimes,
-                        toaerrs=toaerr,
-                        observatory=TEMPO2_GW_ALIASES[self.__detector_name]
-                        if self.ref_freq is None
-                        else "@",
-                        dofit=False,
-                        obsfreq=0.0,  # set to 0 so as not to calculate DM delay
-                    )
+                psrorig = None
 
-                    # get phase residuals
-                    # NOTE: referencing this to a site and epoch may not be
-                    # necessary, but we'll do it as a precaution
-                    phaseorig = psrorig.phaseresiduals(
-                        removemean="refphs",
-                        site="@",
-                        epoch=psrorig["PEPOCH"].val,
-                    )
-
-                    if phase_only and newpar is None:
-                        # get the correction for the phase epoch
-                        phasenum = psrorig.pulsenumbers(
-                            updatebats=False,
-                            formresiduals=False,
-                            removemean=False,
+                if self.ref_freq is None:
+                    with MuteStream(stream=sys.stdout):
+                        psrorig = tempopulsar(
+                            parfile=self.parfile,
+                            toas=mjdtimes,
+                            toaerrs=toaerr,
+                            observatory=TEMPO2_GW_ALIASES[self.__detector_name],
+                            dofit=False,
+                            obsfreq=0.0,  # set to 0 so as not to calculate DM delay
                         )
 
-                        phaseorig += phasenum - phasenum[0]
+                        # get phase residuals
+                        # NOTE: referencing this to a site and epoch may not be
+                        # necessary, but we'll do it as a precaution
+                        phaseorig = psrorig.phaseresiduals(
+                            removemean="refphs",
+                            site="@",
+                            epoch=psrorig["PEPOCH"].val,
+                        )
+
+                        if phase_only and newpar is None:
+                            # get the correction for the phase epoch
+                            phasenum = psrorig.pulsenumbers(
+                                updatebats=False,
+                                formresiduals=False,
+                                removemean=False,
+                            )
+
+                            phaseorig += phasenum - phasenum[0]
+                else:
+                    # calculate the phase for the reference frequency
+                    phaseorig = self.ref_freq * (self.times - self.hetpar["PEPOCH"])
 
                 if newpar is not None:
                     with MuteStream(stream=sys.stdout):
@@ -587,7 +593,11 @@ class HeterodynedCWSimulator(object):
                         phasenew = psrnew.phaseresiduals(
                             removemean="refphs",
                             site="@",
-                            epoch=psrorig["PEPOCH"].val,
+                            epoch=psrorig["PEPOCH"].val
+                            if psrorig is not None
+                            else self.hetpar.convert_to_tempo_units(
+                                "PEPOCH", self.hetpar["PEPOCH"]
+                            ).value,
                         )
                 else:
                     phasenew = 0.0
