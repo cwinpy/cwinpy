@@ -92,9 +92,6 @@ class HeterodynedCWSimulator(object):
 
             A reference epoch must either be supplied using the ``ref_epoch``
             argument, or it will be taken to be the first supplied time stamp.
-            Note that, if the reference epoch is too far from the epoch that in
-            any "updated" ``par`` file, it can result in numerical problems
-            that will case the calculations to fail.
         """
 
         self.usetempo2 = check_for_tempo2() if usetempo2 else False
@@ -539,68 +536,85 @@ class HeterodynedCWSimulator(object):
                 from astropy.time import Time
                 from libstempo import tempopulsar
 
+                # maximum number of obsverations that can be used at once (see tempo2.h)
+                MAX_OBS_VAL = 20000
+
                 # convert times to MJD
                 mjdtimes = Time(self.times, format="gps", scale="utc").mjd
 
                 toaerr = 1e-15  # add tiny error value to stop errors
                 psrorig = None
 
-                if self.ref_freq is None:
-                    with MuteStream(stream=sys.stdout):
-                        psrorig = tempopulsar(
-                            parfile=self.parfile,
-                            toas=mjdtimes,
-                            toaerrs=toaerr,
-                            observatory=TEMPO2_GW_ALIASES[self.__detector_name],
-                            dofit=False,
-                            obsfreq=0.0,  # set to 0 so as not to calculate DM delay
-                        )
+                phaseorig = np.zeros_like(self.times)
+                phasenew = np.zeros_like(self.times)
+                phasenum0 = None
 
-                        # get phase residuals
-                        # NOTE: referencing this to a site and epoch may not be
-                        # necessary, but we'll do it as a precaution
-                        phaseorig = psrorig.phaseresiduals(
-                            removemean="refphs",
-                            site="@",
-                            epoch=psrorig["PEPOCH"].val,
-                        )
+                # calculate MAX_OBS_VAL chunks at a time, so as not to run out
+                # of memory
+                for i in range(1 + len(self.times) // MAX_OBS_VAL):
+                    sidx = i * MAX_OBS_VAL
+                    eidx = min(len(self.times), sidx + MAX_OBS_VAL)
 
-                        if phase_only and newpar is None:
-                            # get the correction for the phase epoch
-                            phasenum = psrorig.pulsenumbers(
-                                updatebats=False,
-                                formresiduals=False,
-                                removemean=False,
+                    if self.ref_freq is None:
+                        with MuteStream(stream=sys.stdout):
+                            psrorig = tempopulsar(
+                                parfile=self.parfile,
+                                toas=mjdtimes[sidx:eidx],
+                                toaerrs=toaerr,
+                                observatory=TEMPO2_GW_ALIASES[self.__detector_name],
+                                dofit=False,
+                                obsfreq=0.0,  # set to 0 so as not to calculate DM delay
                             )
 
-                            phaseorig += phasenum - phasenum[0]
-                else:
-                    # calculate the phase for the reference frequency
-                    phaseorig = self.ref_freq * (self.times - self.hetpar["PEPOCH"])
+                            # get phase residuals
+                            # NOTE: referencing this to a site and epoch may not be
+                            # necessary, but we'll do it as a precaution
+                            phaseorig[sidx:eidx] = psrorig.phaseresiduals(
+                                removemean="refphs",
+                                site="@",
+                                epoch=psrorig["PEPOCH"].val,
+                            )
 
-                if newpar is not None:
-                    with MuteStream(stream=sys.stdout):
-                        psrnew = tempopulsar(
-                            parfile=parfile,
-                            toas=mjdtimes,
-                            toaerrs=toaerr,
-                            observatory=TEMPO2_GW_ALIASES[self.__detector_name],
-                            dofit=False,
-                            obsfreq=0.0,  # set to 0 so as not to calculate DM delay
+                            if phase_only and newpar is None:
+                                # get the correction for the phase epoch
+                                phasenum = psrorig.pulsenumbers(
+                                    updatebats=False,
+                                    formresiduals=False,
+                                    removemean=False,
+                                )
+
+                                if phasenum0 is None:
+                                    # get phase number from first loop
+                                    phasenum0 = phasenum[0]
+
+                                phaseorig[sidx:eidx] += phasenum - phasenum0
+                    else:
+                        # calculate the phase for the reference frequency
+                        phaseorig[sidx:eidx] = self.ref_freq * (
+                            self.times[sidx:eidx] - self.hetpar["PEPOCH"]
                         )
 
-                        # get phase residuals
-                        phasenew = psrnew.phaseresiduals(
-                            removemean="refphs",
-                            site="@",
-                            epoch=psrorig["PEPOCH"].val
-                            if psrorig is not None
-                            else self.hetpar.convert_to_tempo_units(
-                                "PEPOCH", self.hetpar["PEPOCH"]
-                            ).value,
-                        )
-                else:
-                    phasenew = 0.0
+                    if newpar is not None:
+                        with MuteStream(stream=sys.stdout):
+                            psrnew = tempopulsar(
+                                parfile=parfile,
+                                toas=mjdtimes[sidx:eidx],
+                                toaerrs=toaerr,
+                                observatory=TEMPO2_GW_ALIASES[self.__detector_name],
+                                dofit=False,
+                                obsfreq=0.0,  # set to 0 so as not to calculate DM delay
+                            )
+
+                            # get phase residuals
+                            phasenew[sidx:eidx] = psrnew.phaseresiduals(
+                                removemean="refphs",
+                                site="@",
+                                epoch=psrorig["PEPOCH"].val
+                                if psrorig is not None
+                                else self.hetpar.convert_to_tempo_units(
+                                    "PEPOCH", self.hetpar["PEPOCH"]
+                                ).value,
+                            )
 
                 # get phase difference
                 self._phasediff = freqfactor * (phaseorig - phasenew).astype(float)
