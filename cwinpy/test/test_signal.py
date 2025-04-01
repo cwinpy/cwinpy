@@ -35,14 +35,19 @@ for det in ["H1", "L1", "V1", "G1"]:
 """
 
 import os
+import shutil
+import subprocess as sp
 from copy import deepcopy
 
 import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
+from solar_system_ephemerides.paths import body_ephemeris_path
 
 from cwinpy import PulsarParameters
+from cwinpy.data import HeterodynedData
+from cwinpy.heterodyne import heterodyne
 from cwinpy.signal import HeterodynedCWSimulator
 
 
@@ -348,3 +353,202 @@ class TestPhaseOnly:
         """
 
         pass
+
+
+class TestHeterodyneRefFreq(object):
+    """
+    Test heterodyning the data at a reference frequency.
+    """
+
+    @classmethod
+    def setup_class(cls):
+        # create dummy frame cache files
+        cls.dummydir = "testing_frame_cache"
+        os.makedirs(cls.dummydir, exist_ok=True)
+        cls.dummy_cache_files = []
+        for i in range(0, 5):
+            dummyfile = os.path.join(
+                cls.dummydir, f"frame_cache_{i:01d}.cache"  # noqa: E231
+            )
+            cls.dummy_cache_files.append(dummyfile)
+            with open(dummyfile, "w") as fp:
+                fp.write("blah\n")
+
+        # create some fake data frames using lalpulsar_Makefakedata_v5
+        mfd = shutil.which("lalpulsar_Makefakedata_v5")
+
+        cls.fakedatadir = "testing_fake_frame_cache"
+        cls.fakedatadetector = "H1"
+        cls.fakedatachannel = f"{cls.fakedatadetector}:FAKE_DATA"  # noqa: E231
+        cls.fakedatastart = 1000000000
+        cls.fakedataduration = 86400
+
+        os.makedirs(cls.fakedatadir, exist_ok=True)
+
+        cls.fakedatabandwidth = 8  # Hz
+        sqrtSn = 1e-29  # noise amplitude spectral density
+        cls.fakedataname = "FAKEDATA"
+
+        # Create pulsars to inject
+        cls.fakepulsarpar = PulsarParameters()
+
+        # requirements for Makefakedata pulsar input files
+        isolatedstr = """\
+Alpha = {alpha}
+Delta = {delta}
+Freq = {f0}
+f1dot = {f1}
+f2dot = {f2}
+refTime = {pepoch}
+h0 = {h0}
+cosi = {cosi}
+psi = {psi}
+phi0 = {phi0}
+"""
+
+        # FIRST PULSAR (ISOLATED)
+        f0 = 6.9456 / 2.0  # source rotation frequency (Hz)
+        f1 = -9.87654e-11 / 2.0  # source rotational frequency derivative (Hz/s)
+        f2 = 2.34134e-18 / 2.0  # second frequency derivative (Hz/s^2)
+        alpha = 0.0  # source right ascension (rads)
+        delta = 0.5  # source declination (rads)
+        pepoch = 1000000000  # frequency epoch (GPS)
+
+        # GW parameters
+        h0 = 3.0e-24  # GW amplitude
+        phi0 = 1.0  # GW initial phase (rads)
+        cosiota = 0.1  # cosine of inclination angle
+        psi = 0.5  # GW polarisation angle (rads)
+
+        mfddic = {
+            "alpha": alpha,
+            "delta": delta,
+            "f0": 2 * f0,
+            "f1": 2 * f1,
+            "f2": 2 * f2,
+            "pepoch": pepoch,
+            "h0": h0,
+            "cosi": cosiota,
+            "psi": psi,
+            "phi0": phi0,
+        }
+
+        cls.fakepulsarpar["PSRJ"] = "J0000+0000"
+        cls.fakepulsarpar["H0"] = h0
+        cls.fakepulsarpar["PHI0"] = phi0 / 2.0
+        cls.fakepulsarpar["PSI"] = psi
+        cls.fakepulsarpar["COSIOTA"] = cosiota
+        cls.fakepulsarpar["F"] = [f0, f1, f2]
+        cls.fakepulsarpar["RAJ"] = alpha
+        cls.fakepulsarpar["DECJ"] = delta
+        cls.fakepulsarpar["PEPOCH"] = pepoch
+        cls.fakepulsarpar["EPHEM"] = "DE405"
+        cls.fakepulsarpar["UNITS"] = "TDB"
+
+        cls.ref_heterodyne = PulsarParameters()
+        cls.ref_heterodyne["PSRJ"] = "J0000+0000"
+        cls.ref_heterodyne["F"] = [np.ceil(f0 * 2) / 2]
+        cls.ref_heterodyne["RAJ"] = alpha
+        cls.ref_heterodyne["DECJ"] = delta
+        cls.ref_heterodyne["PEPOCH"] = pepoch
+
+        cls.fakepardir = "testing_fake_par_dir"
+        os.makedirs(cls.fakepardir, exist_ok=True)
+        cls.fakeparfile = os.path.join(cls.fakepardir, "J0000+0000.par")
+        cls.fakepulsarpar.pp_to_par(cls.fakeparfile)
+
+        cls.refparfile = os.path.join(cls.fakepardir, "J0000+0000_ref.par")
+        cls.ref_heterodyne.pp_to_par(cls.refparfile)
+
+        injfile = os.path.join(cls.fakepardir, "inj.dat")
+        with open(injfile, "w") as fp:
+            fp.write("[Pulsar 1]\n")
+            fp.write(isolatedstr.format(**mfddic))
+            fp.write("\n")
+
+        # set ephemeris files
+        efile = body_ephemeris_path(body="earth", jplde="DE405", string=True)
+        sfile = body_ephemeris_path(body="sun", jplde="DE405", string=True)
+
+        cmds = [
+            "-F",
+            cls.fakedatadir,
+            f"--outFrChannels={cls.fakedatachannel}",
+            "-I",
+            cls.fakedatadetector,
+            "--sqrtSX={0:.1e}".format(sqrtSn),
+            "-G",
+            str(cls.fakedatastart),
+            f"--duration={cls.fakedataduration}",
+            f"--Band={cls.fakedatabandwidth}",
+            "--fmin",
+            "0",
+            f'--injectionSources="{injfile}"',
+            f"--outLabel={cls.fakedataname}",
+            f'--ephemEarth="{efile}"',
+            f'--ephemSun="{sfile}"',
+        ]
+
+        # run makefakedata
+        sp.run([mfd] + cmds)
+
+    @classmethod
+    def teardown_class(cls):
+        """
+        Remove test simulation directory.
+        """
+
+        shutil.rmtree(cls.dummydir)
+        shutil.rmtree(cls.fakepardir)
+        shutil.rmtree(cls.fakedatadir)
+
+    def test_ref_freq_heterodyne(self):
+        segments = [
+            (self.fakedatastart, self.fakedatastart + self.fakedataduration),
+        ]
+
+        outdir = os.path.join(self.fakedatadir, "heterodyne_output")
+
+        # heterodyne the data at a fixed frequency
+        H = heterodyne(
+            starttime=segments[0][0],
+            endtime=segments[-1][-1],
+            pulsarfiles=self.refparfile,
+            segmentlist=segments,
+            framecache=self.fakedatadir,
+            channel=self.fakedatachannel,
+            freqfactor=2,
+            stride=86400,
+            output=outdir,
+            resamplerate=1,
+            includessb=False,
+        )
+
+        het = HeterodynedData(H.outputfiles[self.ref_heterodyne["PSRJ"]])
+
+        # calculate the phase difference compared to the reference phase
+        model = HeterodynedCWSimulator(
+            times=het.times,
+            det=self.fakedatadetector,
+            units=self.fakepulsarpar["UNITS"],
+            ephem=self.fakepulsarpar["EPHEM"],
+            ref_freq=self.ref_heterodyne["F0"],
+            ref_epoch=self.ref_heterodyne["PEPOCH"],
+        )
+
+        phase_diff = model.phase_evolution(newpar=self.fakepulsarpar)
+
+        # manually heterodyne the data
+        bm = het.heterodyne(-2 * np.pi * phase_diff)
+
+        # get the theoretical heterodyned model
+        het_model = HeterodynedCWSimulator(
+            par=self.fakepulsarpar,
+            times=bm.times,
+            det=self.fakedatadetector,
+        )
+
+        b = het_model()
+
+        # ignore last points due to filter impulse response
+        assert np.allclose(b[:-4], bm.data[:-4], atol=1e-26)
