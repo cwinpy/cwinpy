@@ -3,6 +3,7 @@ from copy import deepcopy
 import lal
 import lalpulsar
 import numpy as np
+from packaging.version import Version
 
 from .parfile import PulsarParameters
 from .utils import (
@@ -37,6 +38,18 @@ class HeterodynedCWSimulator(object):
         the data by a complex phase vector. This uses the Equations 7 and 8
         from [1]_ accessed via the ``XLALHeterodynedPulsarGetModel()``
         function.
+
+        .. warn::
+
+            If using this function to generate a model that includes a phase
+            offset from the original heterodyned phase, i.e., you intend to
+            use the :meth:`~cwinpy.signal.HeterodynedCWSimulator.model` method
+            with a ``newpar`` argument, and if not using Tempo2 for the phase
+            calculate, the period epochs in the provided ``par`` file or
+            ``ref_epoch`` must match that this ``newpar``. This is due to a
+            bug in the implementation of the phase difference calculation in
+            the ``lalpulsar`` package that will be fixed in releases > v7.25.1
+            of ``lalsuite``, or > v7.1.0 of ``lalpulsar``.
 
         Parameters
         ----------
@@ -484,6 +497,17 @@ class HeterodynedCWSimulator(object):
                 # use LAL function for phase calculation
                 origpar = self.hetpar
 
+                if newpar is not None:
+                    if parupdate["PEPOCH"] != origpar["PEPOCH"] and Version(
+                        lalpulsar.__version__
+                    ) <= Version("7.1.0"):
+                        raise RuntimeError(
+                            "Phase offset calculate likely to fail. If "
+                            "possible use input par files with matching "
+                            "epochs or upgrade to lalpulsar > v7.1.0/"
+                            "lalsuite > v7.25.1."
+                        )
+
                 if updateSSB:
                     # if updating SSB other delays *must* also be updated if
                     # required
@@ -504,9 +528,7 @@ class HeterodynedCWSimulator(object):
                     parupdate.PulsarParameters()
                     if newpar is not None
                     else origpar.PulsarParameters(),
-                    origpar.PulsarParameters()
-                    if newpar is not None or self.usetempo2
-                    else None,
+                    origpar.PulsarParameters() if newpar is not None else None,
                     self.gpstimes,
                     freqfactor,
                     self.ssbdelay,
