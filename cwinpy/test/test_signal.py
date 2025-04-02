@@ -285,11 +285,10 @@ class TestPhaseOnly:
         par["DECJ"] = 1.16
         par["RAJ"] = 4.71
 
-        pulsar = HeterodynedCWSimulator(par, "H1", times=times)
+        pulsar = HeterodynedCWSimulator(par=par, det="H1", times=times)
 
         phase = pulsar.model(freqfactor=1.0, phase_only=True)
         phase -= phase[0]
-        print(phase.min(), phase.max(), phase.argmin(), phase.argmax())
 
         assert np.allclose(phase, np.zeros_like(phase), atol=1e-4)
 
@@ -312,8 +311,8 @@ class TestPhaseOnly:
         par["DECJ"] = 0.0
         par["RAJ"] = 0.0
 
-        pulsar = HeterodynedCWSimulator(par, "L1", times=times)
-        pulsar2 = HeterodynedCWSimulator(par, "L1", times=times2)
+        pulsar = HeterodynedCWSimulator(par=par, det="L1", times=times)
+        pulsar2 = HeterodynedCWSimulator(par=par, det="L1", times=times2)
 
         phase1 = pulsar.model(freqfactor=1.0, phase_only=True)
 
@@ -333,8 +332,8 @@ class TestPhaseOnly:
         par["DECJ"] = 1.16
         par["RAJ"] = 4.71
 
-        pulsar = HeterodynedCWSimulator(par, "L1", times=times)
-        pulsar2 = HeterodynedCWSimulator(par, "L1", times=times2)
+        pulsar = HeterodynedCWSimulator(par=par, det="L1", times=times)
+        pulsar2 = HeterodynedCWSimulator(par=par, det="L1", times=times2)
 
         # use call method
         phase1 = pulsar(freqfactor=1.0, phase_only=True)
@@ -352,7 +351,24 @@ class TestPhaseOnly:
         Test the phase only when calculated with Tempo2 vs LAL.
         """
 
-        pass
+        times = np.arange(1000000000.0, 1000086400.0, 1, dtype=np.float128)
+
+        par = PulsarParameters()
+        par["F"] = [0.132, -4.5e-10]
+        par["PEPOCH"] = 55000.0
+
+        # set pulsar at roughly the ecliptic pole
+        par["DECJ"] = 1.16
+        par["RAJ"] = 4.71
+
+        pulsar_lal = HeterodynedCWSimulator(par=par, det="H1", times=times)
+        pulsar_tempo = HeterodynedCWSimulator(par, "H1", times=times, usetempo2=True)
+
+        phase_lal = 2 * np.pi * pulsar_lal.phase_evolution(freqfactor=1.0)
+        phase_tempo2 = 2 * np.pi * pulsar_tempo.phase_evolution(freqfactor=1.0)
+
+        assert np.allclose(np.sin(phase_lal), np.sin(phase_tempo2), atol=1e-5)
+        assert np.allclose(np.cos(phase_lal), np.cos(phase_tempo2), atol=1e-5)
 
 
 class TestHeterodyneRefFreq(object):
@@ -411,7 +427,7 @@ phi0 = {phi0}
         f1 = -9.87654e-11 / 2.0  # source rotational frequency derivative (Hz/s)
         f2 = 2.34134e-18 / 2.0  # second frequency derivative (Hz/s^2)
         alpha = 0.0  # source right ascension (rads)
-        delta = 0.5  # source declination (rads)
+        delta = 0.0  # source declination (rads)
         pepoch = 1000000000  # frequency epoch (GPS)
 
         # GW parameters
@@ -450,6 +466,7 @@ phi0 = {phi0}
         cls.ref_heterodyne["F"] = [np.ceil(f0 * 2) / 2]
         cls.ref_heterodyne["RAJ"] = alpha
         cls.ref_heterodyne["DECJ"] = delta
+        # epoch must be the same as for "fakepulsarpar" at the moment
         cls.ref_heterodyne["PEPOCH"] = pepoch
 
         cls.fakepardir = "testing_fake_par_dir"
@@ -526,29 +543,32 @@ phi0 = {phi0}
 
         het = HeterodynedData(H.outputfiles[self.ref_heterodyne["PSRJ"]])
 
-        # calculate the phase difference compared to the reference phase
-        model = HeterodynedCWSimulator(
-            times=het.times,
-            det=self.fakedatadetector,
-            units=self.fakepulsarpar["UNITS"],
-            ephem=self.fakepulsarpar["EPHEM"],
-            ref_freq=self.ref_heterodyne["F0"],
-            ref_epoch=self.ref_heterodyne["PEPOCH"],
-        )
+        for usetempo2 in [False, True]:
+            # calculate the phase difference compared to the reference phase
+            phase_diff = HeterodynedCWSimulator(
+                times=het.times,
+                det=self.fakedatadetector,
+                units=self.fakepulsarpar["UNITS"],
+                ephem=self.fakepulsarpar["EPHEM"],
+                ref_freq=self.ref_heterodyne["F0"],
+                ref_epoch=self.ref_heterodyne["PEPOCH"],
+                usetempo2=usetempo2,
+            ).phase_evolution(newpar=self.fakepulsarpar)
 
-        phase_diff = model.phase_evolution(newpar=self.fakepulsarpar)
+            # manually heterodyne the data
+            bm = het.heterodyne(-2 * np.pi * phase_diff)
 
-        # manually heterodyne the data
-        bm = het.heterodyne(-2 * np.pi * phase_diff)
+            # get the theoretical heterodyned model
+            b = HeterodynedCWSimulator(
+                par=self.fakepulsarpar,
+                times=bm.times,
+                det=self.fakedatadetector,
+            )()
 
-        # get the theoretical heterodyned model
-        het_model = HeterodynedCWSimulator(
-            par=self.fakepulsarpar,
-            times=bm.times,
-            det=self.fakedatadetector,
-        )
-
-        b = het_model()
-
-        # ignore last points due to filter impulse response
-        assert np.allclose(b[:-4], bm.data[:-4], atol=1e-26)
+            # compare models (ignore last few points due to filter impulse response)
+            assert np.allclose(
+                b[:-4].real, bm.data[:-4].real, atol=self.fakepulsarpar["H0"] / 250
+            )
+            assert np.allclose(
+                b[:-4].imag, bm.data[:-4].imag, atol=self.fakepulsarpar["H0"] / 250
+            )
