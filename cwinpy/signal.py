@@ -1,3 +1,4 @@
+import math
 from copy import deepcopy
 
 import lal
@@ -38,18 +39,6 @@ class HeterodynedCWSimulator(object):
         the data by a complex phase vector. This uses the Equations 7 and 8
         from [1]_ accessed via the ``XLALHeterodynedPulsarGetModel()``
         function.
-
-        .. warn::
-
-            If using this function to generate a model that includes a phase
-            offset from the original heterodyned phase, i.e., you intend to
-            use the :meth:`~cwinpy.signal.HeterodynedCWSimulator.model` method
-            with a ``newpar`` argument, and if not using Tempo2 for the phase
-            calculate, the period epochs in the provided ``par`` file or
-            ``ref_epoch`` must match that this ``newpar``. This is due to a
-            bug in the implementation of the phase difference calculation in
-            the ``lalpulsar`` package that will be fixed in releases > v7.25.1
-            of ``lalsuite``, or > v7.1.0 of ``lalpulsar``.
 
         Parameters
         ----------
@@ -97,11 +86,11 @@ class HeterodynedCWSimulator(object):
             ephemeris will all be calculated internally by TEMPO2 using the
             information from the pulsar parameter file.
         ref_freq: float
-            Use this to set the source rotation frequency in (Hz) if simulating
-            an initial heterodyne at a fixed frequency without and
-            barycentring. This will set the barycentring delays to zero, or, if
-            using Tempo2, the "original" phase will be calculated at the SSB.
-            This will be ignored if a ``par`` file is supplied.
+            Use this to set the source rotation frequency (Hz) if simulating an
+            initial heterodyne at a fixed frequency without and barycentring.
+            This will set the barycentring delays to zero, or, if using Tempo2,
+            the "original" phase will be calculated at the SSB. This will be
+            ignored if a ``par`` file is supplied.
 
             A reference epoch must either be supplied using the ``ref_epoch``
             argument, or it will be taken to be the first supplied time stamp.
@@ -501,12 +490,27 @@ class HeterodynedCWSimulator(object):
                     if parupdate["PEPOCH"] != origpar["PEPOCH"] and Version(
                         lalpulsar.__version__
                     ) <= Version("7.1.0"):
-                        raise RuntimeError(
-                            "Phase offset calculate likely to fail. If "
-                            "possible use input par files with matching "
-                            "epochs or upgrade to lalpulsar > v7.1.0/"
-                            "lalsuite > v7.25.1."
-                        )
+                        # due to a bug in XLALHeterodynedPulsarPhaseDifference
+                        # in LALpulsar versions <= 7.1.0, if the epochs
+                        # mismatch the frequencies must be corrected to be at
+                        # the same epoch here
+                        deltat = origpar["PEPOCH"] - parupdate["PEPOCH"]
+                        deltatpow = deltat
+                        nfreqs = len(parupdate["F"])
+
+                        # update frequencies
+                        updated_freqs = np.copy(parupdate["F"])
+                        for i in range(nfreqs):
+                            deltatpowu = deltatpow
+                            for j in range(i + 1, nfreqs):
+                                updated_freqs[i] += (
+                                    updated_freqs[j] * deltatpowu
+                                ) / math.factorial(j - 1)
+                                deltatpowu *= deltat
+                            deltatpowu *= deltat
+
+                        parupdate["F"] = updated_freqs
+                        parupdate["PEPOCH"] = origpar["PEPOCH"]
 
                 if updateSSB:
                     # if updating SSB other delays *must* also be updated if
