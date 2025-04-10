@@ -426,6 +426,7 @@ phi0 = {phi0}
         f0 = 6.9456 / 2.0  # source rotation frequency (Hz)
         f1 = -9.87654e-11 / 2.0  # source rotational frequency derivative (Hz/s)
         f2 = 2.34134e-18 / 2.0  # second frequency derivative (Hz/s^2)
+        f3 = -2.1336e-26 / 2.0  # third frequency derivative (Hz/s^3)
         alpha = 0.0  # source right ascension (rads)
         delta = 0.0  # source declination (rads)
         pepoch = 1000000000  # frequency epoch (GPS)
@@ -442,6 +443,7 @@ phi0 = {phi0}
             "f0": 2 * f0,
             "f1": 2 * f1,
             "f2": 2 * f2,
+            "f3": 2 * f3,
             "pepoch": pepoch,
             "h0": h0,
             "cosi": cosiota,
@@ -454,7 +456,7 @@ phi0 = {phi0}
         cls.fakepulsarpar["PHI0"] = phi0 / 2.0
         cls.fakepulsarpar["PSI"] = psi
         cls.fakepulsarpar["COSIOTA"] = cosiota
-        cls.fakepulsarpar["F"] = [f0, f1, f2]
+        cls.fakepulsarpar["F"] = [f0, f1, f2, f3]
         cls.fakepulsarpar["RAJ"] = alpha
         cls.fakepulsarpar["DECJ"] = delta
         cls.fakepulsarpar["PEPOCH"] = pepoch
@@ -466,8 +468,7 @@ phi0 = {phi0}
         cls.ref_heterodyne["F"] = [np.ceil(f0 * 2) / 2]
         cls.ref_heterodyne["RAJ"] = alpha
         cls.ref_heterodyne["DECJ"] = delta
-        # epoch must be the same as for "fakepulsarpar" at the moment
-        cls.ref_heterodyne["PEPOCH"] = pepoch
+        cls.ref_heterodyne["PEPOCH"] = pepoch - 100 * 86400
 
         cls.fakepardir = "testing_fake_par_dir"
         os.makedirs(cls.fakepardir, exist_ok=True)
@@ -565,10 +566,13 @@ phi0 = {phi0}
                 det=self.fakedatadetector,
             )()
 
-            # compare models (ignore last few points due to filter impulse response)
+            # compare absolute model values
+            # - ignore last few points due to filter impulse response
+            # - use absolute values as initial phase will be offset due
+            #   to correcting to the reference frequency epoch rather
+            #   than the signal epoch
             assert np.allclose(
-                b[:-4].real, bm.data[:-4].real, atol=self.fakepulsarpar["H0"] / 250
-            )
-            assert np.allclose(
-                b[:-4].imag, bm.data[:-4].imag, atol=self.fakepulsarpar["H0"] / 250
+                np.abs(b[:-4]),
+                np.abs(bm.data[:-4]),
+                atol=self.fakepulsarpar["H0"] / 250,
             )

@@ -495,19 +495,17 @@ class HeterodynedCWSimulator(object):
                         # mismatch the frequencies must be corrected to be at
                         # the same epoch here
                         deltat = origpar["PEPOCH"] - parupdate["PEPOCH"]
-                        deltatpow = deltat
                         nfreqs = len(parupdate["F"])
 
                         # update frequencies
                         updated_freqs = np.copy(parupdate["F"])
-                        for i in range(nfreqs):
-                            deltatpowu = deltatpow
+                        for i in range(nfreqs - 1):
+                            deltatpowu = deltat
                             for j in range(i + 1, nfreqs):
                                 updated_freqs[i] += (
                                     updated_freqs[j] * deltatpowu
-                                ) / math.factorial(j - 1)
+                                ) / math.factorial(j - i)
                                 deltatpowu *= deltat
-                            deltatpowu *= deltat
 
                         parupdate["F"] = updated_freqs
                         parupdate["PEPOCH"] = origpar["PEPOCH"]
