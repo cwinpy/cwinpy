@@ -87,7 +87,7 @@ class HeterodynedCWSimulator(object):
             information from the pulsar parameter file.
         ref_freq: float
             Use this to set the source rotation frequency (Hz) if simulating an
-            initial heterodyne at a fixed frequency without and barycentring.
+            initial heterodyne at a fixed frequency without any barycentring.
             This will set the barycentring delays to zero, or, if using Tempo2,
             the "original" phase will be calculated at the SSB. This will be
             ignored if a ``par`` file is supplied.

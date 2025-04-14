@@ -68,6 +68,14 @@ containing potentially different (phase) parameters that are the "true" source p
 need updating compared to the heterodyne values). The difference in phase, as calculated using
 Equation 10 of [1]_, will then be used when generating the signal.
 
+If you want to calculate the signal with a phase offset from a fixed "heterodyne" frequency (i.e., a
+reference frequency with no barycentring corrections applied, for example, a single FFT frequency
+bin) and reference epoch, then rather than supplying a pulsar parameter file when constructing a
+:class:`~cwinpy.signal.HeterodynedCWSimulator`, you can supply the ``ref_freq`` and ``ref_epoch``
+keyword arguments. In this case the ``ref_freq`` should still be an equivalent of a pulsar's
+rotational frequency and will have the ``freq_factor`` argument of the
+:meth:`~cwinpy.signal.HeterodynedCWSimulator.model` applied to it.
+
 Using Tempo2
 ------------
 
@@ -174,6 +182,8 @@ heterodyned parameters would be:
 
    # get the model complex strain time series
    model = het.model(parupdate, updateSSB=True)
+   # equivalently you could use the class in callable mode with
+   # model = het(parupdate, updateSSB=True)
 
    # do the same but using Tempo2
    hettempo2 = HeterodynedCWSimulator(par=par, det=det, times=times, usetempo2=True)
