@@ -1,5 +1,15 @@
 # Notable changes between versions
 
+## [1.4.1] 2025-04-14
+
+Changes for this release:
+
+- Allow reading/conversion of ecliptic coordinates from a pulsar `.par` file (!205).
+- Correct values of inclination for the stored PULSAR06 hardware injection file (!203).
+- Allow the PE API to take in pre-loaded `HeterodynedData` objects rather than just files (!202).
+- Allow cropping of `HeterodynedData` objects (!201).
+- Allow `HeterodynedCWSimulator` to calculate and return just the phase and fix a bug from LALPulsar (!200).
+
 ## [1.4.0] 2025-02-17
 
 Changes for this release:
