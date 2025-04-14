@@ -21,6 +21,7 @@ authors = [
     { name = "Matthew Pitkin", email = "matthew.pitkin@ligo.org" },
 ]
 license = "MIT"
+license-files = [ "LICENSE" ]
 readme = "README.md"
 
 classifiers = [
@@ -121,7 +122,6 @@ cwinpy_skyshift_pipeline = "cwinpy.knope.skyshift:skyshift_pipeline_cli"
 cwinpy_generate_summary_pages = "cwinpy.pe.summary:generate_summary_pages_cli"
 
 [tool.setuptools]
-license-files = [ "LICENSE" ]
 include-package-data = true
 
 [tool.setuptools.packages.find]
