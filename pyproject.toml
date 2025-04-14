@@ -20,7 +20,7 @@ description = "A Python module for Bayesian inference with continuous gravitatio
 authors = [
     { name = "Matthew Pitkin", email = "matthew.pitkin@ligo.org" },
 ]
-license = { text = "MIT" }
+license = "MIT"
 readme = "README.md"
 
 classifiers = [
