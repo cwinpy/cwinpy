@@ -8,7 +8,8 @@
 requires = [
     "cython>=3",
     "numpy>=2.0.0",
-    "setuptools>=61",
+    "packaging>=24.2",
+    "setuptools>=77.0.1",
     "setuptools_scm[toml]>=6.2",
     "wheel",
 ]
