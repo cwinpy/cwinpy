@@ -133,11 +133,11 @@ runcmd = " ".join(
         "--outfile",
         outfile,
         "--ephem-earth",
-        efile,
+        str(efile),
         "--ephem-sun",
-        sfile,
+        str(sfile),
         "--ephem-timecorr",
-        tfile,
+        str(tfile),
     ]
 )
 
