@@ -11,21 +11,18 @@ import subprocess as sp
 import h5py
 import matplotlib
 import numpy as np
-from astropy.utils.data import download_file
 from bilby.core.prior import Uniform
 from comparitors import comparisons
 from lalinference import LALInferenceHDF5PosteriorSamplesDatasetName
 from lalinference.io import read_samples
 from matplotlib import pyplot as plt
+from solar_system_ephemerides.paths import body_ephemeris_path, time_ephemeris_path
 
 from cwinpy import HeterodynedData
 from cwinpy.pe import pe
 from cwinpy.plot import Plot
 
 matplotlib.use("Agg")
-
-# URL for ephemeris files
-DOWNLOAD_URL = "https://git.ligo.org/lscsoft/lalsuite/raw/master/lalpulsar/lib/{}"
 
 # create a fake pulsar parameter file
 parcontent = """\
@@ -112,9 +109,9 @@ Nmcmcinitial = 0  # set to 0 so that prior samples are not resampled
 outfile = os.path.join(outdir, "{}_nest.hdf".format(label))
 
 # set ephemeris files
-efile = download_file(DOWNLOAD_URL.format("earth00-40-DE405.dat.gz"), cache=True)
-sfile = download_file(DOWNLOAD_URL.format("sun00-40-DE405.dat.gz"), cache=True)
-tfile = download_file(DOWNLOAD_URL.format("te405_2000-2040.dat.gz"), cache=True)
+efile = body_ephemeris_path(body="earth", jplde="DE405")
+sfile = body_ephemeris_path(body="sun", jplde="DE405")
+tfile = time_ephemeris_path(units="TCB")
 
 # set the command line arguments
 runcmd = " ".join(
