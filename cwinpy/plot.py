@@ -677,11 +677,7 @@ class Plot:
 
         kde_kwargs = kwargs.pop("kde_kwargs", {})
         if kwargs["kde"]:
-            from pesummary.core.plots.bounded_1d_kde import bounded_1d_kde
-
-            # required to allow KDE generation when sample values are small (see
-            # https://git.ligo.org/lscsoft/pesummary/-/merge_requests/604)
-            kde_kwargs.update({"variance_atol": 0.0})
+            from pesummary.utils.bounded_1d_kde import bounded_1d_kde
 
             # add bounds
             if param in DEFAULT_BOUNDS:
@@ -700,6 +696,7 @@ class Plot:
                     if "method" in DEFAULT_BOUNDS[param]
                     else "Reflection"
                 )
+
                 kde_kwargs["kde_kernel"] = bounded_1d_kde
 
         singlesamps = [self._samples[key][param].values for key in self._samples]
@@ -811,7 +808,8 @@ class Plot:
         Create 2D plots from posterior samples.
         """
 
-        from pesummary.core.plots.bounded_2d_kde import Bounded_2d_kde
+        from pesummary.utils.bounded_1d_kde import bounded_1d_kde
+        from pesummary.utils.bounded_2d_kde import Bounded_2d_kde
 
         # get bounds
         lows = []
@@ -865,8 +863,6 @@ class Plot:
                 kwargs["plot_datapoints"] = False
 
         if "triangle" in self.plottype:
-            from pesummary.core.plots.bounded_1d_kde import bounded_1d_kde
-
             # set KDE informaiton
             kwargs.update(
                 {
