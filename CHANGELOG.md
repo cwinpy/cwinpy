@@ -1,5 +1,9 @@
 # Notable changes between versions
 
+## [1.4.2] 2025-11-11
+
+- Fix KDE incompatibility with PESummary (!207).
+
 ## [1.4.1] 2025-04-14
 
 Changes for this release:
