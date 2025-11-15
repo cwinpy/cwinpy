@@ -5,9 +5,12 @@ sphinx:
   configuration: docs/conf.py
 
 build:
-  os: ubuntu-22.04
+  os: "ubuntu-lts-latest"
   tools:
-    python: "mambaforge-22.9"
+    python: "mambaforge-latest"
+  jobs:
+    install:
+      - pip install .
 
 conda:
   environment: docs-environment.yml
