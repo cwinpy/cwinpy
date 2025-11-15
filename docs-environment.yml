@@ -40,4 +40,3 @@ dependencies:
     - sphinxcontrib-napoleon
     - sphinxcontrib-programoutput
     - .
-prefix: /home/matt/miniconda3/envs/cwinpydocs
