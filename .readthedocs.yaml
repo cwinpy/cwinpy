@@ -8,12 +8,6 @@ build:
   os: "ubuntu-lts-latest"
   tools:
     python: "mambaforge-latest"
-  jobs:
-    install:
-      - pip install .
-    post_install:
-      # show what is installed in the build environment
-      - conda list
 
 conda:
   environment: docs-environment.yml
