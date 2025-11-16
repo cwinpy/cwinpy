@@ -93,7 +93,6 @@ docs = [
     "sphinx >= 2.0",
     "sphinx-design",
     "sphinxcontrib-images >= 0.9.1",
-    "sphinxcontrib-napoleon",
     "sphinxcontrib-programoutput",
 ]
 # development

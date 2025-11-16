@@ -10,7 +10,6 @@ with warnings.catch_warnings():
     from . import iostream
     from .data import HeterodynedData, MultiHeterodynedData
     from .info import *
-    from .knope import skyshift
     from .parfile import PulsarParameters
 
 try:
