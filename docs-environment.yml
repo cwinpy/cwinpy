@@ -3,5 +3,5 @@ channels:
   - conda-forge
 dependencies:
   - pip
-  - python
+  - python==3.12
   - lintegrate
