@@ -19,7 +19,11 @@ import bilby
 import numpy as np
 from astropy.time import Time
 from astropy.units import Quantity
-from htcondor.dags import DAG, write_dag
+
+try:
+    from htcondor.dags import DAG, write_dag
+except ModuleNotFoundError:
+    from htcondor2.dags import DAG, write_dag
 
 import cwinpy
 
