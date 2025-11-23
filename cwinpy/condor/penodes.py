@@ -303,7 +303,7 @@ class PulsarPELayer(CondorLayer):
                             transfer_input.append(relfile)
                             curconfig[key] = relfile
 
-                curconfig["outdir"] = resloc / self.psrname
+                curconfig["outdir"] = str(resloc / self.psrname)
 
                 # add output directory to inputs in case resume file exists
                 transfer_input.append(curconfig["outdir"])
