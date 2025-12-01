@@ -346,6 +346,9 @@ class TestPhaseOnly:
         assert maxdfpole < 0.2 * dfmax
         assert maxdfpole < maxdfplane
 
+    @pytest.mark.xfail(
+        raises=(ValueError, UnicodeDecodeError), reason="libstempo issue"
+    )
     def test_tempo2(self):
         """
         Test the phase only when calculated with Tempo2 vs LAL.
@@ -520,6 +523,9 @@ phi0 = {phi0}
         shutil.rmtree(cls.fakepardir)
         shutil.rmtree(cls.fakedatadir)
 
+    @pytest.mark.xfail(
+        raises=(ValueError, UnicodeDecodeError), reason="libstempo issue"
+    )
     def test_ref_freq_heterodyne(self):
         segments = [
             (self.fakedatastart, self.fakedatastart + self.fakedataduration),
