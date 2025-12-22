@@ -3,6 +3,7 @@ Test script for utils.py function.
 """
 
 import os
+import tempfile
 
 import numpy as np
 import pytest
@@ -358,3 +359,51 @@ def test_PulsarParameters_aliases():
     pp["F1"] = -1e-8
     pp["ALIAS_N"] = 5
     assert np.isclose(pp["F2"], pp["ALIAS_N"] * pp["F1"] ** 2 / pp["F0"])
+
+
+def test_PulsarParameters_ecliptic():
+    """
+    Test conversion of ecliptical coordinates to equatorial coordinates via the
+    PulsarParameters class.
+    """
+
+    content = """\
+PSRJ J0437-4715
+RAJ            04:37:16.01342913
+DECJ           -47:15:09.81312281
+PMRA           121.49164616919921
+PMDEC          -71.51574126426937
+F0             173.687947
+POSEPOCH       58090
+"""
+
+    par = tempfile.mkstemp(suffix=".par", prefix="equatorial")[1]
+    with open(par, "w") as fp:
+        fp.write(content)
+
+    peq = PulsarParameters(par)
+    os.remove(par)
+
+    for long, lat in [["ELONG", "ELAT"], ["LAMBDA", "BETA"]]:
+        par = tempfile.mkstemp(suffix=".par", prefix="elliptic")[1]
+
+        content = f"""\
+PSRJ J0437-4715
+F0             173.687947
+{long}         50.4688685793812370009026047
+{lat}          -67.8732263207262180026990706
+PM{long}       86.047613627054969999        0.03478267784655947000
+PME{lat}       -111.67152513765035          0.03972793778553311600
+POSEPOCH       58090
+"""
+        with open(par, "w") as fp:
+            fp.write(content)
+        pecl = PulsarParameters(par)
+
+        os.remove(par)
+
+        assert np.isclose(peq["RAJ"], pecl["RAJ"])
+        assert np.isclose(peq["DECJ"], pecl["DECJ"])
+
+        assert np.isclose(peq["PMRA"], pecl["PMRA"])
+        assert np.isclose(peq["PMDEC"], pecl["PMDEC"])

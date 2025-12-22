@@ -3,7 +3,10 @@ import fnmatch
 import os
 import shutil
 
-from htcondor import Schedd, Submit
+try:
+    from htcondor import Schedd, Submit
+except ModuleNotFoundError:
+    from htcondor2 import Schedd, Submit
 
 
 class CondorLayer:
@@ -21,7 +24,7 @@ class CondorLayer:
 
         Parameters
         ----------
-        dag: :class:`hcondor.dags.DAG`
+        dag: :class:`hcondor2.dags.DAG`
             The HTCondor DAG associated with this layer.
         cf: :class:`configparser.ConfigParser`
             The configuration file for the DAG set up.

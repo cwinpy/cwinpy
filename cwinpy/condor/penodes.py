@@ -182,7 +182,15 @@ class PulsarPELayer(CondorLayer):
         dagconfigfile = configlocation / "pe_pipeline_config.ini"
 
         # get results directory
-        self.resbase = self.outdir / self.get_option("results", default="results")
+        resloc = Path(self.get_option("results", default="results"))
+        try:
+            # check if resloc shares a common path with outdir
+            common_path = os.path.commonpath([self.outdir, resloc])
+            resloc = resloc.relative_to(common_path)
+        except ValueError:
+            pass
+
+        self.resbase = self.outdir / resloc
         self.resdir = self.resbase / self.psrname
         self.resdir.mkdir(parents=True, exist_ok=True)
 
@@ -295,7 +303,7 @@ class PulsarPELayer(CondorLayer):
                             transfer_input.append(relfile)
                             curconfig[key] = relfile
 
-                curconfig["outdir"] = f"results/{self.psrname}"
+                curconfig["outdir"] = str(resloc / self.psrname)
 
                 # add output directory to inputs in case resume file exists
                 transfer_input.append(curconfig["outdir"])

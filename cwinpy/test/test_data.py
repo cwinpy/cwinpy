@@ -1409,6 +1409,112 @@ H0      1.5e-22
         # remove the par file
         os.remove(parfile)
 
+    def test_crop_data(self):
+        """
+        Test that data can be correctly cropped.
+        """
+
+        t0 = 1000000000.0
+        duration = 86400 * 10
+        dt = 60
+        times = t0 + np.arange(0, duration, dt)
+        data = np.random.normal(0.0, 1e-23, size=(len(times), 2))
+        det = "H1"
+
+        parcontent = """\
+PSRJ     J0123+3456
+RAJ      01:23:45.6789
+DECJ     34:56:54.321
+F0       567.89
+F1       -1.2e-12
+PEPOCH   56789
+H0       9.87e-26
+COSIOTA  0.3
+PSI      1.1
+PHI0     2.4
+"""
+
+        # add an outlier that should be removed
+        idx_out = 1000
+        data[idx_out, :] = 1e-20
+        toutlier = times[idx_out]
+
+        parfile = "J0123+3456.par"
+
+        # add content to the par file
+        with open(parfile, "w") as fp:
+            fp.write(parcontent)
+
+        het = HeterodynedData(
+            data,
+            times=times,
+            detector=det,
+            par=parfile,
+            remove_outliers=True,
+            thresh=10.0,
+        )
+
+        # check outlier has been set
+        assert not het.outlier_mask[idx_out]
+        assert np.sum(het.outlier_mask) == len(times) - 1
+
+        # crop the data
+        idx0 = 10
+        idx1 = 856
+        ncropped = idx1 - idx0
+        t0_c = times[idx0]
+        t1_c = times[idx1]
+        het_cropped = het.crop(t0_c, t1_c)
+
+        assert len(het_cropped) == ncropped
+        assert np.allclose(het_cropped.times.value, het.times.value[idx0:idx1])
+        assert np.allclose(het_cropped.data, het.data[idx0:idx1])
+        assert np.allclose(het_cropped.stds, het.stds[idx0:idx1])
+        assert het.par["F0"] == het_cropped.par["F0"]
+        assert het.detector == het_cropped.detector
+
+        # crop data over the outlier
+        idx0 = idx_out - 100
+        idx1 = idx_out + 2000
+        ncropped = (idx1 - idx0) - 1  # remove 1 for masked outlier
+        t0_c = times[idx0]
+        t1_c = times[idx1]
+        het_cropped = het.crop(t0_c, t1_c)
+
+        assert len(het_cropped) == ncropped
+        assert np.allclose(
+            het_cropped.times.value, het.times.value[idx0 : idx0 + ncropped]
+        )
+        assert np.allclose(het_cropped.data, het.data[idx0 : idx0 + ncropped])
+        assert np.allclose(het_cropped.stds, het.stds[idx0 : idx0 + ncropped])
+        assert (
+            super(HeterodynedData, het_cropped).times[~het_cropped.outlier_mask].value
+            == toutlier
+        )
+        assert het.par["F0"] == het_cropped.par["F0"]
+        assert het.detector == het_cropped.detector
+
+        # crop from before start of data
+        idx0 = 10
+        het_cropped = het.crop(None, times[idx0])
+        het_cropped_pre = het.crop(times[0] - 10000, times[idx0])
+
+        assert len(het_cropped) == len(het_cropped_pre)
+        assert np.allclose(het_cropped.times.value, het_cropped_pre.times.value)
+        assert np.allclose(het_cropped.data, het_cropped_pre.data)
+        assert np.allclose(het_cropped.stds, het_cropped_pre.stds)
+
+        # crop until after end of data
+        idx1 = -10
+        het_cropped = het.crop(times[idx1], None)
+        het_cropped_post = het.crop(times[idx1], times[-1] + 10000)
+        assert np.allclose(het_cropped.times.value, het_cropped_post.times.value)
+        assert np.allclose(het_cropped.data, het_cropped_post.data)
+        assert np.allclose(het_cropped.stds, het_cropped_post.stds)
+
+        # remove the par file
+        os.remove(parfile)
+
 
 def test_psd_wrapper():
     """

@@ -16,7 +16,11 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from configargparse import ArgumentError
-from htcondor.dags import DAG, write_dag
+
+try:
+    from htcondor.dags import DAG, write_dag
+except ModuleNotFoundError:
+    from htcondor2.dags import DAG, write_dag
 from simpleeval import EvalWithCompoundTypes, NameNotDefined
 from solar_system_ephemerides.paths import JPLDE
 

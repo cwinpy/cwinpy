@@ -3857,6 +3857,84 @@ class HeterodynedData(TimeSeriesBase):
 
         return roq
 
+    def crop(self, start=None, end=None):
+        """
+        Overload the :meth:`gwpy.timeseries.TimeSeries.crop` method to return a
+        new :class:`~cwinpy.data.HeterodynedData` object in which running
+        medians and change points are recalculated for the new extents of the
+        data.
+        """
+
+        times = super(HeterodynedData, self).times.value
+        t0 = times[0]
+
+        # check if series is irregular
+        try:
+            self.dx
+        except AttributeError:
+            irregular = True
+        else:
+            irregular = False
+
+        # pin start and end times to data range
+        if start is None or start <= t0:
+            start = None
+
+        if end is None or end >= times[-1]:
+            end = None
+
+        # find start index
+        if start is None:
+            idx0 = None
+        elif irregular:
+            idx0 = np.searchsorted(times, start, side="left")
+        else:
+            idx0 = int(np.floor((start - t0) / self.dt.value))
+
+        # find end index
+        if end is None:
+            idx1 = None
+        elif irregular:
+            idx1 = np.searchsorted(times, end, side="left")
+        else:
+            idx1 = int(np.floor((end - t0) / self.dt.value))
+
+        # get data values (without any outlier removal)
+        data = self.value[idx0:idx1]
+        times = times[idx0:idx1]
+        stds = np.sqrt(self._vars[idx0:idx1])
+        outlier_mask = (
+            self._outlier_mask[idx0:idx1] if self._outlier_mask is not None else None
+        )
+
+        # data containing real and imaginary parts and standard deviations
+        data = np.concatenate(
+            (data.real[:, None], data.imag[:, None], stds[:, None]), axis=1
+        )
+
+        # create new object
+        out = HeterodynedData(
+            data,
+            times=times,
+            par=self.par,
+            injpar=self.injpar,
+            detector=self.detector,
+            remove_outliers=False,
+            freqfactor=self.freqfactor,
+            bbminlength=self.bbminlength,
+            bbmaxlength=self.bbmaxlength,
+            window=self.window,
+        )
+
+        out.outlier_thresh = self.outlier_thresh
+        out.injtimes = self.injtimes
+
+        if outlier_mask is not None:
+            # remove outliers and recalculate running medians, change points
+            out.remove(outlier_mask)
+
+        return out
+
     def __len__(self):
         return len(self.data)
 

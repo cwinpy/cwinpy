@@ -16,7 +16,11 @@ import astropy.units as u
 import bilby
 import numpy as np
 from astropy.coordinates import SkyCoord
-from htcondor.dags import write_dag
+
+try:
+    from htcondor.dags import write_dag
+except ModuleNotFoundError:
+    from htcondor2.dags import write_dag
 
 from ..condor import submit_dag
 from ..utils import int_to_alpha

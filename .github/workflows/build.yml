@@ -19,6 +19,8 @@ jobs:
             container: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python39
           - python-version: 3.10
             container: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python310
+          - python-version: 3.11
+            container: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python311
 
     container: ${{ matrix.container }}
     steps:

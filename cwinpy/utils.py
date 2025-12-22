@@ -509,7 +509,7 @@ def overlap(pos1, pos2, f0, T, t0=1000000000, dt=60, det="H1"):
     # set the times at which to calculate the model
     times = np.arange(t0, t0 + T, dt)
 
-    het = HeterodynedCWSimulator(p1, det, times=times)
+    het = HeterodynedCWSimulator(par=p1, det=det, times=times)
 
     # calculate the model at pos1
     hetmodel = het.model()

@@ -282,8 +282,8 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             dt = het.times.value[1] - het.times.value[0]
             self.models.append(
                 HeterodynedCWSimulator(
-                    het.par,
-                    het.detector,
+                    par=het.par,
+                    det=het.detector,
                     times=times,
                     dt=dt,
                     earth_ephem=self.kwargs.get("earthephemeris", het.ephemearth),

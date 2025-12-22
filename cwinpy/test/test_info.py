@@ -15,13 +15,13 @@ from cwinpy.info import (
 
 
 def check_connection():
-    from socket import create_connection
+    from socket import create_connection, gaierror, herror
 
     from cwinpy.info import CVMFS_GWOSC_DATA_SERVER
 
     try:
         create_connection((CVMFS_GWOSC_DATA_SERVER, 80))
-    except (TimeoutError, ConnectionRefusedError):
+    except (TimeoutError, ConnectionRefusedError, gaierror, herror):
         return False
 
     return True

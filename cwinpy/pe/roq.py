@@ -217,8 +217,8 @@ class GenerateROQ:
             par = self.kwargs.get("par")
             det = self.kwargs.get("det")
             mmodel = HeterodynedCWSimulator(
-                par,
-                det,
+                par=par,
+                det=det,
                 times=self.x,
                 usetempo2=self.kwargs.get("usetempo2", False),
                 earth_ephem=self.kwargs.get("earth_ephem", None),
@@ -240,8 +240,8 @@ class GenerateROQ:
             det = self.kwargs.get("det")
             dt = float(self.x[1] - self.x[0])  # set dt from original times
             model = HeterodynedCWSimulator(
-                self._initial_par,
-                det,
+                par=self._initial_par,
+                det=det,
                 times=self._x_nodes,
                 dt=dt,
                 usetempo2=self.kwargs.get("usetempo2", False),

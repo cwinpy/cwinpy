@@ -1,5 +1,32 @@
 # Notable changes between versions
 
+## [1.4.2] 2025-11-11
+
+- Fix KDE incompatibility with PESummary (!207).
+
+## [1.4.1] 2025-04-14
+
+Changes for this release:
+
+- Allow reading/conversion of ecliptic coordinates from a pulsar `.par` file (!205).
+- Correct values of inclination for the stored PULSAR06 hardware injection file (!203).
+- Allow the PE API to take in pre-loaded `HeterodynedData` objects rather than just files (!202).
+- Allow cropping of `HeterodynedData` objects (!201).
+- Allow `HeterodynedCWSimulator` to calculate and return just the phase and fix a bug from LALPulsar (!200).
+
+## [1.4.0] 2025-02-17
+
+Changes for this release:
+
+- Fix Matplotlib v3.9 compatibility issue (!198).
+- Results page fixes (!196).
+- NumPy v2 compatibility changes (!195).
+- Set individual grids for evaluating pulsars in hiearchical analysis (!179).
+- Allow upper limit table to be construted with `F0` and `F1` values from the par file (!190).
+- Fix file IO issues for webpage generation (!191, !192).
+- Add glitch phase to `LATEX_LABELS` for results pages (!193).
+- Allow simulations to use amplitude spectral density vales from a supplied noise spectrum file (!194).
+
 ## [1.3.1] 2024-10-10
 
 Changes for this release:

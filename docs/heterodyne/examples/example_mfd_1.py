@@ -3,8 +3,9 @@
 import shutil
 import subprocess as sp
 
+from solar_system_ephemerides.paths import ephemeris_path
+
 from cwinpy import PulsarParameters
-from cwinpy.utils import LAL_EPHEMERIS_URL, download_ephemeris_file
 
 # set data start, duration and bandwidth
 fakedatastart = 1000000000
@@ -72,8 +73,8 @@ for i, parfile in enumerate(parfiles):
 fp.close()
 
 # set ephemeris files
-efile = download_ephemeris_file(LAL_EPHEMERIS_URL.format("earth00-40-DE405.dat.gz"))
-sfile = download_ephemeris_file(LAL_EPHEMERIS_URL.format("sun00-40-DE405.dat.gz"))
+efile = ephemeris_path(body="earth", jplde="DE405")
+sfile = ephemeris_path(body="sun", jplde="DE405")
 
 # set detector
 detector = "H1"
