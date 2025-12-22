@@ -15,7 +15,6 @@ import lal
 import lalpulsar
 import numpy as np
 from astropy.time import Time
-from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from gwosc.timeline import get_segments
 from gwpy.io.cache import is_cache, read_cache
 from gwpy.segments import DataQualityFlag, SegmentList
@@ -34,6 +33,8 @@ from ..utils import (
     is_par_file,
 )
 from .fastheterodyne import fast_heterodyne
+
+GWOSC_DEFAULT_HOST = "datafind.gwosc.org"
 
 
 class Heterodyne:
@@ -659,7 +660,11 @@ class Heterodyne:
         else:
             self._host = host
 
-            if self.host is not None:
+            if self.host is not None and self.host not in [
+                "datafind.igwn.org",
+                "datafind.ligo.org",
+                GWOSC_DEFAULT_HOST,
+            ]:
                 # check for valid and exitsing URL
                 import requests
 
@@ -863,7 +868,7 @@ class Heterodyne:
                         kwargs.get("site", self.detector),
                         starttime,
                         endtime,
-                        host=host,
+                        host=f"https://{host}",
                         cache=kwargs.get("cache", False),
                     )
                 except Exception as e:

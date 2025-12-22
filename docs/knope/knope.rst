@@ -41,7 +41,7 @@ used, if required, for quick testing.
    For LVK users, if requiring access to `proprietary IGWN frame data
    <https://computing.docs.ligo.org/guide/auth/scitokens/#data>`__ (i.e., non-public frames visible
    to those within the LVK collaboration) via `OSDF
-   <https://computing.docs.ligo.org/guide/data/aggregated/>`__ rather than frames locally stored on a cluster,
+   <https://computing.docs.ligo.org/guide/data/distribution/#osdf>`__ rather than frames locally stored on a cluster,
    you will need to `generate a SciToken
    <https://computing.docs.ligo.org/guide/auth/scitokens/#get>`__ to allow the analysis script to
    access them. To enable the pipeline script to find science segments and frame URLs you must
