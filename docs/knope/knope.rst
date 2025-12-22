@@ -40,8 +40,8 @@ used, if required, for quick testing.
 
    For LVK users, if requiring access to `proprietary IGWN frame data
    <https://computing.docs.ligo.org/guide/auth/scitokens/#data>`__ (i.e., non-public frames visible
-   to those within the LVK collaboration) via `CVMFS
-   <https://computing.docs.ligo.org/guide/cvmfs/>`__ rather than frames locally stored on a cluster,
+   to those within the LVK collaboration) via `OSDF
+   <https://computing.docs.ligo.org/guide/data/aggregated/>`__ rather than frames locally stored on a cluster,
    you will need to `generate a SciToken
    <https://computing.docs.ligo.org/guide/auth/scitokens/#get>`__ to allow the analysis script to
    access them. To enable the pipeline script to find science segments and frame URLs you must
@@ -51,29 +51,10 @@ used, if required, for quick testing.
 
       htgettoken -a vault.ligo.org -i igwn
 
-   .. warning::
-
-      On some systems still using the `X.509 authentication
-      <https://computing.docs.ligo.org/guide/auth/x509/>`__ you may instead need to run
-
-      .. code:: bash
-
-         ligo-proxy-init -p albert.einstein
-
-      to find the science segments and frame URLs.
-
-   and then run:
-
-   .. code:: bash
-
-      condor_vault_storer -v igwn
-
-   to allow the HTCondor jobs to access the credentials.
-
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
-data available from the `GWOSC <https://gwosc.org/>`__ via `CVMFS
-<https://cvmfs.readthedocs.io/>`__. To find out more about accessing this data see the instructions
-`here <https://gwosc.org/cvmfs/>`__.
+data available from the `GWOSC <https://gwosc.org/>`__ via `OSDF
+<https://gwosc.org/osdf/>`__. To find out more about accessing this data see the instructions
+`here <https://gwosc.org/osdf/>`__.
 
 Configuration file
 ------------------
@@ -103,7 +84,7 @@ Quick setup
 The ``cwinpy_knope_pipeline`` script has some quick setup options that allow an analysis to be
 launched in one line without the need to define a configuration file. These options **require** that
 the machine/cluster that you are running HTCondor on has access to open data from GWOSC available
-via CVMFS. It is also recommended that you run CWInPy from within an `IGWN conda environment
+via OSDF. It is also recommended that you run CWInPy from within an `IGWN conda environment
 <https://computing.docs.ligo.org/conda/>`_ 
 
 For example, if you have a TEMPO(2)-style pulsar parameter file, e.g., ``J0740+6620.par``, and you
@@ -226,10 +207,10 @@ This would be run with:
 
    .. code-block:: bash
 
-      $ htgettoken --audience https://datafind.ligo.org --scope gwdatafind.read -a vault.ligo.org --issuer igwn
+      $ htgettoken -a vault.ligo.org --issuer igwn
 
    to generate `SciTokens authentication <https://computing.docs.ligo.org/guide/auth/scitokens/>`__
-   for accessing the proprietary data via CVMFS.
+   for accessing the proprietary data via OSDF.
 
 Once complete, this example should have generated the heterodyned data files for H1 and L1 (within
 the ``/home/matthew.pitkin/projects/cwinpyO1/heterodyne`` directory):

@@ -12,11 +12,11 @@ from matplotlib import pyplot as plt
 from ..heterodyne.heterodyne import HeterodyneDAGRunner
 from ..info import (
     ANALYSIS_SEGMENTS,
-    CVMFS_GWOSC_DATA_SERVER,
-    CVMFS_GWOSC_DATA_TYPES,
-    CVMFS_GWOSC_FRAME_CHANNELS,
     HW_INJ_RUNTIMES,
     HW_INJ_SEGMENTS,
+    OSDF_GWOSC_DATA_SERVER,
+    OSDF_GWOSC_DATA_TYPES,
+    OSDF_GWOSC_FRAME_CHANNELS,
     RUNTIMES,
     is_hwinj,
 )
@@ -167,7 +167,7 @@ def skyshift_pipeline(**kwargs):
         )
 
         optional = parser.add_argument_group(
-            "Quick setup arguments (this assumes CVMFS open data access)."
+            "Quick setup arguments (this assumes OSDF open data access)."
         )
         optional.add_argument(
             "--run",
@@ -342,11 +342,11 @@ def skyshift_pipeline(**kwargs):
             )
 
             hetconfigfile["heterodyne"]["frametypes"] = str(
-                {det: CVMFS_GWOSC_DATA_TYPES[run][srate][det] for det in detectors}
+                {det: OSDF_GWOSC_DATA_TYPES[run][srate][det] for det in detectors}
             )
-            hetconfigfile["heterodyne"]["host"] = CVMFS_GWOSC_DATA_SERVER
+            hetconfigfile["heterodyne"]["host"] = OSDF_GWOSC_DATA_SERVER
             hetconfigfile["heterodyne"]["channels"] = str(
-                {det: CVMFS_GWOSC_FRAME_CHANNELS[run][srate][det] for det in detectors}
+                {det: OSDF_GWOSC_FRAME_CHANNELS[run][srate][det] for det in detectors}
             )
             hetconfigfile["heterodyne"]["includeflags"] = str(
                 {det: segments[run][det] for det in detectors}

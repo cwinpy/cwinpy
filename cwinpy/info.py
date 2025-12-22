@@ -239,15 +239,11 @@ ANALYSIS_SEGMENTS = {
     "O3": {det: f"{det}_CBC_CAT1" for det in RUNTIMES["O3a"]},
 }
 
-
-#: Base CVMFS directory for open GWOSC frame data
-CVMFS_GWOSC_BASE = "/cvmfs/gwosc.osgstorage.org/gwdata"
-
 #: GWOSC data server URL
-CVMFS_GWOSC_DATA_SERVER = "datafind.gwosc.org"
+OSDF_GWOSC_DATA_SERVER = "datafind.gwosc.org"
 
 #: GWOSC data types for different runs
-CVMFS_GWOSC_DATA_TYPES = {
+OSDF_GWOSC_DATA_TYPES = {
     "S5": {
         "4k": {
             "H1": "H1_LOSC_4_V1",
@@ -310,7 +306,7 @@ CVMFS_GWOSC_DATA_TYPES = {
 }
 
 #: data channel names in the GWOSC data frames
-CVMFS_GWOSC_FRAME_CHANNELS = {
+OSDF_GWOSC_FRAME_CHANNELS = {
     "S5": {
         "4k": {
             "H1": "H1:LOSC-STRAIN",
@@ -383,9 +379,6 @@ CVMFS_GWOSC_FRAME_CHANNELS = {
         },
     },
 }
-
-#: Base CVMFS directory for proprietory LVK frame data
-CVMFS_LVK_BASE = "/cvmfs/oasis.opensciencegrid.org/ligo/frames"
 
 
 def is_hwinj(psr, return_file=False):

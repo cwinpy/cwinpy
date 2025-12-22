@@ -21,6 +21,7 @@ try:
     from htcondor.dags import DAG, write_dag
 except ModuleNotFoundError:
     from htcondor2.dags import DAG, write_dag
+
 from simpleeval import EvalWithCompoundTypes, NameNotDefined
 from solar_system_ephemerides.paths import JPLDE
 
@@ -32,12 +33,12 @@ from ..cwinpyargparser import CWInPyArgParser
 from ..data import HeterodynedData
 from ..info import (
     ANALYSIS_SEGMENTS,
-    CVMFS_GWOSC_DATA_SERVER,
-    CVMFS_GWOSC_DATA_TYPES,
-    CVMFS_GWOSC_FRAME_CHANNELS,
     HW_INJ,
     HW_INJ_RUNTIMES,
     HW_INJ_SEGMENTS,
+    OSDF_GWOSC_DATA_SERVER,
+    OSDF_GWOSC_DATA_TYPES,
+    OSDF_GWOSC_FRAME_CHANNELS,
     RUNTIMES,
     is_hwinj,
 )
@@ -160,9 +161,9 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         type=str,
         help=(
             "The server name for finding the gravitational-wave data files. "
-            'Use "datafind.ligo.org:443" for open data available via OSDF. '
+            'Use "datafind.igwn.org" for proprietary data available via OSDF. '
             "To use open data available from the GWOSC use "
-            '"https://gwosc.org".'
+            '"datafind.gwosc.org".'
         ),
     )
     dataparser.add(
@@ -1785,7 +1786,7 @@ def heterodyne_pipeline(**kwargs):
         )
 
         optional = parser.add_argument_group(
-            "Quick setup arguments (this assumes CVMFS open data access)."
+            "Quick setup arguments (this assumes OSDF open data access)."
         )
         optional.add_argument(
             "--run",
@@ -2048,8 +2049,7 @@ def heterodyne_quick_setup(args, **kwargs):
         configfile["heterodyne"]["frametypes"] = str(
             {
                 det: [
-                    CVMFS_GWOSC_DATA_TYPES[o3run][srate][det]
-                    for o3run in ["O3a", "O3b"]
+                    OSDF_GWOSC_DATA_TYPES[o3run][srate][det] for o3run in ["O3a", "O3b"]
                 ]
                 for det in detectors
             }
@@ -2063,13 +2063,13 @@ def heterodyne_quick_setup(args, **kwargs):
         )
 
         configfile["heterodyne"]["frametypes"] = str(
-            {det: CVMFS_GWOSC_DATA_TYPES[run][srate][det] for det in detectors}
+            {det: OSDF_GWOSC_DATA_TYPES[run][srate][det] for det in detectors}
         )
 
     configfile["heterodyne"]["channels"] = str(
-        {det: CVMFS_GWOSC_FRAME_CHANNELS[run][srate][det] for det in detectors}
+        {det: OSDF_GWOSC_FRAME_CHANNELS[run][srate][det] for det in detectors}
     )
-    configfile["heterodyne"]["host"] = CVMFS_GWOSC_DATA_SERVER
+    configfile["heterodyne"]["host"] = OSDF_GWOSC_DATA_SERVER
     if hwinj:
         configfile["heterodyne"]["includeflags"] = str(
             {det: segments[run][det]["includesegments"] for det in detectors}

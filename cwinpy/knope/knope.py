@@ -295,7 +295,7 @@ def knope_pipeline(**kwargs):
         )
 
         optional = parser.add_argument_group(
-            "Quick setup arguments (this assumes CVMFS open data access)."
+            "Quick setup arguments (this assumes OSDF open data access)."
         )
         optional.add_argument(
             "--run",

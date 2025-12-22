@@ -31,8 +31,8 @@ with:
    This will use default settings for all parts of the pipeline including outputting results in the
    current working directory. It also assumes you are running on a submit node of a machine running
    the `HTCondor <https://htcondor.readthedocs.io/>`__ job scheduler and have access to `open
-   gravitational-wave data <https://gwosc.org/data/>`_ via `CVMFS
-   <https://gwosc.org/cvmfs/>`__. See the :ref:`Known pulsar analysis pipeline` and
+   gravitational-wave data <https://gwosc.org/data/>`_ via `OSDF
+   <https://gwosc.org/osdf/>`__. See the :ref:`Known pulsar analysis pipeline` and
    :ref:`Heterodyning data` sections for more details.
 
 Source parameter specification
@@ -94,7 +94,7 @@ setup the jobs (or point at CWInPy executables) within a `CVMFS-hosted IGWN cond
 development version of CWInPy (this should only be used for testing purposes). To do the former, you
 should make sure to activate an IGWN conda distribution, e.g.,:
 
->>> conda activate igwn-py38
+>>> conda activate igwn-py311
 
 and within your pipeline configuration file the following flag should be set
 

@@ -117,16 +117,6 @@ adjusted amplitudes. The injection labeled ``PULSAR15`` is a very high frequency
 signal frequency of 2991 Hz. The injections labeled ``PULSAR16`` and ``PULSAR17`` are simulated to
 be in binary systems.
 
-CVMFS data locations
---------------------
-
-The directory locations of GWOSC open data available via CVMFS can be found in the
-:obj:`~cwinpy.info.CVMFS_FRAME_DATA_LOCATIONS` dictionary (for ``.gwf`` frame files) and the
-:obj:`~cwinpy.info.CVMFS_HDF5_DATA_LOCATIONS` dictionary (for HDF5 files). These are given for each
-observing run and each detector, with strain data sampled at 4096 Hz in the ``"4k"`` key (available
-for all observing runs) and data sampled at 16384 Hz in the ``"16k"`` key (available for all
-*advanced detector* runs, starting with the ``O`` prefix).
-
 Run information references
 --------------------------
 

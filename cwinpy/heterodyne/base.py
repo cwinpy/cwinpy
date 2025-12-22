@@ -73,10 +73,9 @@ class Heterodyne:
         ``L1:GWOSC-4KHZ_R1_STRAIN``.
     host: str
         The server name for finding the gravitational-wave data files. Use
-        ``datafind.ligo.org:443`` for open data available via OSDF. To use
-        open data available from the `GWOSC <https://gwosc.org>`__
-        use ``https://gwosc.org``. See also
-        :func:`gwpy.timeseries.TimeSeries.get`.
+        ``datafind.igwn.org`` for proprietary data available via OSDF. To use
+        open data available from the `GWOSC <https://gwosc.org>`__ use
+        ``datafind.gwosc.org``. See also :func:`gwpy.timeseries.TimeSeries.get`.
     outputframecache: str
         If a string is given it should give a file path to which a list of
         gravitational-wave data file paths, as found by the code, will be
@@ -2591,7 +2590,7 @@ def remote_frame_cache(
 
     Generate a cache list of frame files for two LIGO detectors for all O2
     data (this assumes you are accessing data on a LVC cluster, or have set
-    the environment variable ``LIGO_DATAFIND_SERVER=datafind.ligo.org:443``
+    the environment variable ``LIGO_DATAFIND_SERVER=datafind.igwn.org``
     for accessing data hosted via OSDF):
 
     >>> start = 1164556817  # GPS for 2016-11-30 16:00:00 UTC
@@ -2600,7 +2599,7 @@ def remote_frame_cache(
     >>> frametype = ['H1_CLEANED_HOFT_C02', 'L1_CLEANED_HOFT_C02']
     >>> cache = remote_frame_cache(start, end, channels, frametype=frametype)
 
-    To instead generate CVMFS locations of GWOSC open data set the host
+    To instead generate OSDF locations of GWOSC open data set the host
     argument to be `"datafind.gwosc.org"`.
 
     Parameters
@@ -2622,8 +2621,8 @@ def remote_frame_cache(
     host: str
         The server host. If not set this will be automatically determine if
         possible. To list access data available via OSDF either set host to
-        ``'datafind.ligo.org:443'`` or set the environment variable
-        ``LIGO_DATAFIND_SERVER=datafind.ligo.org:443`.
+        ``'datafind.igwn.org'`` or set the environment variable
+        ``LIGO_DATAFIND_SERVER=datafind.igwn.org``.
     write: str
         A file path to write out the list of frame files to. Default is to not
         write out the frame list.
