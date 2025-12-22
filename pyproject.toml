@@ -58,6 +58,7 @@ dependencies = [
     "pesummary >= 1.2.0",
     "psrqpy >= 1.1.7",
     "requests",
+    "requests-pelican",
     "scipy",
     "scitokens",
     "simpleeval",
