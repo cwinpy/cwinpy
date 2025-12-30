@@ -646,7 +646,10 @@ class Heterodyne:
     @appendframecache.setter
     def appendframecache(self, appendframecache):
         if isinstance(appendframecache, (bool, int)) or appendframecache is None:
-            if not Path(self.outputframecache).is_file():
+            if (
+                self.outputframecache is not None
+                and not Path(self.outputframecache).is_file()
+            ):
                 # if no outputframecache file exists set to True
                 self._appendframecache = True
             else:
