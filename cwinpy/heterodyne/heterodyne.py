@@ -167,6 +167,16 @@ expected evolution of the gravitational-wave signal from a set of pulsars."""
         ),
     )
     dataparser.add(
+        "--urltype",
+        type=str,
+        help=(
+            "The URL type to use when finding gravitational-wave data files. "
+            'Use "osdf" for data available via OSDF and "file" for local "'
+            "files."
+        ),
+        default="osdf",
+    )
+    dataparser.add(
         "--outputframecache",
         type=str,
         help=(
@@ -573,6 +583,8 @@ def heterodyne(**kwargs):
     # remove "config" from hetkwargs
     if "config" in hetkwargs:
         hetkwargs.pop("config")
+
+    print(hetkwargs)
 
     # set up the run
     het = Heterodyne(**hetkwargs)

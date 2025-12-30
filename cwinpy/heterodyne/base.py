@@ -8,13 +8,21 @@ import os
 import re
 import signal
 import sys
+import tempfile
 import warnings
 from pathlib import Path
 
 import lal
 import lalpulsar
 import numpy as np
+import requests_pelican
 from astropy.time import Time
+from astropy.utils.data import (
+    clear_download_cache,
+    download_file,
+    import_file_to_cache,
+    is_url_in_cache,
+)
 from gwosc.timeline import get_segments
 from gwpy.io.cache import is_cache, read_cache
 from gwpy.segments import DataQualityFlag, SegmentList
@@ -861,55 +869,92 @@ class Heterodyne:
                     print(f"Could not read in frame data '{frfile}' from cache. {e}")
         else:
             # download data
-            if host == GWOSC_DEFAULT_HOST:
-                try:
-                    # get GWOSC data
-                    data = TimeSeries.fetch_open_data(
-                        kwargs.get("site", self.detector),
+            try:
+                if self.outputframecache:
+                    # output cache list
+                    cache = remote_frame_cache(
                         starttime,
                         endtime,
-                        host=f"https://{host}",
-                        cache=kwargs.get("cache", False),
+                        channel,
+                        frametype=frametype,
+                        write=outputframecache,
+                        append=appendframecache,
+                        host=host,
+                        urltype=urltype,
                     )
-                except Exception as e:
-                    # return None if no data could be obtained
-                    print("Warning: {}".format(e.args[0]))
-                    data = None
-            else:  # pragma: no cover
-                try:
-                    if self.outputframecache:
-                        # output cache list
-                        cache = remote_frame_cache(
-                            starttime,
-                            endtime,
-                            channel,
-                            frametype=frametype,
-                            write=outputframecache,
-                            append=appendframecache,
-                            host=host,
-                            urltype=urltype,
-                        )
+
+                    if urltype == "osdf":
+                        temp_remote_files = [
+                            item for key in cache for item in cache[key]
+                        ]
+                        temp_files = []
+                        for remote_file in temp_remote_files:
+                            # rename "osdf" to "file" for caching for valid URL format
+                            if not is_url_in_cache(
+                                remote_file.replace("osdf", "file"),
+                                pkgname="cwinpy_frame_data",
+                            ):
+                                temp_file = tempfile.NamedTemporaryFile(
+                                    delete=False, suffix=".gwf"
+                                )
+                                with open(temp_file.name, "wb") as f:
+                                    f.write(requests_pelican.get(remote_file).content)
+
+                                # add file into cache
+                                import_file_to_cache(
+                                    remote_file.replace("osdf", "file"),
+                                    temp_file.name,
+                                    remove_original=True,
+                                    pkgname="cwinpy_frame_data",
+                                )
+
+                            cached_file = download_file(
+                                remote_file.replace("osdf", "file"),
+                                cache=True,
+                                pkgname="cwinpy_frame_data",
+                            )
+                            temp_files.append(cached_file)
+
                         data = TimeSeries.read(
-                            [item for key in cache for item in cache[key]],
+                            temp_files,
+                            channel=channel,
                             start=starttime,
                             end=endtime,
                             pad=kwargs.get("pad", 0.0),  # fill gaps with zeros
                         )
+
+                        # delete temporary files unless storing in a persistent cache
+                        # (the last file will be stored and deleted later so as not to
+                        # download overlapping data multiple times)
+                        if not kwargs.get("cache", False):
+                            for remote_file in temp_remote_files[:-1]:
+                                clear_download_cache(
+                                    remote_file.replace("osdf", "file"),
+                                    pkgname="cwinpy_frame_data",
+                                )
                     else:
-                        data = TimeSeries.get(
-                            channel,
-                            starttime,
-                            endtime,
-                            host=host,
-                            frametype=frametype,
+                        data = TimeSeries.read(
+                            [item for key in cache for item in cache[key]],
+                            channel=channel,
+                            start=starttime,
+                            end=endtime,
                             pad=kwargs.get("pad", 0.0),  # fill gaps with zeros
                         )
-                except Exception as e:
-                    if self.strictdatarequirement:
-                        raise IOError("Could not download frame data: {}".format(e))
-                    else:
-                        print("Could not download frame data.")
-                        data = None
+                else:
+                    data = TimeSeries.get(
+                        channel,
+                        starttime,
+                        endtime,
+                        host=host,
+                        frametype=frametype,
+                        pad=kwargs.get("pad", 0.0),  # fill gaps with zeros
+                    )
+            except Exception as e:
+                if self.strictdatarequirement:
+                    raise IOError(f"Could not download frame data: {e}")
+                else:
+                    print(f"Could not download frame data: {e}.")
+                    data = None
 
         return data
 
@@ -2117,6 +2162,10 @@ class Heterodyne:
 
                     counter += 1
 
+            # clear temporary file cache is necessary
+            if not kwargs.get("cache", False):
+                clear_download_cache(pkgname="cwinpy_frame_data")
+
             # output data
             self._write_current_pulsars()
 
@@ -2661,6 +2710,10 @@ def remote_frame_cache(
     elif not isinstance(channels, list):
         raise TypeError("Channel must be a string or list")
 
+    urltype = kwargs.pop("urltype", "file").lower()
+    host = kwargs.pop("host", None)
+    on_gaps = kwargs.pop("on_gaps", "ignore")
+
     # find frametype
     frametypes = {}
     if frametype is None:
@@ -2711,9 +2764,9 @@ def remote_frame_cache(
             frametype,
             start,
             end,
-            on_gaps=kwargs.get("on_gaps", "ignore"),
-            host=kwargs.get("host", None),
-            urltype=kwargs.get("urltype", "file").lower(),
+            on_gaps=on_gaps,
+            host=host,
+            urltype=urltype,
         )
 
         if not subcache:

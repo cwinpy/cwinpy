@@ -116,7 +116,6 @@ class HeterodyneLayer(CondorLayer):
                         "No SciToken has been found, you will need to generate "
                         "a SciToken using:\n\n"
                         "$ htgettoken -a vault.ligo.org -i igwn\n"
-                        "$ condor_vault_storer -v igwn\n\n"
                         "before submitting the DAG."
                     )
 
