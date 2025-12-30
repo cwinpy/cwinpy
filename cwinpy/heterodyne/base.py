@@ -870,7 +870,7 @@ class Heterodyne:
         else:
             # download data
             try:
-                if self.outputframecache:
+                if outputframecache or urltype == "osdf":
                     # output cache list
                     cache = remote_frame_cache(
                         starttime,
