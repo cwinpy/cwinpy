@@ -874,6 +874,7 @@ class Heterodyne:
                     )
                 else:
                     print(f"Could not read in frame data '{frfile}' from cache. {e}")
+                    data = None
         else:
             # download data
             try:
