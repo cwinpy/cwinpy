@@ -1,6 +1,7 @@
 import ast
 import copy
 import os
+import re
 import tempfile
 
 import numpy as np
@@ -172,11 +173,20 @@ def read_hdf5_series(
         hetargs = None
 
     if hetargs is not None:
-        array.heterodyne_arguments = ast.literal_eval(
-            hetargs[()][0].decode()
-            if isinstance(hetargs[()][0], bytes)
-            else hetargs[()][0]
+        # remove any numbers wrapped in numpy float values before parsing
+        # the arguments
+        pattern = r"np\.float\d*\(\s*(.*?)\s*\)"
+        hetargstr = re.sub(
+            pattern,
+            r"\1",
+            (
+                hetargs[()][0].decode()
+                if isinstance(hetargs[()][0], bytes)
+                else hetargs[()][0]
+            ),
         )
+
+        array.heterodyne_arguments = ast.literal_eval(hetargstr)
 
     # set any configuration file information
     if "cwinpy_heterodyne_pipeline_config" in kwargs:
