@@ -107,6 +107,14 @@ class HeterodyneLayer(CondorLayer):
 
             self.submit_options["use_oauth_services"] = self.issuer
 
+            self.submit_options[
+                "igwn_oauth_permissions"
+            ] = "read:/ligo read:/virgo read:/kagra"
+
+            environment.append(
+                f"BEARER_TOKEN_FILE=$$(CondorScratchDir)/.condor_creds/{self.issuer}.use"
+            )
+
             # check whether SciToken has been created
             if self.issuer == "igwn":
                 try:
