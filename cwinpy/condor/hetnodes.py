@@ -1,6 +1,8 @@
 import copy
 import os
 import re
+import subprocess as sp
+from math import ceil
 
 from configargparse import DefaultConfigFileParser
 from scitokens import SciToken
@@ -8,6 +10,41 @@ from scitokens import SciToken
 from ..heterodyne.base import Heterodyne, frame_information
 from ..utils import relative_topdir
 from . import CondorLayer
+
+
+def osdf_file_size(url: str) -> int:
+    """
+    Get the size of a file stored on OSDF. If this can not be determined a
+    None-type is returned
+
+    Parameters
+    ----------
+    url: str
+        The OSDF URL of the file.
+
+    Returns
+    -------
+    size: int
+        The size of the file in bytes.
+    """
+
+    try:
+        output = sp.run(
+            ["pelican", "object", "stat", url],
+            capture_output=True,
+        )
+    except FileNotFoundError:
+        return None
+
+    if output.returncode != 0:
+        return None
+
+    for line in output.stdout.decode("utf-8").split("\n"):
+        if line.startswith("Size:"):
+            size = int(line.split()[1])
+            return size
+
+    return None
 
 
 def _is_htcondor_scitoken_local_issuer():
@@ -359,12 +396,30 @@ class HeterodyneLayer(CondorLayer):
                             frame_info = [frame_information(fr) for fr in frames]
 
                             # transfer frames required for job
+                            total_size = 0
                             for fidx, fi in enumerate(frame_info):
                                 st = fi[2]  # frame start time
                                 dur = fi[3]  # frame duration
                                 if starttime <= st and endtime >= st + dur:
                                     issuer = "igwn+" if self.issuer == "igwn" else ""
-                                    transfer_input.append(f"{issuer}{frames[fidx]}")
+                                    osdfurl = f"{issuer}{frames[fidx]}"
+
+                                    total_size += osdf_file_size(osdfurl) or 0
+                                    transfer_input.append(osdfurl)
+
+                            # add 10% safety margin to requested disk space
+                            total_size_GB = int(ceil(total_size * 1.1 / (1024**3)))
+                            request_disk_size = int(
+                                self.submit_options.get("request_disk", "0 GB")
+                                .upper()
+                                .strip("GB")
+                            )
+
+                            # update requested disk size if required
+                            if total_size_GB > request_disk_size:
+                                self.submit_options[
+                                    "request_disk"
+                                ] = f"{total_size_GB} GB"
 
                             # use transfered frame files in current directory (CHECK THIS WORKS)
                             config["framecache"] = "."
