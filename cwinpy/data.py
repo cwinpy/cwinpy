@@ -12,7 +12,6 @@ import lalpulsar
 import numpy as np
 from astropy.io import registry as io_registry
 from gwpy.detector import Channel
-from gwpy.io.mp import read_multi
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
 from gwpy.segments import SegmentList
 from gwpy.timeseries import TimeSeries, TimeSeriesBase
@@ -21,10 +20,31 @@ from numba import jit
 from scipy.ndimage import median_filter
 from scipy.stats import hmean
 
+try:
+    from gwpy.io.registry import UnifiedRead, UnifiedReadWriteMethod
+except ImportError:
+    from gwpy.io.mp import read_multi
+
+    GWPY_4 = False
+else:
+    GWPY_4 = True
+
+
 import cwinpy
 
 from .parfile import PulsarParameters
 from .utils import allzero, gcd_array, get_psr_name, is_par_file, logfactorial
+
+if GWPY_4:
+
+    class HeterodynedDataRead(UnifiedRead):
+        def merge(self, items, **kwargs):
+            # remove any empty data
+            useful = filter(lambda x: x.size, items)
+            out = next(useful)
+            for new in useful:
+                out.merge(new)
+            return out
 
 
 class MultiHeterodynedData:
@@ -928,7 +948,7 @@ class HeterodynedData(TimeSeriesBase):
             try:
                 new = cls.read(data)
             except Exception as e:
-                raise IOError("Error reading file '{}':\n{}".format(data, e))
+                raise IOError("Error reading file '{}':\n{}".format(data, e)) from e
 
             if new.detector is None:
                 new.detector = detector
@@ -1122,43 +1142,48 @@ class HeterodynedData(TimeSeriesBase):
     def cwinpy_version(self, version):
         self._cwinpy_version = version
 
-    @classmethod
-    def read(cls, source, *args, **kwargs):
-        """
-        Read in a time series of data from a given file or list of files.
-        Currently this supports ascii text files as described for the
-        :class:`~cwinpy.data.HeterodynedData` class or HDF5 files.
+    # declare custom read
+    if GWPY_4:
+        read = UnifiedReadWriteMethod(HeterodynedDataRead)
+    else:
 
-        See :meth:`gwpy.timeseries.TimeSeries.read` for more information.
-        """
+        @classmethod
+        def read(cls, source, *args, **kwargs):
+            """
+            Read in a time series of data from a given file or list of files.
+            Currently this supports ascii text files as described for the
+            :class:`~cwinpy.data.HeterodynedData` class or HDF5 files.
 
-        if isinstance(source, (str, Path)):
-            datafiles = [source]
-        else:
-            datafiles = list(source)
+            See :meth:`gwpy.timeseries.TimeSeries.read` for more information.
+            """
 
-        # remove any files that have zero size
-        datafiles = [df for df in datafiles if Path(df).stat().st_size]
-        if not datafiles:
-            raise IOError("No non-empty heterodyned data files were given")
+            if isinstance(source, (str, Path)):
+                datafiles = [source]
+            else:
+                datafiles = list(source)
 
-        hetdata = read_multi(lambda x: x[0], cls, datafiles[0], *args, **kwargs)
+            # remove any files that have zero size
+            datafiles = [df for df in datafiles if Path(df).stat().st_size]
+            if not datafiles:
+                raise IOError("No non-empty heterodyned data files were given")
 
-        for dfile in datafiles[1:]:
-            moredata = read_multi(lambda x: x[0], cls, dfile, *args, **kwargs)
-            hetdata.merge(moredata)
+            hetdata = read_multi(lambda x: x[0], cls, datafiles[0], *args, **kwargs)
 
-        return cls(data=hetdata, **kwargs)
+            for dfile in datafiles[1:]:
+                moredata = read_multi(lambda x: x[0], cls, dfile, *args, **kwargs)
+                hetdata.merge(moredata)
 
-    def write(self, target, *args, **kwargs):
-        """
-        Write this :class:`~cwinpy.data.HeterodynedData` object to a file.
-        """
+            return cls(data=hetdata, **kwargs)
 
-        return io_registry.write(self, target, *args, **kwargs)
+        def write(self, target, *args, **kwargs):
+            """
+            Write this :class:`~cwinpy.data.HeterodynedData` object to a file.
+            """
+
+            return io_registry.write(self, target, *args, **kwargs)
 
     # make save alias of write
-    save = write
+    save = TimeSeriesBase.write
 
     def merge(self, other, sort=True):
         """
