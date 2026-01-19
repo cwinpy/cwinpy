@@ -2618,7 +2618,6 @@ def remote_frame_cache(
     from gwpy.detector import ChannelList
     from gwpy.io import datafind as io_datafind
     from gwpy.time import to_gps
-    from gwpy.utils import gprint
 
     start = to_gps(start)
     end = to_gps(end)
@@ -2640,9 +2639,14 @@ def remote_frame_cache(
                 frametypes[ftype] = [name]
 
         if verbose and len(frametypes) > 1:
-            gprint("Determined {} frametypes to read".format(len(frametypes)))
+            print(
+                "Determined {} frametypes to read".format(len(frametypes)), flush=True
+            )
         elif verbose:
-            gprint("Determined best frametype as {}".format(list(frametypes.keys())[0]))
+            print(
+                "Determined best frametype as {}".format(list(frametypes.keys())[0]),
+                flush=True,
+            )
     else:
         if isinstance(frametype, list):
             if len(frametype) == len(channels):
