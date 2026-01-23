@@ -1,7 +1,6 @@
 import copy
 import os
 import re
-import subprocess as sp
 from math import ceil
 
 from configargparse import DefaultConfigFileParser
@@ -29,22 +28,22 @@ def osdf_file_size(url: str) -> int:
     """
 
     try:
-        output = sp.run(
-            ["pelican", "object", "stat", url],
-            capture_output=True,
-        )
-    except FileNotFoundError:
+        from pelicanfs.core import OSDFFileSystem
+    except ModuleNotFoundError:
         return None
 
-    if output.returncode != 0:
+    try:
+        token = SciToken.discover()
+        tokenstr = token._serialized_token or token.serialize().decode("utf-8")
+        headers = {"Authorization": f"Bearer {tokenstr}"}
+        osdf = OSDFFileSystem(headers=headers)
+        for urlstart in ["igwn+osdf://", "osdf://"]:
+            if url.startswith(urlstart):
+                url = url.replace(urlstart, "")
+        info = osdf.info(url)
+        return info.get("size", None)
+    except Exception:
         return None
-
-    for line in output.stdout.decode("utf-8").split("\n"):
-        if line.startswith("Size:"):
-            size = int(line.split()[1])
-            return size
-
-    return None
 
 
 def _is_htcondor_scitoken_local_issuer():
