@@ -975,7 +975,7 @@ class HeterodyneDAGRunner(object):
         sunephemeris = self.eval(config.get("ephemerides", "sun", fallback=None))
 
         osg = config.getboolean(dagsection, "osg", fallback=False)
-        urltype = config.getboolean(dagsection, "urltype", fallback="osdf")
+        urltype = config.get(dagsection, "urltype", fallback="osdf")
 
         # get all the split segment times and frame caches
         if joblength == 0:
