@@ -127,7 +127,10 @@ RUNTIMES["O3"] = {
     "L1": [1238166018, 1269363618],
     "V1": [1238166018, 1269363618],
 }
-
+RUNTIMES["O4a"] = {
+    "H1": [1368975618, 1389456018],
+    "L1": [1368975618, 1389456018],
+}
 
 #: Start and end run times for continuous wave hardware injections (no injections for Virgo)
 HW_INJ_RUNTIMES = Runtimes()
@@ -160,9 +163,12 @@ HW_INJ_RUNTIMES["O3"] = {
     "H1": [1238166018, 1269363618],
     "L1": [1238166018, 1269363618],
 }
+HW_INJ_RUNTIMES["O4a"] = {
+    "H1": [1368975618, 1389456018],
+    "L1": [1368975618, 1389456018],
+}
 
-
-HW_INJ_RUNS = ["S5", "S6", "O1", "O2", "O3a"]
+HW_INJ_RUNS = ["S5", "S6", "O1", "O2", "O3a", "O4a"]
 with resources.path("cwinpy.pkg_data", "__init__.py") as rpath:
     HW_INJ_BASE_PATH = str(rpath.parent)
 
@@ -225,6 +231,13 @@ HW_INJ_SEGMENTS = {
         }
         for det in HW_INJ_RUNTIMES["O3"]
     },
+    "O4a": {
+        det: {
+            "includesegments": f"{det}_CBC_CAT1",
+            "excludesegments": f"{det}_NO_CW_HW_INJ",
+        }
+        for det in HW_INJ_RUNTIMES["O4a"]
+    },
 }
 
 
@@ -237,6 +250,7 @@ ANALYSIS_SEGMENTS = {
     "O3a": {det: f"{det}_CBC_CAT1" for det in RUNTIMES["O3a"]},
     "O3b": {det: f"{det}_CBC_CAT1" for det in RUNTIMES["O3b"]},
     "O3": {det: f"{det}_CBC_CAT1" for det in RUNTIMES["O3a"]},
+    "O4a": {det: f"{det}_CBC_CAT1" for det in RUNTIMES["O4a"]},
 }
 
 #: GWOSC data server URL
@@ -301,6 +315,16 @@ OSDF_GWOSC_DATA_TYPES = {
             "H1": "H1_GWOSC_O3b_16KHZ_R1",
             "L1": "L1_GWOSC_O3b_16KHZ_R1",
             "V1": "V1_GWOSC_O3b_16KHZ_R1",
+        },
+    },
+    "O4a": {
+        "4k": {
+            "H1": "H1_GWOSC_O4a_4KHZ_R1",
+            "L1": "L1_GWOSC_O4a_4KHZ_R1",
+        },
+        "16k": {
+            "H1": "H1_GWOSC_O4a_16KHZ_R1",
+            "L1": "L1_GWOSC_O4a_16KHZ_R1",
         },
     },
 }
@@ -376,6 +400,16 @@ OSDF_GWOSC_FRAME_CHANNELS = {
             "H1": "H1:GWOSC-16KHZ_R1_STRAIN",
             "L1": "L1:GWOSC-16KHZ_R1_STRAIN",
             "V1": "V1:GWOSC-16KHZ_R1_STRAIN",
+        },
+    },
+    "O4a": {
+        "4k": {
+            "H1": "H1:GWOSC-4KHZ_R1_STRAIN",
+            "L1": "L1:GWOSC-4KHZ_R1_STRAIN",
+        },
+        "16k": {
+            "H1": "H1:GWOSC-16KHZ_R1_STRAIN",
+            "L1": "L1:GWOSC-16KHZ_R1_STRAIN",
         },
     },
 }
