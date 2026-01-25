@@ -2020,10 +2020,9 @@ def heterodyne_quick_setup(args, **kwargs):
 
     configfile["heterodyne_dag"] = {}
     configfile["heterodyne_dag"]["submitdag"] = "True"
-    configfile["heterodyne_dag"]["urltype"] = kwargs.get("urltype", args.urltype)
     if kwargs.get("osg", args.osg):
         configfile["heterodyne_dag"]["osg"] = "True"
-        configfile["heterodyne_dag"]["urltype"] = "osdf"  # force OSDF use
+    configfile["heterodyne_dag"]["urltype"] = "osdf"  # use OSDF
 
     configfile["heterodyne_job"] = {}
     configfile["heterodyne_job"]["getenv"] = "True"
