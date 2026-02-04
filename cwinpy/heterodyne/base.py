@@ -2887,7 +2887,10 @@ def local_frame_cache(
         if not frfile.resolve().is_file():
             continue
 
-        fileparts = frame_information(frfile)
+        try:
+            fileparts = frame_information(frfile)
+        except IOError:
+            continue
 
         if len(fileparts) == 4:
             # file is in standard format
