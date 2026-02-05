@@ -826,6 +826,7 @@ class Heterodyne:
                 for c in sorted(zip([frame_information(fr)[2] for fr in cache], cache))
             ]
 
+            frfile = None
             try:
                 # TimeSeries.read can't read from multiple files, so read individually
                 data = TimeSeriesDict()
@@ -873,7 +874,7 @@ class Heterodyne:
                         f"Could not read in frame data '{frfile}' from cache: {e}"
                     )
                 else:
-                    print(f"Could not read in frame data '{frfile}' from cache. {e}")
+                    print(f"Could not read in frame data '{frfile}' from cache: {e}")
                     data = None
         else:
             # download data
@@ -2924,7 +2925,7 @@ def local_frame_cache(
 
         cache.append("file://localhost{}".format(str(frfile.resolve())))
 
-    cache = [x[1] for x in sorted(zip(filetimes, cache))]  # sort cache files om time
+    cache = [x[1] for x in sorted(zip(filetimes, cache))]  # sort cache files by time
 
     # write output to file
     if write is not None:
