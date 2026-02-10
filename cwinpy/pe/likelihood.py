@@ -1028,11 +1028,18 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
     def _parse_vector_param(par, name, value):
         """
         Set a vector parameter with the given single value at the place
-        specified in the `name`.
+        specified in the `name`. If the current vector parameter isn't
+        long enough for the given place value it will be zero padded to
+        the required length.
         """
 
         vname, vpos = TargetedPulsarLikelihood._vector_param_name_index(name)
         vec = np.array(par[vname])
+
+        if vpos + 1 > len(vec):
+            # pad with zeros to required length if necessary
+            vec = np.pad(vec, (0, vpos + 1 - len(vec)))
+
         vec[vpos] = value
 
         return vec
