@@ -18,8 +18,8 @@ from astropy.time import Time
 from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from gwosc.timeline import get_segments
 from gwpy.io.cache import is_cache, read_cache
-from gwpy.segments import DataQualityFlag, SegmentList
-from gwpy.timeseries import TimeSeries, TimeSeriesDict, TimeSeriesList
+from gwpy.segments import DataQualityFlag, Segment, SegmentList
+from gwpy.timeseries import TimeSeries, TimeSeriesList
 from scipy.interpolate import splev, splrep
 
 from ..data import HeterodynedData
@@ -769,7 +769,9 @@ class Heterodyne:
                 else:
                     # read in frame files from cache file
                     if is_cache(framecache):
-                        cache = read_cache(framecache)
+                        cache = read_cache(
+                            framecache, segment=Segment(starttime, endtime)
+                        )
                     else:
                         raise IOError(
                             "Frame cache file '{}' could not be read".format(framecache)
@@ -782,54 +784,23 @@ class Heterodyne:
             ]
 
             try:
-                # TimeSeries.read can't read from multiple files, so read individually
-                data = TimeSeriesDict()
-                startread = starttime
-                for frfile in cache:
-                    _, _, frt0, frdur = frame_information(frfile)
+                # error on empty cache
+                if len(cache) == 0:
+                    raise IOError("No frame data files found in cache")
 
-                    if frt0 >= endtime:
-                        # found frame files, so break out of loop
-                        break
-                    if starttime < frt0 and endtime >= frt0:
-                        startread = frt0
-
-                        if endtime > frt0 + frdur:
-                            endread = frt0 + frdur
-                        else:
-                            endread = endtime
-                    elif (frt0 <= starttime < frt0 + frdur) and endtime >= frt0:
-                        startread = starttime
-
-                        if endtime > frt0 + frdur:
-                            endread = frt0 + frdur
-                        else:
-                            endread = endtime
-                    else:
-                        # move on to next file
-                        continue
-
-                    thisdata = TimeSeriesDict.read(
-                        frfile,
-                        [channel],
-                        start=startread,
-                        end=endread,
-                        pad=kwargs.get("pad", 0.0),
-                    )
-
-                    # zero pad any gaps in the data
-                    data.append(thisdata, pad=0.0, gap="pad")
-
-                # extract channel from dictionary
-                data = data[channel]
+                data = TimeSeries.read(
+                    cache,
+                    channel,
+                    start=starttime,
+                    end=endtime,
+                    pad=kwargs.get("pad", 0.0),  # fill gaps with zeros
+                )
             except Exception as e:
+                msg = "Failed to read frame data from cache"
                 if self.strictdatarequirement:
-                    raise IOError(
-                        f"Could not read in frame data '{frfile}' from cache: {e}"
-                    )
-                else:
-                    print(f"Could not read in frame data '{frfile}' from cache. {e}")
-                    data = None
+                    raise IOError(msg) from e
+                print(f"{msg}: {e}")
+                data = None
         else:
             # download data
             if host == GWOSC_DEFAULT_HOST:
@@ -2618,7 +2589,6 @@ def remote_frame_cache(
     from gwpy.detector import ChannelList
     from gwpy.io import datafind as io_datafind
     from gwpy.time import to_gps
-    from gwpy.utils import gprint
 
     start = to_gps(start)
     end = to_gps(end)
@@ -2640,9 +2610,14 @@ def remote_frame_cache(
                 frametypes[ftype] = [name]
 
         if verbose and len(frametypes) > 1:
-            gprint("Determined {} frametypes to read".format(len(frametypes)))
+            print(
+                "Determined {} frametypes to read".format(len(frametypes)), flush=True
+            )
         elif verbose:
-            gprint("Determined best frametype as {}".format(list(frametypes.keys())[0]))
+            print(
+                "Determined best frametype as {}".format(list(frametypes.keys())[0]),
+                flush=True,
+            )
     else:
         if isinstance(frametype, list):
             if len(frametype) == len(channels):
