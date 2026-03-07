@@ -9,7 +9,11 @@ from pathlib import Path
 import bilby
 import numpy as np
 import pytest
-from htcondor import dags
+
+try:
+    from htcondor import dags
+except ModuleNotFoundError:
+    from htcondor2 import dags
 
 from cwinpy.pe.testing import PEPPPlotsDAG
 
