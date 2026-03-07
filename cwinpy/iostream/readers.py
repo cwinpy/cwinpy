@@ -3,12 +3,18 @@ import copy
 import os
 import re
 import tempfile
+from contextlib import nullcontext
 
 import numpy as np
 from gwpy.io import hdf5 as io_hdf5
-from gwpy.io import registry as io_registry
-from gwpy.io.utils import identify_factory
 from gwpy.types.io.hdf5 import write_hdf5_series as gwpy_write_hdf5_series
+
+try:
+    from gwpy.io.registry import default_registry as io_registry
+    from gwpy.io.registry import identify_factory
+except ImportError:  # gwpy < 4.0.0
+    from gwpy.io import registry as io_registry
+    from gwpy.io.utils import identify_factory
 
 from ..data import HeterodynedData
 
@@ -28,27 +34,30 @@ def read_ascii_series(input_, array_type=HeterodynedData, **kwargs):
     """
 
     data = np.loadtxt(input_, **kwargs)
+    if data.shape[1] < 2:
+        raise IOError("Problem reading in data")
 
     # get any comment lines from the file
     commentstrs = list(kwargs.get("comments", ["%", "#"]))  # delimiters
     comments = ""
 
-    if input_.endswith(".gz"):
+    # open a file path, or rewind an open file to the start
+    if (isfilepath := isinstance(input_, str)) and input_.endswith(".gz"):
         import gzip
 
         openfunc = gzip.open
-    else:
+    elif isfilepath:
         openfunc = open
+    else:
+        openfunc = nullcontext
+        input_.seek(0)  # rewind
 
-    with openfunc(input_, "r") as fp:
+    with openfunc(input_) as fp:
         for line in fp.readlines():
             firstchar = line.strip()[0]  # remove any proceeding whitespace
             if firstchar in commentstrs:
                 # strip the comment delimiter and any leading whitespace
                 comments += line.strip(firstchar).strip()
-
-    if data.shape[1] < 2:
-        raise IOError("Problem reading in data")
 
     return array_type(data[:, 1:], times=data[:, 0], comments=comments)
 
