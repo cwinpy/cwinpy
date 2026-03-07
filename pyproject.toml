@@ -10,7 +10,7 @@ requires = [
     "numpy>=2.0.0",
     "packaging>=24.2",
     "setuptools>=77.0.1",
-    "setuptools_scm[toml]>=6.2",
+    "setuptools_scm[simple]>=9.2",
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
@@ -129,14 +129,8 @@ include = [
     "cwinpy*",
 ]
 
-[tool.setuptools_scm]
-write_to = "cwinpy/_version.py"
-
 [tool.coverage.run]
 source = [ "cwinpy" ]
-omit = [
-    "*/_version.py",
-]
 
 [tool.isort]
 line_length = 88
