@@ -2785,6 +2785,12 @@ def remote_frame_cache(
                 )
             )
 
+        if subcache[0].startswith("osdf") and urltype == "file":
+            raise RuntimeError(
+                "OSDF URLs have been returned, but 'urltype' is set to 'file'."
+                "Check the host and urltype arguments are compatible."
+            )
+
         cache[ifo].extend(subcache)
 
     # write output to file
