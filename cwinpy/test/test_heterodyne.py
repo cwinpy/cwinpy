@@ -9,11 +9,12 @@ import subprocess as sp
 import lal
 import numpy as np
 import pytest
-from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
 from solar_system_ephemerides.paths import body_ephemeris_path
 
 from cwinpy import HeterodynedData, PulsarParameters
 from cwinpy.heterodyne import Heterodyne, heterodyne, local_frame_cache
+from cwinpy.heterodyne.base import GWOSC_DEFAULT_HOST
+from cwinpy.info import OSDF_GWOSC_DATA_TYPES, OSDF_GWOSC_FRAME_CHANNELS
 from cwinpy.signal import HeterodynedCWSimulator
 
 
@@ -712,15 +713,20 @@ transientTau = {tau}
             site="H1",
             channel=self.fakedatachannels[0],
         )
-        assert len(data) == 0
+        assert data is None
 
         del het
         del data
 
         # test reading from GWOSC
-        het = Heterodyne()
+        het = Heterodyne(urltype="osdf")
         data = het.get_frame_data(
-            starttime=1126259460, endtime=1126259464, host=GWOSC_DEFAULT_HOST, site="H1"
+            starttime=1126259460,
+            endtime=1126259464,
+            host=GWOSC_DEFAULT_HOST,
+            channel=OSDF_GWOSC_FRAME_CHANNELS["O1"]["4k"]["H1"],
+            frametype=OSDF_GWOSC_DATA_TYPES["O1"]["4k"]["H1"],
+            site="H1",
         )
 
         assert int(data.t0.value) == 1126259460
@@ -731,9 +737,14 @@ transientTau = {tau}
         del data
 
         # test reading from GWOSC for invalid time
-        het = Heterodyne(strictdatarequirement=False)
+        het = Heterodyne(strictdatarequirement=False, urltype="osdf")
         data = het.get_frame_data(
-            starttime=90000000, endtime=99000000, host=GWOSC_DEFAULT_HOST, site="H1"
+            starttime=90000000,
+            endtime=99000000,
+            host=GWOSC_DEFAULT_HOST,
+            channel=OSDF_GWOSC_FRAME_CHANNELS["O1"]["4k"]["H1"],
+            frametype=OSDF_GWOSC_DATA_TYPES["O1"]["4k"]["H1"],
+            site="H1",
         )
 
         assert data is None
@@ -743,7 +754,11 @@ transientTau = {tau}
         # test None if not able to access GWOSC data
         het = Heterodyne()
         data = het.get_frame_data(
-            site="H1", starttime=1126259460, endtime=1126259464, host=GWOSC_DEFAULT_HOST
+            site="H1",
+            starttime=1126259460,
+            endtime=1126259464,
+            host=GWOSC_DEFAULT_HOST,
+            channel=OSDF_GWOSC_FRAME_CHANNELS["O1"]["4k"]["H1"],
         )
 
         assert data is None

@@ -774,7 +774,7 @@ class Heterodyne:
         if endtime is None:
             raise ValueError("An end time is not set")
 
-        if channel is None and host != GWOSC_DEFAULT_HOST:
+        if channel is None:
             raise ValueError("No channel name has been set")
 
         if framecache is not None:
