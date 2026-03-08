@@ -22,7 +22,7 @@ python-3.9:
     - python -m pip install -e .
 
     # run tests
-    - pytest -s cwinpy/test/test_peutils.py::TestPEUtils::test_optimal_snr
+    - pytest
 
     # Make the documentation
     - cd docs
@@ -36,7 +36,7 @@ python-3.10:
   image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python310
   script:
     - python -m pip install -e .
-    - pytest -s cwinpy/test/test_peutils.py::TestPEUtils::test_optimal_snr
+    - pytest
 
 # test on python 3.11
 python-3.11:
@@ -44,7 +44,7 @@ python-3.11:
   image: containers.ligo.org/cwinpy/cwinpy-containers/cwinpyci-python311
   script:
     - python -m pip install -e .
-    - pytest -s cwinpy/test/test_peutils.py::TestPEUtils::test_optimal_snr
+    - pytest
 
 # test pre-commit has picked up black/flake8 requirements
 pre-commit-python-3.9:
