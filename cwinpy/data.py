@@ -44,7 +44,7 @@ if GWPY_4:
             out = next(useful)
             for new in useful:
                 out.merge(new)
-            return out
+            return HeterodynedData(data=out, *kwargs)
 
 
 class MultiHeterodynedData:
