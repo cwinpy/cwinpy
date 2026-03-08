@@ -163,6 +163,7 @@ class TestPEUtils:
         assert isinstance(snr, float) and snr == snrl
 
         # pass heterodyned data as HeterodynedData object
+        print(HeterodynedData.read(hetfiles[self.pnames[0]]["H1"]))
         snr = optimal_snr(
             resfiles[self.pnames[0]]["H1"],
             HeterodynedData.read(hetfiles[self.pnames[0]]["H1"]),
