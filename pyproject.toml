@@ -46,6 +46,8 @@ dependencies = [
     "bilby >= 2.0.1",
     "configargparse",
     "corner >= 2.2.1",
+    "dynesty < 3; python_version < '3.10'",
+    "dynesty; python_version > '3.9'",
     "gwosc >= 0.5.4",
     "gwpy >= 2.1.1",
     "healpy",
