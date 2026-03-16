@@ -439,7 +439,10 @@ class PEPPPlotsDAG:
         Set up job to create PP plots.
         """
 
-        from htcondor import Submit
+        try:
+            from htcondor import Submit
+        except ModuleNotFoundError:
+            from htcondor2 import Submit
 
         # get executable
         jobexec = shutil.which("cwinpy_pe_generate_pp_plots")

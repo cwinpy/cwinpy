@@ -10,7 +10,7 @@ requires = [
     "numpy>=2.0.0",
     "packaging>=24.2",
     "setuptools>=77.0.1",
-    "setuptools_scm[toml]>=6.2",
+    "setuptools_scm[simple]>=9.2",
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
@@ -46,6 +46,8 @@ dependencies = [
     "bilby >= 2.0.1",
     "configargparse",
     "corner >= 2.2.1",
+    "dynesty < 3; python_version < '3.10'",
+    "dynesty; python_version > '3.9'",
     "gwosc >= 0.5.4",
     "gwpy >= 2.1.1",
     "healpy",
@@ -58,6 +60,7 @@ dependencies = [
     "pesummary >= 1.2.0",
     "psrqpy >= 1.1.7",
     "requests",
+    "requests-pelican",
     "scipy",
     "scitokens",
     "simpleeval",
@@ -128,14 +131,8 @@ include = [
     "cwinpy*",
 ]
 
-[tool.setuptools_scm]
-write_to = "cwinpy/_version.py"
-
 [tool.coverage.run]
 source = [ "cwinpy" ]
-omit = [
-    "*/_version.py",
-]
 
 [tool.isort]
 line_length = 88

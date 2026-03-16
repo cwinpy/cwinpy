@@ -77,8 +77,8 @@ HTCondor`).
 
    For LVK users, if requiring access to `proprietary IGWN frame data
    <https://computing.docs.ligo.org/guide/auth/scitokens/#data>`__ (i.e., non-public frames visible
-   to those within the LVK collaboration) via `CVMFS
-   <https://computing.docs.ligo.org/guide/cvmfs/>`__ rather than frames locally stored on a cluster,
+   to those within the LVK collaboration) via `OSDF
+   <https://computing.docs.ligo.org/guide/data/distribution/#osdf>`__ rather than frames locally stored on a cluster,
    you will need to `generate a SciToken
    <https://computing.docs.ligo.org/guide/auth/scitokens/#get>`__ to allow the analysis script to
    access them. To enable the pipeline script to find science segments and frame URLs you must
@@ -88,27 +88,8 @@ HTCondor`).
 
       htgettoken -a vault.ligo.org -i igwn
 
-   .. warning::
-
-      On some systems still using the `X.509 authentication
-      <https://computing.docs.ligo.org/guide/auth/x509/>`__ you may instead need to run
-
-      .. code-block:: bash
-
-         ligo-proxy-init -p albert.einstein
-
-      to find the science segments and frame URLs.
-
-   and then run:
-
-   .. code-block:: bash
-
-      condor_vault_storer -v igwn
-
-   to allow the HTCondor jobs to access the credentials.
-
    By default, if you specify the `datafind server host
-   <https://computing.docs.ligo.org/guide/data/discovery/#servers>`_ as ``datafind.ligo.org`` for a
+   <https://computing.docs.ligo.org/guide/data/discovery/#servers>`_ as ``datafind.igwn.org`` for a
    ``cwinpy_heterodyne_pipeline`` job, it will assume that you are using SciToken authentication
    when creating the HTCondor DAG. You can force the requirement of using SciToken by adding
 
@@ -122,9 +103,9 @@ The ``cwinpy_heterodyne_pipeline`` should be used for most practical purposes, w
 ``cwinpy_heterodyne`` is generally useful for short tests.
 
 In many of the examples below we will assume that you are able to access the open LIGO and Virgo
-data available from the `GWOSC <https://gwosc.org/>`_ via `CVMFS
-<https://cvmfs.readthedocs.io/>`__. To find out more about accessing this data see the instructions
-`here <https://computing.docs.ligo.org/guide/cvmfs/>`__. If using GWOSC data sampled at 4 kHz it
+data available from the `GWOSC <https://gwosc.org/>`_ via `OSDF
+<https://gwosc.org/osdf/>`__. To find out more about accessing this data see the instructions
+`here <https://computing.docs.ligo.org/guide/data/>`__. If using GWOSC data sampled at 4 kHz it
 should be noted that that this has a low-pass filter applied that causes a sharp drop-off above
 about 1.6 kHz, which is below the Nyquist rate. Therefore, if analysing sources with
 gravitational-wave signal frequencies greater than about 1.6 kHz the 16 kHz sample rate data should
@@ -321,7 +302,7 @@ Example: hardware injections in LIGO O1 data
 In this example we will heterodyne the data for several `hardware injection
 <https://gwosc.org/o1_inj/>`_ signals in LIGO Handford (H1) data during a day of the
 first observing run `O1 <https://gwosc.org/O1/>`_. This will require access to the data
-via `CVMFS <https://gwosc.org/cvmfs/>`__. The data time span will be from 1132478127 to
+via `OSDF <https://gwosc.org/osdf/>`__. The data time span will be from 1132478127 to
 1132564527.
 
 The example will look for the hardware injection signals ``5`` and ``6`` from the table `here
@@ -335,13 +316,11 @@ For this we can use the following configuration file:
 
 .. literalinclude:: examples/example2_config.ini
 
-In the above file the base CVMFS directory containing the strain data files has been specified,
-which will be recursively searched for corresponding data. The ``includeflags`` and ``excludeflags``
-values have been used to set the valid `time segments
-<https://gwosc.org/archive/dataset/O1/>`_ of data to use, with ``H1_DATA`` specifying
-to use all available valid science quality data for the H1 detector, and ``H1_NO_CW_HW_INJ``
-specifying the exclusion of times when no continuous-wave hardware injections were being carried
-out.
+In the above file host for the GWOSC OSDF frames has been specified. The ``includeflags`` and
+``excludeflags`` values have been used to set the valid `time segments
+<https://gwosc.org/archive/dataset/O1/>`_ of data to use, with ``H1_DATA`` specifying to use all
+available valid science quality data for the H1 detector, and ``H1_NO_CW_HW_INJ`` specifying the
+exclusion of times when no continuous-wave hardware injections were being carried out.
 
 Running this analysis can then be achieved with the following code, where the first two lines just
 substitute the location of the parameter files into the configuration file:
@@ -352,7 +331,7 @@ substitute the location of the parameter files into the configuration file:
    sed -i "s|{hwinjpath}|$basepath|g" example2_config.ini
    cwinpy_heterodyne --config example2_config.ini
 
-If the CVMFS data is being downloaded on-the-fly then (depending on your internet connection speed)
+If the OSDF data is being downloaded on-the-fly then (depending on your internet connection speed)
 this may take on the order of ten minutes to run.
 
 The outputs (HDF5 files containing :class:`~cwinpy.data.HeterodynedData` objects) will be placed in
@@ -540,7 +519,7 @@ be altered using the ``label`` option (it is recommended to stick to the default
 
    .. code-block:: bash
 
-      htgettoken --audience https://datafind.ligo.org --scope gwdatafind.read -a vault.ligo.org --issuer igwn
+      htgettoken -a vault.ligo.org --issuer igwn
 
    to generate a SciToken, before running the executable.
 

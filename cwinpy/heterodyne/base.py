@@ -8,14 +8,21 @@ import os
 import re
 import signal
 import sys
+import tempfile
 import warnings
 from pathlib import Path
 
 import lal
 import lalpulsar
 import numpy as np
+import requests_pelican
 from astropy.time import Time
-from gwosc.api import DEFAULT_URL as GWOSC_DEFAULT_HOST
+from astropy.utils.data import (
+    clear_download_cache,
+    download_file,
+    import_file_to_cache,
+    is_url_in_cache,
+)
 from gwosc.timeline import get_segments
 from gwpy.io.cache import is_cache, read_cache
 from gwpy.segments import DataQualityFlag, Segment, SegmentList
@@ -34,6 +41,8 @@ from ..utils import (
     is_par_file,
 )
 from .fastheterodyne import fast_heterodyne
+
+GWOSC_DEFAULT_HOST = "datafind.gwosc.org"
 
 
 class Heterodyne:
@@ -60,6 +69,11 @@ class Heterodyne:
         `here <https://gwpy.github.io/docs/stable/timeseries/datafind.html#available-datasets>`__
         for information on frame types. If this is not given the correct data
         set will be attempted to be found using the ``channel`` name.
+    urltype: str
+        The URL type for the frame location. This is only needed if not
+        providing a frame cache file. It should be either "file", if using
+        local data, or "osdf", if using OSDF data. The default, if not using
+        the HTCondor heterodyne pipeline, is "file".
     channel: str
         The "channel" within the gravitational-wave data file(s) (either a GW
         frame ``.gwf``, or HDF5 file) containing the strain data to be
@@ -68,10 +82,9 @@ class Heterodyne:
         ``L1:GWOSC-4KHZ_R1_STRAIN``.
     host: str
         The server name for finding the gravitational-wave data files. Use
-        ``datafind.ligo.org:443`` for open data available via CVMFS. To use
-        open data available from the `GWOSC <https://gwosc.org>`__
-        use ``https://gwosc.org``. See also
-        :func:`gwpy.timeseries.TimeSeries.get`.
+        ``datafind.igwn.org`` for proprietary data available via OSDF. To use
+        open data available from the `GWOSC <https://gwosc.org>`__ use
+        ``datafind.gwosc.org``. See also :func:`gwpy.timeseries.TimeSeries.get`.
     outputframecache: str
         If a string is given it should give a file path to which a list of
         gravitational-wave data file paths, as found by the code, will be
@@ -246,6 +259,7 @@ class Heterodyne:
         stride=3600,
         detector=None,
         frametype=None,
+        urltype="file",
         channel=None,
         host=None,
         outputframecache=None,
@@ -295,6 +309,7 @@ class Heterodyne:
         self.channel = channel
         if framecache is None:
             self.frametype = frametype
+            self.urltype = urltype
             self.host = host
             self.outputframecache = outputframecache
             self.appendframecache = appendframecache
@@ -510,6 +525,24 @@ class Heterodyne:
             raise TypeError("Frame type must be a string")
 
     @property
+    def urltype(self):
+        """
+        The URL type for the data server.
+        """
+
+        if hasattr(self, "_urltype"):
+            return self._urltype
+        else:
+            return "file"
+
+    @urltype.setter
+    def urltype(self, urltype):
+        if isinstance(urltype, str) and urltype.lower() in ["osdf", "file"]:
+            self._urltype = urltype
+        else:
+            raise TypeError("URL type must be a 'osdf' or 'file'")
+
+    @property
     def channel(self):
         """
         The data channel within a gravitational-wave data frame to use.
@@ -613,7 +646,14 @@ class Heterodyne:
     @appendframecache.setter
     def appendframecache(self, appendframecache):
         if isinstance(appendframecache, (bool, int)) or appendframecache is None:
-            self._appendframecache = bool(appendframecache)
+            if (
+                self.outputframecache is not None
+                and not Path(self.outputframecache).is_file()
+            ):
+                # if no outputframecache file exists set to True
+                self._appendframecache = True
+            else:
+                self._appendframecache = bool(appendframecache)
         else:
             raise TypeError("appendframecache must be a boolean")
 
@@ -635,7 +675,11 @@ class Heterodyne:
         else:
             self._host = host
 
-            if self.host is not None:
+            if self.host is not None and self.host not in [
+                "datafind.igwn.org",
+                "datafind.ligo.org",
+                GWOSC_DEFAULT_HOST,
+            ]:
                 # check for valid and exitsing URL
                 import requests
 
@@ -711,6 +755,7 @@ class Heterodyne:
             framecache if isinstance(framecache, (str, list)) else self.framecache
         )
         frametype = frametype if isinstance(frametype, str) else self.frametype
+        urltype = kwargs.get("urltype", self.urltype)
         host = host if isinstance(host, str) else self.host
         outputframecache = (
             outputframecache
@@ -729,7 +774,7 @@ class Heterodyne:
         if endtime is None:
             raise ValueError("An end time is not set")
 
-        if channel is None and host != GWOSC_DEFAULT_HOST:
+        if channel is None:
             raise ValueError("No channel name has been set")
 
         if framecache is not None:
@@ -803,54 +848,92 @@ class Heterodyne:
                 data = None
         else:
             # download data
-            if host == GWOSC_DEFAULT_HOST:
-                try:
-                    # get GWOSC data
-                    data = TimeSeries.fetch_open_data(
-                        kwargs.get("site", self.detector),
+            try:
+                if outputframecache or urltype == "osdf":
+                    # output cache list
+                    cache = remote_frame_cache(
                         starttime,
                         endtime,
+                        channel,
+                        frametype=frametype,
+                        write=outputframecache,
+                        append=appendframecache,
                         host=host,
-                        cache=kwargs.get("cache", False),
+                        urltype=urltype,
                     )
-                except Exception as e:
-                    # return None if no data could be obtained
-                    print("Warning: {}".format(e.args[0]))
-                    data = None
-            else:  # pragma: no cover
-                try:
-                    if self.outputframecache:
-                        # output cache list
-                        cache = remote_frame_cache(
-                            starttime,
-                            endtime,
-                            channel,
-                            frametype=frametype,
-                            write=outputframecache,
-                            append=appendframecache,
-                            host=host,
-                        )
+
+                    if urltype == "osdf":
+                        temp_remote_files = [
+                            item for key in cache for item in cache[key]
+                        ]
+                        temp_files = []
+                        for remote_file in temp_remote_files:
+                            # rename "osdf" to "file" for caching for valid URL format
+                            if not is_url_in_cache(
+                                remote_file.replace("osdf", "file"),
+                                pkgname="cwinpy_frame_data",
+                            ):
+                                temp_file = tempfile.NamedTemporaryFile(
+                                    delete=False, suffix=".gwf"
+                                )
+                                with open(temp_file.name, "wb") as f:
+                                    f.write(requests_pelican.get(remote_file).content)
+
+                                # add file into cache
+                                import_file_to_cache(
+                                    remote_file.replace("osdf", "file"),
+                                    temp_file.name,
+                                    remove_original=True,
+                                    pkgname="cwinpy_frame_data",
+                                )
+
+                            cached_file = download_file(
+                                remote_file.replace("osdf", "file"),
+                                cache=True,
+                                pkgname="cwinpy_frame_data",
+                            )
+                            temp_files.append(cached_file)
+
                         data = TimeSeries.read(
-                            [item for key in cache for item in cache[key]],
+                            temp_files,
+                            channel=channel,
                             start=starttime,
                             end=endtime,
                             pad=kwargs.get("pad", 0.0),  # fill gaps with zeros
                         )
+
+                        # delete temporary files unless storing in a persistent cache
+                        # (the last file will be stored and deleted later so as not to
+                        # download overlapping data multiple times)
+                        if not kwargs.get("cache", False):
+                            for remote_file in temp_remote_files[:-1]:
+                                clear_download_cache(
+                                    remote_file.replace("osdf", "file"),
+                                    pkgname="cwinpy_frame_data",
+                                )
                     else:
-                        data = TimeSeries.get(
-                            channel,
-                            starttime,
-                            endtime,
-                            host=host,
-                            frametype=frametype,
+                        data = TimeSeries.read(
+                            [item for key in cache for item in cache[key]],
+                            channel=channel,
+                            start=starttime,
+                            end=endtime,
                             pad=kwargs.get("pad", 0.0),  # fill gaps with zeros
                         )
-                except Exception as e:
-                    if self.strictdatarequirement:
-                        raise IOError("Could not download frame data: {}".format(e))
-                    else:
-                        print("Could not download frame data.")
-                        data = None
+                else:
+                    data = TimeSeries.get(
+                        channel,
+                        starttime,
+                        endtime,
+                        host=host,
+                        frametype=frametype,
+                        pad=kwargs.get("pad", 0.0),  # fill gaps with zeros
+                    )
+            except Exception as e:
+                if self.strictdatarequirement:
+                    raise IOError(f"Could not download frame data: {e}")
+                else:
+                    print(f"Could not download frame data: {e}.")
+                    data = None
 
         return data
 
@@ -2058,6 +2141,10 @@ class Heterodyne:
 
                     counter += 1
 
+            # clear temporary file cache is necessary
+            if not kwargs.get("cache", False):
+                clear_download_cache(pkgname="cwinpy_frame_data")
+
             # output data
             self._write_current_pulsars()
 
@@ -2536,8 +2623,8 @@ def remote_frame_cache(
 
     Generate a cache list of frame files for two LIGO detectors for all O2
     data (this assumes you are accessing data on a LVC cluster, or have set
-    the environment variable ``LIGO_DATAFIND_SERVER=datafind.ligo.org:443``
-    for accessing data hosted via CVMFS):
+    the environment variable ``LIGO_DATAFIND_SERVER=datafind.igwn.org``
+    for accessing data hosted via OSDF):
 
     >>> start = 1164556817  # GPS for 2016-11-30 16:00:00 UTC
     >>> end = 1187733618    # GPS for 2017-08-25 22:00:00 UTC
@@ -2545,7 +2632,7 @@ def remote_frame_cache(
     >>> frametype = ['H1_CLEANED_HOFT_C02', 'L1_CLEANED_HOFT_C02']
     >>> cache = remote_frame_cache(start, end, channels, frametype=frametype)
 
-    To instead generate CVMFS locations of GWOSC open data set the host
+    To instead generate OSDF locations of GWOSC open data set the host
     argument to be `"datafind.gwosc.org"`.
 
     Parameters
@@ -2566,15 +2653,18 @@ def remote_frame_cache(
         Output verbose information.
     host: str
         The server host. If not set this will be automatically determine if
-        possible. To list access data available via CVMFS either set host to
-        ``'datafind.ligo.org:443'`` or set the environment variable
-        ``LIGO_DATAFIND_SERVER=datafind.ligo.org:443`.
+        possible. To list access data available via OSDF either set host to
+        ``'datafind.igwn.org'`` or set the environment variable
+        ``LIGO_DATAFIND_SERVER=datafind.igwn.org``.
     write: str
         A file path to write out the list of frame files to. Default is to not
         write out the frame list.
     append: bool
         If writing out to a file, this says to append to the file if it already
         exists. The default is False.
+    urltype: str
+        The format type of the URLs to return. If using OSDF, this should be
+        set to "osdf". It defaults to "file".
     **kwargs:
         See :meth:`gwpy.io.datafind.find_best_frametype` for additional
         keyword arguments.
@@ -2597,6 +2687,10 @@ def remote_frame_cache(
         channels = [channels]
     elif not isinstance(channels, list):
         raise TypeError("Channel must be a string or list")
+
+    urltype = kwargs.pop("urltype", "file").lower()
+    host = kwargs.pop("host", None)
+    on_gaps = kwargs.pop("on_gaps", "ignore")
 
     # find frametype
     frametypes = {}
@@ -2653,8 +2747,9 @@ def remote_frame_cache(
             frametype,
             start,
             end,
-            on_gaps=kwargs.get("on_gaps", "ignore"),
-            host=kwargs.get("host", None),
+            on_gaps=on_gaps,
+            host=host,
+            urltype=urltype,
         )
 
         if not subcache:
@@ -2662,6 +2757,12 @@ def remote_frame_cache(
                 "No {}-{} frame files found for [{}, {})".format(
                     observatory, frametype, start, end
                 )
+            )
+
+        if subcache[0].startswith("osdf") and urltype == "file":
+            raise RuntimeError(
+                "OSDF URLs have been returned, but 'urltype' is set to 'file'."
+                "Check the host and urltype arguments are compatible."
             )
 
         cache[ifo].extend(subcache)
@@ -2767,7 +2868,10 @@ def local_frame_cache(
         if not frfile.resolve().is_file():
             continue
 
-        fileparts = frame_information(frfile)
+        try:
+            fileparts = frame_information(frfile)
+        except IOError:
+            continue
 
         if len(fileparts) == 4:
             # file is in standard format
@@ -2801,7 +2905,7 @@ def local_frame_cache(
 
         cache.append("file://localhost{}".format(str(frfile.resolve())))
 
-    cache = [x[1] for x in sorted(zip(filetimes, cache))]  # sort cache files om time
+    cache = [x[1] for x in sorted(zip(filetimes, cache))]  # sort cache files by time
 
     # write output to file
     if write is not None:

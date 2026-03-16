@@ -1,13 +1,63 @@
 import copy
 import os
 import re
+from math import ceil
 
 from configargparse import DefaultConfigFileParser
 from scitokens import SciToken
 
-from ..heterodyne.base import Heterodyne
+from ..heterodyne.base import Heterodyne, frame_information
 from ..utils import relative_topdir
 from . import CondorLayer
+
+
+def osdf_file_size(url: str) -> int:
+    """
+    Get the size of a file stored on OSDF. If this can not be determined a
+    None-type is returned
+
+    Parameters
+    ----------
+    url: str
+        The OSDF URL of the file.
+
+    Returns
+    -------
+    size: int
+        The size of the file in bytes.
+    """
+
+    try:
+        from pelicanfs.core import OSDFFileSystem
+    except ModuleNotFoundError:
+        return None
+
+    try:
+        token = SciToken.discover()
+        tokenstr = token._serialized_token or token.serialize().decode("utf-8")
+        headers = {"Authorization": f"Bearer {tokenstr}"}
+        osdf = OSDFFileSystem(headers=headers)
+        for urlstart in ["igwn+osdf://", "osdf://"]:
+            if url.startswith(urlstart):
+                url = url.replace(urlstart, "")
+        info = osdf.info(url)
+        return info.get("size", None)
+    except Exception:
+        return None
+
+
+def _is_htcondor_scitoken_local_issuer():
+    """
+    Test whether the machine being used is configured to use a local issuer
+    or not. See `here <https://git.ligo.org/lscsoft/bilby_pipe/-/issues/304#note_1033251>`_
+    for where this logic comes from. This code is copied from bilby_pipe.
+    """
+    try:
+        from htcondor import param
+    except ModuleNotFoundError:
+        return True
+
+    return param.get("LOCAL_CREDMON_ISSUER", None) is not None
 
 
 class HeterodyneLayer(CondorLayer):
@@ -36,6 +86,7 @@ class HeterodyneLayer(CondorLayer):
 
         # check for use of OSG
         self.osg = self.get_option("osg", default=False)
+        self.urltype = self.get_option("urltype", default="osdf")
         self.outdir = self.get_option("basedir", section="run", default=os.getcwd())
 
         # check for use of tempo2
@@ -56,14 +107,16 @@ class HeterodyneLayer(CondorLayer):
         # set memory
         self.set_option("request_memory", default="16 GB")
         self.set_option("request_cpus", otype=int, default=1)
-        self.set_option("request_disk", default="2 GB")
+        self.set_option(
+            "request_disk", default="2 GB" if self.urltype == "file" else "40 GB"
+        )
 
         self.set_option(
             "condor_job_priority", optionname="priority", otype=int, default=0
         )
         self.set_option("email", optionname="notify_user")
 
-        if self.osg:
+        if self.osg or self.urltype == "osdf":
             # make sure files are transferred if using the OSG
             self.submit_options["should_transfer_files"] = "YES"
         else:
@@ -81,33 +134,34 @@ class HeterodyneLayer(CondorLayer):
             # add TEMPO2 environment variable to the submit file
             environment.append(f"TEMPO2={tempo2}")
 
-        # check whether GWOSC is required
-        self.require_gwosc = kwargs.get("require_gwosc", False)
-
         # set scitokens to access proprietary data
-        host = self.get_option("host", section="heterodyne", default=None)
-        if (
-            not self.require_gwosc and host is not None and "datafind.ligo.org" in host
-        ) or self.get_option("use_scitokens", default=False):
-            self.submit_options["use_oauth_services"] = "igwn"
-            self.submit_options[
-                "igwn_oauth_permissions"
-            ] = "read:/ligo read:/virgo read:/kagra"
+        self.issuer = None
+        if self.get_option("use_scitokens", default=False) or self.urltype == "osdf":
+            self.issuer = (
+                "scitokens" if _is_htcondor_scitoken_local_issuer() else "igwn"
+            )
+
+            self.submit_options["use_oauth_services"] = self.issuer
+
             environment.append(
-                "BEARER_TOKEN_FILE=$$(CondorScratchDir)/.condor_creds/igwn.use"
+                f"BEARER_TOKEN_FILE=$$(CondorScratchDir)/.condor_creds/{self.issuer}.use"
             )
 
             # check whether SciToken has been created
-            try:
-                _ = SciToken.discover(audience="igwn")
-            except OSError:
-                print(
-                    "No SciToken has been found, you will need to generate "
-                    "a SciToken using:\n\n"
-                    "$ htgettoken -a vault.ligo.org -i igwn\n"
-                    "$ condor_vault_storer -v igwn\n\n"
-                    "before submitting the DAG."
-                )
+            if self.issuer == "igwn":
+                self.submit_options[
+                    "igwn_oauth_permissions"
+                ] = "read:/ligo read:/virgo read:/kagra"
+
+                try:
+                    _ = SciToken.discover(audience=self.issuer)
+                except OSError:
+                    print(
+                        "No SciToken has been found, you will need to generate "
+                        "a SciToken using:\n\n"
+                        "$ htgettoken -a vault.ligo.org -i igwn\n"
+                        "before submitting the DAG."
+                    )
 
         if environment:
             self.submit_options["environment"] = f'"{" ".join(environment)}"'
@@ -134,10 +188,6 @@ class HeterodyneLayer(CondorLayer):
             ligojob = self.submit_options.get("accounting_group", "").startswith(
                 "ligo."
             )
-
-            if ligojob:
-                # set to check that proprietary LIGO frames are available
-                self.requirements.append("(HAS_CVMFS_IGWN_PRIVATE_DATA =?= True)")
 
             # allow use of local pool (https://computing.docs.ligo.org/guide/htcondor/access/#local-access-points)
             additional_options["MY.flock_local"] = "True"
@@ -191,10 +241,6 @@ class HeterodyneLayer(CondorLayer):
                     "environment or the CWInPy development singularity "
                     "container."
                 )
-
-            # check if using GWOSC frames from CVMFS
-            if self.require_gwosc:
-                self.requirements.append("(HAS_CVMFS_gwosc_osgstorage_org =?= TRUE)")
 
         # generate the node variables
         self.generate_node_vars(configurations)
@@ -338,10 +384,51 @@ class HeterodyneLayer(CondorLayer):
                 # transfer frame cache files
                 if "framecache" in config:
                     if os.path.isfile(config["framecache"]):
-                        transfer_input.append(
-                            relative_topdir(config["framecache"], resultsdir)
-                        )
-                        config["framecache"] = os.path.basename(config["framecache"])
+                        if self.urltype == "osdf":
+                            # transfer all required files via OSDF
+                            with open(config["framecache"], "r") as fp:
+                                frames = [
+                                    line.strip()
+                                    for line in fp.readlines()
+                                    if len(line) > 0
+                                ]
+                            frame_info = [frame_information(fr) for fr in frames]
+
+                            # transfer frames required for job
+                            total_size = 0
+                            for fidx, fi in enumerate(frame_info):
+                                st = fi[2]  # frame start time
+                                dur = fi[3]  # frame duration
+                                if starttime <= st and endtime >= st + dur:
+                                    issuer = "igwn+" if self.issuer == "igwn" else ""
+                                    osdfurl = f"{issuer}{frames[fidx]}"
+
+                                    total_size += osdf_file_size(osdfurl) or 0
+                                    transfer_input.append(osdfurl)
+
+                            # add 10% safety margin to requested disk space
+                            total_size_GB = int(ceil(total_size * 1.1 / (1024**3)))
+                            request_disk_size = int(
+                                self.submit_options.get("request_disk", "0 GB")
+                                .upper()
+                                .strip("GB")
+                            )
+
+                            # update requested disk size if required
+                            if total_size_GB > request_disk_size:
+                                self.submit_options[
+                                    "request_disk"
+                                ] = f"{total_size_GB} GB"
+
+                            # use transfered frame files in current directory (CHECK THIS WORKS)
+                            config["framecache"] = "."
+                        else:
+                            transfer_input.append(
+                                relative_topdir(config["framecache"], resultsdir)
+                            )
+                            config["framecache"] = os.path.basename(
+                                config["framecache"]
+                            )
 
                 # transfer segment list files
                 if "segmentlist" in config:

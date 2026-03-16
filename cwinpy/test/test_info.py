@@ -5,10 +5,10 @@ import pytest
 
 from cwinpy.heterodyne import remote_frame_cache
 from cwinpy.info import (
-    CVMFS_GWOSC_DATA_SERVER,
-    CVMFS_GWOSC_DATA_TYPES,
-    CVMFS_GWOSC_FRAME_CHANNELS,
     HW_INJ,
+    OSDF_GWOSC_DATA_SERVER,
+    OSDF_GWOSC_DATA_TYPES,
+    OSDF_GWOSC_FRAME_CHANNELS,
     RUNTIMES,
     is_hwinj,
 )
@@ -17,10 +17,10 @@ from cwinpy.info import (
 def check_connection():
     from socket import create_connection, gaierror, herror
 
-    from cwinpy.info import CVMFS_GWOSC_DATA_SERVER
+    from cwinpy.info import OSDF_GWOSC_DATA_SERVER
 
     try:
-        create_connection((CVMFS_GWOSC_DATA_SERVER, 80))
+        create_connection((OSDF_GWOSC_DATA_SERVER, 80))
     except (TimeoutError, ConnectionRefusedError, gaierror, herror):
         return False
 
@@ -33,20 +33,20 @@ def check_connection():
 )
 def test_frame_cache():
     """
-    Test that CVMFS frame caches can be found.
+    Test that OSDF frame caches can be found.
     """
 
-    host = CVMFS_GWOSC_DATA_SERVER
+    host = OSDF_GWOSC_DATA_SERVER
 
     for run in RUNTIMES:
         if run != "O3":
-            # exclude full O3 as CVMFS_GWOSC_DATA_TYPES contains O3a and O3b separately
+            # exclude full O3 as OSDF_GWOSC_DATA_TYPES contains O3a and O3b separately
             for det in RUNTIMES[run]:
                 start, end = RUNTIMES[run][det]
                 for rate in ["4k", "16k"]:
-                    if rate in CVMFS_GWOSC_DATA_TYPES[run]:
-                        channel = CVMFS_GWOSC_FRAME_CHANNELS[run][rate][det]
-                        frtype = CVMFS_GWOSC_DATA_TYPES[run][rate][det]
+                    if rate in OSDF_GWOSC_DATA_TYPES[run]:
+                        channel = OSDF_GWOSC_FRAME_CHANNELS[run][rate][det]
+                        frtype = OSDF_GWOSC_DATA_TYPES[run][rate][det]
 
                         # get frame file cache
                         try:

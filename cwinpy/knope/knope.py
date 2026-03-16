@@ -295,7 +295,7 @@ def knope_pipeline(**kwargs):
         )
 
         optional = parser.add_argument_group(
-            "Quick setup arguments (this assumes CVMFS open data access)."
+            "Quick setup arguments (this assumes OSDF open data access)."
         )
         optional.add_argument(
             "--run",
@@ -516,6 +516,10 @@ def knope_pipeline(**kwargs):
     osg = hetconfig.get("knope_dag", "osg", fallback=None)
     if osg is not None:
         hetconfig["heterodyne_dag"]["osg"] = osg
+        hetconfig["heterodyne_dag"]["urltype"] = "osdf"
+
+        if not hetconfig.getboolean("heterodyne_dag", "transfer_files", fallback=True):
+            raise ValueError("'transfer_files' must be True if using the OSG.")
         peconfig["pe_dag"]["osg"] = osg
 
         desiredsites = hetconfig.get("knope_dag", "desired_sites", fallback=None)

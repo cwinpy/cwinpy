@@ -127,7 +127,10 @@ RUNTIMES["O3"] = {
     "L1": [1238166018, 1269363618],
     "V1": [1238166018, 1269363618],
 }
-
+RUNTIMES["O4a"] = {
+    "H1": [1368975618, 1389456018],
+    "L1": [1368975618, 1389456018],
+}
 
 #: Start and end run times for continuous wave hardware injections (no injections for Virgo)
 HW_INJ_RUNTIMES = Runtimes()
@@ -160,9 +163,12 @@ HW_INJ_RUNTIMES["O3"] = {
     "H1": [1238166018, 1269363618],
     "L1": [1238166018, 1269363618],
 }
+HW_INJ_RUNTIMES["O4a"] = {
+    "H1": [1368975618, 1389456018],
+    "L1": [1368975618, 1389456018],
+}
 
-
-HW_INJ_RUNS = ["S5", "S6", "O1", "O2", "O3a"]
+HW_INJ_RUNS = ["S5", "S6", "O1", "O2", "O3a", "O4a"]
 with resources.path("cwinpy.pkg_data", "__init__.py") as rpath:
     HW_INJ_BASE_PATH = str(rpath.parent)
 
@@ -225,6 +231,13 @@ HW_INJ_SEGMENTS = {
         }
         for det in HW_INJ_RUNTIMES["O3"]
     },
+    "O4a": {
+        det: {
+            "includesegments": f"{det}_CBC_CAT1",
+            "excludesegments": f"{det}_NO_CW_HW_INJ",
+        }
+        for det in HW_INJ_RUNTIMES["O4a"]
+    },
 }
 
 
@@ -237,17 +250,14 @@ ANALYSIS_SEGMENTS = {
     "O3a": {det: f"{det}_CBC_CAT1" for det in RUNTIMES["O3a"]},
     "O3b": {det: f"{det}_CBC_CAT1" for det in RUNTIMES["O3b"]},
     "O3": {det: f"{det}_CBC_CAT1" for det in RUNTIMES["O3a"]},
+    "O4a": {det: f"{det}_CBC_CAT1" for det in RUNTIMES["O4a"]},
 }
 
-
-#: Base CVMFS directory for open GWOSC frame data
-CVMFS_GWOSC_BASE = "/cvmfs/gwosc.osgstorage.org/gwdata"
-
 #: GWOSC data server URL
-CVMFS_GWOSC_DATA_SERVER = "datafind.gwosc.org"
+OSDF_GWOSC_DATA_SERVER = "datafind.gwosc.org"
 
 #: GWOSC data types for different runs
-CVMFS_GWOSC_DATA_TYPES = {
+OSDF_GWOSC_DATA_TYPES = {
     "S5": {
         "4k": {
             "H1": "H1_LOSC_4_V1",
@@ -307,10 +317,20 @@ CVMFS_GWOSC_DATA_TYPES = {
             "V1": "V1_GWOSC_O3b_16KHZ_R1",
         },
     },
+    "O4a": {
+        "4k": {
+            "H1": "H1_GWOSC_O4a_4KHZ_R1",
+            "L1": "L1_GWOSC_O4a_4KHZ_R1",
+        },
+        "16k": {
+            "H1": "H1_GWOSC_O4a_16KHZ_R1",
+            "L1": "L1_GWOSC_O4a_16KHZ_R1",
+        },
+    },
 }
 
 #: data channel names in the GWOSC data frames
-CVMFS_GWOSC_FRAME_CHANNELS = {
+OSDF_GWOSC_FRAME_CHANNELS = {
     "S5": {
         "4k": {
             "H1": "H1:LOSC-STRAIN",
@@ -382,10 +402,17 @@ CVMFS_GWOSC_FRAME_CHANNELS = {
             "V1": "V1:GWOSC-16KHZ_R1_STRAIN",
         },
     },
+    "O4a": {
+        "4k": {
+            "H1": "H1:GWOSC-4KHZ_R1_STRAIN",
+            "L1": "L1:GWOSC-4KHZ_R1_STRAIN",
+        },
+        "16k": {
+            "H1": "H1:GWOSC-16KHZ_R1_STRAIN",
+            "L1": "L1:GWOSC-16KHZ_R1_STRAIN",
+        },
+    },
 }
-
-#: Base CVMFS directory for proprietory LVK frame data
-CVMFS_LVK_BASE = "/cvmfs/oasis.opensciencegrid.org/ligo/frames"
 
 
 def is_hwinj(psr, return_file=False):

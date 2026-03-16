@@ -1,5 +1,7 @@
 import io
 import warnings
+from importlib.metadata import version, PackageNotFoundError
+
 
 # suppress warnings
 with warnings.catch_warnings():
@@ -13,6 +15,6 @@ with warnings.catch_warnings():
     from .parfile import PulsarParameters
 
 try:
-    from ._version import version as __version__
-except ModuleNotFoundError:
+    __version__ = version("cwinpy")
+except PackageNotFoundError:
     __version__ = ""

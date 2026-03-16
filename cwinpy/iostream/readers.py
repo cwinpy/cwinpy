@@ -182,8 +182,8 @@ def read_hdf5_series(
         hetargs = None
 
     if hetargs is not None:
-        # remove any numbers wrapped in numpy float values before parsing
-        # the arguments
+        # remove the string "np.float*(...)" from around any numbers wrapped in
+        # them before parsing the arguments
         pattern = r"np\.float\d*\(\s*(.*?)\s*\)"
         hetargstr = re.sub(
             pattern,

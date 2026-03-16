@@ -7,3 +7,4 @@ include cwinpy/pkg_data/S6/hw_inj/*.par
 include cwinpy/pkg_data/O1/hw_inj/*.par
 include cwinpy/pkg_data/O2/hw_inj/*.par
 include cwinpy/pkg_data/O3/hw_inj/*.par
+include cwinpy/pkg_data/o4/hw_inj/*.par
