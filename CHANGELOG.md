@@ -1,5 +1,16 @@
 # Notable changes between versions
 
+## [1.5.0] 2026-03-23
+
+Changes for this release:
+
+- Switch from getting data from CVMFS to OSDF using SciTokens (!199).
+- Fix htcondor import failure (!210).
+- Zero-pad vector parameters read from a `.par` file if required (!213).
+- Add support for GWPy 4.0 (!212).
+- Allow PE output directory to be properly specified in PE HTCondor pipeline (!211).
+- Add O4 hardware injection parameters files (!199).
+
 ## [1.4.2] 2025-11-11
 
 - Fix KDE incompatibility with PESummary (!207).
