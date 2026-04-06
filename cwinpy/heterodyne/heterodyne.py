@@ -884,7 +884,11 @@ class HeterodyneDAGRunner(object):
         channels = self.eval(config.get("heterodyne", "channels", fallback=None))
         if isinstance(channels, str) and len(detectors) == 1:
             channels = {det: channels for det in detectors}
-        host = config.get("heterodyne", "host", fallback=None)
+        host = config.get(
+            "heterodyne",
+            "host",
+            fallback=config.get("heterodyne", "hostname", fallback=None),
+        )
         heterodyneddata = self.eval(
             config.get("heterodyne", "heterodyneddata", fallback=None)
         )
@@ -975,7 +979,11 @@ class HeterodyneDAGRunner(object):
         sunephemeris = self.eval(config.get("ephemerides", "sun", fallback=None))
 
         osg = config.getboolean(dagsection, "osg", fallback=False)
-        urltype = config.get(dagsection, "urltype", fallback="osdf")
+        urltype = config.get(
+            dagsection,
+            "urltype",
+            fallback=config.get("heterodyne", "urltype", fallback="osdf"),
+        )
 
         # get all the split segment times and frame caches
         if joblength == 0:
@@ -1005,7 +1013,7 @@ class HeterodyneDAGRunner(object):
                                 endtimes[det][i],
                                 channels[det][i],
                                 frametype=frametypes[det][i],
-                                host=config.get("heterodyne", "host", fallback=None),
+                                host=host,
                                 write=frinfo["framecache"],
                                 urltype=urltype,
                             )
@@ -1144,7 +1152,7 @@ class HeterodyneDAGRunner(object):
                                 endtime,
                                 channels[det][idx],
                                 frametype=frametypes[det][idx],
-                                host=config.get("heterodyne", "host", fallback=None),
+                                host=host,
                                 write=frinfo["framecache"],
                                 urltype=urltype,
                             )
