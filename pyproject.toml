@@ -139,3 +139,22 @@ line_length = 88
 multi_line_output = 3
 skip_glob = "setup.py,*/__init__.py"
 profile = "black"
+
+[tool.pixi.workspace]
+channels = [
+  "conda-forge",
+]
+platforms = [
+  "linux-64",
+]
+
+[tool.pixi.dependencies]
+c-compiler = "*"
+cxx-compiler = "*"  # for libstempo
+git = "*"
+pip = "*"
+tempo2 = "*"
+
+[tool.pixi.environments]
+default = { features = ["dev", "test"], solve-group = "default" }
+docs = { features = ["docs"], solve-group = "default" }
