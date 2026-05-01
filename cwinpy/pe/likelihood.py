@@ -11,6 +11,7 @@ import numpy as np
 from astropy.time import Time
 from numba import jit, types
 from numba.typed import Dict as numbadict
+from packaging.version import Version
 from scipy.linalg import lu_solve
 
 from ..data import HeterodynedData, MultiHeterodynedData
@@ -23,6 +24,10 @@ from ..parfile import (
 )
 from ..signal import HeterodynedCWSimulator
 from ..utils import logfactorial
+
+
+# from bilby 2.7.0 log_likelihood could be passed parameters directly
+BILBY_OLD_LIKELIHOOD_BEHAVIOUR = Version(bilby.__version__) < Version("2.7.0")
 
 
 class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
@@ -563,12 +568,26 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
                                     rs[a] / stdstrue, rs[b] / stdstrue
                                 )
 
-    def log_likelihood(self):
+    def log_likelihood(self, parameters: dict = None):
         """
         The log-likelihood function.
+
+        Parameters
+        ----------
+        parameters: dict
+            A dictionary of the model parameters for which the likelihood should be
+            calculated. For bilby versions prior to 2.7.0, the parameters should be
+            directly set using the `parameters` attribute and this argument can be
+            `None`, but for later versions the parameters should always be passed
+            directly.
         """
 
         loglikelihood = 0.0  # the log likelihood value
+
+        if not BILBY_OLD_LIKELIHOOD_BEHAVIOUR and dict is None:
+            raise ValueError("Parameters must be supplied to the log_likelihood function")
+        elif BILBY_OLD_LIKELIHOOD_BEHAVIOUR:
+            parameters = self.parameters
 
         didx = 0
         # loop over the data and models
@@ -581,7 +600,7 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
             #   (since alias parameters may depend on real parameter values)
             # - set parameters alphabetically to permit ordering e.g. of aliases-of-aliases
             for pname, pval in sorted(
-                self.parameters.items(),
+                parameters.items(),
                 key=lambda item: (is_alias_param(item[0].upper()), item[0].upper()),
             ):
                 if isinstance(self.priors[pname], bilby.core.prior.Constraint):
