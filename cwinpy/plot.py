@@ -1085,21 +1085,33 @@ class Plot:
         if "plot_percentile" not in kwargs:
             plotkwargs["plot_percentile"] = False
 
-        # get ranges for each parameter to set figure axes extents
-        if "range" not in kwargs:
-            range = []
-            for param in self.parameters:
-                range.append(
-                    [
-                        np.min(
-                            [samps[param].min() for samps in self._samples.values()]
-                        ),
-                        np.max(
-                            [samps[param].max() for samps in self._samples.values()]
-                        ),
-                    ]
+        # get values for each parameter to set figure axes extents
+        extents = kwargs.get("extents", {})
+        if isinstance(extents, (list, tuple)):
+            if len(extents) != self._num_parameters:
+                raise ValueError(
+                    f"Range list must have length equal to the number of parameters ({self._num_parameters})"
                 )
-            plotkwargs["range"] = range
+        elif isinstance(extents, dict):
+            range = []
+
+            for param in self.parameters:
+                if param not in extents:
+                    # use extent of the data
+                    range.append(
+                        [
+                            np.min(
+                                [samps[param].min() for samps in self._samples.values()]
+                            ),
+                            np.max(
+                                [samps[param].max() for samps in self._samples.values()]
+                            ),
+                        ]
+                    )
+                else:
+                    range.append(extents[param])
+
+            extents = range
 
         # default to not show quantile lines
         plotkwargs.setdefault("quantiles", None)
@@ -1120,6 +1132,16 @@ class Plot:
         # create plot
         with DisableLogger():
             fig = plotfunc(*args, **plotkwargs)
+
+        if extents:
+            ax = fig.get_axes()
+            for i in range(self._num_parameters):
+                _set_axes_limits(
+                    ax[i * (self._num_parameters + 1)],
+                    self.parameters[i],
+                    axis="x",
+                    lims=extents[i],
+                )
 
         # turn frame off on legend
         fig.legends[0].set_frame_on(False)
@@ -1309,13 +1331,14 @@ class Plot:
         return self.credible_interval(parameter, interval=[bound])
 
 
-def _set_axes_limits(ax, parameter, axis="x"):
+def _set_axes_limits(ax, parameter, axis="x", lims=None):
     """
     Define the limits of an axis range using the current limits or the default
     bounds if current limits are outside those bounds.
     """
 
-    lims = list(ax.get_xlim()) if axis == "x" else list(ax.get_ylim())
+    if lims is None:
+        lims = list(ax.get_xlim()) if axis == "x" else list(ax.get_ylim())
 
     if "low" in DEFAULT_BOUNDS[parameter]:
         low = DEFAULT_BOUNDS[parameter]["low"]
