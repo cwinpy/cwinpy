@@ -56,6 +56,7 @@ def test_frame_cache():
                                 channel,
                                 frametype=frtype,
                                 host=host,
+                                urltype="osdf",
                             )
 
                             # make sure a list of frame files has been produced
