@@ -515,7 +515,9 @@ class Plot:
             difference. This defaults to False. If True, then the true/injected
             value will be removed from all parameters for which it is given,
             and if it is a list then the true/injected value will only be
-            removed from listed parameters.
+            removed from listed parameters. The removed value will be shown in
+            the axes label. This only applies when plotting from posterior
+            samples and not grids.
 
         Returns
         -------
@@ -536,14 +538,6 @@ class Plot:
         # get Result samples
         self._samples = {
             label: value.posterior
-            - (
-                0.0
-                if label not in self.remove_injected_value
-                and (
-                    self.injection_parameters and label not in self.injection_parameters
-                )
-                else self.injection_parameters[label]
-            )
             for label, value in self.results.items()
             if isinstance(value, Result)
         }
@@ -554,6 +548,39 @@ class Plot:
             for label, value in self.results.items()
             if isinstance(value, Grid)
         }
+
+        if (
+            len(self._grids) == 0
+            and len(self._samples) > 1
+            and self.remove_injected_value
+            and self.injection_parameters
+        ):
+            for i, label in enumerate(self._samples):
+                for parameter in self.parameters:
+                    if (
+                        parameter in self.remove_injected_value
+                        and self.injection_parameters.get(parameter, None) is not None
+                    ):
+                        self._samples[label][parameter] -= self.injection_parameters[
+                            parameter
+                        ]
+
+                        # add offset to the latex label
+                        if i == 0:
+                            offsetstr = f"{self.injection_parameters[parameter]:.4e}"
+                            a, b = offsetstr.split("e")
+
+                            if np.abs(int(b)) < 3:
+                                offsetstr = (
+                                    f"{self.injection_parameters[parameter]:.4f}"
+                                )
+                                offset = float(offsetstr)
+                            else:
+                                offset = float(offsetstr)
+                                offsetstr = a + rf"\!\times\!10^{{{int(b)}}}"
+
+                            label_suffix = rf" [${{\scriptstyle {offsetstr}}}$]"
+                            self.latex_labels[parameter] += label_suffix
 
         # apply offsets for slightly nicer plots axes
         self.parameter_offsets = {parameter: 0.0 for parameter in self.parameters}
@@ -629,7 +656,7 @@ class Plot:
                 if "truths" not in kwargs and self.injection_parameters:
                     kwargs["truths"] = [
                         None
-                        if p not in self.injection_parameters
+                        if self.injection_parameters.get(p, None) is None
                         else 0.0
                         if p in self.remove_injected_value
                         else self.injection_parameters[p]
