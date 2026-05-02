@@ -7,7 +7,7 @@ from bilby.core.grid import Grid
 from bilby.core.result import Result, read_in_result
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
 from matplotlib.legend_handler import HandlerBase
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Polygon, Rectangle
 from pesummary.conf import colorcycle
 
 from .parfile import EPOCHPARS, TEMPOUNITS, PulsarParameters
@@ -1086,19 +1086,19 @@ class Plot:
             plotkwargs["plot_percentile"] = False
 
         # get values for each parameter to set figure axes extents
-        extents = kwargs.get("extents", {})
+        extents = plotkwargs.pop("range", plotkwargs.pop("extent", {}))
         if isinstance(extents, (list, tuple)):
             if len(extents) != self._num_parameters:
                 raise ValueError(
                     f"Range list must have length equal to the number of parameters ({self._num_parameters})"
                 )
         elif isinstance(extents, dict):
-            range = []
+            ranges = []
 
             for param in self.parameters:
                 if param not in extents:
                     # use extent of the data
-                    range.append(
+                    ranges.append(
                         [
                             np.min(
                                 [samps[param].min() for samps in self._samples.values()]
@@ -1109,9 +1109,13 @@ class Plot:
                         ]
                     )
                 else:
-                    range.append(extents[param])
+                    ranges.append(extents[param])
 
-            extents = range
+            extents = ranges
+
+        # set density=True for 1d histograms
+        plotkwargs.setdefault("hist_kwargs", {})
+        plotkwargs["hist_kwargs"].setdefault("density", True)
 
         # default to not show quantile lines
         plotkwargs.setdefault("quantiles", None)
@@ -1134,14 +1138,40 @@ class Plot:
             fig = plotfunc(*args, **plotkwargs)
 
         if extents:
-            ax = fig.get_axes()
+            ax = np.array(fig.get_axes()).reshape(
+                (self._num_parameters, self._num_parameters)
+            )
             for i in range(self._num_parameters):
-                _set_axes_limits(
-                    ax[i * (self._num_parameters + 1)],
-                    self.parameters[i],
-                    axis="x",
-                    lims=extents[i],
-                )
+                for j in range(self._num_parameters):
+                    # set x-axis limits
+                    _set_axes_limits(
+                        ax[j, i],
+                        self.parameters[i],
+                        axis="x",
+                        lims=extents[i],
+                    )
+
+                    if i != j:
+                        # set y-axis limits
+                        _set_axes_limits(
+                            ax[i, j],
+                            self.parameters[i],
+                            axis="y",
+                            lims=extents[i],
+                        )
+
+                # set y-axis limits for diagonal plots
+                if len(self.results) > 1:
+                    # get max y-value over all histograms
+                    yvalues = []
+                    for c in ax[i, i].get_children():
+                        if isinstance(c, Polygon):
+                            ydata = c.get_xy()[:, 1]
+                            yvalues.append(ydata.max())
+
+                    # set the y upper limit to 10% more that the max value over
+                    # all the histograms
+                    ax[i, i].set_ylim(top=1.1 * np.max(yvalues))
 
         # turn frame off on legend
         fig.legends[0].set_frame_on(False)
@@ -1340,14 +1370,15 @@ def _set_axes_limits(ax, parameter, axis="x", lims=None):
     if lims is None:
         lims = list(ax.get_xlim()) if axis == "x" else list(ax.get_ylim())
 
-    if "low" in DEFAULT_BOUNDS[parameter]:
-        low = DEFAULT_BOUNDS[parameter]["low"]
-        if lims[0] < low:
-            lims[0] = DEFAULT_BOUNDS[parameter]["low"]
-    if "high" in DEFAULT_BOUNDS[parameter]:
-        high = DEFAULT_BOUNDS[parameter]["high"]
-        if lims[1] > high:
-            lims[1] = DEFAULT_BOUNDS[parameter]["high"]
+    if parameter in DEFAULT_BOUNDS:
+        if "low" in DEFAULT_BOUNDS[parameter]:
+            low = DEFAULT_BOUNDS[parameter]["low"]
+            if lims[0] < low:
+                lims[0] = DEFAULT_BOUNDS[parameter]["low"]
+        if "high" in DEFAULT_BOUNDS[parameter]:
+            high = DEFAULT_BOUNDS[parameter]["high"]
+            if lims[1] > high:
+                lims[1] = DEFAULT_BOUNDS[parameter]["high"]
 
     if axis == "x":
         ax.set_xlim(lims)
