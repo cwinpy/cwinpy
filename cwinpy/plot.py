@@ -507,6 +507,15 @@ class Plot:
             If plotting a `corner` plot, and overplotting Grid-based
             posteriors, set this to True to show the 2D Grid-based posterior
             densities rather than just the 1D posteriors. Default is False.
+        remove_injected_value: list, bool
+            If the ``pulsar`` was passed when generating the
+            :class:`cwinpy.plot.Plot` object, this can be set with whether
+            to remove the true/injected value of a parameter from the
+            posterior, i.e., set the true/injected value to zero and show the
+            difference. This defaults to False. If True, then the true/injected
+            value will be removed from all parameters for which it is given,
+            and if it is a list then the true/injected value will only be
+            removed from listed parameters.
 
         Returns
         -------
@@ -517,9 +526,24 @@ class Plot:
         # get colors
         colors = kwargs.get("colors", GW_OBSERVATORY_COLORS)
 
+        self.remove_injected_value = kwargs.pop("remove_injected_value", [])
+        if (
+            not isinstance(self.remove_injected_value, (list, tuple))
+            and self.remove_injected_value
+        ):
+            self.remove_injected_value = self.parameters
+
         # get Result samples
         self._samples = {
             label: value.posterior
+            - (
+                0.0
+                if label not in self.remove_injected_value
+                and (
+                    self.injection_parameters and label not in self.injection_parameters
+                )
+                else self.injection_parameters[label]
+            )
             for label, value in self.results.items()
             if isinstance(value, Result)
         }
@@ -602,6 +626,16 @@ class Plot:
             elif self._num_parameters == 2 and self.plottype != "corner":
                 fig = self._2d_plot_samples(**kwargs)
             else:
+                if "truths" not in kwargs and self.injection_parameters:
+                    kwargs["truths"] = [
+                        None
+                        if p not in self.injection_parameters
+                        else 0.0
+                        if p in self.remove_injected_value
+                        else self.injection_parameters[p]
+                        for p in self.parameters
+                    ]
+
                 fig = self._nd_plot_samples(**kwargs)
 
         # restore keywords
@@ -631,7 +665,11 @@ class Plot:
                 if self.injection_parameters[self.parameters[0]] is not None:
                     ax.axvline(
                         (
-                            self.injection_parameters[self.parameters[0]]
+                            (
+                                self.injection_parameters[self.parameters[0]]
+                                if self.parameters[0] not in self.remove_injected_value
+                                else 0.0
+                            )
                             - self.parameter_offsets[self.parameters[0]]
                         ),
                         color=kwargs.get("injection_color", "k"),
