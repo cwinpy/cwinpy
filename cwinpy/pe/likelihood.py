@@ -25,7 +25,6 @@ from ..parfile import (
 from ..signal import HeterodynedCWSimulator
 from ..utils import logfactorial
 
-
 # from bilby 2.7.0 log_likelihood could be passed parameters directly
 BILBY_OLD_LIKELIHOOD_BEHAVIOUR = Version(bilby.__version__) < Version("2.7.0")
 
@@ -585,7 +584,9 @@ class TargetedPulsarLikelihood(bilby.core.likelihood.Likelihood):
         loglikelihood = 0.0  # the log likelihood value
 
         if not BILBY_OLD_LIKELIHOOD_BEHAVIOUR and dict is None:
-            raise ValueError("Parameters must be supplied to the log_likelihood function")
+            raise ValueError(
+                "Parameters must be supplied to the log_likelihood function"
+            )
         elif BILBY_OLD_LIKELIHOOD_BEHAVIOUR:
             parameters = self.parameters
 
