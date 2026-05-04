@@ -7,7 +7,7 @@ from bilby.core.grid import Grid
 from bilby.core.result import Result, read_in_result
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
 from matplotlib.legend_handler import HandlerBase
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Polygon, Rectangle
 from pesummary.conf import colorcycle
 
 from .parfile import EPOCHPARS, TEMPOUNITS, PulsarParameters
@@ -507,6 +507,17 @@ class Plot:
             If plotting a `corner` plot, and overplotting Grid-based
             posteriors, set this to True to show the 2D Grid-based posterior
             densities rather than just the 1D posteriors. Default is False.
+        remove_injected_value: list, bool
+            If the ``pulsar`` was passed when generating the
+            :class:`cwinpy.plot.Plot` object, this can be set with whether
+            to remove the true/injected value of a parameter from the
+            posterior, i.e., set the true/injected value to zero and show the
+            difference. This defaults to False. If True, then the true/injected
+            value will be removed from all parameters for which it is given,
+            and if it is a list then the true/injected value will only be
+            removed from listed parameters. The removed value will be shown in
+            the axes label. This only applies when plotting from posterior
+            samples and not grids.
 
         Returns
         -------
@@ -516,6 +527,13 @@ class Plot:
 
         # get colors
         colors = kwargs.get("colors", GW_OBSERVATORY_COLORS)
+
+        self.remove_injected_value = kwargs.pop("remove_injected_value", [])
+        if (
+            not isinstance(self.remove_injected_value, (list, tuple))
+            and self.remove_injected_value
+        ):
+            self.remove_injected_value = self.parameters
 
         # get Result samples
         self._samples = {
@@ -530,6 +548,39 @@ class Plot:
             for label, value in self.results.items()
             if isinstance(value, Grid)
         }
+
+        if (
+            len(self._grids) == 0
+            and len(self._samples) > 1
+            and self.remove_injected_value
+            and self.injection_parameters
+        ):
+            for i, label in enumerate(self._samples):
+                for parameter in self.parameters:
+                    if (
+                        parameter in self.remove_injected_value
+                        and self.injection_parameters.get(parameter, None) is not None
+                    ):
+                        self._samples[label][parameter] -= self.injection_parameters[
+                            parameter
+                        ]
+
+                        # add offset to the latex label
+                        if i == 0:
+                            offsetstr = f"{self.injection_parameters[parameter]:.4e}"
+                            a, b = offsetstr.split("e")
+
+                            if np.abs(int(b)) < 3:
+                                offsetstr = (
+                                    f"{self.injection_parameters[parameter]:.4f}"
+                                )
+                                offset = float(offsetstr)
+                            else:
+                                offset = float(offsetstr)
+                                offsetstr = a + rf"\!\times\!10^{{{int(b)}}}"
+
+                            label_suffix = rf" [${{\scriptstyle {offsetstr}}}$]"
+                            self.latex_labels[parameter] += label_suffix
 
         # apply offsets for slightly nicer plots axes
         self.parameter_offsets = {parameter: 0.0 for parameter in self.parameters}
@@ -602,6 +653,16 @@ class Plot:
             elif self._num_parameters == 2 and self.plottype != "corner":
                 fig = self._2d_plot_samples(**kwargs)
             else:
+                if "truths" not in kwargs and self.injection_parameters:
+                    kwargs["truths"] = [
+                        None
+                        if self.injection_parameters.get(p, None) is None
+                        else 0.0
+                        if p in self.remove_injected_value
+                        else self.injection_parameters[p]
+                        for p in self.parameters
+                    ]
+
                 fig = self._nd_plot_samples(**kwargs)
 
         # restore keywords
@@ -631,7 +692,11 @@ class Plot:
                 if self.injection_parameters[self.parameters[0]] is not None:
                     ax.axvline(
                         (
-                            self.injection_parameters[self.parameters[0]]
+                            (
+                                self.injection_parameters[self.parameters[0]]
+                                if self.parameters[0] not in self.remove_injected_value
+                                else 0.0
+                            )
                             - self.parameter_offsets[self.parameters[0]]
                         ),
                         color=kwargs.get("injection_color", "k"),
@@ -1085,21 +1150,37 @@ class Plot:
         if "plot_percentile" not in kwargs:
             plotkwargs["plot_percentile"] = False
 
-        # get ranges for each parameter to set figure axes extents
-        if "range" not in kwargs:
-            range = []
-            for param in self.parameters:
-                range.append(
-                    [
-                        np.min(
-                            [samps[param].min() for samps in self._samples.values()]
-                        ),
-                        np.max(
-                            [samps[param].max() for samps in self._samples.values()]
-                        ),
-                    ]
+        # get values for each parameter to set figure axes extents
+        extents = plotkwargs.pop("range", plotkwargs.pop("extent", {}))
+        if isinstance(extents, (list, tuple)):
+            if len(extents) != self._num_parameters:
+                raise ValueError(
+                    f"Range list must have length equal to the number of parameters ({self._num_parameters})"
                 )
-            plotkwargs["range"] = range
+        elif isinstance(extents, dict):
+            ranges = []
+
+            for param in self.parameters:
+                if param not in extents:
+                    # use extent of the data
+                    ranges.append(
+                        [
+                            np.min(
+                                [samps[param].min() for samps in self._samples.values()]
+                            ),
+                            np.max(
+                                [samps[param].max() for samps in self._samples.values()]
+                            ),
+                        ]
+                    )
+                else:
+                    ranges.append(extents[param])
+
+            extents = ranges
+
+        # set density=True for 1d histograms
+        plotkwargs.setdefault("hist_kwargs", {})
+        plotkwargs["hist_kwargs"].setdefault("density", True)
 
         # default to not show quantile lines
         plotkwargs.setdefault("quantiles", None)
@@ -1120,6 +1201,42 @@ class Plot:
         # create plot
         with DisableLogger():
             fig = plotfunc(*args, **plotkwargs)
+
+        if extents:
+            ax = np.array(fig.get_axes()).reshape(
+                (self._num_parameters, self._num_parameters)
+            )
+            for i in range(self._num_parameters):
+                for j in range(self._num_parameters):
+                    # set x-axis limits
+                    _set_axes_limits(
+                        ax[j, i],
+                        self.parameters[i],
+                        axis="x",
+                        lims=extents[i],
+                    )
+
+                    if i != j:
+                        # set y-axis limits
+                        _set_axes_limits(
+                            ax[i, j],
+                            self.parameters[i],
+                            axis="y",
+                            lims=extents[i],
+                        )
+
+                # set y-axis limits for diagonal plots
+                if len(self.results) > 1:
+                    # get max y-value over all histograms
+                    yvalues = []
+                    for c in ax[i, i].get_children():
+                        if isinstance(c, Polygon):
+                            ydata = c.get_xy()[:, 1]
+                            yvalues.append(ydata.max())
+
+                    # set the y upper limit to 10% more that the max value over
+                    # all the histograms
+                    ax[i, i].set_ylim(top=1.1 * np.max(yvalues))
 
         # turn frame off on legend
         fig.legends[0].set_frame_on(False)
@@ -1309,22 +1426,24 @@ class Plot:
         return self.credible_interval(parameter, interval=[bound])
 
 
-def _set_axes_limits(ax, parameter, axis="x"):
+def _set_axes_limits(ax, parameter, axis="x", lims=None):
     """
     Define the limits of an axis range using the current limits or the default
     bounds if current limits are outside those bounds.
     """
 
-    lims = list(ax.get_xlim()) if axis == "x" else list(ax.get_ylim())
+    if lims is None:
+        lims = list(ax.get_xlim()) if axis == "x" else list(ax.get_ylim())
 
-    if "low" in DEFAULT_BOUNDS[parameter]:
-        low = DEFAULT_BOUNDS[parameter]["low"]
-        if lims[0] < low:
-            lims[0] = DEFAULT_BOUNDS[parameter]["low"]
-    if "high" in DEFAULT_BOUNDS[parameter]:
-        high = DEFAULT_BOUNDS[parameter]["high"]
-        if lims[1] > high:
-            lims[1] = DEFAULT_BOUNDS[parameter]["high"]
+    if parameter in DEFAULT_BOUNDS:
+        if "low" in DEFAULT_BOUNDS[parameter]:
+            low = DEFAULT_BOUNDS[parameter]["low"]
+            if lims[0] < low:
+                lims[0] = DEFAULT_BOUNDS[parameter]["low"]
+        if "high" in DEFAULT_BOUNDS[parameter]:
+            high = DEFAULT_BOUNDS[parameter]["high"]
+            if lims[1] > high:
+                lims[1] = DEFAULT_BOUNDS[parameter]["high"]
 
     if axis == "x":
         ax.set_xlim(lims)
