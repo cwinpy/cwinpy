@@ -8,6 +8,33 @@ include:
         - "3.10"
         - "3.11"
 
+# -- Dependency scanning --
+
+# Use pixi and uv together to create a lockfile with the
+# lowest direct dependencies to be used for dependency scanning
+uv_lock:
+  stage: .pre
+  image: ghcr.io/prefix-dev/pixi:latest
+  variables:
+    PYTHON_VERSION: "3.9"
+  script:
+    - pixi add --frozen python=${PYTHON_VERSION} uv
+    - pixi install
+    - pixi run uv venv --python .pixi/envs/default/bin/python --system-site-packages
+    - pixi run uv lock --resolution lowest-direct
+  artifacts:
+    paths:
+      - pixi.lock
+      - uv.lock
+    expire_in: 1 week
+
+# Scan using the uv lock file
+gemnasium-python-dependency_scanning:
+  needs: [uv_lock]
+
+# -- Testing --
+
+# Use pixi to manage the python environment and dependencies, and run the tests
 python_test:
   image: ghcr.io/prefix-dev/pixi:latest
   # use pixi to manage the python environment and dependencies
@@ -28,3 +55,11 @@ python_test:
         --pyargs
         -ra
         cwinpy.test
+
+# Add an extra job to run the tests with the minimum dependencies
+python_test_min:
+  extends: python_test
+  parallel: null
+  needs: [uv_lock]
+  variables:
+    PYTHON_VERSION: "3.9"
