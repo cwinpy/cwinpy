@@ -1,14 +1,33 @@
+# -- CWInPy CI/CD configuration --
+
+# Configure the workflow to run when we want it
+workflow:
+  rules:
+    # Run for merge requests
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Don't run on branches if there's an open merge request
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    # Run on branches and tags
+    - if: $CI_COMMIT_BRANCH || $CI_COMMIT_TAG
+
 include:
   - component: git.ligo.org/computing/gitlab/components/python/all@4
     inputs:
+      merge_request_pipelines: true
       code_quality_analyzer: flake8
-      run_advanced_sast: true
+      dependency_scanning: false
       python_versions:
         - "3.9"
         - "3.10"
         - "3.11"
 
-# -- Dependency scanning --
+  # Configure dependency scanning manually to use uv.lock generated below
+  - component: git.ligo.org/components/dependency-scanning/main@~latest
+    inputs:
+      job_name: dependency_scanning
+
+# -- Dependency scanning
 
 # Use pixi and uv together to create a lockfile with the
 # lowest direct dependencies to be used for dependency scanning
@@ -29,10 +48,10 @@ uv_lock:
     expire_in: 1 week
 
 # Scan using the uv lock file
-gemnasium-python-dependency_scanning:
+dependency_scanning:
   needs: [uv_lock]
 
-# -- Testing --
+# -- Testing
 
 # Use pixi to manage the python environment and dependencies, and run the tests
 python_test:
