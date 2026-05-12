@@ -899,7 +899,9 @@ class Heterodyne:
                             channel=channel,
                             start=starttime,
                             end=endtime,
-                            pad=kwargs.get("pad", 0.0),  # fill gaps with zeros
+                            pad=kwargs.get(
+                                "pad", 0.0 if temp_files else None
+                            ),  # fill gaps with zeros
                         )
 
                         # delete temporary files unless storing in a persistent cache
@@ -2758,8 +2760,7 @@ def remote_frame_cache(
                     observatory, frametype, start, end
                 )
             )
-
-        if subcache[0].startswith("osdf") and urltype == "file":
+        elif subcache[0].startswith("osdf") and urltype == "file":
             raise RuntimeError(
                 "OSDF URLs have been returned, but 'urltype' is set to 'file'."
                 "Check the host and urltype arguments are compatible."
