@@ -42,26 +42,27 @@ requires-python = ">=3.9, <4"
 dependencies = [
     "appdirs",
     "arby",
-    "astropy",
+    "astropy >= 5.0.0",
     "bilby >= 2.0.1",
-    "configargparse",
+    "configargparse >=1.5.3",
     "corner >= 2.2.1",
     "dynesty < 3; python_version < '3.10'",
     "dynesty; python_version > '3.9'",
     "gwosc >= 0.5.4",
-    "gwpy >= 2.1.1",
-    "healpy",
-    "htcondor >= 10.0.0",
+    "gwpy >= 2.1.2",
+    "healpy >=1.17.1",
+    "htcondor >= 10.0.9",
     "lalsuite >= 7.23",
-    "lintegrate >= 0.1.7",
+    "lintegrate >= 0.2.0",
     "matplotlib >= 3.6.0",
-    "numba >= 0.5.0",
-    "numpy",
+    "numba >= 0.60.0",
+    "numpy >=1.26.4,<2.4.0 ; python_version < '3.10'",
+    "numpy >=2.0.0,<2.4.0 ; python_version >= '3.10'",
     "pesummary >= 1.2.0",
     "psrqpy >= 1.1.7",
     "requests",
     "requests-pelican",
-    "scipy",
+    "scipy >=1.11.4",
     "scitokens",
     "simpleeval",
     "solar-system-ephemerides>=1.0.0",
@@ -74,15 +75,12 @@ dynamic = [
 [project.optional-dependencies]
 # test suite
 test = [
-    "codecov",
-    "coverage",
-    "coverage-badge",
     "cweqgen >= 0.4.3",
-    "libstempo >= 2.4.2",
+    "libstempo >= 2.4.6",
     "pytest >= 4.6",
     "pytest_socket",
     "pytest-astropy",
-    "pytest-coverage",
+    "pytest-cov",
     "pytest-runner",
     "seaborn",
 ]
@@ -91,7 +89,7 @@ docs = [
     "autodoc",
     "myst-parser",
     "nbsphinx",
-    "numpydoc",
+    "numpydoc >=1.5.0",
     "pydata-sphinx-theme",
     "sphinx >= 2.0",
     "sphinx-design",
@@ -139,3 +137,22 @@ line_length = 88
 multi_line_output = 3
 skip_glob = "setup.py,*/__init__.py"
 profile = "black"
+
+[tool.pixi.workspace]
+channels = [
+  "conda-forge",
+]
+platforms = [
+  "linux-64",
+]
+
+[tool.pixi.dependencies]
+c-compiler = "*"
+cxx-compiler = "*"  # for libstempo
+git = "*"
+tempo2 = "*"
+pip = ">=23.0.1"
+
+[tool.pixi.environments]
+default = { features = ["dev", "test"], solve-group = "default" }
+docs = { features = ["docs"], solve-group = "default" }
