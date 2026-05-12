@@ -899,7 +899,9 @@ class Heterodyne:
                             channel=channel,
                             start=starttime,
                             end=endtime,
-                            pad=kwargs.get("pad", 0.0),  # fill gaps with zeros
+                            pad=kwargs.get(
+                                "pad", 0.0 if temp_files else None
+                            ),  # fill gaps with zeros
                         )
 
                         # delete temporary files unless storing in a persistent cache
