@@ -1,3 +1,4 @@
+import glob
 import re
 from copy import deepcopy
 from itertools import permutations
@@ -468,7 +469,8 @@ def find_results_files(resdir, fnamestr="cwinpy_pe"):
     Parameters
     ----------
     resdir: str, Path
-        The directory containing the results sub-directories.
+        The directory containing the results sub-directories, or a globable
+        file path for a file or multiple files in a directory.
     fnamestr: str
         A prefix for the results file names.
 
@@ -482,22 +484,31 @@ def find_results_files(resdir, fnamestr="cwinpy_pe"):
         raise TypeError(f"'{resdir}' must be a string or a Path object")
 
     respath = Path(resdir)
-    if not respath.is_dir():
+    if glob.has_magic(str(respath.name)):
+        # check for globable pattern in file name
+        fnamematch = respath.name  # get globable pattern
+        respath = [respath.parent]
+    elif not respath.is_dir():
         raise ValueError(f"'{resdir}' is not a directory")
+    else:
+        respath = respath.iterdir()
 
     # iterate through directories
     resfiles = {}
 
-    for rd in respath.iterdir():
+    for rd in respath:
         if rd.is_dir():
             dname = rd.name
 
             # check directory contains results objects
-            for ext in ["hdf5", "json"]:
-                fnamematch = f"{fnamestr}_*_{dname}_result.{ext}"
+            if not isinstance(respath, list):
+                for ext in ["hdf5", "json"]:
+                    fnamematch = f"{fnamestr}_*_{dname}_result.{ext}"
+                    rfiles = list(rd.glob(fnamematch))
+                    if len(rfiles) > 0:
+                        break
+            else:
                 rfiles = list(rd.glob(fnamematch))
-                if len(rfiles) > 0:
-                    break
 
             if len(rfiles) > 0:
                 resfiles[dname] = {}
