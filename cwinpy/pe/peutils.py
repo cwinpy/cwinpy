@@ -319,7 +319,12 @@ def optimal_snr(
             muldets = []
         else:
             dets = list(resfiles[psr].keys()) if det is None else [det]
-            resdata = {d: read_in_result_wrapper(resfiles[psr][d]) for d in dets}
+            resdata = {
+                d: read_in_result_wrapper(
+                    find_results_files(resfiles[psr][d], psr=psr, det=d)
+                )
+                for d in dets
+            }
 
             # get individual detectors and multi-detectors (assuming two-character detector strings)
             inddets = [d for d in dets if len(d) == 2]
@@ -453,7 +458,12 @@ def optimal_snr(
             return snrs
 
 
-def find_results_files(resdir, fnamestr="cwinpy_pe"):
+def find_results_files(
+    resdir,
+    fnamestr: str = "cwinpy_pe",
+    det: str = None,
+    psr: str = None,
+):
     """
     Given a directory, go through all subdirectories and check if they contain
     results from cwinpy_pe. If they do, add them to a dictionary, keyed on the
@@ -470,9 +480,21 @@ def find_results_files(resdir, fnamestr="cwinpy_pe"):
     ----------
     resdir: str, Path
         The directory containing the results sub-directories, or a globable
-        file path for a file or multiple files in a directory.
+        file path for a file or multiple files in a directory. If this is just
+        an existing file, it will be be returned, i.e., passing a file to this
+        function just passes it back to the user.
     fnamestr: str
         A prefix for the results file names.
+    det: str
+        If given, just return a dictionary for that detector name. If both
+        ``det`` and ``psr`` are given, the path string for the matching file is
+        returned rather than a dicitonary. This will raise a ``KeyError`` if
+        the detector is not present in the dictionary.
+    psr: str
+        If given, just return a dictiontary for that pulsar. If both ``psr``
+        and ``det`` are given, the path string for the matching file is
+        returned rather than a dictionary. This will raise a ``KeyError`` if
+        the psr does not exist in the dictionary.
 
     Returns
     -------
@@ -488,6 +510,9 @@ def find_results_files(resdir, fnamestr="cwinpy_pe"):
         # check for globable pattern in file name
         fnamematch = respath.name  # get globable pattern
         respath = [respath.parent]
+    elif respath.is_file():
+        # return the file
+        return resdir
     elif not respath.is_dir():
         raise ValueError(f"'{resdir}' is not a directory")
     else:
@@ -524,6 +549,25 @@ def find_results_files(resdir, fnamestr="cwinpy_pe"):
 
                     # set files
                     resfiles[dname][detmatch.group(1)] = rf.resolve()
+
+    if psr is not None:
+        try:
+            resfiles = resfiles[psr]
+        except KeyError:
+            raise KeyError(
+                f"The pulsar '{psr}' was not in the given directory {resdir}."
+            )
+
+    if det is not None:
+        try:
+            if psr is not None:
+                resfiles = resfiles[det]
+            else:
+                resfiles = {p: resfiles[p][det] for p in resfiles}
+        except KeyError:
+            raise KeyError(
+                f"The detector '{det}' was not in the given directory " f"{resdir}."
+            )
 
     return resfiles
 
