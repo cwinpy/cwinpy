@@ -192,17 +192,27 @@ PHI0     2.4
         priors = dict()
         priors["h0"] = Uniform(0.0, 1.0e-23, "h0")
 
+        parameters = {"h0": 1e-24}
+
         # run with includephase as False
         like1 = TargetedPulsarLikelihood(het, PriorDict(priors), likelihood="studentst")
-        like1.parameters = {"h0": 1e-24}
 
-        logl1 = like1.log_likelihood()
+        if BILBY_OLD_LIKELIHOOD_BEHAVIOUR:
+            like1.parameters = parameters
+
+            logl1 = like1.log_likelihood()
+        else:
+            logl1 = like1.log_likelihood(parameters)
 
         # set includephase to True
         like2 = TargetedPulsarLikelihood(het, PriorDict(priors), likelihood="studentst")
-        like2.parameters = {"h0": 1e-24}
         like2.include_phase = True
 
-        logl2 = like2.log_likelihood()
+        if BILBY_OLD_LIKELIHOOD_BEHAVIOUR:
+            like2.parameters = parameters
+
+            logl2 = like2.log_likelihood()
+        else:
+            logl2 = like2.log_likelihood(parameters)
 
         assert np.allclose([logl1], [logl2], atol=1e-10, rtol=0.0)
