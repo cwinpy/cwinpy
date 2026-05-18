@@ -17,7 +17,10 @@ from cwinpy.data import HeterodynedData, MultiHeterodynedData
 from cwinpy.heterodyne import heterodyne
 from cwinpy.parfile import PulsarParameters
 from cwinpy.pe import pe
-from cwinpy.pe.likelihood import TargetedPulsarLikelihood
+from cwinpy.pe.likelihood import (
+    BILBY_OLD_LIKELIHOOD_BEHAVIOUR,
+    TargetedPulsarLikelihood,
+)
 from cwinpy.pe.roq import GenerateROQ
 from cwinpy.utils import logfactorial
 
@@ -400,12 +403,17 @@ class TestHeterodynedCWModelROQ:
         for i in range(Ntests):
             parameters = self.priors.sample()
 
-            like_orig.parameters = parameters.copy()
-            like_roq.parameters = parameters.copy()
+            if BILBY_OLD_LIKELIHOOD_BEHAVIOUR:
+                like_orig.parameters = parameters.copy()
+                like_roq.parameters = parameters.copy()
 
-            # get likelihoods
-            llo[i] = like_orig.log_likelihood()
-            llr[i] = like_roq.log_likelihood()
+                # get likelihoods
+                llo[i] = like_orig.log_likelihood()
+                llr[i] = like_roq.log_likelihood()
+            else:
+                # get likelihoods
+                llo[i] = like_orig.log_likelihood(parameters.copy())
+                llr[i] = like_roq.log_likelihood(parameters.copy())
 
         assert np.all(np.abs(np.exp(llo - llo.max()) - np.exp(llr - llr.max())) < 1e-3)
 
@@ -435,12 +443,17 @@ class TestHeterodynedCWModelROQ:
         for i in range(Ntests):
             parameters = self.priors.sample()
 
-            like_orig.parameters = parameters.copy()
-            like_roq.parameters = parameters.copy()
+            if BILBY_OLD_LIKELIHOOD_BEHAVIOUR:
+                like_orig.parameters = parameters.copy()
+                like_roq.parameters = parameters.copy()
 
-            # get likelihoods
-            llo[i] = like_orig.log_likelihood()
-            llr[i] = like_roq.log_likelihood()
+                # get likelihoods
+                llo[i] = like_orig.log_likelihood()
+                llr[i] = like_roq.log_likelihood()
+            else:
+                # get likelihoods
+                llo[i] = like_orig.log_likelihood(parameters.copy())
+                llr[i] = like_roq.log_likelihood(parameters.copy())
 
         assert np.all(np.abs(np.exp(llo - llo.max()) - np.exp(llr - llr.max())) < 1e-3)
 

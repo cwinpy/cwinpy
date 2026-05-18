@@ -9,7 +9,10 @@ import pytest
 from bilby.core.prior import PriorDict, Uniform
 
 from cwinpy import HeterodynedData, MultiHeterodynedData
-from cwinpy.pe.likelihood import TargetedPulsarLikelihood
+from cwinpy.pe.likelihood import (
+    BILBY_OLD_LIKELIHOOD_BEHAVIOUR,
+    TargetedPulsarLikelihood,
+)
 
 
 class TestTargetedPulsarLikelihood(object):
@@ -125,9 +128,16 @@ PHI0     2.4
             like = TargetedPulsarLikelihood(
                 het, PriorDict(priors), likelihood=likelihood
             )
-            like.parameters = {"h0": 0.0}
 
-            assert np.isclose(like.log_likelihood(), like.noise_log_likelihood())
+            parameters = {"h0": 0.0}
+            if BILBY_OLD_LIKELIHOOD_BEHAVIOUR:
+                like.parameters = parameters
+
+                assert np.isclose(like.log_likelihood(), like.noise_log_likelihood())
+            else:
+                assert np.isclose(
+                    like.log_likelihood(parameters), like.noise_log_likelihood()
+                )
 
     def test_numba_likelihood(self):
         """
@@ -142,19 +152,33 @@ PHI0     2.4
         priors["h0"] = Uniform(0.0, 1.0e-23, "h0")
 
         for likelihood in ["gaussian", "studentst"]:
+            parameters = {"h0": 1e-24}
+
             like1 = TargetedPulsarLikelihood(
                 het, PriorDict(priors), likelihood=likelihood
             )
-            like1.parameters = {"h0": 1e-24}
 
             like2 = TargetedPulsarLikelihood(
                 het, PriorDict(priors), likelihood=likelihood, numba=True
             )
-            like2.parameters = {"h0": 1e-24}
 
-            assert np.allclose(
-                [like1.log_likelihood()], [like2.log_likelihood()], atol=1e-10, rtol=0.0
-            )
+            if BILBY_OLD_LIKELIHOOD_BEHAVIOUR:
+                like1.parameters = parameters
+                like2.parameters = parameters
+
+                assert np.allclose(
+                    [like1.log_likelihood()],
+                    [like2.log_likelihood()],
+                    atol=1e-10,
+                    rtol=0.0,
+                )
+            else:
+                assert np.allclose(
+                    [like1.log_likelihood(parameters)],
+                    [like2.log_likelihood(parameters)],
+                    atol=1e-10,
+                    rtol=0.0,
+                )
 
     def test_includephase_likelihood(self):
         """
@@ -168,17 +192,27 @@ PHI0     2.4
         priors = dict()
         priors["h0"] = Uniform(0.0, 1.0e-23, "h0")
 
+        parameters = {"h0": 1e-24}
+
         # run with includephase as False
         like1 = TargetedPulsarLikelihood(het, PriorDict(priors), likelihood="studentst")
-        like1.parameters = {"h0": 1e-24}
 
-        logl1 = like1.log_likelihood()
+        if BILBY_OLD_LIKELIHOOD_BEHAVIOUR:
+            like1.parameters = parameters
+
+            logl1 = like1.log_likelihood()
+        else:
+            logl1 = like1.log_likelihood(parameters)
 
         # set includephase to True
         like2 = TargetedPulsarLikelihood(het, PriorDict(priors), likelihood="studentst")
-        like2.parameters = {"h0": 1e-24}
         like2.include_phase = True
 
-        logl2 = like2.log_likelihood()
+        if BILBY_OLD_LIKELIHOOD_BEHAVIOUR:
+            like2.parameters = parameters
+
+            logl2 = like2.log_likelihood()
+        else:
+            logl2 = like2.log_likelihood(parameters)
 
         assert np.allclose([logl1], [logl2], atol=1e-10, rtol=0.0)
