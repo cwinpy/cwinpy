@@ -15,7 +15,7 @@ from ..parfile import PulsarParameters
 from ..plot import LATEX_LABELS, Plot
 from ..utils import get_psr_name, is_par_file
 from .pe import pe_pipeline
-from .peutils import UpperLimitTable, optimal_snr, results_odds
+from .peutils import UpperLimitTable, find_results_files, optimal_snr, results_odds
 from .webpage import (
     PULSAR_HEADER_FORMATS,
     RESULTS_HEADER_FORMATS,
@@ -271,9 +271,20 @@ def pulsar_summary_plots(
                 postdata = posteriordata
 
                 if outputsuffix is not None:
-                    postdata = {outputsuffix: postdata}
+                    postdata = {
+                        outputsuffix: find_results_files(
+                            postdata, psr=pname, det=outputsuffix
+                        )
+                        if isinstance(postdata, str)
+                        else postdata
+                    }
             else:
-                postdata = {d[0]: d[1] for d in posteriordata}
+                postdata = {
+                    d[0]: find_results_files(d[1], psr=pname, det=d[0])
+                    if isinstance(d[1], str)
+                    else d[1]
+                    for d in posteriordata
+                }
 
             # copy of plotting kwargs
             tplotkwargs = kwargs.copy()

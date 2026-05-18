@@ -132,7 +132,9 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
                 else:
                     raise KeyError("No 'coherent' multi-detector result is given")
 
-            result = read_in_result_wrapper(resultd[key])
+            result = read_in_result_wrapper(
+                find_results_files(resultd[key], psr=pname, det=key)
+            )
 
             coherentZ = result.log_10_evidence
 
@@ -143,7 +145,9 @@ def results_odds(results, oddstype="svn", scale="log10", **kwargs):
                 denom = 0.0
                 for rkey in resultd:
                     if rkey != key:
-                        result = read_in_result_wrapper(resultd[rkey])
+                        result = read_in_result_wrapper(
+                            find_results_files(resultd[rkey], psr=pname, det=rkey)
+                        )
 
                         denom += np.logaddexp(
                             result.log_10_evidence,
