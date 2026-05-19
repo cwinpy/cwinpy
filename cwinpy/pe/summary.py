@@ -183,7 +183,7 @@ def pulsar_summary_plots(
             if isinstance(heterodyneddata, HeterodynedData):
                 het = heterodyneddata
             else:
-                het = HeterodynedData.read(heterodyneddata)
+                het = HeterodynedData.read(heterodyneddata, bbminlength=np.inf)
 
             outsuf = "" if outputsuffix is None else f"{outputsuffix}"
 
