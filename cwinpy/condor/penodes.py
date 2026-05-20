@@ -39,7 +39,7 @@ class PulsarPELayer(CondorLayer):
         )
 
         # check for use of OSG
-        self.osg = self.get_option("osg", default=False)
+        self.osg = self.get_option("osg", otype=bool, default=False)
         self.outdir = Path(
             self.get_option("basedir", section="run", default=os.getcwd())
         )
