@@ -2,6 +2,7 @@ import ast
 import copy
 import os
 import re
+import warnings
 from pathlib import Path
 
 import bilby
@@ -130,7 +131,7 @@ class PulsarPELayer(CondorLayer):
                         f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)} =?= True)"
                     )
             else:
-                raise RuntimeError(
+                warnings.warn(
                     "If running on the OSG you must be using an IGWN "
                     "environment or the CWInPy developement singularity "
                     "container."
