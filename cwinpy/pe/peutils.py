@@ -846,6 +846,8 @@ class set_formats:
                 return f"{int(num)}"
             else:
                 return f"{num}"
+        elif num == 0.0:
+            return "0.0"
         else:
             val, exp = splitexponent(num)
             val = round(val, self.dp)
