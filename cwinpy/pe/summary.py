@@ -770,8 +770,22 @@ def generate_summary_pages(**kwargs):
             nargs="+",
             help=(
                 "Provide the pulsars for which to produces summary results. "
-                "By default, all pulsars from the analysis will be used."
+                "By default, all pulsars from the analysis will be used. "
+                "Note: use this before any required arguments, so that the "
+                "positional 'config' argument does not get consumed."
             ),
+            default=[],
+        )
+        parser.add_argument(
+            "--exclude-pulsars",
+            nargs="+",
+            help=(
+                "Provide a list of pulsars to explicitly exclude from the "
+                "summary results. By default, no pulsar will be excluded."
+                "Note: use this before any required arguments, so that the "
+                "positional 'config' argument does not get consumed."
+            ),
+            default=[],
         )
         parser.add_argument(
             "--disable-posteriors",
@@ -887,6 +901,7 @@ def generate_summary_pages(**kwargs):
         showindividualparams = args.enable_individual_posteriors
 
         pulsars = args.pulsars
+        exclude_pulsars = args.exclude_pulsars
 
         upperlimitplot = not args.disable_upper_limit_plot
         oddsplot = not args.disable_odds_plot
@@ -933,7 +948,11 @@ def generate_summary_pages(**kwargs):
 
     # get only the requested pulsars
     if pulsars:
-        rmidx = [i for i, psr in enumerate(ultable["PSRJ"]) if psr not in pulsars]
+        rmidx = [
+            i
+            for i, psr in enumerate(ultable["PSRJ"])
+            if (psr not in pulsars or psr in exclude_pulsars)
+        ]
         if rmidx:
             ultable.remove_rows(rmidx)
 
