@@ -767,7 +767,7 @@ def generate_summary_pages(**kwargs):
         parser.add_argument(
             "--pulsars",
             "-p",
-            action="append",
+            nargs="+",
             help=(
                 "Provide the pulsars for which to produces summary results. "
                 "By default, all pulsars from the analysis will be used."
