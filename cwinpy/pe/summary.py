@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Union
 
+import matplotlib as mpl
 import numpy as np
 from bilby.core.result import Result
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
@@ -15,7 +16,7 @@ from ..parfile import PulsarParameters
 from ..plot import LATEX_LABELS, Plot
 from ..utils import get_psr_name, is_par_file
 from .pe import pe_pipeline
-from .peutils import UpperLimitTable, optimal_snr, results_odds
+from .peutils import UpperLimitTable, find_results_files, optimal_snr, results_odds
 from .webpage import (
     PULSAR_HEADER_FORMATS,
     RESULTS_HEADER_FORMATS,
@@ -183,7 +184,11 @@ def pulsar_summary_plots(
             if isinstance(heterodyneddata, HeterodynedData):
                 het = heterodyneddata
             else:
-                het = HeterodynedData.read(heterodyneddata)
+                het = HeterodynedData.read(heterodyneddata, bbminlength=np.inf)
+
+            if not het.outliers_removed:
+                # remove outliers once
+                het.remove_outliers()
 
             outsuf = "" if outputsuffix is None else f"{outputsuffix}"
 
@@ -194,7 +199,6 @@ def pulsar_summary_plots(
             # plot time series
             hetfig = het.plot(
                 which="abs",
-                remove_outliers=True,
                 color=GW_OBSERVATORY_COLORS.get(outsuf, "k"),
             )
             hetfig.tight_layout()
@@ -212,7 +216,7 @@ def pulsar_summary_plots(
                 )
 
             # plot spectrogram
-            specfig = het.spectrogram(remove_outliers=True)
+            specfig = het.spectrogram()
             filename = f"spectrogram_plot_{pname}_{outsuf}"
             specfig[-1].savefig(
                 outpath / f"{filename}{plotformat}", dpi=kwargs.get("dpi", 150)
@@ -228,7 +232,7 @@ def pulsar_summary_plots(
                 )
 
             # plot spectrum
-            sfig = het.power_spectrum(remove_outliers=True, asd=True)
+            sfig = het.power_spectrum(asd=True)
             filename = f"asd_plot_{pname}_{outsuf}"
             sfig[-1].savefig(
                 outpath / f"{filename}{plotformat}", dpi=kwargs.get("dpi", 150)
@@ -271,9 +275,20 @@ def pulsar_summary_plots(
                 postdata = posteriordata
 
                 if outputsuffix is not None:
-                    postdata = {outputsuffix: postdata}
+                    postdata = {
+                        outputsuffix: find_results_files(
+                            postdata, psr=pname, det=outputsuffix
+                        )
+                        if isinstance(postdata, str)
+                        else postdata
+                    }
             else:
-                postdata = {d[0]: d[1] for d in posteriordata}
+                postdata = {
+                    d[0]: find_results_files(d[1], psr=pname, det=d[0])
+                    if isinstance(d[1], str)
+                    else d[1]
+                    for d in posteriordata
+                }
 
             # copy of plotting kwargs
             tplotkwargs = kwargs.copy()
@@ -705,6 +720,8 @@ def generate_summary_pages(**kwargs):
         the output. We defined an MSP as having a rotation period less than 30
         ms (rotation frequency greater than 33.3 Hz) and an estimated B-field
         of less than 1e11 Gauss.
+    mplbackend: str
+        The plotting backend for matplotlib to use. Default is 'agg'.
     """
 
     if "cli" not in kwargs:
@@ -730,6 +747,8 @@ def generate_summary_pages(**kwargs):
         onlyjoint = kwargs.pop("onlyjoint", False)
 
         onlymsps = kwargs.pop("onlymsps", False)
+
+        mpl_backend = kwargs.pop("mplbackend", "agg")
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
@@ -756,11 +775,25 @@ def generate_summary_pages(**kwargs):
         parser.add_argument(
             "--pulsars",
             "-p",
-            action="append",
+            nargs="+",
             help=(
                 "Provide the pulsars for which to produces summary results. "
-                "By default, all pulsars from the analysis will be used."
+                "By default, all pulsars from the analysis will be used. "
+                "Note: use this before any required arguments, so that the "
+                "positional 'config' argument does not get consumed."
             ),
+            default=[],
+        )
+        parser.add_argument(
+            "--exclude-pulsars",
+            nargs="+",
+            help=(
+                "Provide a list of pulsars to explicitly exclude from the "
+                "summary results. By default, no pulsar will be excluded."
+                "Note: use this before any required arguments, so that the "
+                "positional 'config' argument does not get consumed."
+            ),
+            default=[],
         )
         parser.add_argument(
             "--disable-posteriors",
@@ -865,6 +898,11 @@ def generate_summary_pages(**kwargs):
                 "results in the table of results."
             ),
         )
+        parser.add_argument(
+            "--mpl-backend",
+            default="agg",
+            help="Backend for matplotlib for plots. Default is '%(default)s'.",
+        )
 
         args = parser.parse_args()
         configfile = args.config
@@ -876,6 +914,7 @@ def generate_summary_pages(**kwargs):
         showindividualparams = args.enable_individual_posteriors
 
         pulsars = args.pulsars
+        exclude_pulsars = args.exclude_pulsars
 
         upperlimitplot = not args.disable_upper_limit_plot
         oddsplot = not args.disable_odds_plot
@@ -886,6 +925,11 @@ def generate_summary_pages(**kwargs):
         sortdes = args.sort_descending
         onlymsps = args.show_only_msps
         onlyjoint = args.only_joint
+
+        mpl_backend = args.mpl_backend
+
+    # set matploltib backend
+    mpl.use(mpl_backend)
 
     # make the output directory
     outpath.mkdir(parents=True, exist_ok=True)
@@ -922,7 +966,11 @@ def generate_summary_pages(**kwargs):
 
     # get only the requested pulsars
     if pulsars:
-        rmidx = [i for i, psr in enumerate(ultable["PSRJ"]) if psr not in pulsars]
+        rmidx = [
+            i
+            for i, psr in enumerate(ultable["PSRJ"])
+            if (psr not in pulsars or psr in exclude_pulsars)
+        ]
         if rmidx:
             ultable.remove_rows(rmidx)
 

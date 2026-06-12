@@ -2,6 +2,7 @@ import ast
 import copy
 import os
 import re
+import warnings
 from pathlib import Path
 
 import bilby
@@ -39,7 +40,7 @@ class PulsarPELayer(CondorLayer):
         )
 
         # check for use of OSG
-        self.osg = self.get_option("osg", default=False)
+        self.osg = self.get_option("osg", otype=bool, default=False)
         self.outdir = Path(
             self.get_option("basedir", section="run", default=os.getcwd())
         )
@@ -130,7 +131,7 @@ class PulsarPELayer(CondorLayer):
                         f"(HAS_CVMFS_{re.sub('[.-]', '_', repo)} =?= True)"
                     )
             else:
-                raise RuntimeError(
+                warnings.warn(
                     "If running on the OSG you must be using an IGWN "
                     "environment or the CWInPy developement singularity "
                     "container."
