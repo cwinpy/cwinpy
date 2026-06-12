@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Union
 
-import matploltib as mpl
+import matplotlib as mpl
 import numpy as np
 from bilby.core.result import Result
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
