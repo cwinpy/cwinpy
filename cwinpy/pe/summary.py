@@ -186,6 +186,10 @@ def pulsar_summary_plots(
             else:
                 het = HeterodynedData.read(heterodyneddata, bbminlength=np.inf)
 
+            if not het.outliers_removed:
+                # remove outliers once
+                het.remove_outliers()
+
             outsuf = "" if outputsuffix is None else f"{outputsuffix}"
 
             if isinstance(webpage, CWPage):
@@ -195,7 +199,6 @@ def pulsar_summary_plots(
             # plot time series
             hetfig = het.plot(
                 which="abs",
-                remove_outliers=True,
                 color=GW_OBSERVATORY_COLORS.get(outsuf, "k"),
             )
             hetfig.tight_layout()
@@ -213,7 +216,7 @@ def pulsar_summary_plots(
                 )
 
             # plot spectrogram
-            specfig = het.spectrogram(remove_outliers=True)
+            specfig = het.spectrogram()
             filename = f"spectrogram_plot_{pname}_{outsuf}"
             specfig[-1].savefig(
                 outpath / f"{filename}{plotformat}", dpi=kwargs.get("dpi", 150)
@@ -229,7 +232,7 @@ def pulsar_summary_plots(
                 )
 
             # plot spectrum
-            sfig = het.power_spectrum(remove_outliers=True, asd=True)
+            sfig = het.power_spectrum(asd=True)
             filename = f"asd_plot_{pname}_{outsuf}"
             sfig[-1].savefig(
                 outpath / f"{filename}{plotformat}", dpi=kwargs.get("dpi", 150)
