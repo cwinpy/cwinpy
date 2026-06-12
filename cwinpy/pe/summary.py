@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Union
 
+import matploltib as mpl
 import numpy as np
 from bilby.core.result import Result
 from gwpy.plot.colors import GW_OBSERVATORY_COLORS
@@ -716,6 +717,8 @@ def generate_summary_pages(**kwargs):
         the output. We defined an MSP as having a rotation period less than 30
         ms (rotation frequency greater than 33.3 Hz) and an estimated B-field
         of less than 1e11 Gauss.
+    mplbackend: str
+        The plotting backend for matplotlib to use. Default is 'agg'.
     """
 
     if "cli" not in kwargs:
@@ -741,6 +744,8 @@ def generate_summary_pages(**kwargs):
         onlyjoint = kwargs.pop("onlyjoint", False)
 
         onlymsps = kwargs.pop("onlymsps", False)
+
+        mpl_backend = kwargs.pop("mplbackend", "agg")
     else:  # pragma: no cover
         parser = ArgumentParser(
             description=(
@@ -890,6 +895,11 @@ def generate_summary_pages(**kwargs):
                 "results in the table of results."
             ),
         )
+        parser.add_argument(
+            "--mpl-backend",
+            default="agg",
+            help="Backend for matplotlib for plots. Default is '%(default)s'.",
+        )
 
         args = parser.parse_args()
         configfile = args.config
@@ -912,6 +922,11 @@ def generate_summary_pages(**kwargs):
         sortdes = args.sort_descending
         onlymsps = args.show_only_msps
         onlyjoint = args.only_joint
+
+        mpl_backend = args.mpl_backend
+
+    # set matploltib backend
+    mpl.use(mpl_backend)
 
     # make the output directory
     outpath.mkdir(parents=True, exist_ok=True)
