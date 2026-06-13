@@ -4,6 +4,7 @@ Classes for dealing with data products.
 
 import ast
 import os
+from io import StringIO
 from pathlib import Path
 from warnings import warn
 
@@ -1421,7 +1422,7 @@ class HeterodynedData(TimeSeriesBase):
         if par is not None:
             if isinstance(par, PulsarParameters):
                 return par
-            elif isinstance(par, (str, Path)):
+            elif isinstance(par, (str, os.PathLike, StringIO)):
                 if is_par_file(par):
                     newpar = PulsarParameters(par)
                 else:

@@ -146,7 +146,7 @@ def is_par_file(parfile):
 
     Parameters
     ----------
-    parfile: str
+    parfile: str, os.PathLike, StringIO
         The path to a file.
 
     Returns
