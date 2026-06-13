@@ -1,6 +1,7 @@
 import os
-import pathlib
 import re
+import tempfile
+from io import StringIO
 
 import astropy.coordinates as coords
 import lal
@@ -389,16 +390,14 @@ class PulsarParameters:
             self._pulsarparameters = lalpulsar.PulsarParameters()
         else:
             # check if pp is a pulsar parameters type or a (par file)
-            if not isinstance(pp, lalpulsar.PulsarParameters) and (
-                isinstance(pp, str) or isinstance(pp, pathlib.Path)
-            ):
-                if os.path.isfile(pp):
+            if isinstance(pp, lalpulsar.PulsarParameters):
+                self._pulsarparameters = pp
+            elif isinstance(pp, (str, os.PathLike, StringIO)):
+                if isinstance(pp, StringIO) or os.path.isfile(pp):
                     # try reading in file
                     self.read(pp)
                 else:
                     raise ValueError("Input string does not point to a file")
-            elif isinstance(pp, lalpulsar.PulsarParameters):
-                self._pulsarparameters = pp
             else:
                 raise ValueError(
                     "Expected 'lalpulsar.PulsarParameters' type, string, or None"
@@ -866,7 +865,7 @@ class PulsarParameters:
 
         Parameters
         ----------
-        filename: str
+        filename: str, os.PathLike, StringIO
             The path to the pulsar ``.par`` file.
         """
 
@@ -874,7 +873,15 @@ class PulsarParameters:
         if self._pulsarparameters is not None:
             del self._pulsarparameters
 
-        pp = lalpulsar.ReadTEMPOParFile(str(filename))
+        if isinstance(filename, (str, os.PathLike)):
+            pp = lalpulsar.ReadTEMPOParFile(str(filename))
+        elif isinstance(filename, StringIO):
+            with tempfile.NamedTemporaryFile(
+                mode="w+t", suffix=".par", encoding="ascii", delete=True
+            ) as fp:
+                fp.write(filename.getvalue())
+                fp.flush()
+                pp = lalpulsar.ReadTEMPOParFile(fp.name)
 
         if pp is None:
             raise IOError(
