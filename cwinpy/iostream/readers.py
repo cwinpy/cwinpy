@@ -1,9 +1,8 @@
 import ast
 import copy
-import os
 import re
-import tempfile
 from contextlib import nullcontext
+from io import StringIO
 
 import numpy as np
 from gwpy.io import hdf5 as io_hdf5
@@ -95,15 +94,10 @@ def read_hdf5_series(
         if str(kwargs[key]) == "None":
             kwargs.pop(key)
 
-    parfiles = {}
     for par in ["par", "injpar"]:
         if par in kwargs:
-            # convert parameter file string to file
-            fp, parfiles[par] = tempfile.mkstemp(suffix=".par")
-            os.close(fp)  # close the open file descriptor
-            with open(parfiles[par], "w") as fp:
-                fp.write(kwargs[par])
-            kwargs[par] = parfiles[par]
+            # convert parameter file content string to StringIO
+            kwargs[par] = StringIO(kwargs[par])
 
     # don't perform Bayesian Block or outlier removal on initial read from file
     # (this will happen later)
@@ -157,11 +151,6 @@ def read_hdf5_series(
             array.injpar = kwargs["injpar"]
         else:
             array.injpar = array.par
-
-    for par in ["par", "injpar"]:
-        if par in parfiles:
-            # remove temporary parameter file
-            os.remove(parfiles[par])
 
     # set CWInPy version from read in file rather than current version
     array.cwinpy_version = kwargs["cwinpy_version"]
