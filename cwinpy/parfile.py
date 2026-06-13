@@ -875,11 +875,16 @@ class PulsarParameters:
 
         if isinstance(filename, (str, os.PathLike)):
             pp = lalpulsar.ReadTEMPOParFile(str(filename))
+
+            # store copy of the contents of the par file
+            with open(filename, "r") as fp:
+                self._parcontent = fp.read()
         elif isinstance(filename, StringIO):
             with tempfile.NamedTemporaryFile(
                 mode="w+t", suffix=".par", encoding="ascii", delete=True
             ) as fp:
-                fp.write(filename.getvalue())
+                self._parcontent = filename.getvalue()
+                fp.write(self._parcontent)
                 fp.flush()
                 pp = lalpulsar.ReadTEMPOParFile(fp.name)
 
@@ -889,10 +894,6 @@ class PulsarParameters:
             )
 
         self._pulsarparameters = pp
-
-        # store copy of the contents of the par file
-        with open(filename, "r") as fp:
-            self._parcontent = fp.read()
 
     def get_error(self, name):
         """
